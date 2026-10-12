@@ -19,40 +19,7 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: f8d95e469279787448f99b4305b8aae0, type: 3}
   - fbxPath: Assets/_Project/__Avatar_System2.0/Male/2. FBX/Male_Regular_Body.fbx
     prefab: {fileID: 919132149155446097, guid: 5f901948738602a4f8db59b121a85edd, type: 3}
-  parts:
-  - objectName: Female_Feet_Stockings_Gray_NSFW
-    gender: female
-    slot: feet
-    variant: Stockings_Gray
-    sourceIndex: 1
-    allowedRoles: 
-    colorVariants: []
-    defaultWeight: 1
-    hiddenBodySlots: []
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: Female_Hands_Black-Gloves_NSFW
-    gender: female
-    slot: hands
-    variant: Black-Gloves
-    sourceIndex: 1
-    allowedRoles: 
-    colorVariants: []
-    defaultWeight: 1
-    hiddenBodySlots: []
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: Female_Legs_Stockings_Gray_NSFW
-    gender: female
-    slot: legs
-    variant: Stockings_Gray
-    sourceIndex: 1
-    allowedRoles: 
-    colorVariants: []
-    defaultWeight: 1
-    hiddenBodySlots: []
-    metadataReviewed: 0
-    verifiedInGame: 1
+  parts: []
   finalizedParts:
   - {fileID: 11400000, guid: 78e45ef4f59662546bf6a6723a7c34d1, type: 2}
   - {fileID: 11400000, guid: 78a7db190b1bfc045911abac732ded70, type: 2}
@@ -112,6 +79,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 371950763d669874080344a9a0b94e2a, type: 2}
   - {fileID: 11400000, guid: 3a35047952d48f643821482709e9a355, type: 2}
   - {fileID: 11400000, guid: ed60facd83c846f4c9ddfcf06fc24527, type: 2}
+  - {fileID: 11400000, guid: 0cde52466c9c0bf40ac77cd7dbef6ff8, type: 2}
+  - {fileID: 11400000, guid: 23a01383db82266418caf8d68d84000a, type: 2}
   - {fileID: 11400000, guid: ac44ea91877535e4387265985926fc7c, type: 2}
   - {fileID: 11400000, guid: 0a51609a1da239347a2a4979983ee921, type: 2}
   - {fileID: 11400000, guid: 040ff2fbc3832754eaef1b2a4c70a7cb, type: 2}
