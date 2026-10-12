@@ -54,6 +54,12 @@ namespace GameCore.Inventory
         public float BaseBudget, RepBonus, RelBonus, DiffBonus, MoodBonus;
 
         public int Patience = MaxPatience;
+
+        /// <summary>Counter-offers the customer will make before the deal is take-it-or-leave-it: Clerk 2, Supervisor 1,
+        /// Manager 0 (they make an offer, you answer once, and it is yes or no).</summary>
+        public int CountersAllowed => Difficulty <= 0 ? 2 : Difficulty == 1 ? 1 : 0;
+        public int CountersUsed;
+        public int CountersLeft => Mathf.Max(0, CountersAllowed - CountersUsed);
         public int Round;
         public ContractTerms Opening;
         public ContractTerms Standard;
@@ -140,7 +146,7 @@ namespace GameCore.Inventory
             else if (dealRoll <= 2) text = $"Deal on any roll but a 1 (you add {mod}).";
             else if (dealRoll >= 20) text = $"Deal only on a natural 20 (you add {mod}).";
             else text = $"Deal on a roll of {dealRoll} or more (you add {mod}).";
-            if (!free && dealRoll > 2 && counterRoll < dealRoll) text += counterRoll <= 2 ? "  A counter on anything else but a 1." : $"  A counter on {counterRoll}+.";
+            if (!free && CountersLeft > 0 && dealRoll > 2 && counterRoll < dealRoll) text += counterRoll <= 2 ? "  A counter on anything else but a 1." : $"  A counter on {counterRoll}+.";
         }
 
         public NegotiationResult Submit(ContractTerms ask, int roll = 0)
@@ -178,8 +184,9 @@ namespace GameCore.Inventory
                 result.Message = $"Natural charm, {PlayerName}! They love your style - and they'll give you even more than you asked.";
                 Finished = true;
             }
-            else if (!result.CriticalFail && score <= budget + CounterWindow)
+            else if (!result.CriticalFail && score <= budget + CounterWindow && CountersLeft > 0)
             {
+                CountersUsed++;
                 result.Outcome = NegotiationOutcome.Countered;
                 result.Counter = ScaleBackTo(ask, score, budget);
                 LastCounter = result.Counter;
@@ -187,7 +194,8 @@ namespace GameCore.Inventory
             }
             else
             {
-                Patience--;
+                // Once the counters are spent, anything but a yes ends the deal outright.
+                if (CountersLeft <= 0) Patience = 0; else Patience--;
                 if (result.CriticalFail) Log.Add("Critical fail - they bristled at your tone.");
                 if (Patience <= 0)
                 {

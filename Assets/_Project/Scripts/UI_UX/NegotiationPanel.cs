@@ -458,8 +458,10 @@ public class NegotiationPanel : IUIPanel
         if (_s == null) return;
 
         _round.text = $"ROUND {_s.Round}";
-        _patience.text = "PATIENCE  " + string.Concat(Enumerable.Range(0, NegotiationSession.MaxPatience)
-                                                                .Select(i => i < _s.Patience ? "O " : "x "));
+        _patience.text = _s.CountersAllowed == 0
+            ? "ONE SHOT - NO COUNTER-OFFERS"
+            : "PATIENCE  " + string.Concat(Enumerable.Range(0, NegotiationSession.MaxPatience)
+                                                       .Select(i => i < _s.Patience ? "O " : "x ")) + $"   COUNTERS LEFT: {_s.CountersLeft}";
         _patience.style.color = _s.Patience >= 3 ? ColGreen : _s.Patience == 2 ? ColAmber : ColRed;
         _styleLine.text = _s.Round >= 1 ? NegotiationService.StyleLabel(_s.Style) : "You don't know how they negotiate yet.";
 

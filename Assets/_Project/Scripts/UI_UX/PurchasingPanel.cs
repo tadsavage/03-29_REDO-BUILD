@@ -3259,7 +3259,6 @@ public class PurchasingPanel : IUIPanel
         foreach (var key in _multiDealDiscountByKey.Keys.Where(k => k.StartsWith(prefix)).ToList())
             _multiDealDiscountByKey.Remove(key);
 
-        _tab = Tab.PoList;
         Rebuild();
     }
 }
