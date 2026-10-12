@@ -254,6 +254,7 @@ public class AODPreviewStage : MonoBehaviour
         stage._pitch = 0f;
 
         var instance = Object.Instantiate(prefab, stage._stagePivot);
+        ModularAvatarAssembler.ApplyLatexMaterial(instance);   // latex-tagged parts preview in their real glossy latex material
         instance.name = "Preview_" + part.ObjectName;
         stage._currentInstance = instance;
 
@@ -502,6 +503,7 @@ public class AODPreviewStage : MonoBehaviour
         if (prefab == null) return null;
 
         var instance = Object.Instantiate(prefab, stage._thumbStagePivot);
+        ModularAvatarAssembler.ApplyLatexMaterial(instance);
         Transform target = stage.FindTargetMesh(instance, part.ObjectName);
         if (target == null)
         {

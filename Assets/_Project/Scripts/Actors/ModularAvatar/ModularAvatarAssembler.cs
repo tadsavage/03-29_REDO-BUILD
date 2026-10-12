@@ -1468,15 +1468,51 @@ public static class ModularAvatarAssembler
     /// this category (if anything) and, unless the override is an explicit "" (none/bald/removed),
     /// adds the requested replacement instead. Searches across ALL genders for the replacement
     /// since several editable categories (hardhat, headphones) are "neutral" parts shared by both.</summary>
+    /// <summary>Old part names that were renamed in Blender, so an employee's saved Pimp-My-Employee choice carries over to the new part.</summary>
+    private static readonly Dictionary<string, string> RenamedParts = new()
+    {
+        { "Female_Torso_CorsetBlack_Latex_NSFW", "Female_Torso_BodysuitBlack_Latex_NSFW" },
+        { "Female_Torso_CorsetRed_Latex_NSFW", "Female_Torso_BodysuitRed_Latex_NSFW" },
+        { "Female_Torso_Corset_NSFW", "Female_Torso_Corset_Latex_NSFW" },
+        { "Female_Feet_Stockings_Gray_Latex_NSFW", "Female_Feet_Stockings_Black_Latex_NSFW" },
+        { "Female_Legs_Stockings_Gray_Latex_NSFW", "Female_Legs_Stockings_Black_Latex_NSFW" },
+        { "Female_Feet_Stockings_Gray_NSFW", "Female_Feet_Stockings_Black_Latex_NSFW" },
+        { "Female_Legs_Stockings_Gray_NSFW", "Female_Legs_Stockings_Black_Latex_NSFW" },
+        { "Female_Hands_Black-Gloves_NSFW", "Female_Hands_Black-Gloves_Latex_NSFW" },
+    };
+
     private static void ApplyCategoryOverride(List<IAvatarPart> chosen, IReadOnlyDictionary<string, string> overrides,
         string key, AvatarPartLibrary lib, string gender)
     {
         if (!overrides.TryGetValue(key, out var objectName)) return; // no override for this category — leave the random pick as-is
 
         var (slot, matches) = OverrideCategoryInfo(key);
+
+        // A saved override can name a part that has since been renamed or deleted (a Blender rename creates a NEW part). Follow the
+        // known renames, and if the name still resolves to nothing, ignore the override and keep the random pick, rather than stripping
+        // the slot (which, for the torso, left the employee without a body).
+        if (!string.IsNullOrEmpty(objectName))
+        {
+            if (RenamedParts.TryGetValue(objectName, out var renamed)) objectName = renamed;
+            bool exists = lib.AllParts.Any(p => p.ObjectName == objectName && (p.Gender == gender || p.Gender == "neutral") && p.Slot == slot && matches(p));
+            if (!exists) return;
+        }
+
         chosen.RemoveAll(p => p.Slot == slot && matches(p));
 
-        if (string.IsNullOrEmpty(objectName)) return; // explicit "none" — stays removed
+        if (string.IsNullOrEmpty(objectName))
+        {
+            // Explicit "none". For an ordinary accessory slot that simply means nothing is worn. For a BODY slot (torso, legs, feet, hands,
+            // head) "none" means bare skin: the nude default part goes in, otherwise the avatar loses that part of its body (a "none" torso
+            // produced a bodiless avatar, which the spawner then discarded in favour of the old legacy worker model).
+            if (IsBodySlot(slot))
+            {
+                var bare = lib.AllParts.FirstOrDefault(p => (IsBodyDefault(p) || string.Equals(p.Variant, "Reg", System.StringComparison.OrdinalIgnoreCase)) &&
+                    p.Slot == slot && (p.Gender == gender || p.Gender == "neutral") && DirtyDev.IsVisible(p.Nsfw));
+                if (bare != null) chosen.Add(bare);
+            }
+            return;
+        }
 
         var replacement = lib.AllParts.FirstOrDefault(p => p.ObjectName == objectName && DirtyDev.IsVisible(p.Nsfw) &&
             (p.Gender == gender || p.Gender == "neutral") && p.Slot == slot && matches(p));
