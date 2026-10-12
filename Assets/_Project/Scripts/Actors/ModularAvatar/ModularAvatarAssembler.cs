@@ -1471,14 +1471,18 @@ public static class ModularAvatarAssembler
     /// <summary>Old part names that were renamed in Blender, so an employee's saved Pimp-My-Employee choice carries over to the new part.</summary>
     private static readonly Dictionary<string, string> RenamedParts = new()
     {
-        { "Female_Torso_CorsetBlack_Latex_NSFW", "Female_Torso_BodysuitBlack_Latex_NSFW" },
-        { "Female_Torso_CorsetRed_Latex_NSFW", "Female_Torso_BodysuitRed_Latex_NSFW" },
-        { "Female_Torso_Corset_NSFW", "Female_Torso_Corset_Latex_NSFW" },
-        { "Female_Feet_Stockings_Gray_Latex_NSFW", "Female_Feet_Stockings_Black_Latex_NSFW" },
-        { "Female_Legs_Stockings_Gray_Latex_NSFW", "Female_Legs_Stockings_Black_Latex_NSFW" },
-        { "Female_Feet_Stockings_Gray_NSFW", "Female_Feet_Stockings_Black_Latex_NSFW" },
-        { "Female_Legs_Stockings_Gray_NSFW", "Female_Legs_Stockings_Black_Latex_NSFW" },
-        { "Female_Hands_Black-Gloves_NSFW", "Female_Hands_Black-Gloves_Latex_NSFW" },
+        { "Female_Torso_Corset_NSFW", "Female_Torso_CorsetBlack_Latex_NSFW" },
+        { "Female_Torso_Corset_Latex_NSFW", "Female_Torso_CorsetBlack_Latex_NSFW" },
+        { "Female_Torso_BodysuitBlack_Latex_NSFW", "Female_Torso_CorsetBlack_Latex_NSFW" },
+        { "Female_Torso_BodysuitRed_Latex_NSFW", "Female_Torso_CorsetRed_Latex_NSFW" },
+        { "Female_Feet_Stockings_Gray_Latex_NSFW", "Female_Feet_StockingsBlack_Latex_NSFW" },
+        { "Female_Legs_Stockings_Gray_Latex_NSFW", "Female_Legs_StockingsBlack_Latex_NSFW" },
+        { "Female_Feet_Stockings_Black_Latex_NSFW", "Female_Feet_StockingsBlack_Latex_NSFW" },
+        { "Female_Legs_Stockings_Black_Latex_NSFW", "Female_Legs_StockingsBlack_Latex_NSFW" },
+        { "Female_Feet_Stockings_Gray_NSFW", "Female_Feet_StockingsBlack_Latex_NSFW" },
+        { "Female_Legs_Stockings_Gray_NSFW", "Female_Legs_StockingsBlack_Latex_NSFW" },
+        { "Female_Hands_Black-Gloves_NSFW", "Female_Hands_BlackGloves_Latex_NSFW" },
+        { "Female_Hands_Black-Gloves_Latex_NSFW", "Female_Hands_BlackGloves_Latex_NSFW" },
     };
 
     private static void ApplyCategoryOverride(List<IAvatarPart> chosen, IReadOnlyDictionary<string, string> overrides,
