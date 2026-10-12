@@ -380,6 +380,8 @@ public class NegotiationPanel : IUIPanel
                 _over = true;
                 _msg.style.color = ColGreen;
                 NegotiatorStage.Delighted();
+                NegotiationFx.Play(_overlay.parent, true);
+                _fxPlayed = true;
                 Refresh();
                 var terms = result.FinalTerms ?? _ask;
                 // Let the customer's wave land before the window closes.
@@ -400,6 +402,7 @@ public class NegotiationPanel : IUIPanel
                 arrivals.EndNegotiation(_contract.ContractId);
                 _msg.style.color = ColRed;
                 NegotiatorStage.Furious();
+                NegotiationFx.Play(_overlay.parent, false);
                 UIToast.Show($"{_company.text} walked out. They won't talk for {NegotiationService.WalkAwayCooldownDays} days.");
                 _onFinished?.Invoke(false);
                 break;
@@ -439,6 +442,8 @@ public class NegotiationPanel : IUIPanel
         var arrivals = Arrivals();
         if (arrivals == null) return;
         bool ok = arrivals.Sign(_contract.ContractId, terms);
+        if (ok && !_fxPlayed) NegotiationFx.Play(_overlay.parent, true);
+        _fxPlayed = false;
         arrivals.EndNegotiation(_contract.ContractId);
         _over = true;
         UIToast.Show(ok ? $"{_company.text}: {toast} First delivery tomorrow." : "Couldn't sign that contract - it may already be taken.");
@@ -707,6 +712,10 @@ public class NegotiationPanel : IUIPanel
     static OrderArrivalService Arrivals() => ServiceLocator.TryGet<OrderArrivalService>(out var a) ? a : null;
 
     // ── Element helpers ──────────────────────────────────────────────────
+
+    internal static Font FxFont() => LilitaFont();
+
+    bool _fxPlayed;
 
     static Font LilitaFont()
     {
