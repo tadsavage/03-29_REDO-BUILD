@@ -145,6 +145,27 @@ namespace GameCore.Persistence
                 slot.AssignOperator(identity);
                 Debug.Log($"[MHEOperatorPersistenceService] Re-boarded {record.employeeName} onto {vehiclePo.name}.");
             }
+
+            SelfHealUnboardedOperators();
+        }
+
+        /// <summary>
+        /// An operator whose standing assignment is "drive a Reach Truck / Dock Stocker" but who is not on one is in a state that
+        /// should never persist: they have a job they cannot do. It happens when a save was written while they were on foot (for
+        /// example after a failed manual assignment), because boarding is only restored for operators who were boarded at save time.
+        /// Send each of them to a free matching vehicle, exactly as the Roster's assign action would.
+        /// </summary>
+        private static void SelfHealUnboardedOperators()
+        {
+            if (EmployeeRegistry.Instance == null) return;
+            foreach (var identity in EmployeeRegistry.Instance.All.ToList())
+            {
+                if (identity == null || identity.Record == null || identity.AssignedSlot != null) continue;
+                var a = identity.Record.currentAssignment;
+                if (a != EmployeeAssignment.DriveReach && a != EmployeeAssignment.DriveDockstalker) continue;
+                EmployeeAssignmentService.Assign(identity, a);
+                Debug.Log($"[MHEOperatorPersistenceService] {identity.Record.employeeName} was assigned to {a} but not on a vehicle - sent to board one.");
+            }
         }
 
         // ── Restore: carried pallets + task resume ──────────────────────────────

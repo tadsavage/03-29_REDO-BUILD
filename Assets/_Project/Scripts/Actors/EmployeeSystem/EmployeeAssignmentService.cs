@@ -12,7 +12,11 @@ public static class EmployeeAssignmentService
     public static event System.Action<EmployeeIdentity, EmployeeAssignment> OnAssignmentChanged;
 
     private static EmployeeSpawner _cachedSpawner;
-    private static bool _spawnerSearched;
+
+    // Play Mode runs with Domain Reload OFF in this project, so statics survive from one Play session to the next. The spawner
+    // cached here belongs to the PREVIOUS session's scene and is a destroyed object by the time the next session starts.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() { _cachedSpawner = null; }
 
     public static void Assign(EmployeeIdentity identity, EmployeeAssignment assignment)
     {
@@ -134,12 +138,10 @@ public static class EmployeeAssignmentService
 
     private static ObjDataSO GetEquipmentData(bool reach)
     {
-        // Cache spawner on first access to avoid expensive FindAnyObjectByType calls
-        if (!_spawnerSearched)
-        {
-            _cachedSpawner = Object.FindAnyObjectByType<EmployeeSpawner>();
-            _spawnerSearched = true;
-        }
+        // Cached to avoid a scene search per assignment, but re-resolved whenever the cached spawner is gone (destroyed scene /
+        // new Play session). The old "searched once, ever" flag latched a dead reference and made every later Drive Reach /
+        // Drive Dockstalker assignment fail with "Equipment not available".
+        if (_cachedSpawner == null) _cachedSpawner = Object.FindAnyObjectByType<EmployeeSpawner>();
 
         if (_cachedSpawner == null) return null;
         return reach ? _cachedSpawner.ReachTruckData : _cachedSpawner.DockStockerData;
