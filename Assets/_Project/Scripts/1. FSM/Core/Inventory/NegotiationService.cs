@@ -175,7 +175,7 @@ namespace GameCore.Inventory
                 // Natural charm: they sign the ask AND give ground on every row the player pushed.
                 result.Outcome = NegotiationOutcome.Accepted;
                 result.FinalTerms = Sweeten(ask);
-                result.Message = "Natural charm! They love your style - and they'll give you even more than you asked.";
+                result.Message = $"Natural charm, {PlayerName}! They love your style - and they'll give you even more than you asked.";
                 Finished = true;
             }
             else if (!result.CriticalFail && score <= budget + CounterWindow)
@@ -251,25 +251,27 @@ namespace GameCore.Inventory
             return worst == null ? "" : $"\"{worst.Label} is where this falls apart.\"";
         }
 
-        string Pick(string[] lines) => lines[Mathf.Abs((CompanyName ?? "x").GetHashCode() + Round * 7919) % lines.Length];
+        public static string PlayerName => PlayerPrefs.GetString("PlayerName", "").Trim() is { Length: > 0 } n ? n : "boss";
+
+        string Pick(string[] lines) => lines[Mathf.Abs((CompanyName ?? "x").GetHashCode() + Round * 7919) % lines.Length].Replace("{name}", PlayerName);
 
         static readonly string[] AcceptLines =
         {
-            "Done. Pleasure doing business.", "That works for us. Where do we sign?", "Fair enough. You've got a deal."
+            "Done. Pleasure doing business, {name}.", "That works for us, {name}. Where do we sign?", "Fair enough. You've got a deal, {name}."
         };
         static readonly string[] CounterLines =
         {
-            "We're close. Here's what we can live with.", "Can't go that far, but meet us here and we'll sign.",
-            "Almost. Pull it back a little and it's a deal."
+            "We're close, {name}. Here's what we can live with.", "Can't go that far, but meet us here and we'll sign.",
+            "Almost, {name}. Pull it back a little and it's a deal."
         };
         static readonly string[] RejectLines =
         {
-            "No chance.", "You're not serious.", "We have other warehouses, you know."
+            "No chance, {name}.", "You're not serious.", "We have other warehouses, you know, {name}."
         };
         static readonly string[] WalkLines =
         {
-            "We're done here. Don't call us.", "This isn't working. We'll take our freight elsewhere.",
-            "Enough. Good day."
+            "We're done here, {name}. Don't call us.", "This isn't working. We'll take our freight elsewhere.",
+            "Enough. Good day, {name}."
         };
     }
 

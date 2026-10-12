@@ -149,8 +149,8 @@ public class NegotiationPanel : IUIPanel
         _pitch.text = string.IsNullOrWhiteSpace(contract.Pitch) ? "" : contract.Pitch;
         _logoBox.style.backgroundImage = cust != null && cust.Icon != null ? new StyleBackground(cust.Icon) : new StyleBackground();
         _msg.text = _s.Round == 0
-            ? "\"Here's our opening offer. Tell us what you can do.\""
-            : "\"Back again? Where were we...\"";
+            ? $"\"Good to meet you, {NegotiationSession.PlayerName}. Here's our opening offer. Tell us what you can do.\""
+            : $"\"Back again, {NegotiationSession.PlayerName}? Where were we...\"";
 
         NegotiatorStage.Show(_company.text);
         _avatarImg.image = NegotiatorStage.Texture;
