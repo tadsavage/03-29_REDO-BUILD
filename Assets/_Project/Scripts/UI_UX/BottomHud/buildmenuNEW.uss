@@ -50,6 +50,15 @@
        so they still fit the 90px card at 13px, where "Loss Prevention" would not. */
     font-size: 18px;
 }
+/* "Outbound Orders" / "Inbound Orders": two short words that wrap onto two centred lines at a smaller size. */
+.playbar-label-two-line {
+    font-size: 13px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    -unity-text-letter-spacing: 0px;
+    margin-top: -4px;
+}
+
 
 /* Absolute so the badge costs no vertical space — the card is already full at
    68px icon + label. Anchors to the button, which is position:relative by default. */
