@@ -225,6 +225,11 @@ public class NegotiatorStage : MonoBehaviour
         {
             var person = Instantiate(prefab, StageOrigin, Quaternion.identity, transform);
             person.name = "Customer";
+            // Polyperfect characters ship with a wander AI + NavMeshAgent; there is no NavMesh at the stage, so left running it throws
+            // "SetDestination can only be called on an active agent that has been placed on a NavMesh" every frame. Posed from code instead.
+            foreach (var mb in person.GetComponentsInChildren<MonoBehaviour>(true))
+                if (mb != null && mb.GetType().Name.Contains("WanderScript")) mb.enabled = false;
+            foreach (var nma in person.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true)) nma.enabled = false;
             foreach (var smr in person.GetComponentsInChildren<SkinnedMeshRenderer>(true)) smr.updateWhenOffscreen = true;
             var an = person.GetComponentInChildren<Animator>();
             if (an != null) an.enabled = false;   // posed from code
