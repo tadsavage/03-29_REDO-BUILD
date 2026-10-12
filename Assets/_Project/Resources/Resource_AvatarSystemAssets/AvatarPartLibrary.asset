@@ -19,7 +19,40 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: f8d95e469279787448f99b4305b8aae0, type: 3}
   - fbxPath: Assets/_Project/__Avatar_System2.0/Male/2. FBX/Male_Regular_Body.fbx
     prefab: {fileID: 919132149155446097, guid: 5f901948738602a4f8db59b121a85edd, type: 3}
-  parts: []
+  parts:
+  - objectName: Female_Feet_Stockings_Gray_NSFW
+    gender: female
+    slot: feet
+    variant: Stockings_Gray
+    sourceIndex: 1
+    allowedRoles: 
+    colorVariants: []
+    defaultWeight: 1
+    hiddenBodySlots: []
+    metadataReviewed: 0
+    verifiedInGame: 1
+  - objectName: Female_Hands_Black-Gloves_NSFW
+    gender: female
+    slot: hands
+    variant: Black-Gloves
+    sourceIndex: 1
+    allowedRoles: 
+    colorVariants: []
+    defaultWeight: 1
+    hiddenBodySlots: []
+    metadataReviewed: 0
+    verifiedInGame: 1
+  - objectName: Female_Legs_Stockings_Gray_NSFW
+    gender: female
+    slot: legs
+    variant: Stockings_Gray
+    sourceIndex: 1
+    allowedRoles: 
+    colorVariants: []
+    defaultWeight: 1
+    hiddenBodySlots: []
+    metadataReviewed: 0
+    verifiedInGame: 1
   finalizedParts:
   - {fileID: 11400000, guid: 78e45ef4f59662546bf6a6723a7c34d1, type: 2}
   - {fileID: 11400000, guid: 78a7db190b1bfc045911abac732ded70, type: 2}
@@ -49,7 +82,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: bec2f9edabbec1f4eb6db035a4d62849, type: 2}
   - {fileID: 11400000, guid: 0ff7067792f8cc542a88871b6ddb29ac, type: 2}
   - {fileID: 11400000, guid: 0010d295a810dc948b89455a15238e9d, type: 2}
-  - {fileID: 11400000, guid: 6ffcec26505c7794a83a009242b702b0, type: 2}
+  - {fileID: 11400000, guid: ae0314c119ebefa42a7319fd8fc27d41, type: 2}
   - {fileID: 11400000, guid: 1c69d51ff72de1e44a3560f88eb43e0b, type: 2}
   - {fileID: 11400000, guid: 9ee577fbda341ab4d8b353dc258ff61a, type: 2}
   - {fileID: 11400000, guid: 9046910305b86e343b0a3650c58b94b0, type: 2}
@@ -59,7 +92,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 737961bf1675c194fafc04afe88b9bee, type: 2}
   - {fileID: 11400000, guid: cef774a6dc1880249b47decef113b5d5, type: 2}
   - {fileID: 11400000, guid: ceeacc8e3e3ec3f4a9ae719d5b3b1d56, type: 2}
-  - {fileID: 11400000, guid: 59b07af1fa91d2d499f4e6043b61befd, type: 2}
+  - {fileID: 11400000, guid: 4193dddb3432fe84589a0dee62161d6f, type: 2}
   - {fileID: 11400000, guid: da7cf7c6058687c42972def55cccda13, type: 2}
   - {fileID: 11400000, guid: c6d5fddeb6d91d549ad3a46480423800, type: 2}
   - {fileID: 11400000, guid: 6a56b79ff16ef8744b60702c667f731d, type: 2}
@@ -75,7 +108,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: bb9f6036906130b4ead600e9dfd79662, type: 2}
   - {fileID: 11400000, guid: 9dee107996bcb7e47a46c1b17ed74246, type: 2}
   - {fileID: 11400000, guid: acc3c473cf40ade42aab09371b25b67c, type: 2}
-  - {fileID: 11400000, guid: 684aa97d04156854e98b9886844cf999, type: 2}
+  - {fileID: 11400000, guid: 30b809d683626fd4093886fcd4f566f0, type: 2}
   - {fileID: 11400000, guid: 371950763d669874080344a9a0b94e2a, type: 2}
   - {fileID: 11400000, guid: 3a35047952d48f643821482709e9a355, type: 2}
   - {fileID: 11400000, guid: ed60facd83c846f4c9ddfcf06fc24527, type: 2}
