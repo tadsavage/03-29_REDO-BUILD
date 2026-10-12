@@ -46,7 +46,7 @@ public class NegotiationPanel : IUIPanel
     readonly VisualElement _modal;
     VisualElement _logoBox;
     Label _company, _styleLine, _pitch, _patience, _round, _msg, _heatLabel, _revLabel, _marginLabel, _stdLabel;
-    Label _partnerLine, _repLine, _standingNote, _needLabel;
+    Label _partnerLine, _repLine, _standingNote, _needLabel, _countersLabel;
     VisualElement _left, _right, _avatarFrame, _diceLayer;
     Image _avatarImg;
     Label _moodLabel, _rollNote, _diceCaption;
@@ -207,6 +207,8 @@ public class NegotiationPanel : IUIPanel
         right.Add(_round);
         _patience = Text("PATIENCE", 22, ColGreen, lilita: true);
         right.Add(_patience);
+        _countersLabel = Text("", 18, ColGreen, lilita: true);
+        right.Add(_countersLabel);
         var close = new Button(() => { Hide(); }) { text = "X" };
         StyleButton(close, ColRed, new Color(0.45f, 0.14f, 0.14f), new Color(1f, 0.35f, 0.35f), Color.white, 20);
         close.style.width = 44; close.style.height = 38; close.style.marginTop = 6;
@@ -301,8 +303,9 @@ public class NegotiationPanel : IUIPanel
         heatRow.Add(_heatLabel);
         _left.Add(heatRow);
 
-        _needLabel = Text("", 16, ColAmber, lilita: true);
+        _needLabel = Text("", 32, ColAmber, lilita: true);
         _needLabel.style.marginTop = 6;
+        _needLabel.style.whiteSpace = WhiteSpace.Normal;
         _left.Add(_needLabel);
 
         // Spreadsheet totals
@@ -459,9 +462,11 @@ public class NegotiationPanel : IUIPanel
 
         _round.text = $"ROUND {_s.Round}";
         _patience.text = _s.CountersAllowed == 0
-            ? "ONE SHOT - NO COUNTER-OFFERS"
+            ? "ONE SHOT"
             : "PATIENCE  " + string.Concat(Enumerable.Range(0, NegotiationSession.MaxPatience)
-                                                       .Select(i => i < _s.Patience ? "O " : "x ")) + $"   COUNTERS LEFT: {_s.CountersLeft}";
+                                                       .Select(i => i < _s.Patience ? "O " : "x "));
+        _countersLabel.text = _s.CountersAllowed == 0 ? "NO COUNTER-OFFERS" : $"COUNTERS LEFT: {_s.CountersLeft}";
+        _countersLabel.style.color = _s.CountersLeft > 0 ? ColGreen : ColRed;
         _patience.style.color = _s.Patience >= 3 ? ColGreen : _s.Patience == 2 ? ColAmber : ColRed;
         _styleLine.text = _s.Round >= 1 ? NegotiationService.StyleLabel(_s.Style) : "You don't know how they negotiate yet.";
 
@@ -530,7 +535,7 @@ public class NegotiationPanel : IUIPanel
         _avatarFrame.style.width = RightW; _avatarFrame.style.height = 412;
         _avatarFrame.style.backgroundColor = new Color(0.07f, 0.10f, 0.16f, 1f);
         _avatarFrame.style.overflow = Overflow.Hidden;
-        Border(_avatarFrame, 3, ColOrange, 8);
+        Border(_avatarFrame, 3, ColBorder, 8);
         _avatarImg = new Image();
         _avatarImg.style.position = Position.Absolute;
         _avatarImg.style.left = _avatarImg.style.top = _avatarImg.style.right = _avatarImg.style.bottom = 0;
@@ -547,13 +552,36 @@ public class NegotiationPanel : IUIPanel
         zoomHint.pickingMode = PickingMode.Ignore;
         _avatarFrame.Add(zoomHint);
 
-        _moodLabel = Text("", 24, ColGreen, lilita: true);
+        // Stretch the frame so its bottom edge lines up with the bottom of the customer's message box.
+        EventCallback<GeometryChangedEvent> align = _ => AlignAvatarToMessage();
+        _msg.RegisterCallback(align);
+        _modal.RegisterCallback(align);
+        _left.RegisterCallback(align);
+        _avatarFrame.RegisterCallback(align);
+
+        _moodLabel = Text("", 30, ColGreen, lilita: true);
         _moodLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         _moodLabel.style.marginTop = 8;
         _right.Add(_moodLabel);
         _rollNote = Text("", 15, ColSubtle, lilita: true);
         _rollNote.style.unityTextAlign = TextAnchor.MiddleCenter;
         _right.Add(_rollNote);
+    }
+
+    bool _aligning;
+    void AlignAvatarToMessage()
+    {
+        if (_aligning || _msg == null || _avatarFrame == null) return;
+        float msgBottom = _msg.worldBound.yMax, frameTop = _avatarFrame.worldBound.yMin;
+        if (float.IsNaN(msgBottom) || float.IsNaN(frameTop) || _msg.worldBound.height <= 0f) return;
+        // worldBound is in panel space; the panel may be scaled, so convert through the frame's own scale.
+        float scale = _avatarFrame.worldBound.height > 0f && _avatarFrame.resolvedStyle.height > 0f
+            ? _avatarFrame.worldBound.height / _avatarFrame.resolvedStyle.height : 1f;
+        float h = (msgBottom - frameTop) / Mathf.Max(0.01f, scale);
+        if (h < 200f || Mathf.Abs(h - _avatarFrame.resolvedStyle.height) < 0.5f) return;
+        _aligning = true;
+        _avatarFrame.style.height = h;
+        _avatarFrame.schedule.Execute(() => _aligning = false);
     }
 
     // ── The dice ─────────────────────────────────────────────────────────
