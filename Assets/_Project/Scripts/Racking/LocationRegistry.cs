@@ -229,6 +229,47 @@ public class LocationRegistry : MonoBehaviour
         }
 
         ReconcilePhysicalOccupancy();
+        ReleasePhantomOccupancy();
+    }
+
+    private static readonly Dictionary<string, int> _phantomStrikes = new Dictionary<string, int>();
+    private const int PhantomStrikesToRelease = 3;   // consecutive heartbeats (~3s) so a pallet mid-placement is never mistaken for a ghost
+
+    /// <summary>A slot the status registry calls Occupied while no pallet is physically standing at it is a ghost -- left behind by a save
+    /// whose pallets were not restored (or by a deleted pallet). Putaway, replenishment and the Slot panel all trust that status, so a
+    /// ghost makes an empty rack look full and lets tasks be filed against stock that is not there. Released after it has stayed
+    /// unmatched for a few consecutive heartbeats.</summary>
+    private static void ReleasePhantomOccupancy()
+    {
+        if (_byAddress.Count == 0) return;
+        const float RadiusSq = 0.9f * 0.9f;
+        var palletPositions = new List<Vector3>();
+        foreach (var link in PalletMasterLink.All) if (link != null) palletPositions.Add(link.transform.position);
+
+        foreach (var kv in _byAddress)
+        {
+            string address = kv.Key;
+            if (LocationStatusRegistry.Get(address) != LocationStatus.Occupied) { _phantomStrikes.Remove(address); continue; }
+            var loc = kv.Value;
+            if (loc == null) continue;
+
+            bool physical = false;
+            Vector3 lp = loc.transform.position;
+            foreach (var pp in palletPositions)
+            {
+                float dx = pp.x - lp.x, dz = pp.z - lp.z;
+                if (dx * dx + dz * dz <= RadiusSq) { physical = true; break; }
+            }
+            if (physical) { _phantomStrikes.Remove(address); continue; }
+
+            _phantomStrikes.TryGetValue(address, out int strikes);
+            strikes++;
+            if (strikes < PhantomStrikesToRelease) { _phantomStrikes[address] = strikes; continue; }
+
+            _phantomStrikes.Remove(address);
+            Debug.LogWarning($"[LocationRegistry] Slot {address} was marked Occupied but no pallet is standing there -- releasing it.");
+            loc.Release();
+        }
     }
 
     /// <summary>

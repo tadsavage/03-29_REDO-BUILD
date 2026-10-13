@@ -426,6 +426,17 @@ namespace GameCore.Actors
                         !LanePalletPickReachable(t, sd, sl)) continue;
                 }
 
+                if (t.Type == WorkTaskType.Replenish && PalletMasterLink.Find(t.PalletId) == null)
+                {
+                    // The source pallet is not in the building (a stale task from a save, or a deleted pallet): there is nothing to
+                    // replenish with. Cancel it and give back the two slots it locked instead of letting a truck drive out to find out.
+                    Debug.LogWarning($"[ReachTruckOperator] Replenish {t.TaskId} ({t.FromLocation} -> {t.ToLocation}) has no pallet in the building. Cancelling the task.");
+                    FindLocationTransform(t.ToLocation)?.GetComponent<LocationData>()?.Release();
+                    FindLocationTransform(t.FromLocation)?.GetComponent<LocationData>()?.Release();
+                    t.Status = WorkTaskStatus.Cancelled;
+                    continue;
+                }
+
                 if (t.Type == WorkTaskType.Putaway)
                 {
                     // A putaway for a pallet that no longer exists anywhere (staged pallets aren't saved, so a reload leaves their tasks
