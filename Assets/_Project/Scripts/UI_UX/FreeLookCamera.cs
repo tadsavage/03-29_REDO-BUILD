@@ -202,6 +202,8 @@ public class FreeLookCamera : MonoBehaviour
         if (_followTarget == null) return;
         _focalPoint.x = _followTarget.position.x;
         _focalPoint.z = _followTarget.position.z;
+        // Height too (smoothed): a followed employee is tracked at chest height, and a vehicle going up a ramp keeps its height.
+        _focalPoint.y = Mathf.Lerp(_focalPoint.y, _followTarget.position.y, 1f - Mathf.Exp(-10f * Time.unscaledDeltaTime));
         _focusBeyondBounds = true;   // a followed unit may roam beyond the normal pan bounds
     }
 

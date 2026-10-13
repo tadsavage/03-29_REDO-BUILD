@@ -453,6 +453,23 @@ public class TruckYardManager : MonoBehaviour
 
         _guard = foundGuard;
         _guard.Init(posted, exitPost, gateStop, checkRear1, checkRear2, _gateArm);
+        StartCoroutine(ModularizeGuard(foundGuard.gameObject));
+    }
+
+    /// <summary>The guard is created by this manager rather than the EmployeeSpawner, so it never got a modular avatar and kept the
+    /// legacy worker mesh. Give it one once its EmployeeIdentity/Record exist (a couple of frames after creation or load).</summary>
+    private System.Collections.IEnumerator ModularizeGuard(GameObject guard)
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            yield return null;
+            if (guard == null) yield break;
+            var identity = guard.GetComponent<EmployeeIdentity>();
+            var spawner = FindAnyObjectByType<EmployeeSpawner>();
+            if (identity == null || identity.Record == null || spawner == null) continue;
+            if (guard.transform.Find("ModularAvatar") == null) spawner.RefreshAvatarAppearance(identity);
+            yield break;
+        }
     }
 
     // Numbering now lives in DockSlot.AssignDoorNumbers so it works with or without a guard shack

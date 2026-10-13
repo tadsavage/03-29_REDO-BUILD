@@ -67,6 +67,21 @@ public class EmployeeHighlighter : MonoBehaviour
 
     /// <summary>An employee riding a Reach Truck / Dock Stocker / Pallet Jack is outlined and followed as the WHOLE machine
     /// (the rider is parented under it, so the machine's renderers include them); everyone else is outlined as themselves.</summary>
+    private static Transform FindChest(EmployeeIdentity identity)
+    {
+        // The visible body is the modular avatar's rig when there is one; the hidden base worker carries an identical skeleton.
+        var modular = identity.transform.Find("ModularAvatar");
+        var chest = modular != null ? FindBone(modular, "Chest_M") : null;
+        return chest != null ? chest : FindBone(identity.transform, "Chest_M");
+    }
+
+    private static Transform FindBone(Transform root, string boneName)
+    {
+        foreach (var t in root.GetComponentsInChildren<Transform>(false))
+            if (t.name == boneName) return t;
+        return null;
+    }
+
     private static Transform OutlineRoot(EmployeeIdentity identity) =>
         identity.AssignedSlot != null ? identity.AssignedSlot.transform : identity.transform;
     private readonly List<GameObject> _clones = new();
@@ -126,6 +141,13 @@ public class EmployeeHighlighter : MonoBehaviour
         if (_camera != null)
         {
             var follow = OutlineRoot(identity);
+            // On foot, aim the camera at their CHEST, not at the pivot under their feet: zooming in then closes on the torso instead of
+            // the floor. A rider keeps following the whole machine.
+            if (identity.AssignedSlot == null)
+            {
+                var chest = FindChest(identity);
+                if (chest != null) follow = chest;
+            }
             _camera.FocusOn(follow.position);
             _camera.SetFollowTarget(follow);   // track them (or their machine) until the player pans away
         }
