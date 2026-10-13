@@ -176,6 +176,29 @@ public class EmployeePhotoBooth : MonoBehaviour
                 }
             }
         }
+
+        StartCoroutine(RefreshAllPortraitsAtStart());
+    }
+
+    /// <summary>Every game start re-shoots every portrait (employees and Hiring Board candidates) so the cached
+    /// pictures from disk never lag behind lighting or avatar changes. Spread one per frame so the load doesn't hitch.</summary>
+    private System.Collections.IEnumerator RefreshAllPortraitsAtStart()
+    {
+        yield return new WaitForSecondsRealtime(1.5f);   // let the save load / roster build / avatar spawns settle first
+        var records = new List<EmployeeRecord>();
+        var seen = new HashSet<string>();
+        if (EmployeeRegistry.Instance != null)
+            foreach (var emp in new List<EmployeeIdentity>(EmployeeRegistry.Instance.All))
+                if (emp != null && emp.Record != null && seen.Add(emp.Record.employeeGuid)) records.Add(emp.Record);
+        if (HiringService.Instance != null)
+            foreach (var cand in new List<HiringCandidate>(HiringService.Instance.Roster))
+                if (cand?.record != null && seen.Add(cand.record.employeeGuid)) records.Add(cand.record);
+        foreach (var record in records)
+        {
+            if (record == null) continue;
+            GeneratePortraitForRecord(record);
+            yield return null;
+        }
     }
 
     private void Update()
