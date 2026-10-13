@@ -844,75 +844,9 @@ private GameObject FixedAvatarFor(EmployeeRole role, EmployeeGender gender, stri
         // 0.4s (see ApplyModularAvatar) reliably clears the hold.
         modAnimator.Update(0.4f);
 
-        // Every woman always has hair (Tad, 2026-09-26) — ModularAvatarAssembler already guarantees
-        // this for its own randomly-assembled avatars (ChooseHeadItem never rolls bald for females),
-        // but a FixedAvatar isn't built by that system, so the rule has to be applied here too.
-        // Scoped to the floor-worker female look specifically (not every FixedAvatar in the game —
-        // Boss/Security/etc. use entirely different dedicated models this hasn't been checked
-        // against) since that's the avatar currently missing it.
-        if (identity.Record != null && identity.Record.gender == EmployeeGender.Female
-            && fixedModel == _floorWorkerAvatarModelFemale)
-            AttachWomanBobHair(avatar, modAnimator);
-
         var sampleBone = FindDeepByName(avatar.transform, "LowerLeg.R");
         avatar.AddComponent<ModularAvatarRig>().Init(workerAnimator, modAnimator, sampleBone);
         FootContactShadow.Attach(avatar, identity.transform);   // soft ground shadows under the feet/body so the avatar doesn't look like it floats
-    }
-
-    // 2026-09-27: repointed at the AOD-finalized prefab (Assets/_Project/Prefabs/WORKERS/... no
-    // longer exists — see the matching note in ReceivingEquipmentService.Equip). This part is now
-    // ALSO cataloged in AvatarPartLibrary (finalized "hair" slot), but this fixed-avatar attach path
-    // is independent of that — it doesn't go through ModularAvatarAssembler, so it just needs the
-    // real prefab location, same as before.
-    private const string WomanBobHairPrefabPath = "Assets/_Project/Prefabs/Modular_Staff_Prefabs/Props_Prefabs/woman_hair_bob-blonde.prefab";
-
-    // Tuned by screenshot iteration against the live FixedAvatar Head_M bone (2026-09-26): the
-    // hair mesh's own pivot sits 1.71 units from its geometry (authored relative to a full body
-    // standing at the pivot, same convention ModularAvatarAssembler relies on), so the local
-    // position isn't just "small offset from the bone" — it has to counter-rotate that whole lever
-    // arm. The first attempt (matching the character's own facing rotation) came out ~90 degrees
-    // off and wrapped the mesh across the face; this rotation was found by testing 90-degree
-    // increments per axis and checking BOTH front and back views (front-only checks are misleading
-    // — an earlier candidate looked plausible from the front but was completely bald from behind).
-    // Confirmed correct: symmetric hair at both temples from the front, full coverage at the nape
-    // from the back.
-    private static readonly Vector3 WomanBobHairLocalPosition = new Vector3(1.71f, -0.006f, 0f);
-    private static readonly Vector3 WomanBobHairLocalEuler = new Vector3(90f, 270f, 0f);
-
-    /// <summary>Attaches the "woman_hair_bob-blonde" prop to a female fixed avatar's head bone. A
-    /// static mesh (not skinned) — same anchoring trick as the RF gun/clipboard in
-    /// ReceivingEquipmentService — so it rides the head bone correctly regardless of whether the
-    /// body mesh itself is skinned.</summary>
-    private static void AttachWomanBobHair(GameObject avatar, Animator modAnimator)
-    {
-        Transform headBone = modAnimator != null && modAnimator.isHuman
-            ? modAnimator.GetBoneTransform(HumanBodyBones.Head)
-            : null;
-        if (headBone == null)
-            headBone = FindDeepByName(avatar.transform, "Head_M");
-        if (headBone == null)
-        {
-            Debug.LogWarning("[EmployeeSpawner] Could not find a head bone to attach the hair prop to.");
-            return;
-        }
-
-        GameObject hairPrefab = null;
-        #if UNITY_EDITOR
-        hairPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(WomanBobHairPrefabPath);
-        #endif
-        if (hairPrefab == null)
-            hairPrefab = Resources.Load<GameObject>("Resource_AvatarSystemAssets/woman_hair_bob-blonde");
-        if (hairPrefab == null)
-        {
-            Debug.LogWarning("[EmployeeSpawner] Could not load woman_hair_bob-blonde prefab.");
-            return;
-        }
-
-        var hair = Instantiate(hairPrefab, headBone);
-        hair.name = "woman_hair_bob-blonde";
-        hair.transform.localPosition = WomanBobHairLocalPosition;
-        hair.transform.localRotation = Quaternion.Euler(WomanBobHairLocalEuler);
-        hair.transform.localScale = Vector3.one;
     }
 
     // ─── Overlay cleanup ────────────────────────────────────────────────────────
