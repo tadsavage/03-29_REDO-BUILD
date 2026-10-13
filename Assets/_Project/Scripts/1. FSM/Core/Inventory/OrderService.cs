@@ -61,7 +61,7 @@ namespace GameCore.Inventory
         /// Replenish task once the pick is Available. Below ReplenishmentService.ReplenishPriority
         /// (250)? No — deliberately ABOVE it: an empty pick face blocks a customer's trailer, which
         /// outranks keeping a pick face topped up for a picker who isn't there yet.</summary>
-        private const int PalletPickPriority = 750;
+        private const int PalletPickPriority = 100;   // 2026-10-12: all task types start equal
 
 
         public void Initialize()

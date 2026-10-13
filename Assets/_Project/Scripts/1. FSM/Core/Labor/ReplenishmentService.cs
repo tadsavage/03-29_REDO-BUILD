@@ -19,9 +19,9 @@ namespace GameCore.Labor
     {
         private const float ScanInterval = 2f;
 
-        /// <summary>Replenish tasks default higher than Putaway's 100 — an empty pick slot blocks
-        /// order picking immediately, so it should be worked before routine putaways.</summary>
-        public const int ReplenishPriority = 250;
+        /// <summary>Replenish tasks start at the same priority as every other task (100) so a replenishment that cannot be done
+        /// never starves putaways; the player raises priority in the Work Queue when a pick face needs filling first.</summary>
+        public const int ReplenishPriority = 100;   // 2026-10-12: every task type starts equal; the player raises priorities in the Work Queue
 
         private static ReplenishmentService _instance;
 

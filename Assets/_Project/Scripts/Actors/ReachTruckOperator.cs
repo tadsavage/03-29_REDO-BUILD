@@ -109,6 +109,67 @@ namespace GameCore.Actors
         // rack destination, so the truck doesn't livelock re-picking an un-storable pallet.
         private readonly Dictionary<string, float> _blockedUntil = new Dictionary<string, float>();
 
+        /// <summary>How long a task the truck just failed or abandoned is left alone before it may be claimed again. Without this a
+        /// task that can never succeed (a replenishment whose pallet is not in reserve) is the highest-priority Available task, so
+        /// the truck re-claims it the instant it aborts and never reaches the putaways that CAN be done.</summary>
+        private const float TaskFailBackoff = 60f;
+
+        /// <summary>A truck on one task for longer than this (game seconds) without finishing it is considered stuck: the task is
+        /// released and backed off so the truck re-evaluates the queue and picks something it can actually do.</summary>
+        private const float StuckTaskSeconds = 120f;
+
+        private WorkTask _activeTask;
+        private float _activeTaskStart;
+        private string _activeReservedAddress;   // rack slot a putaway has reserved but not yet stamped on the task
+
+        private static string TaskBlockKey(WorkTask t) => t == null ? null : "task:" + t.TaskId;
+
+        private void BeginActiveTask(WorkTask t)
+        {
+            _activeTask = t;
+            _activeTaskStart = Time.time;
+            _activeReservedAddress = null;
+        }
+
+        private void ReleaseTaskWithBackoff(WorkTask task)
+        {
+            if (task == null) return;
+            task.Status = WorkTaskStatus.Available;
+            task.AssignedToEmployeeGuid = null;
+            _blockedUntil[TaskBlockKey(task)] = Time.time + TaskFailBackoff;
+            if (!string.IsNullOrEmpty(task.PalletId)) _blockedUntil[task.PalletId] = Time.time + TaskFailBackoff;
+        }
+
+        /// <summary>Watchdog: called every frame while busy. If the current task has run past StuckTaskSeconds and nothing is on the
+        /// forks, drop it (and everything it reserved) and go back to polling the queue. A truck that is physically carrying a pallet
+        /// is left to finish — unwinding that mid-carry belongs to the routine's own abort paths.</summary>
+        private void CheckStuckTask()
+        {
+            if (_activeTask == null || Time.time - _activeTaskStart < StuckTaskSeconds) return;
+            if (FindCarriedPallet() != null) { _activeTaskStart = Time.time; return; }
+
+            var stuck = _activeTask;
+            Debug.LogWarning($"[ReachTruckOperator] '{name}' has been on {stuck.Type} task {stuck.TaskId} for over {StuckTaskSeconds:F0}s without finishing — releasing it and re-evaluating the queue.");
+            StopAllCoroutines();
+
+            if (!string.IsNullOrEmpty(_activeReservedAddress))
+            {
+                var locData = FindLocationTransform(_activeReservedAddress)?.GetComponent<LocationData>();
+                if (locData != null) locData.Release(); else _putawayLogic?.CancelPutaway(_activeReservedAddress);
+            }
+            if (stuck.Type == WorkTaskType.Replenish)
+            {
+                // Both slots were locked when the task was created; put them back the way an aborted replenish does.
+                FindLocationTransform(stuck.ToLocation)?.GetComponent<LocationData>()?.Release();
+                var reserveLoc = FindLocationTransform(stuck.FromLocation)?.GetComponent<LocationData>();
+                if (reserveLoc != null && !string.IsNullOrEmpty(reserveLoc.PalletId))
+                    reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
+            }
+            ReleaseTaskWithBackoff(stuck);
+            _carryOriginValid = false;
+            Restore();
+        }
+
         // The carried pallet's resting pose, captured just before pickup. ANY abort that un-parents the
         // pallet (including the rack-delivery legs in DeliverPalletToRack) restores it to this pose so a
         // failed putaway drops the pallet exactly where it started instead of stranding it at the forks'
@@ -175,7 +236,7 @@ namespace GameCore.Actors
                 LogDiagnostics();
             }
 
-            if (_busy) return;
+            if (_busy) { CheckStuckTask(); return; }
             if (!_operatorSlot.IsOccupied) return;
 
             var op = _operatorSlot.CurrentOperator;
@@ -295,6 +356,7 @@ namespace GameCore.Actors
             {
                 Debug.Log($"[ReachTruckOperator] '{name}' resuming already assigned task {alreadyAssigned.TaskId}");
                 _busy = true;
+                BeginActiveTask(alreadyAssigned);
                 if (alreadyAssigned.Type == WorkTaskType.Replenish)
                     StartCoroutine(ReplenishRoutine(alreadyAssigned));
                 else if (alreadyAssigned.Type == WorkTaskType.PalletPick)
@@ -405,7 +467,7 @@ namespace GameCore.Actors
                 // by ReplenishmentService at creation) — no lane/accessibility check needed here.
 
                 // Skip pallets that recently found no rack destination (warehouse full) — retried after backoff.
-                if (IsPalletBlocked(t.PalletId)) continue;
+                if (IsPalletBlocked(t.PalletId) || IsPalletBlocked(TaskBlockKey(t))) continue;
 
                 // Higher Priority value wins (Replenish defaults to 250, Putaway to 100).
                 if (best == null || t.Priority > best.Priority)
@@ -434,6 +496,7 @@ namespace GameCore.Actors
             }
 
             _busy = true;
+            BeginActiveTask(best);
             if (best.Type == WorkTaskType.Replenish)
                 StartCoroutine(ReplenishRoutine(best));
             else if (best.Type == WorkTaskType.PalletPick)
@@ -647,11 +710,12 @@ namespace GameCore.Actors
             string palletId = task.PalletId;
             Vector2 approachXZ = new Vector2(pallet.position.x, pallet.position.z);
             string toAddress = _putawayLogic?.AssignPutawayDestination(palletId, approachXZ);
+            _activeReservedAddress = toAddress;
             if (string.IsNullOrEmpty(toAddress))
             {
                 Debug.LogWarning($"[ReachTruckOperator] No rack destination for {palletId} (warehouse full) — leaving it in lane {door}{lane}, retrying in {NoDestinationBackoff:F0}s.");
                 _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
-                if (task != null) task.Status = WorkTaskStatus.Available;
+                ReleaseTaskWithBackoff(task);
                 Restore();
                 yield break;
             }
@@ -1138,7 +1202,7 @@ namespace GameCore.Actors
                 pickLoc?.Release();
                 // Nothing physically moved — revert the reserve slot's lock using its own still-intact fields.
                 if (reserveLoc != null) reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
-                if (task != null) task.Status = WorkTaskStatus.Available;
+                ReleaseTaskWithBackoff(task);
                 Restore();
                 yield break;
             }
@@ -1156,7 +1220,7 @@ namespace GameCore.Actors
                 Debug.LogWarning($"[ReachTruckOperator] Replenish: could not extract {palletId} from {reserveAddress}. Reverting reservations.");
                 pickLoc.Release();
                 reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
-                if (task != null) task.Status = WorkTaskStatus.Available;
+                ReleaseTaskWithBackoff(task);
                 _carryOriginValid = false;
                 Restore();
                 yield break;
@@ -1251,7 +1315,7 @@ namespace GameCore.Actors
                 if (reserveLoc != null)
                     reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
                 task.PalletId = null;   // re-resolved on the next claim
-                if (task != null) task.Status = WorkTaskStatus.Available;
+                ReleaseTaskWithBackoff(task);
                 Restore();
                 yield break;
             }
@@ -1274,7 +1338,7 @@ namespace GameCore.Actors
                                  $"{reserveAddress}. Reverting reservation.");
                 reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
                 task.PalletId = null;
-                task.Status = WorkTaskStatus.Available;
+                ReleaseTaskWithBackoff(task);
                 _carryOriginValid = false;
                 Restore();
                 yield break;
@@ -1817,6 +1881,7 @@ namespace GameCore.Actors
             }
 
             _busy = true;
+            BeginActiveTask(task);
             StartCoroutine(PutawayRoutine(task));
         }
 
@@ -1879,7 +1944,7 @@ namespace GameCore.Actors
                 if (locData != null) locData.Release();
                 else _putawayLogic?.CancelPutaway(reservedAddress);
             }
-            if (task != null) task.Status = WorkTaskStatus.Available;
+            ReleaseTaskWithBackoff(task);
 
             // If holding a pallet, retract and re-enable obstacle
             if (_forks != null)
@@ -2052,6 +2117,8 @@ namespace GameCore.Actors
             SetDriveMode(DriveMode.Ai, "task complete — resuming patrol");
             _vehicleNav?.GoToRandomWaypoint();
             _busy = false;
+            _activeTask = null;
+            _activeReservedAddress = null;
         }
 
         private IEnumerator DriveToPoint(Transform t, Vector3 target, float arriveThreshold = -1f)
