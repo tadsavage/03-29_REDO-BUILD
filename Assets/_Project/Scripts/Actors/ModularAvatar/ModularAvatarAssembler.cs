@@ -1485,18 +1485,27 @@ public static class ModularAvatarAssembler
     /// <summary>Old part names that were renamed in Blender, so an employee's saved Pimp-My-Employee choice carries over to the new part.</summary>
     private static readonly Dictionary<string, string> RenamedParts = new()
     {
-        { "Female_Torso_Corset_NSFW", "Female_Torso_CorsetBlack_Latex_NSFW" },
-        { "Female_Torso_Corset_Latex_NSFW", "Female_Torso_CorsetBlack_Latex_NSFW" },
-        { "Female_Torso_BodysuitBlack_Latex_NSFW", "Female_Torso_CorsetBlack_Latex_NSFW" },
-        { "Female_Torso_BodysuitRed_Latex_NSFW", "Female_Torso_CorsetRed_Latex_NSFW" },
+        // torso: the old latex corsets became latex shirts
+        { "Female_Torso_Corset_Latex_NSFW", "Female_Torso_BlackLatexShirt_Latex_NSFW" },
+        { "Female_Torso_CorsetBlack_Latex_NSFW", "Female_Torso_BlackLatexShirt_Latex_NSFW" },
+        { "Female_Torso_CorsetRed_Latex_NSFW", "Female_Torso_RedLatexShirt_Latex_NSFW" },
+        { "Female_Torso_BodysuitBlack_Latex_NSFW", "Female_Torso_BlackLatexShirt_Latex_NSFW" },
+        { "Female_Torso_BodysuitRed_Latex_NSFW", "Female_Torso_RedLatexShirt_Latex_NSFW" },
+        // legs: the latex stockings legs became <Colour>LatexPants
+        { "Female_Legs_Stockings_Gray_Latex_NSFW", "Female_Legs_BlackLatexPants_Latex_NSFW" },
+        { "Female_Legs_Stockings_Black_Latex_NSFW", "Female_Legs_BlackLatexPants_Latex_NSFW" },
+        { "Female_Legs_StockingsBlack_Latex_NSFW", "Female_Legs_BlackLatexPants_Latex_NSFW" },
+        { "Female_Legs_StockingsRed_Latex_NSFW", "Female_Legs_RedLatexPants_Latex_NSFW" },
+        { "Female_Legs_StockingsWhite_Latex_NSFW", "Female_Legs_WhiteLatexPants_Latex_NSFW" },
+        { "Female_Legs_Stockings_Gray_NSFW", "Female_Legs_BlackLatexPants_Latex_NSFW" },
+        // feet
         { "Female_Feet_Stockings_Gray_Latex_NSFW", "Female_Feet_StockingsBlack_Latex_NSFW" },
-        { "Female_Legs_Stockings_Gray_Latex_NSFW", "Female_Legs_StockingsBlack_Latex_NSFW" },
         { "Female_Feet_Stockings_Black_Latex_NSFW", "Female_Feet_StockingsBlack_Latex_NSFW" },
-        { "Female_Legs_Stockings_Black_Latex_NSFW", "Female_Legs_StockingsBlack_Latex_NSFW" },
         { "Female_Feet_Stockings_Gray_NSFW", "Female_Feet_StockingsBlack_Latex_NSFW" },
-        { "Female_Legs_Stockings_Gray_NSFW", "Female_Legs_StockingsBlack_Latex_NSFW" },
-        { "Female_Hands_Black-Gloves_NSFW", "Female_Hands_BlackGloves_Latex_NSFW" },
-        { "Female_Hands_Black-Gloves_Latex_NSFW", "Female_Hands_BlackGloves_Latex_NSFW" },
+        // hands: the old black latex gloves became the black ring gloves
+        { "Female_Hands_Black-Gloves_NSFW", "Female_Hands_Gloves-Black-Ring_NSFW" },
+        { "Female_Hands_Black-Gloves_Latex_NSFW", "Female_Hands_Gloves-Black-Ring_NSFW" },
+        { "Female_Hands_BlackGloves_Latex_NSFW", "Female_Hands_Gloves-Black-Ring_NSFW" },
     };
 
     private static void ApplyCategoryOverride(List<IAvatarPart> chosen, IReadOnlyDictionary<string, string> overrides,
@@ -1511,9 +1520,10 @@ public static class ModularAvatarAssembler
         // the slot (which, for the torso, left the employee without a body).
         if (!string.IsNullOrEmpty(objectName))
         {
-            if (RenamedParts.TryGetValue(objectName, out var renamed)) objectName = renamed;
-            bool exists = lib.AllParts.Any(p => p.ObjectName == objectName && (p.Gender == gender || p.Gender == "neutral") && p.Slot == slot && matches(p));
-            if (!exists) return;
+            bool Exists(string nm) => lib.AllParts.Any(p => p.ObjectName == nm && (p.Gender == gender || p.Gender == "neutral") && p.Slot == slot && matches(p));
+            // A part that still exists is used as saved; a missing one follows the rename table to its successor.
+            if (!Exists(objectName) && RenamedParts.TryGetValue(objectName, out var renamed)) objectName = renamed;
+            if (!Exists(objectName)) return;
         }
 
         chosen.RemoveAll(p => p.Slot == slot && matches(p));
