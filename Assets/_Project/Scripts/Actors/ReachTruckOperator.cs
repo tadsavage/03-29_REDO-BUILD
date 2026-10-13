@@ -366,6 +366,16 @@ namespace GameCore.Actors
 
                 if (t.Type == WorkTaskType.Putaway)
                 {
+                    // A putaway for a pallet that no longer exists anywhere (staged pallets aren't saved, so a reload leaves their tasks
+                    // behind) can never be done. Cancel it instead of re-checking it every poll for the rest of the session.
+                    if (!string.IsNullOrEmpty(t.PalletId) && _inventoryService != null &&
+                        _inventoryService.GetPallet(t.PalletId) == null && PalletMasterLink.Find(t.PalletId) == null)
+                    {
+                        Debug.LogWarning($"[ReachTruckOperator] Putaway {t.TaskId} refers to pallet {t.PalletId}, which no longer exists. Cancelling the task.");
+                        t.Status = WorkTaskStatus.Cancelled;
+                        continue;
+                    }
+
                     if (string.IsNullOrEmpty(t.FromLocation) || t.FromLocation == "STG" ||
                         t.FromLocation.Contains("(") || t.FromLocation.Contains(")"))
                     {
@@ -473,6 +483,33 @@ namespace GameCore.Actors
         /// targets the pallet's real transform wherever it physically sits. Returns null (palletId null)
         /// if the lane is empty or its exit-most pallet hasn't been received yet.
         /// </summary>
+        /// <summary>Two pallets standing at the same height in one cell are inside each other (an old drop that missed the pallet
+        /// already there). Lift the later one onto the top of the earlier so they stack properly and one is unambiguously topmost.
+        /// Settled pallets only: anything parented under a vehicle is left alone.</summary>
+        private static void HealOverlappingPallets(List<PalletMasterRecord> pallets)
+        {
+            if (pallets == null || pallets.Count < 2) return;
+            var placed = new List<Transform>();
+            foreach (var rec in pallets)
+            {
+                var link = PalletMasterLink.Find(rec.PalletId);
+                if (link == null || link.GetComponentInParent<MHEOperatorSlot>() != null) continue;
+                var tr = link.transform;
+                foreach (var below in placed)
+                {
+                    if (Mathf.Abs(tr.position.y - below.position.y) > 0.3f) continue;
+                    var rends = below.GetComponentsInChildren<Renderer>();
+                    if (rends.Length == 0) continue;
+                    float top = float.NegativeInfinity;
+                    foreach (var r in rends) top = Mathf.Max(top, r.bounds.max.y);
+                    var p = tr.position; p.y = top + 0.015f; tr.position = p;
+                    Debug.LogWarning($"[ReachTruckOperator] Pallet {rec.PalletId} was overlapping another in the same lane cell; lifted it onto the stack.");
+                    break;
+                }
+                placed.Add(tr);
+            }
+        }
+
         private PalletMasterLink FindExitAccessiblePallet(int door, string lane, out string palletId)
         {
             palletId = null;
@@ -497,6 +534,7 @@ namespace GameCore.Actors
                 // one nothing else is resting on, regardless of how the list got ordered.
                 PalletMasterLink topmost = null;
                 float highestY = float.NegativeInfinity;
+                HealOverlappingPallets(pallets);
                 foreach (var rec in pallets)
                 {
                     var candidate = PalletMasterLink.Find(rec.PalletId);

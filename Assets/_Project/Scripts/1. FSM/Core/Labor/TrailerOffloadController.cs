@@ -1283,14 +1283,14 @@ namespace GameCore.Labor
                 foreach (var rec in inv.GetPalletsAtLocation(cell))
                 {
                     var go = PalletMasterLink.Find(rec.PalletId)?.gameObject;
-                    if (go == null || go == selfGO || go.transform.parent != null) continue;
+                    if (go == null || go == selfGO || IsRidingForks(go)) continue;
                     float top = MeasureTopY(go);
                     if (top > highestTop) highestTop = top;
                 }
 
                 foreach (var go in inv.GetOutboundPalletObjectsAt(doorNumber, lane, cell))
                 {
-                    if (go == null || go == selfGO || go.transform.parent != null) continue;
+                    if (go == null || go == selfGO || IsRidingForks(go)) continue;
                     float top = MeasureTopY(go);
                     if (top > highestTop) highestTop = top;
                 }
@@ -1298,6 +1298,12 @@ namespace GameCore.Labor
 
             return highestTop > 0f ? highestTop + StackGap : LaneSurfaceY;
         }
+
+        /// <summary>True only while a pallet is physically on a vehicle's forks. NOT "has a parent": a pallet restored from a save
+        /// (or placed by the build system) sits under the PlacedObjectsContainer, and treating any parent as "being carried" made it
+        /// invisible to the stack measurement, so the next drop landed at ground height inside it (two pallets in one space, and a
+        /// tie for "topmost" that left the reach truck with nothing it could claim).</summary>
+        private static bool IsRidingForks(GameObject go) => go.GetComponentInParent<MHEOperatorSlot>() != null;
 
         private float ComputeDropBaseY(Vector2Int cell, GameObject selfGO)
         {
@@ -1313,7 +1319,7 @@ namespace GameCore.Labor
                     // CRITICAL FIX: Skip any pallet that is currently being carried (has a parent).
                     // This prevents measuring the pallet on the current (or any other) stocker's forks,
                     // which is the root cause of "stacking to the ceiling."
-                    if (go.transform.parent != null) continue;
+                    if (IsRidingForks(go)) continue;
 
                     float top = MeasureTopY(go);
                     if (top > highestTop) highestTop = top;
