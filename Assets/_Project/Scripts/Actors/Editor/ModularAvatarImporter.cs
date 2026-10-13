@@ -445,6 +445,18 @@ public static class ModularAvatarImporter
         {
             var existingRemaps = importer.GetExternalObjectMap();
 
+            // A material named "Latex_*" in Blender (e.g. the black faces of a half-latex mask) maps to the real glossy latex material of the
+            // same name; every other material maps to the shared palette. Lets ONE mesh mix latex and normal faces.
+            Material TargetFor(string matName)
+            {
+                if (!string.IsNullOrEmpty(matName) && matName.StartsWith("Latex", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    var latex = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Project/Resources/Resource_AvatarSystemAssets/" + matName + ".mat");
+                    if (latex != null) return latex;
+                }
+                return sharedMat;
+            }
+
             // Case A: a remap already exists but points at the WRONG material (e.g. an earlier
             // version of this constant pointed at AA_LowPolyCommon before Tad corrected it to the
             // PolyPerfect atlas) — correct it in place rather than leaving it stuck forever, since
@@ -452,8 +464,10 @@ public static class ModularAvatarImporter
             // for Case B below to catch.
             foreach (var kvp in existingRemaps.ToList())
             {
-                if (kvp.Key.type != typeof(Material) || kvp.Value == sharedMat) continue;
-                importer.AddRemap(kvp.Key, sharedMat);
+                if (kvp.Key.type != typeof(Material)) continue;
+                var wanted = TargetFor(kvp.Key.name);
+                if (kvp.Value == wanted) continue;
+                importer.AddRemap(kvp.Key, wanted);
                 changed = true;
             }
 
@@ -469,7 +483,7 @@ public static class ModularAvatarImporter
             {
                 var id = new AssetImporter.SourceAssetIdentifier(typeof(Material), matName);
                 if (existingRemaps.ContainsKey(id)) continue;   // already handled by Case A above
-                importer.AddRemap(id, sharedMat);
+                importer.AddRemap(id, TargetFor(matName));
                 changed = true;
             }
         }

@@ -486,7 +486,21 @@ public static class ModularAvatarAssembler
                 return;
             }
             var mats = r.sharedMaterials;
-            for (int i = 0; i < mats.Length; i++) mats[i] = latex;
+            bool mixed = false;
+            if (mats.Length > 1)
+                foreach (var m in mats) if (m != null && m.name.StartsWith("Latex", System.StringComparison.OrdinalIgnoreCase)) { mixed = true; break; }
+            if (mixed)
+            {
+                // Half-latex mesh (e.g. a mask whose black faces are latex and whose skin/eyebrows are not): swap only the Latex_* slots
+                // (so they use the shared project instance) and leave every other slot on its normal material.
+                for (int i = 0; i < mats.Length; i++)
+                    if (mats[i] != null && mats[i].name.StartsWith("Latex", System.StringComparison.OrdinalIgnoreCase))
+                        mats[i] = LatexMaterial(mats[i].name) ?? mats[i];
+            }
+            else
+            {
+                for (int i = 0; i < mats.Length; i++) mats[i] = latex;
+            }
             r.sharedMaterials = mats;
         }
     }
