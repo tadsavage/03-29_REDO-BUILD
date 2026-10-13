@@ -42,7 +42,23 @@ public class EmployeePhotoBooth : MonoBehaviour
     // 2026-10-01: portraits read too dark against the new female body — every booth light is brightened
     // by this factor on top of the serialized intensity (+50%). Applied in code, not by editing the
     // scene value, so the Inspector number stays the "base" and this is one place to retune.
-    private const float StudioLightBoost = 1.5f;
+    private const float StudioLightBoost = 3.0f;
+    // 2026-10-12: a soft, shadowless fill from the other side lifts the shadowed half of the face to a normal lit-room look; the hard key keeps the low-poly edges.
+    private const float FillLightIntensity = 2.4f;
+
+    private void AddFillLight(Transform keyLight)
+    {
+        var go = new GameObject("PhotoBooth_Fill");
+        go.transform.SetParent(transform);
+        go.transform.localPosition = new Vector3(0.60f, 1.40f, -1.10f);
+        go.transform.SetParent(keyLight, true);   // destroyed together with the key light
+        var l = go.AddComponent<Light>();
+        l.type = LightType.Point;
+        l.intensity = FillLightIntensity;
+        l.range = 5.0f;
+        l.color = new Color(0.90f, 0.92f, 0.96f, 1f);
+        l.shadows = LightShadows.None;
+    }
     [Tooltip("Vertical offset for the IC Clerk model in the booth. The clerk model is ~0.17 units shorter than the Worker models, so without this it sits noticeably lower in frame than Worker portraits.")]
     [SerializeField] private float _clerkVerticalOffset = 0.17f;
 
@@ -298,6 +314,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         _liveLight.range = 2.0f;
         _liveLight.color = new Color(0.872f, 0.857f, 0.834f, 1.0f);
         _liveLight.shadows = LightShadows.Hard;
+        AddFillLight(lightGO.transform);
 
         _liveStartTime = Time.time;
         _isGesturing = false;
@@ -795,6 +812,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         light.color = new Color(0.872f, 0.857f, 0.834f, 1.0f);
         light.shadows = LightShadows.Hard; // Hard shadows for low poly look
         lightGO.transform.LookAt(modelInstance.transform.position + new Vector3(0f, 1.4f, 0f));
+        AddFillLight(lightGO.transform);
 
         // 3. Render to temporary texture
         RenderTexture rt = new RenderTexture(256, 256, 24, RenderTextureFormat.ARGB32);
