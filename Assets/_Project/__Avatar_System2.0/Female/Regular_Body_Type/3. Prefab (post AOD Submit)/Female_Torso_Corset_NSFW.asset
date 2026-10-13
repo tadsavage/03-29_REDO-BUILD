@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e9e232887a9b4645b1f651208bf32a4, type: 3}
+  m_Name: Female_Torso_Corset_NSFW
+  m_EditorClassIdentifier: GameCore.Simulation::AvatarPartAsset
+  objectName: Female_Torso_Corset_NSFW
+  gender: female
+  slot: torso
+  variant: Corset
+  finalizedPrefab: {fileID: 6712166227593567942, guid: d884ad1e6a7097b40bc21b5b0d823da0, type: 3}
+  allowedRoles: 000000000100000002000000040000000c0000000d000000i
+  colorVariants: []
+  defaultWeight: 23.9
+  verifiedInGame: 1
+  hiddenBodySlots: []
