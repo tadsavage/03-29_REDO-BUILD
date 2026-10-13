@@ -15,8 +15,8 @@ public static class ConfettiFx
     private const int PieceCount = 60;
     private const float PieceMinSize = 8f;
     private const float PieceMaxSize = 14f;
-    private const int MinFallMs = 1800;
-    private const int MaxFallMs = 3000;
+    private const int MinFallMs = 3600;
+    private const int MaxFallMs = 6000;
     private const int MaxStaggerMs = 500;
     private const float MaxSwayPx = 70f;
     private const float MaxSpinDegrees = 540f;

@@ -45,7 +45,7 @@ namespace GameCore.Inventory
                 _stateByVendorId[vendor.VendorId] = new VendorRuntimeState
                 {
                     VendorId = vendor.VendorId,
-                    PartnershipLevel = Random.Range(-100, 101),
+                    PartnershipLevel = 0,   // every vendor relationship starts neutral (Tad, 2026-10-12)
                     // 1.0-4.0 hours in 0.5 steps: Random.Range(2,9) inclusive-exclusive gives 2..8,
                     // times 0.5 gives 1.0..4.0.
                     TravelTimeHours = Random.Range(2, 9) * 0.5f

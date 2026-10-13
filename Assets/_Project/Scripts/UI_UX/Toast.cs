@@ -5,6 +5,7 @@ public class UIToast : MonoBehaviour
 {
     private static Label _toast;
     private static float _timer;
+    private const float ToastDurationScale = 2f;
 #pragma warning disable CS0414
     [SerializeField] private float _defaultDuration = 1.5f;
 #pragma warning restore CS0414
@@ -127,7 +128,7 @@ public class UIToast : MonoBehaviour
         // 0, so Update's `if (_timer > 0f)` never ran, the opacity was never reset, and the toast
         // stayed on screen permanently — it did not resume on unpause either, because Show() is
         // what seeds the timer. At 1/4x it also flashed past four times too fast.
-        _timer = _defaultDuration;
+        _timer = _defaultDuration * ToastDurationScale;   // every toast stays up twice as long (Tad, 2026-10-12)
 
         RaiseAboveEverything();
 

@@ -13,7 +13,7 @@ using UnityEngine.UIElements;
 public static class DispatchRewardFx
 {
     /// <summary>Total run of the text, in ms — per Tad's explicit ask.</summary>
-    private const int DurationMs = 2000;
+    private const int DurationMs = 4000;
 
     /// <summary>Fraction of the run spent growing from the button out to mid-screen. The remainder
     /// is spent floating off screen to the left at full size.</summary>

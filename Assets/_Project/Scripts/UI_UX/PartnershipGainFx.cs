@@ -15,7 +15,7 @@ using UnityEngine.UIElements;
 public static class PartnershipGainFx
 {
     /// <summary>Total run of the text, in ms — per Tad's explicit ask.</summary>
-    private const int DurationMs = 1500;
+    private const int DurationMs = 3000;
 
     /// <summary>Fraction of the run spent growing out of the button in place. The remainder is
     /// spent falling toward and off the bottom of the viewport at full size.</summary>
