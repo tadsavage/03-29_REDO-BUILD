@@ -188,6 +188,11 @@ namespace GameCore.Labor
                 var record = inventory.GetPallet(location.PalletId);
                 if (record == null) continue;
 
+                // The pallet must physically exist. A location (or inventory record) can outlive its pallet — staged and carried
+                // pallets are not saved — and a task filed against a ghost can never be done: the truck drives out, finds nothing
+                // and aborts, and the replenishment gets filed again.
+                if (PalletMasterLink.Find(location.PalletId) == null) continue;
+
                 if (record.ReceivedDayNumber < bestDay)
                 {
                     bestDay = record.ReceivedDayNumber;
