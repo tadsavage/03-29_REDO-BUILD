@@ -210,7 +210,7 @@ namespace GameCore.Labor
                 if (d == srcDoor && l == srcLane) continue;
                 if (!inv.LaneAcceptsPutaway(d, l)) continue;
                 if (orders != null && orders.ActiveOrders.Any(o =>
-                        o.AssignedDoorNumber == d && o.AssignedLane == l &&
+                        o.EffectiveStagingDoor == d && o.AssignedLane == l &&
                         o.Status != OrderData.OrderStatus.Shipped && o.Status != OrderData.OrderStatus.Cancelled))
                     continue;
 

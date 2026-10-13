@@ -125,17 +125,18 @@ namespace GameCore.Labor
             // stage whose B lane was released before its A lane got emptied B first, against the
             // "finish lane A, then move on to lane B" rule. Sorting here (rather than at release time)
             // keeps it right no matter what order the releases arrive in.
-            var byLane = new List<(WorkTask task, int door, string lane)>();
+            var byLane = new List<(WorkTask task, int door, string lane, int dock)>();
             foreach (var t in workQueue.GetPendingTasksForRole(EmployeeRole.DockStockerOperator))
                 if (t.Type == WorkTaskType.Load && TryParseLaneAddress(t.FromLocation, out int d, out string l))
-                    byLane.Add((t, d, l));
+                    byLane.Add((t, d, l, int.TryParse(t.ToLocation, out int dd) && dd > 0 ? dd : d)); // ToLocation = DOCK door; FromLocation = lane (may be another door)
             byLane.Sort((a, b) => a.door != b.door
                 ? a.door.CompareTo(b.door)
                 : string.CompareOrdinal(a.lane, b.lane));
 
-            foreach (var (task, door, lane) in byLane)
+            foreach (var (task, door, lane, dockDoor) in byLane)
             {
-                var truck = FindDockedOutboundTruck(door);
+                // The trailer is at the DOCK door; the lane being emptied may be at a different door.
+                var truck = FindDockedOutboundTruck(dockDoor);
                 if (truck == null || !truck.AwaitingLoad) continue; // no trailer there (yet) -- try the next task
 
                 var slot = FindAvailableDockStocker();
@@ -281,7 +282,7 @@ namespace GameCore.Labor
             Transform forks = FindDeepChild(ds, ForkChildName);
             float forkRestY = forks != null ? forks.localPosition.y : 0f;
 
-            var pallets = FindStagedPalletsInLane(doorNumber, lane);
+            var pallets = FindStagedPalletsInLane(doorNumber, lane, truck.DockedAt != null ? truck.DockedAt.DoorNumber : doorNumber);
 
             Debug.Log($"[TrailerLoad] Loading {pallets.Count} staged pallet(s) from lane {doorNumber}{lane} onto {truck.name} with dock stocker {ds.name}.");
 
@@ -365,7 +366,7 @@ namespace GameCore.Labor
         /// Order Selection already wrote instead of writing new ones. Excludes anything still
         /// parented (mid-carry, either still riding a selector or already on another DS's forks)
         /// since that pallet isn't actually staged yet/still.</summary>
-        private List<OutboundPalletBuilder> FindStagedPalletsInLane(int doorNumber, string lane)
+        private List<OutboundPalletBuilder> FindStagedPalletsInLane(int doorNumber, string lane, int dockDoor)
         {
             var found = new List<(OutboundPalletBuilder pallet, int slotIndex)>();
             foreach (var pallet in FindObjectsByType<OutboundPalletBuilder>())
@@ -389,7 +390,7 @@ namespace GameCore.Labor
             if (ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
             {
                 var loadingIds = new HashSet<string>(orders.ActiveOrders
-                    .Where(o => o.AssignedDoorNumber == doorNumber &&
+                    .Where(o => o.AssignedDoorNumber == dockDoor && // dock door (the trailer), not the lane's door
                                 (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded))
                     .Select(o => o.OrderId));
                 int firstForeign = found.FindIndex(f => !loadingIds.Contains(f.pallet.OrderId));
@@ -424,11 +425,35 @@ namespace GameCore.Labor
             }
 
             Vector3 doorPos = truck.DockedAt != null ? truck.DockedAt.transform.position : ds.position;
-            LaneEntryGeometry(LaneNamingService.GetLane(laneSlot.DoorNumber, laneSlot.Lane), doorPos, out Vector3 entryW, out Vector3 downLane);
+            // The lane may belong to a DIFFERENT door than the trailer's (orders can stage at another
+            // door when the dock door's own lanes are busy). Its entry end is the one nearest ITS OWN
+            // door, so measure from that door — not from the trailer's.
+            bool crossDoor = truck.DockedAt != null && laneSlot.DoorNumber != truck.DockedAt.DoorNumber;
+            Vector3 laneDoorPos = crossDoor ? DoorWorldPos(laneSlot.DoorNumber, doorPos) : doorPos;
+            LaneEntryGeometry(LaneNamingService.GetLane(laneSlot.DoorNumber, laneSlot.Lane), laneDoorPos, out Vector3 entryW, out Vector3 downLane);
             float driveY = ds.position.y;
             // THE STAGING-LANE PIVOT — LanePivotDistance out from the lane entry, on the door side.
             // Every lane-side turn happens here, never inside the lane.
             Vector3 entryPivot = new Vector3(entryW.x, driveY, entryW.z) - downLane * LanePivotDistance;
+
+            // Cross-door: the lane is across the dock from where the DS last was (the trailer's door). The
+            // straight-line slides below only suit short, clear hops, so walk the open floor with the DS's
+            // own NavMeshAgent first. Nothing is picked up yet, so on failure the pallet simply stays staged.
+            if (crossDoor)
+            {
+                Vector3 flatToPivot = entryPivot - ds.position; flatToPivot.y = 0f;
+                if (flatToPivot.magnitude > 3f)
+                {
+                    bool legOk = false;
+                    yield return SeekViaNavMesh(ds, entryPivot,
+                        $"cross-door load: to lane {laneSlot.DoorNumber}{laneSlot.Lane}", r => legOk = r);
+                    if (!legOk)
+                    {
+                        Debug.LogError($"[TrailerLoad] Could not reach lane {laneSlot.DoorNumber}{laneSlot.Lane} from the trailer at door {truck.DockedAt.DoorNumber} — leaving {pallet.name} staged.");
+                        yield break;
+                    }
+                }
+            }
 
             // 1. Pull up to the staging-lane pivot, just outside the lane entry.
             //
@@ -500,7 +525,7 @@ namespace GameCore.Labor
                 if (inv != null) inv.ReleaseLaneEntry(laneSlot.DoorNumber, laneSlot.Lane);
             }
 
-            yield return PlaceCarriedInTrailer(ds, forks, truck, palletT, slotIndex, doorPos, driveY);
+            yield return PlaceCarriedInTrailer(ds, forks, truck, palletT, slotIndex, doorPos, driveY, crossDoor);
 
             // "cargoSlot" spelled out because these numbers run 0-11 over the TRAILER's 12-slot bed
             // (nose-first, alternating left/right — see CargoSlotForSequence) and read nothing like the
@@ -516,7 +541,8 @@ namespace GameCore.Labor
         /// loaded straight from their lane — TrailerLoadController.DigOut.cs).
         /// </summary>
         private IEnumerator PlaceCarriedInTrailer(Transform ds, Transform forks, TruckController truck,
-                                                  Transform palletT, int slotIndex, Vector3 doorPos, float driveY)
+                                                  Transform palletT, int slotIndex, Vector3 doorPos, float driveY,
+                                                  bool crossDoorLeg = false)
         {
             // ── CARRY to the trailer and place in the next open cargo slot ───────────────────
             Vector3 into = TrailerIntoDir(truck);
@@ -548,6 +574,18 @@ namespace GameCore.Labor
             Vector3 shippingDoorPivot = into * pivotLong
                                        + rightAxis * targetLat
                                        + Vector3.up * ds.position.y;
+
+            // 5b. Cross-door: the pallet came out of a lane at ANOTHER door, so carry it across the open dock
+            //     floor with the DS's own NavMeshAgent. If that fails the pallet is already on the forks —
+            //     abandoning it mid-carry would strand it — so fall back to the old straight slide and say so.
+            if (crossDoorLeg)
+            {
+                bool legOk = false;
+                yield return SeekViaNavMesh(ds, shippingDoorPivot, "cross-door load: to trailer", r => legOk = r);
+                if (!legOk)
+                    Debug.LogError("[TrailerLoad] Cross-door NavMesh leg to the trailer failed with a pallet on the forks — " +
+                                   "falling back to a straight slide to the shipping-door pivot.");
+            }
 
             // 6. Turn to face the way we're about to travel BEFORE setting off, then pull up to the
             //    shipping door pivot. (Turning while already rolling reads as the DS slewing sideways
@@ -630,6 +668,111 @@ namespace GameCore.Labor
             ds.position = hit.position;
             agent.Warp(hit.position);
             agent.isStopped = false;
+        }
+
+        // ── Cross-door travel (staging lane at a different door than the trailer) ───────────────────
+
+        /// <summary>World position of a numbered door, or <paramref name="fallback"/> if it can't be found.</summary>
+        private static Vector3 DoorWorldPos(int doorNumber, Vector3 fallback)
+        {
+            foreach (var d in DockSlot.All)
+                if (d != null && d.DoorNumber == doorNumber) return d.transform.position;
+            return fallback;
+        }
+
+        /// <summary>Open-floor travel across the dock between two doors: the DS's own NavMeshAgent walks it
+        /// to <paramref name="target"/>, then control returns to the scripted choreography. A copy of
+        /// TrailerOffloadController.SeekViaNavMesh (these controllers deliberately duplicate their
+        /// primitives) — including its hardening: register-on-mesh wait, floor-projected target, task-busy
+        /// guard against AiNavigation's waypoint hijack, and a rebake-resilient wait. No straight-line
+        /// fallback here: the caller decides what to do when it fails.</summary>
+        private IEnumerator SeekViaNavMesh(Transform ds, Vector3 target, string phase, System.Action<bool> onDone)
+        {
+            var nav = ds != null ? ds.GetComponent<AiNavigation>() : null;
+            var agent = ds != null ? ds.GetComponent<NavMeshAgent>() : null;
+            if (nav == null || agent == null)
+            {
+                Debug.LogError($"[TrailerLoad] '{ds?.name}' {phase}: no AiNavigation/NavMeshAgent on this dock stocker — cannot do an AI travel leg.");
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            agent.enabled = true;
+            nav.enabled = true;
+
+            const float MaxRegisterWait = 1f;
+            float registerWaited = 0f;
+            while (!agent.isOnNavMesh && registerWaited < MaxRegisterWait)
+            {
+                agent.Warp(ds.position);
+                registerWaited += Time.deltaTime;
+                yield return null;
+            }
+
+            if (!agent.isOnNavMesh)
+            {
+                Debug.LogError($"[TrailerLoad] '{ds.name}' {phase}: agent could not register on the NavMesh at {ds.position} after {registerWaited:F2}s — aborting leg.");
+                nav.SetTaskBusy(false);
+                agent.enabled = false;
+                nav.enabled = false;
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            Vector3 driveTarget = new Vector3(target.x, ds.position.y, target.z);
+            if (NavMesh.SamplePosition(driveTarget, out var groundHit, 4f, agent.areaMask))
+                driveTarget = groundHit.position;
+
+            nav.CancelSeekPosition();
+            agent.Warp(ds.position);
+            nav.SetTaskBusy(true);
+
+            bool arrived = false;
+            nav.SeekPosition(driveTarget, () => arrived = true);
+
+            yield return null;
+            if (!arrived && !agent.pathPending && !agent.hasPath)
+            {
+                Debug.LogError($"[TrailerLoad] '{ds.name}' {phase}: destination did not take (no path) for {driveTarget} from {ds.position}.");
+                nav.CancelSeekPosition();
+                nav.SetTaskBusy(false);
+                agent.enabled = false;
+                nav.enabled = false;
+                onDone?.Invoke(false);
+                yield break;
+            }
+
+            float elapsed = 0f, sinceRecheck = 0f;
+            int reissues = 0;
+            const float MaxSeekTime = 30f, RecheckInterval = 0.5f;
+            const int MaxReissues = 10;
+
+            while (!arrived && nav.IsSeekingTask && elapsed < MaxSeekTime)
+            {
+                elapsed += Time.deltaTime;
+                sinceRecheck += Time.deltaTime;
+                if (sinceRecheck >= RecheckInterval)
+                {
+                    sinceRecheck = 0f;
+                    if (!agent.isOnNavMesh) agent.Warp(ds.position);
+                    else if (!agent.pathPending && !agent.hasPath && reissues < MaxReissues)
+                    {
+                        reissues++;
+                        nav.CancelSeekPosition();
+                        nav.SeekPosition(driveTarget, () => arrived = true);
+                    }
+                }
+                yield return null;
+            }
+
+            nav.SetTaskBusy(false);
+            agent.enabled = false;
+            nav.enabled = false;
+
+            if (!arrived)
+                Debug.LogError($"[TrailerLoad] '{ds.name}' {phase}: NO NAVMESH PATH to {driveTarget} from {ds.position} (elapsed {elapsed:F1}s).");
+
+            onDone?.Invoke(arrived);
         }
 
         // ── Movement primitives (duplicated from TrailerOffloadController) ───────────────────────

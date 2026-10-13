@@ -930,6 +930,77 @@ namespace GameCore.Inventory
             return true;
         }
 
+        public enum MoveVerdict
+        {
+            /// <summary>Allowed, and nothing is charged.</summary>
+            Free,
+            /// <summary>Allowed, but the customer takes a fine / satisfaction / reputation hit.</summary>
+            Costly,
+            /// <summary>Refused outright.</summary>
+            Blocked
+        }
+
+        /// <summary>
+        /// Read-only twin of TryMoveToDoor / TryBookAtDoor + the off-slot warning, for tinting the grid
+        /// while a trailer is in hand: green = <see cref="MoveVerdict.Free"/>, yellow = Costly, red =
+        /// Blocked. The Blocked tests mirror the ones TryMoveToDoor enforces, and Costly mirrors the
+        /// SchedulerPanel's own ConfirmOffSlotIfNeeded condition, so the colour can't promise something
+        /// the click then contradicts.
+        ///
+        /// <paramref name="appt"/> is the booked trailer being moved, or null when booking a stranded
+        /// group out of the pool (then <paramref name="contractId"/> / <paramref name="requestedDay"/>
+        /// describe the group). Pass <paramref name="outboundDoors"/> to avoid re-scanning lanes per cell.
+        /// </summary>
+        public MoveVerdict EvaluateMove(DockAppointment appt, string contractId, int requestedDay,
+                                        int day, int blockIndex, int doorNumber, out string reason,
+                                        List<int> outboundDoors = null)
+        {
+            reason = null;
+
+            if (appt != null)
+            {
+                if (!appt.Parked && appt.Day == day && appt.BlockIndex == blockIndex && appt.DoorNumber == doorNumber)
+                    return MoveVerdict.Free; // where it already is
+                if (IsLocked(appt, out reason)) return MoveVerdict.Blocked;
+                if (appt.Kind == AppointmentKind.Outbound && day != appt.Day)
+                {
+                    reason = "A standing delivery can't be moved to another day.";
+                    return MoveVerdict.Blocked;
+                }
+            }
+
+            if (day < CurrentDay || (day == CurrentDay && blockIndex < CurrentBlock))
+            {
+                reason = "That time has already passed.";
+                return MoveVerdict.Blocked;
+            }
+
+            outboundDoors ??= OutboundDoors();
+            if (!outboundDoors.Contains(doorNumber))
+            {
+                reason = $"Door {doorNumber} isn't an outbound-capable door.";
+                return MoveVerdict.Blocked;
+            }
+
+            string selfId = appt?.Id;
+            if (GetBlock(day, blockIndex).Any(a => a.Id != selfId && a.DoorNumber == doorNumber))
+            {
+                reason = $"Door {doorNumber} is already booked in {BlockLabel(blockIndex)}.";
+                return MoveVerdict.Blocked;
+            }
+
+            if (appt != null && appt.OffSlotPenaltyApplied) return MoveVerdict.Free; // already paid for
+
+            int baseDay = appt != null ? appt.RequestedDay : requestedDay;
+            if (PredictOffSlotReputationCost(contractId, baseDay, day, blockIndex) > 0 ||
+                WouldMissRequestedSlot(contractId, blockIndex))
+            {
+                reason = PredictDescribeOffSlot(contractId, baseDay, day, blockIndex);
+                return MoveVerdict.Costly;
+            }
+            return MoveVerdict.Free;
+        }
+
         public bool Cancel(string appointmentId)
         {
             var appt = FindById(appointmentId);

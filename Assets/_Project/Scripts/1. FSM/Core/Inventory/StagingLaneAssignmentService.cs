@@ -29,8 +29,67 @@ namespace GameCore.Inventory
         {
             if (orderService == null || string.IsNullOrEmpty(lane)) return null;
             var owner = orderService.ActiveOrders.FirstOrDefault(o =>
-                o.AssignedDoorNumber == door && o.AssignedLane == lane && StillOccupiesItsLane(o));
+                o.EffectiveStagingDoor == door && o.AssignedLane == lane && StillOccupiesItsLane(o));
             return owner?.CustomerId;
+        }
+
+        /// <summary>
+        /// Picks the lane a newly released batch stages into: searches OUTWARD from the order's dock
+        /// door — that door's lanes in letter order (2A, 2B, 2C…), then the nearest doors either side
+        /// (1, then 3, then 4…) — and takes the first lane that is completely empty. A door is skipped
+        /// when an inbound trailer is docked there or when another customer already holds any of its
+        /// lanes (one customer per stage). A lane counts as empty only if it is pickable for outbound,
+        /// holds no received pallets, has none arriving, has no staged OUTBOUND pallets (which
+        /// InventoryService does not track), and is not already claimed by another order's lane.
+        /// </summary>
+        public static bool TryFindLaneForOrder(OrderService orderService, InventoryService inv, int dockDoor,
+                                               string customerId, out int stageDoor, out string lane,
+                                               ICollection<(int door, string lane)> plannedLanes = null,
+                                               IDictionary<int, string> plannedDoorOwners = null)
+        {
+            stageDoor = 0;
+            lane = null;
+            if (orderService == null) return false;
+
+            var allLanes = LaneNamingService.AllLanes();
+            var doors = allLanes.Select(l => l.door).Distinct().ToList();
+            if (doors.Count == 0) return false;
+
+            // Nearest first; on a tie the lower-numbered door wins (dock 2 -> 2, 1, 3, 0/4...).
+            int anchor = dockDoor > 0 ? dockDoor : doors.Min();
+            var ordered = doors.OrderBy(d => System.Math.Abs(d - anchor)).ThenBy(d => d).ToList();
+
+            foreach (int door in ordered)
+            {
+                if (HasInboundTruckDocked(door)) continue;
+
+                var owner = GetOwningCustomerIdForDoor(orderService, door);
+                if (owner != null && owner != customerId) continue;
+                // Earlier customers in the same planned batch hold doors/lanes that aren't committed yet.
+                if (plannedDoorOwners != null && plannedDoorOwners.TryGetValue(door, out var plannedOwner)
+                    && plannedOwner != customerId) continue;
+
+                foreach (var candidate in allLanes.Where(l => l.door == door).Select(l => l.lane).OrderBy(l => l))
+                {
+                    if (plannedLanes != null && plannedLanes.Contains((door, candidate))) continue;
+                    if (!LaneIsCompletelyEmpty(orderService, inv, door, candidate)) continue;
+                    stageDoor = door;
+                    lane = candidate;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>A lane nothing is using or about to use — see <see cref="TryFindLaneForOrder"/>.</summary>
+        public static bool LaneIsCompletelyEmpty(OrderService orderService, InventoryService inv, int door, string lane)
+        {
+            if (inv != null && !inv.LaneAllowsPicking(door, lane)) return false;
+            if (LaneHasInboundStock(inv, door, lane)) return false;
+            if (GameCore.Labor.TrailerOffloadController.IsLanePendingInbound(door, lane)) return false;
+            if (inv != null && inv.LaneHasStagedOutboundPallets(door, lane)) return false;
+            if (GetOwningCustomerId(orderService, door, lane) != null) return false; // claimed by another order
+            return true;
         }
 
         /// <summary>True if this lane is free, or already owned by the given customer (so more of
@@ -54,7 +113,7 @@ namespace GameCore.Inventory
         {
             if (orderService == null) return null;
             var owner = orderService.ActiveOrders.FirstOrDefault(o =>
-                o.AssignedDoorNumber == door && !string.IsNullOrEmpty(o.AssignedLane) &&
+                o.EffectiveStagingDoor == door && !string.IsNullOrEmpty(o.AssignedLane) &&
                 StillOccupiesItsLane(o));
             return owner?.CustomerId;
         }

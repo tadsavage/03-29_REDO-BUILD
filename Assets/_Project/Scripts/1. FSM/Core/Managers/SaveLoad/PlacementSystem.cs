@@ -1238,6 +1238,13 @@ public class PlacementSystem : MonoBehaviour
                                       bool hasTransform = false, Vector3 pos = default, Quaternion rotation = default)
     {
         EnsureContainer();
+        // A broken prefab reference must skip this one object, not throw out of ApplySaveData
+        // and leave the whole load (and the loading screen) hanging.
+        if (so == null || so.prefab == null)
+        {
+            Debug.LogError($"[PlacementSystem] ObjDataSO '{(so != null ? so.name : "null")}' has a missing prefab. Skipping.");
+            return null;
+        }
         Vector2Int root = new Vector2Int(x, y);
         float rotationDeg = rot * 90f;
 

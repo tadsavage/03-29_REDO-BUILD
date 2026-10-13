@@ -185,7 +185,7 @@ public class AODPreviewStage : MonoBehaviour
     /// reads regardless of whatever is crushing regular lit materials to black elsewhere in this rig.</summary>
     private void BuildBackdrop()
     {
-        var backdropColor = new Color(0.08f, 0.10f, 0.14f, 1f); // matches the AOD panel's navy chrome
+        var backdropColor = ThumbBackdropColor; // same light tan as the grid icon backdrops
 
         var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
         wall.name = "PreviewBackdrop";

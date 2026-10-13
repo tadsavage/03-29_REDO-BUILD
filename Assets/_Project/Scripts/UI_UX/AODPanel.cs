@@ -484,7 +484,7 @@ public class AODPanel : IUIPanel
         _previewFrame.style.flexGrow = 1f;      // fills the column both ways (was a fixed 380x380)
         _previewFrame.style.minHeight = 380f;
         _previewFrame.style.alignSelf = Align.Stretch;
-        _previewFrame.style.backgroundColor = new Color(0.08f, 0.10f, 0.14f, 1f);
+        _previewFrame.style.backgroundColor = new Color(0.82f, 0.87f, 0.69f, 1f);
         _previewFrame.style.borderTopLeftRadius = _previewFrame.style.borderTopRightRadius =
             _previewFrame.style.borderBottomLeftRadius = _previewFrame.style.borderBottomRightRadius = 8f;
         _previewFrame.style.borderTopWidth = _previewFrame.style.borderBottomWidth =

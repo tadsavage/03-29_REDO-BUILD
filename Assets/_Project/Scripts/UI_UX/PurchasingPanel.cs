@@ -3208,7 +3208,7 @@ public class PurchasingPanel : IUIPanel
                     {
                         // Runs while the "ARE YOU SURE?" dialog is still on screen — this is the only
                         // moment the card/button have real layout to celebrate on top of/out of.
-                        ConfettiFx.Play(_overlay, _confirmCard);
+                        ConfettiFx.Play(_overlay, _confirmCard, extraFallMs: 2000); // dispatch party runs 2s longer
                         PartnershipGainFx.Play(_overlay, _confirmYesButton,
                             $"+{partnershipGainPreview} TO PARTNERSHIP W/ {vendor.DisplayName.ToUpper()}!");
                     });

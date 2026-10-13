@@ -90,6 +90,7 @@ public class NewItemPanel : IUIPanel
     private string _selectedPosition;
 
     private List<PalletMasterRecord> _itemsNeedingSlots = new();
+    private readonly Dictionary<string, int> _incomingPallets = new(); // sku -> pallets on PO appointments already started
     private List<PalletMasterRecord> _slottedItems = new();
     private List<SkuData> _skuChoices = new();
 
@@ -199,6 +200,37 @@ public class NewItemPanel : IUIPanel
                 receivedSkus.Add(pallet.SkuId);
         }
 
+        // Incoming freight: the SKUs on an inbound PO show up here the moment that PO's appointment block
+        // BEGINS, not only after the pallets are received -- so the player can slot them before the truck
+        // is unloaded. Salvage loads are skipped (their manifest is hidden until received).
+        _incomingPallets.Clear();
+        GameCore.Services.ServiceLocator.TryGet<DockScheduleService>(out var schedule);
+        GameCore.Services.ServiceLocator.TryGet<ShipmentService>(out var shipments);
+        if (schedule != null && shipments != null)
+        {
+            foreach (var appt in schedule.Appointments)
+            {
+                if (appt == null || appt.Kind != AppointmentKind.Inbound || appt.Parked) continue;
+                if (string.IsNullOrEmpty(appt.ShipmentPoNumber)) continue;
+                bool started = appt.Day < schedule.CurrentDay ||
+                               (appt.Day == schedule.CurrentDay && appt.BlockIndex <= schedule.CurrentBlock);
+                if (!started) continue;
+
+                var po = shipments.PendingShipments.FirstOrDefault(s => s != null && s.PONumber == appt.ShipmentPoNumber);
+                if (po == null || po.IsSalvage) continue;
+                if (po.Status != ShipmentData.ShipmentStatus.InTransit &&
+                    po.Status != ShipmentData.ShipmentStatus.Receiving &&
+                    po.Status != ShipmentData.ShipmentStatus.Delayed) continue;
+
+                foreach (var li in po.LineItems)
+                {
+                    if (li == null || li.Dropped || string.IsNullOrEmpty(li.SkuId) || li.ReceivedQuantity >= li.Quantity) continue; // received pallets are already in inventory
+                    _incomingPallets[li.SkuId] = (_incomingPallets.TryGetValue(li.SkuId, out var n) ? n : 0) + 1;
+                    receivedSkus.Add(li.SkuId);
+                }
+            }
+        }
+
         // Find SKUs that don't have any pick slot assigned
         _skuChoices = inv.AllSkus
             .Where(s => receivedSkus.Contains(s.SkuId)
@@ -212,6 +244,13 @@ public class NewItemPanel : IUIPanel
             var pallet = inv.AllPallets.Values.FirstOrDefault(p => p != null && p.SkuId == sku.SkuId);
             if (pallet != null)
                 _itemsNeedingSlots.Add(pallet);
+            else if (_incomingPallets.ContainsKey(sku.SkuId))
+            {
+                // Display-only stand-in for freight that hasn't been received yet. The stable id keeps the
+                // refresh signature steady (a random Guid per refresh would rebuild the list every tick).
+                _itemsNeedingSlots.Add(new PalletMasterRecord(sku.SkuId, 0, Vector2Int.zero, 0, -1)
+                    { PalletId = "incoming-" + sku.SkuId });
+            }
         }
 
         string currentSignature = string.Join("|", _itemsNeedingSlots.Select(p => p?.PalletId ?? ""));
@@ -377,6 +416,7 @@ public class NewItemPanel : IUIPanel
         var palletsNeedingSlots = inv?.AllPallets.Values
             .Where(p => p != null && p.SkuId == pallet.SkuId && SlotAssignmentService.GetSlotsForSku(p.SkuId).Count == 0)
             .Count() ?? 1;
+        if (_incomingPallets.TryGetValue(pallet.SkuId, out var incomingCount)) palletsNeedingSlots += incomingCount;
 
         var palletCount = new Label($"pallets: {palletsNeedingSlots}");
         ApplyFont(palletCount, bold: true, size: 13);

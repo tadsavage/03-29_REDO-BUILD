@@ -2355,6 +2355,44 @@ public class SchedulerPanel : IUIPanel
         chip.RegisterCallback<GeometryChangedEvent>(ApplyDiagonal);
     }
 
+    /// <summary>Diagonal "PENALIZED / No further fees" stamp for a trailer that has already paid its
+    /// off-slot or late penalty (DockAppointment.OffSlotPenaltyApplied / WasLate) -- the game charges
+    /// each trailer once, so moving it again costs nothing more. Same corner-to-corner geometry as
+    /// AddBackfillStamp, with a taller strip for the second line.</summary>
+    private void AddPenalizedStamp(VisualElement chip)
+    {
+        var stamp = MakeText("PENALIZED\n<size=12>No further fees</size>", 20, new Color(1f, 0.35f, 0.30f), bold: true);
+        ApplyLilitaFont(stamp);
+        stamp.enableRichText = true;
+        stamp.pickingMode = PickingMode.Ignore;
+        stamp.style.position = Position.Absolute;
+        stamp.style.unityTextAlign = TextAnchor.MiddleCenter;
+        stamp.style.whiteSpace = WhiteSpace.Normal;
+        stamp.style.paddingTop = 0; stamp.style.paddingBottom = 0;
+        stamp.style.marginTop = 0; stamp.style.marginBottom = 0;
+        stamp.style.unityTextOutlineWidth = 0.7f;
+        stamp.style.unityTextOutlineColor = new StyleColor(new Color(0.05f, 0.02f, 0.02f, 1f));
+        chip.Add(stamp);
+
+        const float StampStripHeight = 46f;
+        void ApplyDiagonal(GeometryChangedEvent evt)
+        {
+            float w = chip.resolvedStyle.width;
+            float h = chip.resolvedStyle.height;
+            if (w <= 0f || h <= 0f) return;
+
+            float length = Mathf.Sqrt(w * w + h * h);
+            float angleDeg = Mathf.Atan2(h, w) * Mathf.Rad2Deg;
+
+            stamp.style.width = length;
+            stamp.style.height = StampStripHeight;
+            stamp.style.left = (w - length) / 2f;
+            stamp.style.top = h / 2f - StampStripHeight / 2f;
+            stamp.style.rotate = new Rotate(new Angle(angleDeg, AngleUnit.Degree));
+        }
+        chip.RegisterCallback<GeometryChangedEvent>(ApplyDiagonal);
+    }
+
     /// <summary>
     /// Small square corner flag marking a chip as "this customer/vendor has already been burned once"
     /// — DockAppointment.WasLate. Deliberately NOT the diagonal strike (see AddStrikeThrough): the
@@ -3127,7 +3165,7 @@ private static void ApplyLilitaFont(VisualElement el)
     // treatment and the PO/Order Details card are new.
 
     private const float NewSchedulerDoorLabelWidth = 90f;
-    private const float NewSchedulerRowHeight = 118f; // was 102 -- grown to fit the chip's new "Pallets: N" bottom line
+    private const float NewSchedulerRowHeight = 244f; // was 196 -- grown again for the RELEASE ORDERS button
     private const float NewSchedulerTickerHeight = 26f;
     private const float NewSchedulerBadgeHeight = 29f;
     private const float NewSchedulerBadgeWidth = 74f;
@@ -3740,6 +3778,29 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         bool booking = _selectedUnscheduledKey != null;
         bool holding = booking || _selectedAppointmentId != null;
 
+        // What's in hand decides every cell's colour (see EvaluateMove): green = free, yellow = allowed
+        // but penalized, red = refused. Resolved once per row, not per cell.
+        DockAppointment movingAppt = null;
+        string holdContractId = null;
+        List<string> holdOrderIds = null;
+        List<int> outboundDoors = null;
+        if (holding)
+        {
+            outboundDoors = schedule.OutboundDoors();
+            if (booking)
+            {
+                var holdGroup = schedule.UnscheduledGroups().FirstOrDefault(g => g.Key == _selectedUnscheduledKey);
+                holdContractId = holdGroup?.ContractId;
+                holdOrderIds = holdGroup?.OrderIds;
+            }
+            else
+            {
+                movingAppt = schedule.FindById(_selectedAppointmentId);
+                holdContractId = movingAppt?.ContractId;
+                holdOrderIds = movingAppt?.OrderIds;
+            }
+        }
+
         for (int block = 0; block < DockScheduleService.BlocksPerDay; block++)
         {
             // includeClosedOut so a block whose window has elapsed still renders (struck through)
@@ -3750,16 +3811,130 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
                 .OrderBy(a => a.ClosedOut)
                 .FirstOrDefault();
             bool past = _scheduleDay < today || (_scheduleDay == today && block < schedule.CurrentBlock);
+            var verdict = DockScheduleService.MoveVerdict.Free;
+            string verdictReason = null;
+            bool isHeldChip = appt != null && appt.Id == _selectedAppointmentId;
+            if (holding && !isHeldChip)
+                verdict = schedule.EvaluateMove(movingAppt, holdContractId, _scheduleDay, _scheduleDay, block,
+                                                doorNumber, out verdictReason, outboundDoors);
+            string warning = null;
+            if (verdict == DockScheduleService.MoveVerdict.Costly)
+            {
+                int baseDay = movingAppt != null ? movingAppt.RequestedDay : _scheduleDay;
+                int repCost = schedule.PredictOffSlotReputationCost(holdContractId, baseDay, _scheduleDay, block);
+                warning = $"Fees and Penalties: ${ChipLateFeeDollars(holdOrderIds):N0}\n" +
+                          $"-{(int)OrderArrivalService.SatisfactionPenaltyPerMiss} Partnership\n" +
+                          $"-{repCost} Reputation";
+            }
+            else if (verdict == DockScheduleService.MoveVerdict.Free && holding)
+            {
+                warning = movingAppt != null && movingAppt.OffSlotPenaltyApplied
+                    ? "Penalties already happened, no further penalties."
+                    : "No Penalties.";
+            }
+
             VisualElement cell = appt != null
                 ? BuildNewSchedulerCell(schedule, appt, arrivals, past)
-                : (holding && !past ? BuildNewSchedulerEmptyCell(block, doorNumber, booking) : null);
+                : (holding ? BuildNewSchedulerEmptyCell(block, doorNumber, booking, verdict, warning) : null);
             if (cell == null) continue;
             cell.style.left = Length.Percent(block / (float)DockScheduleService.BlocksPerDay * 100f);
             cell.style.width = Length.Percent(100f / DockScheduleService.BlocksPerDay);
             lane.Add(cell);
+
+            // A slot another trailer occupies (or that has already passed) is a flat refusal: lay the red
+            // "no" tint over the chip itself, click-through so the chip stays selectable.
+            if (appt != null && holding && !isHeldChip && verdict == DockScheduleService.MoveVerdict.Blocked)
+            {
+                var overlay = BuildMoveTintCell(DockScheduleService.MoveVerdict.Blocked);
+                overlay.pickingMode = PickingMode.Ignore;
+                overlay.style.left = cell.style.left;
+                overlay.style.width = cell.style.width;
+                lane.Add(overlay);
+            }
         }
 
         return row;
+    }
+
+    private static readonly Color ReleaseGreen = new Color(0.16f, 0.78f, 0.30f);
+    private static readonly Color ReleasedGray = new Color(0.42f, 0.45f, 0.49f);
+
+    /// <summary>Bright-green RELEASE ORDERS button along the bottom of an outbound tile; greys out to
+    /// RELEASED once every order on the trailer has been released to the floor. Nothing is shown for
+    /// inbound POs, an empty trailer, or a trailer whose orders are all finished.</summary>
+    private void AddReleaseOrdersButton(VisualElement cell, DockAppointment appt)
+    {
+        if (appt.Kind == AppointmentKind.Inbound || appt.OrderIds.Count == 0) return;
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return;
+
+        var live = orders.ActiveOrders
+            .Where(o => o != null && appt.OrderIds.Contains(o.OrderId)
+                        && o.Status != OrderData.OrderStatus.Cancelled && o.Status != OrderData.OrderStatus.Shipped)
+            .ToList();
+        if (live.Count == 0) return;
+
+        bool pending = live.Any(orders.IsAwaitingRelease);
+
+        var btn = new Label(pending ? "RELEASE ORDERS" : "RELEASED");
+        ApplyFont(btn, true, 13);
+        btn.style.color = new StyleColor(Color.white);
+        btn.style.backgroundColor = new StyleColor(pending ? ReleaseGreen : ReleasedGray);
+        btn.style.unityTextAlign = TextAnchor.MiddleCenter;
+        btn.style.whiteSpace = WhiteSpace.NoWrap;
+        btn.style.height = 28;
+        btn.style.flexShrink = 0;
+        btn.style.marginTop = 6;
+        btn.style.marginLeft = 0; btn.style.marginRight = 0; btn.style.marginBottom = 0;
+        btn.style.paddingTop = 0; btn.style.paddingBottom = 0;
+        btn.style.borderTopLeftRadius = btn.style.borderTopRightRadius =
+            btn.style.borderBottomLeftRadius = btn.style.borderBottomRightRadius = 4;
+        cell.Add(btn);
+
+        if (!pending) return;
+
+        // ClickEvent bubbles, so stop it here or pressing the button also picks the tile up for a move.
+        btn.RegisterCallback<ClickEvent>(evt =>
+        {
+            evt.StopPropagation();
+            OnReleaseOrdersClicked(appt);
+        });
+        btn.RegisterCallback<MouseEnterEvent>(_ => CustomCursorService.SetHoveringInteractable(true));
+        btn.RegisterCallback<MouseLeaveEvent>(_ => CustomCursorService.SetHoveringInteractable(false));
+    }
+
+    /// <summary>Releases this trailer's orders to the floor (same call the Work Queue's Release makes),
+    /// then plays the CMD flourish and, when it closes, writes the same summary to the LOG.</summary>
+    private void OnReleaseOrdersClicked(DockAppointment appt)
+    {
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return;
+
+        var batch = orders.ActiveOrders
+            .Where(o => o != null && appt.OrderIds.Contains(o.OrderId) && orders.IsAwaitingRelease(o))
+            .ToList();
+        if (batch.Count == 0) { Rebuild(); return; }
+
+        if (!orders.ReleaseOrdersToStages(batch.Select(o => o.OrderId).ToList(), out string why, out bool waitingForLane))
+        {
+            UIToast.Show($"Release failed — {why}");
+            return;
+        }
+
+        AudioManager.Play("UIClick");
+
+        int picks = 0, cases = 0;
+        foreach (var o in batch)
+        {
+            var (p, c) = orders.ReleaseBreakdown(o);
+            picks += p; cases += c;
+        }
+
+        string plainNumbers = string.Join(" + ", batch.Select(o => o.OrderNumber ?? o.OrderId));
+        string linkedNumbers = string.Join(" + ", batch.Select(o => LogLinks.Order(o.OrderId, o.OrderNumber ?? o.OrderId)));
+        string tail = $"released to floor{(waitingForLane ? " (no open lane yet)" : "")}, Plt Picks: {picks}  |  Cases to Pick: {cases}";
+
+        Rebuild(); // the button flips to RELEASED right away
+        ReleaseTerminalFx.Play(_overlay, waitingForLane ? "WAITING FOR LANE" : "ORDER RELEASED", $"Order {plainNumbers} {tail}",
+            () => SystemsLogWindow.LogSystem($"Order {linkedNumbers} {tail}"));
     }
 
     private VisualElement BuildNewSchedulerCell(DockScheduleService schedule, DockAppointment appt,
@@ -3876,10 +4051,31 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         TightenLine(palletsLine, 1);
         cell.Add(palletsLine);
 
+        // "Considered Late" block: when this trailer is judged late (SweepElapsedAppointments fires the
+        // instant its block ends) and what that costs. One short line each, no wrap.
+        if (appt.Kind != AppointmentKind.Inbound || isInbound)
+        {
+            int fineFont = SummaryFontSize - 1;
+            void AddFineLine(string txt, Color col)
+            {
+                var l = MakeText(txt, fineFont, col);
+                l.style.whiteSpace = WhiteSpace.NoWrap; l.style.overflow = Overflow.Hidden;
+                l.style.unityTextAlign = TextAnchor.MiddleLeft;
+                TightenLine(l, 1);
+                cell.Add(l);
+            }
+            AddFineLine("Considered Late:", labelColor);
+            AddFineLine(ChipCutoffText(appt), labelColor);
+            if (!isInbound) AddFineLine($"Late Fee ${ChipLateFeeDollars(appt.OrderIds):N0}", ColDangerSoft);
+            AddFineLine(ChipPenaltyText(appt, isInbound), ColDangerSoft);
+        }
+
         // Same automatically-queued backfill redelivery the pool box stamps (see BuildParkedBox) —
         // stays on the scheduled grid cell too once the player places it on a door, per Tad's explicit
         // call, until the redelivery is fully received or cancelled for credit.
+        AddReleaseOrdersButton(cell, appt);
         if (IsBackfillPo(appt)) AddBackfillStamp(cell);
+        if (appt.OffSlotPenaltyApplied || appt.WasLate) AddPenalizedStamp(cell);
 
         if (!locked) cell.RegisterCallback<ClickEvent>(_ => OnChipClicked(appt));
 
@@ -3907,6 +4103,38 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
         return cell;
     }
+    /// <summary>"Day 1 @ 22:00" -- the real moment this booking is judged late: the END of its two-hour
+    /// block (DockScheduleService.SweepElapsedAppointments). A block ending at 24:00 rolls to 00:00 of
+    /// the next day, since that is when the clock actually reaches it.</summary>
+    private static string ChipCutoffText(DockAppointment appt)
+    {
+        int day = appt.Day, hour = appt.EndHour;
+        if (hour >= 24) { day++; hour -= 24; }
+        return $"Day {day} @ {hour:00}:00";
+    }
+
+    /// <summary>Dollar late fee still to be charged on the orders riding this trailer -- the contract's
+    /// rate (or OrderService's 25% fallback) times order value, same arithmetic as ChargeLateFee.</summary>
+    private static int ChipLateFeeDollars(ICollection<string> orderIds)
+    {
+        int dollars = 0;
+        if (ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
+            foreach (var o in orders.ActiveOrders)
+            {
+                if (o == null || orderIds == null || !orderIds.Contains(o.OrderId) || o.HasBeenFined) continue;
+                float rate = o.LateFeePercent > 0f ? o.LateFeePercent : 0.25f;
+                dollars += Mathf.RoundToInt(rate * o.TotalRevenue);
+            }
+        return dollars;
+    }
+
+    /// <summary>"-5 Part. | -10 Rep." for an outbound trailer (satisfaction, building reputation) or
+    /// "-20 Part." for an inbound PO (vendor partnership only).</summary>
+    private static string ChipPenaltyText(DockAppointment appt, bool inbound)
+        => inbound
+            ? $"-{DockScheduleService.InboundLateRelationshipPenalty} Part."
+            : $"-{(int)OrderArrivalService.SatisfactionPenaltyPerMiss} Part. | -{ReputationService.LateOrderPenalty} Rep.";
+
     /// <summary>Second chip line: this trailer's player-facing order number(s) for an outbound/bulk
     /// appointment, or its PO number for an inbound one -- replaces the old raw time range now that
     /// the chip's position on the timeline already conveys when it's scheduled.</summary>
@@ -3925,7 +4153,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             .Distinct()
             .ToList();
 
-        string label = numbers.Count > 0 ? $"Ordered: {string.Join(" + ", numbers)}" : "No order yet";
+        string label = numbers.Count > 0 ? $"Order#: {string.Join(" + ", numbers)}" : "No order yet";
         return MakeText(label, fontSize, color, bold: true);
     }
 
@@ -4013,23 +4241,68 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     }
 
 
-    private VisualElement BuildNewSchedulerEmptyCell(int block, int doorNumber, bool booking)
+    // Move-target tints: green = free, yellow = allowed with a penalty, red = refused.
+    private static readonly Color MoveGreen  = new Color(0.30f, 0.78f, 0.38f);
+    private static readonly Color MoveYellow = new Color(0.96f, 0.80f, 0.22f);
+    private static readonly Color MoveRed    = new Color(0.88f, 0.22f, 0.22f);
+
+    /// <summary>Bare tinted, bordered cell for a move target. Blocked gets a heavier red border and a
+    /// stronger tint; free/costly use a lighter wash so the slot still reads as an opening.</summary>
+    private VisualElement BuildMoveTintCell(DockScheduleService.MoveVerdict verdict)
     {
+        Color c = verdict == DockScheduleService.MoveVerdict.Free ? MoveGreen
+                : verdict == DockScheduleService.MoveVerdict.Costly ? MoveYellow : MoveRed;
+        bool blocked = verdict == DockScheduleService.MoveVerdict.Blocked;
+
         var cell = new VisualElement();
         cell.style.position = Position.Absolute;
         cell.style.top = 5; cell.style.bottom = 5;
-        cell.style.backgroundColor = new StyleColor(new Color(ColOrange.r, ColOrange.g, ColOrange.b, 0.18f));
+        cell.style.backgroundColor = new StyleColor(new Color(c.r, c.g, c.b, blocked ? 0.30f : 0.22f));
         cell.style.borderTopWidth = cell.style.borderBottomWidth =
-            cell.style.borderLeftWidth = cell.style.borderRightWidth = 1;
+            cell.style.borderLeftWidth = cell.style.borderRightWidth = blocked ? 2 : 1;
         cell.style.borderTopColor = cell.style.borderBottomColor =
-            cell.style.borderLeftColor = cell.style.borderRightColor = new StyleColor(ColOrangeEdge);
+            cell.style.borderLeftColor = cell.style.borderRightColor = new StyleColor(c);
         cell.style.borderTopLeftRadius = cell.style.borderTopRightRadius =
             cell.style.borderBottomLeftRadius = cell.style.borderBottomRightRadius = 4;
+        return cell;
+    }
 
-        var label = MakeText(booking ? "book here" : "move here", 10, ColOrangeText);
-        label.style.unityTextAlign = TextAnchor.MiddleCenter;
-        label.style.marginTop = NewSchedulerRowHeight / 2f - 20f;
+    private VisualElement BuildNewSchedulerEmptyCell(int block, int doorNumber, bool booking,
+                                                     DockScheduleService.MoveVerdict verdict, string warning)
+    {
+        var cell = BuildMoveTintCell(verdict);
+
+        // Big enough to read at a glance across the grid; wraps inside the tile. Tune here.
+        const int MoveTintFontSize = 14;
+        string text;
+        Color textCol;
+        switch (verdict)
+        {
+            case DockScheduleService.MoveVerdict.Blocked:
+                text = "Ineligible - Not inside a tolerable range for the customer";
+                textCol = new Color(1f, 0.55f, 0.55f);
+                break;
+            case DockScheduleService.MoveVerdict.Costly:
+                text = warning;
+                textCol = MoveYellow;
+                break;
+            default:
+                text = (booking ? "book here" : "move here") + (string.IsNullOrEmpty(warning) ? "" : "\n" + warning);
+                textCol = MoveGreen;
+                break;
+        }
+
+        var label = MakeText(text, MoveTintFontSize, textCol, bold: true);
+        label.style.whiteSpace = WhiteSpace.Normal;
+        label.style.unityTextAlign = verdict == DockScheduleService.MoveVerdict.Blocked
+            ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft;
+        label.style.position = Position.Absolute;
+        label.style.left = 4; label.style.right = 4; label.style.top = 0; label.style.bottom = 0;
+        label.pickingMode = PickingMode.Ignore;
         cell.Add(label);
+
+        // Refused slots are tint + text only: no click, no pointer cursor.
+        if (verdict == DockScheduleService.MoveVerdict.Blocked) return cell;
 
         cell.RegisterCallback<ClickEvent>(_ => OnSlotClicked(block, doorNumber));
         cell.RegisterCallback<MouseEnterEvent>(_ => CustomCursorService.SetHoveringInteractable(true));

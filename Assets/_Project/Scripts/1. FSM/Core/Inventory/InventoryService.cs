@@ -522,6 +522,11 @@ namespace GameCore.Inventory
             return byCell;
         }
 
+        /// <summary>True if ANY staged outbound pallet (dropped, not riding forks) stands in this lane.
+        /// InventoryService never tracks those, so lane-emptiness checks have to ask the world.</summary>
+        public bool LaneHasStagedOutboundPallets(int doorNumber, string lane)
+            => OutboundPalletsByCell(LaneNamingService.GetLane(doorNumber, lane)).Count > 0;
+
         /// <summary>Every staged outbound pallet standing in one cell. Callers that need a height
         /// measure the objects themselves — see TrailerOffloadController.StagingDropBaseY.</summary>
         public List<GameObject> GetOutboundPalletObjectsAt(int doorNumber, string lane, Vector2Int cell)

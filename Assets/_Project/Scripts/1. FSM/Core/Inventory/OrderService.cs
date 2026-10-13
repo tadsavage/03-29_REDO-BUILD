@@ -75,6 +75,7 @@ namespace GameCore.Inventory
             if (_eventManager != null)
             {
                 _eventManager.Subscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
+                _eventManager.Subscribe<GameCore.Events.Payloads.SimulationTimeData>(GameEvents.Time.OnMinutePassed, OnMinuteForLanes);
             }
         }
 
@@ -83,6 +84,7 @@ namespace GameCore.Inventory
             if (_eventManager != null)
             {
                 _eventManager.Unsubscribe<int>(GameEvents.Time.OnDayChanged, OnDayChanged);
+                _eventManager.Unsubscribe<GameCore.Events.Payloads.SimulationTimeData>(GameEvents.Time.OnMinutePassed, OnMinuteForLanes);
             }
             _activeOrders.Clear();
             _assignedTasks.Clear();
@@ -192,7 +194,8 @@ namespace GameCore.Inventory
         /// </remarks>
         private void FileReleasedOrderTasks(OrderData order, int doorNumber, string lane)
         {
-            string toLocation = $"{doorNumber}{lane}";
+            bool hasLane = !string.IsNullOrEmpty(lane);
+            string toLocation = hasLane ? $"{doorNumber}{lane}" : null; // null = released with no lane yet (stays Open)
             int palletTasks = 0;
             int unreservedPallets = 0;
             int looseCases = 0;
@@ -253,7 +256,7 @@ namespace GameCore.Inventory
                         priority: PalletPickPriority,
                         orderId: order.OrderId,
                         skuId: li.SkuId);
-                    if (pt != null) pt.Status = WorkTaskStatus.Available;
+                    if (pt != null && hasLane) pt.Status = WorkTaskStatus.Available;
                     palletTasks++;
                 }
             }
@@ -266,10 +269,10 @@ namespace GameCore.Inventory
                     palletId: null,
                     description: $"Select {looseCases} loose case(s) for {order.CustomerName}",
                     orderId: order.OrderId);
-                if (st != null) st.Status = WorkTaskStatus.Available;
+                if (st != null && hasLane) st.Status = WorkTaskStatus.Available;
             }
 
-            Debug.Log($"[OrderService] Order {order.OrderNumber} released to {toLocation}: filed {palletTasks} " +
+            Debug.Log($"[OrderService] Order {order.OrderNumber} released to {toLocation ?? "(no lane yet)"}: filed {palletTasks} " +
                       $"pallet pick(s)" + (looseCases > 0 ? $" and 1 case pick for {looseCases} loose case(s)." : ".") +
                       (unreservedPallets > 0 ? $" {unreservedPallets} filed without a source yet." : ""));
         }
@@ -281,6 +284,32 @@ namespace GameCore.Inventory
             var sku = _inventoryService?.GetSkuData(skuId);
             if (sku == null || sku.Ti <= 0 || sku.Hi <= 0) return 0;
             return sku.Ti * sku.Hi;
+        }
+
+        /// <summary>True while an order is still just its placeholder task(s) — every live task Open —
+        /// i.e. it has not been released to the floor yet. Same test ReleaseOrdersToLane gates on.</summary>
+        public bool IsAwaitingRelease(OrderData order)
+        {
+            if (order == null || order.Status == OrderData.OrderStatus.Cancelled
+                              || order.Status == OrderData.OrderStatus.Shipped) return false;
+            var live = LiveTasksForOrder(order.OrderId).ToList();
+            return !order.ReleasedToFloor && live.Count > 0 && live.All(t => t.Status == WorkTaskStatus.Open);
+        }
+
+        /// <summary>What releasing an order puts on the floor: full-pallet picks for the Reach Trucks, and
+        /// the loose cases left over for a selector. Same Ti x Hi split FileReleasedOrderTasks uses.</summary>
+        public (int palletPicks, int looseCases) ReleaseBreakdown(OrderData order)
+        {
+            int pallets = 0, loose = 0;
+            if (order == null) return (0, 0);
+            foreach (var li in order.LineItems)
+            {
+                int full = FullPalletCases(li.SkuId);
+                if (full <= 0) { loose += li.QuantityNeeded; continue; }
+                pallets += li.QuantityNeeded / full;
+                loose += li.QuantityNeeded % full;
+            }
+            return (pallets, loose);
         }
 
         /// <summary>Every not-yet-finished task belonging to an order, of any type. Bulk orders carry
@@ -407,29 +436,31 @@ namespace GameCore.Inventory
             return ReleaseOrdersToLane(orderIds, doorNumber, startLane);
         }
 
-        /// <summary>One customer's share of a multi-customer release, and the stage it will go to.</summary>
+        /// <summary>One customer's share of a release, and where it goes. <see cref="DoorNumber"/> /
+        /// <see cref="Lane"/> are the staging lane (possibly at a door other than the dock door);
+        /// <see cref="Waiting"/> means no lane was free, so the work is released but held Open.</summary>
         public class StageRelease
         {
             public string CustomerId;
             public string CustomerName;
             public List<string> OrderIds;
-            public int DoorNumber;
+            public int DockDoor;      // door whose trailer carries these orders (appointment door), 0 if unscheduled
+            public int DoorNumber;    // staging door
+            public string Lane;       // staging lane at DoorNumber; null when Waiting
+            public bool Waiting;      // no lane free right now
         }
 
         /// <summary>
-        /// Works out which stage each customer in a mixed selection would get, WITHOUT changing
-        /// anything — so the panel can show the player the exact plan before they commit to it, and
-        /// then commit that same plan (see ReleaseOrdersToStages). One algorithm serving both is the
-        /// point: a preview computed separately from the commit drifts out of agreement with it.
+        /// Works out where each customer in a selection would stage, WITHOUT changing anything — so the
+        /// panel can show the plan before the player commits and then commit that same plan (see
+        /// ReleaseOrdersToStages). One algorithm for both, so a preview can't drift from the commit.
         ///
-        /// A stage holds ONE customer at a time — staging overflows A→B→C within a stage, so a second
-        /// customer sharing it would have the first's overflow land in its lanes. Multi-customer
-        /// release therefore means one stage EACH, not a shared stage. Customers are served in the
-        /// order they appear in the selection; each takes a stage it already owns if it has one
-        /// (adding to a customer's existing staging, the natural thing) before consuming a free stage.
-        ///
-        /// All-or-nothing: if any customer can't be placed, nothing is planned and
-        /// <paramref name="failReason"/> names the customer and why.
+        /// Each customer's orders share ONE lane: the first completely empty lane found searching outward
+        /// from the dock door the orders' trailer is booked at (see
+        /// StagingLaneAssignmentService.TryFindLaneForOrder). Customers in the same batch are planned in
+        /// selection order and never given the same lane, nor a door another customer in the batch holds.
+        /// If no lane is free the customer is planned as <see cref="StageRelease.Waiting"/> rather than
+        /// failing — the release still happens and the lane is assigned when one opens.
         /// </summary>
         public bool TryPlanStageSpread(List<string> orderIds, out List<StageRelease> plan, out string failReason)
         {
@@ -438,135 +469,94 @@ namespace GameCore.Inventory
             if (orderIds == null || orderIds.Count == 0) { failReason = "nothing selected"; return false; }
 
             ServiceLocator.TryGet<InventoryService>(out var inv);
+            ServiceLocator.TryGet<DockScheduleService>(out var schedule);
 
-            // Group by customer, preserving the order they were selected in.
-            var byCustomer = new Dictionary<string, StageRelease>();
-            var customerOrder = new List<string>();
+            // Group by customer (and dock door), preserving the order they were selected in.
+            var groups = new List<StageRelease>();
             foreach (var id in orderIds)
             {
                 var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
                 if (order == null) { failReason = $"order {id} no longer exists"; plan = null; return false; }
 
-                if (!byCustomer.TryGetValue(order.CustomerId, out var group))
+                int dock = schedule?.FindForOrder(id)?.DoorNumber ?? 0;
+                var group = groups.FirstOrDefault(g => g.CustomerId == order.CustomerId && g.DockDoor == dock);
+                if (group == null)
                 {
                     group = new StageRelease
                     {
                         CustomerId = order.CustomerId,
                         CustomerName = order.CustomerName,
-                        OrderIds = new List<string>()
+                        OrderIds = new List<string>(),
+                        DockDoor = dock
                     };
-                    byCustomer[order.CustomerId] = group;
-                    customerOrder.Add(order.CustomerId);
+                    groups.Add(group);
                 }
                 group.OrderIds.Add(id);
             }
 
-            var allDoors = LaneNamingService.AllLanes().Select(l => l.door).Distinct().OrderBy(d => d).ToList();
-            var claimed = new HashSet<int>(); // stages spoken for by EARLIER customers in this same batch
+            var plannedLanes = new HashSet<(int door, string lane)>();
+            var plannedDoorOwners = new Dictionary<int, string>();
 
-            foreach (var customerId in customerOrder)
+            foreach (var group in groups)
             {
-                var group = byCustomer[customerId];
-                int chosen = 0;
-
-                // Prefer a stage this customer already occupies, so their orders stay together.
-                foreach (int door in allDoors)
+                if (StagingLaneAssignmentService.TryFindLaneForOrder(this, inv, group.DockDoor, group.CustomerId,
+                        out int stageDoor, out string lane, plannedLanes, plannedDoorOwners))
                 {
-                    if (claimed.Contains(door)) continue;
-                    if (StagingLaneAssignmentService.GetOwningCustomerIdForDoor(this, door) != customerId) continue;
-                    if (!StagingLaneAssignmentService.IsStageSelectableFor(this, inv, door, customerId)) continue;
-                    chosen = door;
-                    break;
+                    group.DoorNumber = stageDoor;
+                    group.Lane = lane;
+                    plannedLanes.Add((stageDoor, lane));
+                    plannedDoorOwners[stageDoor] = group.CustomerId;
+                    if (group.DockDoor <= 0) group.DockDoor = stageDoor; // unscheduled: dock where it stages
                 }
-
-                if (chosen == 0)
+                else
                 {
-                    foreach (int door in allDoors)
-                    {
-                        if (claimed.Contains(door)) continue;
-                        if (!StagingLaneAssignmentService.IsStageSelectableFor(this, inv, door, customerId)) continue;
-                        chosen = door;
-                        break;
-                    }
+                    group.Waiting = true;
                 }
-
-                if (chosen == 0)
-                {
-                    // "no free stage" on its own reads as "the staging lanes are full", and that is
-                    // usually NOT what happened — every lane can be completely empty and the stage
-                    // still refused because another customer owns it, or an inbound trailer is sitting
-                    // on it. Naming the actual blocker per stage is the difference between a message
-                    // the player can act on and one that sends them to count pallets in an empty lane.
-                    if (customerOrder.Count > 1)
-                    {
-                        string taken = plan.Count > 0
-                            ? string.Join(", ", plan.Select(p => $"{p.CustomerName} → Stage {p.DoorNumber}"))
-                            : "none could be assigned";
-                        failReason = $"a stage holds one customer at a time, and all {allDoors.Count} " +
-                                     $"stage(s) are spoken for ({taken}) — {group.CustomerName} has " +
-                                     $"nowhere to stage. Release fewer customers at once, or add another " +
-                                     $"dock door";
-                    }
-                    else if (allDoors.Count == 0)
-                    {
-                        failReason = "there are no dock doors with staging lanes yet — place a shipping " +
-                                     "door and a row of lane tiles first";
-                    }
-                    else
-                    {
-                        // One customer, so the useful information is why EACH stage said no.
-                        var reasons = new List<string>();
-                        foreach (int door in allDoors)
-                        {
-                            var owner = StagingLaneAssignmentService.GetOwningCustomerIdForDoor(this, door);
-                            if (owner != null && owner != customerId)
-                            {
-                                reasons.Add($"Stage {door} is held by {owner}");
-                                continue;
-                            }
-                            StagingLaneAssignmentService.IsStageSelectableFor(this, inv, door, customerId, out string r);
-                            reasons.Add($"Stage {door}: {r ?? "unavailable"}");
-                        }
-                        failReason = $"no stage will take {group.CustomerName} — {string.Join("; ", reasons)}";
-                    }
-
-                    plan = null;
-                    return false;
-                }
-
-                claimed.Add(chosen);
-                group.DoorNumber = chosen;
                 plan.Add(group);
             }
-
             return true;
         }
 
         /// <summary>
-        /// Releases a selection spanning any number of customers in one action, each to its own stage
-        /// (see TryPlanStageSpread for how stages are chosen). Plans the whole batch before touching
-        /// anything, so an unplaceable customer aborts the release rather than half-committing it.
+        /// Releases a selection spanning any number of customers in one action, each to the lane the plan
+        /// chose (see TryPlanStageSpread). All planning happens before anything is touched. A customer
+        /// with no free lane is released WAITING (tasks Open, warning raised once) rather than refused.
+        /// <paramref name="waitingForLane"/> is true if ANY customer in the batch had to wait.
         /// </summary>
         public bool ReleaseOrdersToStages(List<string> orderIds, out string failReason)
+            => ReleaseOrdersToStages(orderIds, out failReason, out _);
+
+        public bool ReleaseOrdersToStages(List<string> orderIds, out string failReason, out bool waitingForLane)
         {
+            waitingForLane = false;
             if (!TryPlanStageSpread(orderIds, out var plan, out failReason)) return false;
 
             foreach (var group in plan)
             {
-                // Each group re-validates on the way in (inbound trailer, lane resolution, ownership).
-                // The plan above already cleared all of that, so a refusal here means the world moved
-                // between planning and committing within this same call — report it rather than
-                // continuing and leaving the batch half-released.
-                if (ReleaseOrdersToStage(group.OrderIds, group.DoorNumber)) continue;
+                bool ok = group.Waiting
+                    ? ReleaseOrdersWaitingForLane(group.OrderIds, group.DockDoor)
+                    : ReleaseOrdersToLane(group.OrderIds, group.DoorNumber, group.Lane, group.DockDoor);
+                if (ok)
+                {
+                    if (group.Waiting)
+                    {
+                        waitingForLane = true;
+                        string msg = "No open lanes — released orders can't be assigned until one opens.";
+                        UIToast.Show(msg);
+                        SystemsLogWindow.LogWarning($"{group.CustomerName}: no open lanes; tasks can't be assigned until one opens.");
+                    }
+                    continue;
+                }
 
-                failReason = $"{group.CustomerName} could not be released to Stage {group.DoorNumber}";
-                Debug.LogWarning($"[OrderService] Multi-customer release aborted partway: {failReason}. " +
+                failReason = $"{group.CustomerName} could not be released";
+                Debug.LogWarning($"[OrderService] Release aborted partway: {failReason}. " +
                                  $"{plan.IndexOf(group)} of {plan.Count} customer(s) were already released.");
                 return false;
             }
 
             Debug.Log($"[OrderService] Released {orderIds.Count} order(s) across {plan.Count} customer(s): " +
-                      string.Join(", ", plan.Select(g => $"{g.CustomerName} -> Stage {g.DoorNumber}")));
+                      string.Join(", ", plan.Select(g => g.Waiting ? $"{g.CustomerName} -> (waiting for lane)"
+                                                                    : $"{g.CustomerName} -> {g.DoorNumber}{g.Lane}")));
             return true;
         }
 
@@ -584,7 +574,7 @@ namespace GameCore.Inventory
         /// order's identity from then on, so that path deliberately leaves OrderNumber alone. This is
         /// what "release it again" actually re-releases, so the number must not change.
         /// </remarks>
-        public bool ReleaseOrdersToLane(List<string> orderIds, int doorNumber, string lane)
+        public bool ReleaseOrdersToLane(List<string> orderIds, int doorNumber, string lane, int dockDoor = 0)
         {
             if (_workQueue == null || orderIds == null || orderIds.Count == 0 || string.IsNullOrEmpty(lane)) return false;
 
@@ -600,7 +590,9 @@ namespace GameCore.Inventory
 
                 var placeholders = LiveTasksForOrder(id).ToList();
                 // All-or-nothing per order: a partly-released order would put half its work on the
-                // floor while the panel still offers it as releasable.
+                // floor while the panel still offers it as releasable. ReleasedToFloor also rules out
+                // an order released with no lane, whose (Open) tasks are real work, not placeholders.
+                if (order.ReleasedToFloor) return false;
                 if (placeholders.Count == 0 || placeholders.Any(t => t.Status != WorkTaskStatus.Open)) return false;
                 pairs.Add((order, placeholders));
             }
@@ -616,8 +608,13 @@ namespace GameCore.Inventory
             {
                 foreach (var task in placeholders) task.Status = WorkTaskStatus.Cancelled;
 
-                order.AssignedDoorNumber = doorNumber;
+                // AssignedDoorNumber is the DOCK door (whose trailer carries the order); the lane itself
+                // may be at another door — StagingDoorNumber. They coincide unless the dock door's own
+                // lanes were all busy.
+                order.AssignedDoorNumber = dockDoor > 0 ? dockDoor : doorNumber;
+                order.StagingDoorNumber = doorNumber;
                 order.AssignedLane = lane;
+                order.ReleasedToFloor = true;
                 // Every order is minted its OrderNumber at ReceiveOrder now, so this should always be
                 // a no-op by the time it's released — kept as a defensive fallback only, so an order
                 // that somehow reached here without one (e.g. a legacy save mid-migration) still gets
@@ -626,9 +623,107 @@ namespace GameCore.Inventory
                 FileReleasedOrderTasks(order, doorNumber, lane);
             }
 
-            Debug.Log($"[OrderService] Released {pairs.Count} order(s) for {customerId} to {doorNumber}{lane}: " +
+            Debug.Log($"[OrderService] Released {pairs.Count} order(s) for {customerId} to {doorNumber}{lane}" +
+                      (dockDoor > 0 && dockDoor != doorNumber ? $" (dock door {dockDoor})" : "") + ": " +
                       string.Join(", ", pairs.Select(p => p.order.OrderNumber)));
             return true;
+        }
+
+        /// <summary>
+        /// Releases a batch to the floor with NO lane yet: no staging lane was free. The placeholder is
+        /// replaced by the real PalletPick/OrderSelect tasks (so the work exists and is visible) but
+        /// they stay Open — unclaimable — and the order is marked ReleasedToFloor with AssignedLane
+        /// null. <see cref="AssignWaitingLanes"/> finishes the job when a lane opens up.
+        /// </summary>
+        public bool ReleaseOrdersWaitingForLane(List<string> orderIds, int dockDoor)
+        {
+            if (_workQueue == null || orderIds == null || orderIds.Count == 0) return false;
+
+            var pairs = new List<(OrderData order, List<WorkTask> placeholders)>();
+            foreach (var id in orderIds)
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
+                if (order == null || order.ReleasedToFloor) return false;
+                var placeholders = LiveTasksForOrder(id).ToList();
+                if (placeholders.Count == 0 || placeholders.Any(t => t.Status != WorkTaskStatus.Open)) return false;
+                pairs.Add((order, placeholders));
+            }
+
+            foreach (var (order, placeholders) in pairs)
+            {
+                foreach (var task in placeholders) task.Status = WorkTaskStatus.Cancelled;
+                order.AssignedDoorNumber = dockDoor;
+                order.StagingDoorNumber = 0;
+                order.AssignedLane = null;
+                order.ReleasedToFloor = true;
+                if (string.IsNullOrEmpty(order.OrderNumber)) order.OrderNumber = GenerateOrderNumber(order);
+                FileReleasedOrderTasks(order, 0, null);
+            }
+
+            Debug.LogWarning($"[OrderService] Released {pairs.Count} order(s) with NO lane available — tasks stay Open " +
+                             $"until a staging lane frees up: {string.Join(", ", pairs.Select(p => p.order.OrderNumber))}");
+            return true;
+        }
+
+        /// <summary>Gives a released-but-laneless batch its lane and makes its work claimable: sets the
+        /// staging door + lane, points every live PalletPick at the lane, and flips Open tasks to
+        /// Available. Used by the periodic retry and by the player's manual lane choice.</summary>
+        public void AssignLaneToOrders(IEnumerable<OrderData> orders, int stagingDoor, string lane)
+        {
+            foreach (var order in orders)
+            {
+                if (order == null) continue;
+                if (order.AssignedDoorNumber <= 0) order.AssignedDoorNumber = stagingDoor;
+                order.StagingDoorNumber = stagingDoor;
+                order.AssignedLane = lane;
+                foreach (var t in LiveTasksForOrder(order.OrderId))
+                {
+                    // Only still-unclaimed work is redirected: a task someone has already Assigned is
+                    // mid-flight toward the old lane and keeps its destination.
+                    if (t.Status != WorkTaskStatus.Open && t.Status != WorkTaskStatus.Available) continue;
+                    if (t.Type == WorkTaskType.PalletPick) t.AssignToLocation($"{stagingDoor}{lane}");
+                    if (t.Status == WorkTaskStatus.Open) t.Status = WorkTaskStatus.Available;
+                }
+            }
+        }
+
+        private int _waitingLaneTick;
+
+        // Every few in-game minutes; AssignWaitingLanes is a no-op (one LINQ pass) when nothing waits.
+        private void OnMinuteForLanes(string eventId, GameCore.Events.Payloads.SimulationTimeData _)
+        {
+            if (++_waitingLaneTick % 3 != 0) return;
+            AssignWaitingLanes();
+        }
+
+        /// <summary>
+        /// The heartbeat retry for released orders that found no lane: groups them by customer + dock
+        /// door, looks for a lane exactly as a fresh release would, and — when one frees up — assigns it,
+        /// opens the tasks, and says so (toast + LOG). Quiet when nothing is waiting or nothing opened.
+        /// State is derived from persisted fields (<see cref="OrderData.IsWaitingForLane"/>), so a save
+        /// taken while waiting simply resumes waiting after load.
+        /// </summary>
+        public void AssignWaitingLanes()
+        {
+            var waiting = _activeOrders.Where(o => o != null && o.IsWaitingForLane).ToList();
+            if (waiting.Count == 0) return;
+
+            ServiceLocator.TryGet<InventoryService>(out var inv);
+            foreach (var group in waiting.GroupBy(o => (o.CustomerId, o.AssignedDoorNumber)))
+            {
+                var batch = group.ToList();
+                if (!StagingLaneAssignmentService.TryFindLaneForOrder(this, inv, group.Key.AssignedDoorNumber,
+                        group.Key.CustomerId, out int stageDoor, out string lane))
+                    continue;
+
+                AssignLaneToOrders(batch, stageDoor, lane);
+
+                string numbers = string.Join(", ", batch.Select(o => o.OrderNumber ?? o.OrderId));
+                string msg = $"Lane {stageDoor}{lane} opened — {batch[0].CustomerName}'s order {numbers} is released and can be picked.";
+                Debug.Log($"[OrderService] {msg}");
+                UIToast.Show(msg);
+                SystemsLogWindow.LogSystem(msg);
+            }
         }
 
         /// <summary>
@@ -693,9 +788,10 @@ namespace GameCore.Inventory
                 }
 
                 Debug.Log($"[OrderService] Order {order.OrderNumber ?? order.OrderId} ({order.CustomerName}) cancelled by the player — " +
-                          $"{order.TotalUnitsPicked}/{order.TotalUnits} case(s) had been picked; released Stage {order.AssignedDoorNumber}.");
+                          $"{order.TotalUnitsPicked}/{order.TotalUnits} case(s) had been picked; released Stage {order.EffectiveStagingDoor}.");
 
                 order.AssignedDoorNumber = 0;
+                order.StagingDoorNumber = 0;
                 order.AssignedLane = null;
                 order.Status = OrderData.OrderStatus.Cancelled;
                 StampClosedNow(order);
@@ -738,8 +834,10 @@ namespace GameCore.Inventory
             if (orders.Any(o => o.CustomerId != customerId || o.AssignedDoorNumber != doorNumber)) return false;
             if (orders.Any(o => string.IsNullOrEmpty(o.AssignedLane))) return false;
 
-            var lanes = orders.Select(o => o.AssignedLane).Distinct().ToList();
-            // Plus any lane at this door where these orders' staged pallets PHYSICALLY are. A pallet
+            // doorNumber is the DOCK door (the trailer). The lanes may be at other (staging) doors — keep
+            // each lane as (staging door, letter) so the Load task can name where to fetch from.
+            var lanes = orders.Select(o => (door: o.EffectiveStagingDoor, lane: o.AssignedLane)).Distinct().ToList();
+            // Plus any lane at these doors where these orders' staged pallets PHYSICALLY are. A pallet
             // that landed outside the order's assigned lane (seen live 2026-09-23: an OG4104 pallet in
             // 1D with the order assigned to 1E) was never loaded — and the empty 1E pass reverted the
             // order to Staged, which re-released it, every half second.
@@ -751,11 +849,11 @@ namespace GameCore.Inventory
                 {
                     if (p == null || p.transform.parent != null || !ids.Contains(p.OrderId)) continue;
                     if (LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var s) &&
-                        s.DoorNumber == doorNumber && !lanes.Contains(s.Lane))
-                        lanes.Add(s.Lane);
+                        lanes.Any(l => l.door == s.DoorNumber) && !lanes.Contains((s.DoorNumber, s.Lane)))
+                        lanes.Add((s.DoorNumber, s.Lane));
                 }
             }
-            lanes = lanes.OrderBy(l => l).ToList();
+            lanes = lanes.OrderBy(l => l.door).ThenBy(l => l.lane).ToList();
 
             bool truckAtDoor = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
                 .Any(t => t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber);
@@ -765,19 +863,19 @@ namespace GameCore.Inventory
             foreach (var order in orders)
                 order.Status = OrderData.OrderStatus.Loading;
 
-            foreach (var lane in lanes)
+            foreach (var (stageDoor, lane) in lanes)
             {
                 _workQueue.CreateTask(
                     WorkTaskType.Load,
                     EmployeeRole.DockStockerOperator,
                     palletId: null,
-                    description: $"Load {customerId} from {doorNumber}{lane} -> Door {doorNumber}",
-                    fromLocation: $"{doorNumber}{lane}",
+                    description: $"Load {customerId} from {stageDoor}{lane} -> Door {doorNumber}",
+                    fromLocation: $"{stageDoor}{lane}",
                     toLocation: doorNumber.ToString());
             }
 
-            Debug.Log($"[OrderService] Released {orders.Count} order(s) for {customerId} at Stage {doorNumber} " +
-                      $"(lane(s) {string.Join(", ", lanes)}) to loading — {lanes.Count} load task(s) filed.");
+            Debug.Log($"[OrderService] Released {orders.Count} order(s) for {customerId} to loading at dock door {doorNumber} " +
+                      $"(lane(s) {string.Join(", ", lanes.Select(l => $"{l.door}{l.lane}"))}) — {lanes.Count} load task(s) filed.");
             return true;
         }
 
@@ -911,7 +1009,7 @@ namespace GameCore.Inventory
             foreach (var order in _activeOrders)
             {
                 if (order.Status != OrderData.OrderStatus.Loading) continue;
-                if (order.AssignedDoorNumber != doorNumber || order.AssignedLane != lane) continue;
+                if (order.EffectiveStagingDoor != doorNumber || order.AssignedLane != lane) continue;
                 if (loadedOrderIds != null && loadedOrderIds.Contains(order.OrderId)) continue;
 
                 order.Status = OrderData.OrderStatus.Staged;
@@ -1031,7 +1129,7 @@ namespace GameCore.Inventory
         /// </summary>
         public int StagedPalletsRemainingInLane(OrderData order)
         {
-            if (order == null || order.AssignedDoorNumber <= 0 || string.IsNullOrEmpty(order.AssignedLane))
+            if (order == null || order.EffectiveStagingDoor <= 0 || string.IsNullOrEmpty(order.AssignedLane))
                 return 0;
 
             var grid = Object.FindFirstObjectByType<PlacementGrid>();
@@ -1043,7 +1141,7 @@ namespace GameCore.Inventory
                 if (pallet == null || pallet.transform.parent != null) continue;   // mid-carry
                 var cell = grid.WorldToCell(pallet.transform.position);
                 if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
-                if (slot.DoorNumber != order.AssignedDoorNumber || slot.Lane != order.AssignedLane) continue;
+                if (slot.DoorNumber != order.EffectiveStagingDoor || slot.Lane != order.AssignedLane) continue;
                 count++;
             }
             return count;
@@ -1353,6 +1451,8 @@ namespace GameCore.Inventory
                     status = (int)o.Status,
                     paymentMethod = (int)o.PaymentMethod,
                     assignedDoorNumber = o.AssignedDoorNumber,
+                    stagingDoorNumber = o.StagingDoorNumber,
+                    releasedToFloor = o.ReleasedToFloor,
                     assignedLane = o.AssignedLane,
                     hasBeenFined = o.HasBeenFined,
                     hasBeenLateLoadFined = o.HasBeenLateLoadFined,
@@ -1405,6 +1505,8 @@ namespace GameCore.Inventory
                 var order = new OrderData(snap.orderId, snap.customerId, snap.customerName, snap.deliveryAddress, snap.createdDayNumber, snap.dueDay, snap.createdTimeMinute, (OrderData.OrderStatus)snap.status, (OrderData.OrderPaymentMethod)snap.paymentMethod)
                 {
                     AssignedDoorNumber = snap.assignedDoorNumber,
+                    StagingDoorNumber = snap.stagingDoorNumber,
+                    ReleasedToFloor = snap.releasedToFloor || snap.assignedDoorNumber != 0, // old saves: released iff a door was stamped
                     AssignedLane = snap.assignedLane,
                     HasBeenFined = snap.hasBeenFined,
                     HasBeenLateLoadFined = snap.hasBeenLateLoadFined,
@@ -1511,16 +1613,18 @@ namespace GameCore.Inventory
                     continue;
 
                 Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) restored as " +
-                                 $"{order.Status} at {order.AssignedDoorNumber}{order.AssignedLane}, but none of its " +
+                                 $"{order.Status} at {order.EffectiveStagingDoor}{order.AssignedLane}, but none of its " +
                                  $"staged pallets exist in the scene (staged pallets aren't persisted). Returning it to " +
                                  $"picking — {order.TotalUnitsPicked} previously picked case(s) are gone and must be " +
                                  $"re-picked from current stock.");
 
                 if (order.Status == OrderData.OrderStatus.Loading)
-                    vacatedLanes.Add($"{order.AssignedDoorNumber}{order.AssignedLane}");
+                    vacatedLanes.Add($"{order.EffectiveStagingDoor}{order.AssignedLane}");
 
                 order.Status = OrderData.OrderStatus.Pending;
                 order.AssignedDoorNumber = 0;
+                order.StagingDoorNumber = 0;
+                order.ReleasedToFloor = false;
                 order.AssignedLane = null;
                 foreach (var li in order.LineItems)
                     li.QuantityPicked = 0;
@@ -1560,7 +1664,7 @@ namespace GameCore.Inventory
             {
                 bool stillLoading = _activeOrders.Any(
                     o => o != null && o.Status == OrderData.OrderStatus.Loading &&
-                         $"{o.AssignedDoorNumber}{o.AssignedLane}" == laneAddress);
+                         $"{o.EffectiveStagingDoor}{o.AssignedLane}" == laneAddress);
                 if (stillLoading) continue;
 
                 var deadLoads = _workQueue?.Tasks.Where(

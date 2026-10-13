@@ -38,7 +38,7 @@ public static class ConfettiFx
     /// bottom edge. Degrades to doing nothing if either rect isn't laid out yet — pure decoration,
     /// must never be able to break whatever it's celebrating.
     /// </summary>
-    public static void Play(VisualElement root, VisualElement anchor)
+    public static void Play(VisualElement root, VisualElement anchor, int extraFallMs = 0)
     {
         if (root == null || anchor == null) return;
 
@@ -52,11 +52,11 @@ public static class ConfettiFx
 
             var rand = new System.Random();
             for (int i = 0; i < PieceCount; i++)
-                SpawnPiece(root, rootR, anchorR, rand);
+                SpawnPiece(root, rootR, anchorR, rand, extraFallMs);
         }).ExecuteLater(16);
     }
 
-    private static void SpawnPiece(VisualElement root, Rect rootR, Rect anchorR, System.Random rand)
+    private static void SpawnPiece(VisualElement root, Rect rootR, Rect anchorR, System.Random rand, int extraFallMs)
     {
         float size = Mathf.Lerp(PieceMinSize, PieceMaxSize, (float)rand.NextDouble());
 
@@ -84,7 +84,7 @@ public static class ConfettiFx
         piece.style.opacity = 1f;
         root.Add(piece);
 
-        int duration = rand.Next(MinFallMs, MaxFallMs + 1);
+        int duration = rand.Next(MinFallMs, MaxFallMs + 1) + extraFallMs;
         int stagger = rand.Next(0, MaxStaggerMs);
 
         piece.schedule.Execute(() =>

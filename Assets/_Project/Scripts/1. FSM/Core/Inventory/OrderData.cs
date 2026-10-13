@@ -55,8 +55,8 @@ namespace GameCore.Inventory
         public OrderPaymentMethod PaymentMethod { get; set; } = OrderPaymentMethod.Prepaid;
         public int CreatedTimeMinute { get; set; } // When order arrived (for FIFO priority)
 
-        /// <summary>Outbound door this order is staged at — set once, when the player releases this
-        /// order to a staging lane via the Work Queue panel (OrderService.ReleaseOrdersToLane). 0
+        /// <summary>DOCK door: the outbound door whose trailer carries this order — set once, when this
+        /// order is released (OrderService.ReleaseOrdersToLane). Its staging lanes may be at another door, see StagingDoorNumber. 0
         /// until then; the order sits Open/unrouted in the meantime.</summary>
         public int AssignedDoorNumber { get; set; }
 
@@ -65,6 +65,31 @@ namespace GameCore.Inventory
         /// lane holds only one customer's orders at a time (StagingLaneAssignmentService) — every
         /// order released to the same lane shares this value.</summary>
         public string AssignedLane { get; set; }
+
+        /// <summary>The door whose staging LANES this order's pallets are placed into. Normally the same
+        /// door as <see cref="AssignedDoorNumber"/> (the trailer's DOCK door), but a release may stage at
+        /// a different door when the dock door's own lanes are all busy (see
+        /// StagingLaneAssignmentService.TryFindLaneForOrder). 0 = not recorded: orders saved before this
+        /// field existed staged at their dock door, so <see cref="EffectiveStagingDoor"/> falls back to it.
+        /// AssignedLane is the lane letter AT THIS door.</summary>
+        public int StagingDoorNumber { get; set; }
+
+        /// <summary>Where this order's pallets are staged — StagingDoorNumber, or AssignedDoorNumber for an
+        /// order that predates the split. Every reader that pairs a door with AssignedLane means THIS.</summary>
+        public int EffectiveStagingDoor => StagingDoorNumber > 0 ? StagingDoorNumber : AssignedDoorNumber;
+
+        /// <summary>True once this order has been released to the floor (its real PalletPick/OrderSelect
+        /// tasks exist). Distinct from having a lane: a release with no free lane leaves the order here
+        /// with AssignedLane null and its tasks Open until OrderService.AssignWaitingLanes finds one.
+        /// Without this flag "all tasks Open" could not tell a placeholder from a released-but-waiting
+        /// order and the order could be released twice.</summary>
+        public bool ReleasedToFloor { get; set; }
+
+        /// <summary>Released, still live, and no lane yet — the state AssignWaitingLanes works on.
+        /// Derived entirely from persisted fields, so it survives save/load.</summary>
+        public bool IsWaitingForLane =>
+            ReleasedToFloor && string.IsNullOrEmpty(AssignedLane) &&
+            Status != OrderStatus.Shipped && Status != OrderStatus.Cancelled && Status != OrderStatus.Loaded;
 
         /// <summary>
         /// True once this order has missed its deadline and been charged for it. One late fee per
@@ -329,6 +354,8 @@ namespace GameCore.Inventory
         public int paymentMethod; // (int)OrderData.OrderPaymentMethod
         public int assignedDoorNumber;
         public string assignedLane;
+        public int stagingDoorNumber;
+        public bool releasedToFloor;
         public bool hasBeenFined;
         /// <summary>False in a save written before the late-load fine existed — correct, since
         /// nothing in such a save could have been charged it.</summary>

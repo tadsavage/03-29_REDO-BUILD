@@ -68,6 +68,7 @@ public class WorkQueuePanel : IUIPanel
         // the Area and Priority text (Task/Status/From read as one run of text before).
         private const float TaskStatusGap = 36f;
         private const float StatusFromGap = 44f;
+        private const float ToGap = 22f; // breathing room between the From and To address columns
         private const float OperatorWidth = 224f; // doubled from 112, per Tad
         private const float CustomerWidth = 232f; // doubled from 116, per Tad
         // ~3 characters of breathing room between Customer and Order -- per Tad's explicit call, the
@@ -273,7 +274,7 @@ public class WorkQueuePanel : IUIPanel
             .Where(t => t.Status != WorkTaskStatus.Complete)
             .Select(t => $"{t.TaskId}:{t.Status}:{t.PalletId}:{t.OrderId}:{t.AssignedToEmployeeGuid}:{t.FromLocation}:{t.ToLocation}"));
         string orders = orderService == null ? "" : string.Join("|", orderService.ActiveOrders
-            .Select(o => $"{o.OrderId}:{o.Status}:{o.CustomerName}:{o.AssignedDoorNumber}:{o.AssignedLane}:{o.TotalUnitsPicked}"));
+            .Select(o => $"{o.OrderId}:{o.Status}:{o.CustomerName}:{o.AssignedDoorNumber}:{o.StagingDoorNumber}:{o.ReleasedToFloor}:{o.AssignedLane}:{o.TotalUnitsPicked}"));
         return tasks + "#" + orders;
     }
 
@@ -581,7 +582,7 @@ public class WorkQueuePanel : IUIPanel
         header.Add(BuildFilterHeader("Task", TaskWidth - TaskIndent, SortColumn.Task, marginLeft: RoleTaskGap + TaskIndent));
         header.Add(BuildFilterHeader("Status", StatusWidth, SortColumn.Status, marginLeft: TaskStatusGap));
         header.Add(BuildFilterHeader("From", LocationWidth, SortColumn.From, marginLeft: StatusFromGap));
-        header.Add(BuildFilterHeader("To", LocationWidth, SortColumn.To));
+        header.Add(BuildFilterHeader("To", LocationWidth, SortColumn.To, marginLeft: ToGap));
         header.Add(BuildFilterHeader("Operator", OperatorWidth, SortColumn.Operator));
         header.Add(BuildFilterHeader("Customer", CustomerWidth, SortColumn.Customer, fontSize: 12)); // stays original size -- every other column got 25% bigger, per Tad's explicit call
         header.Add(HeaderCell("Order", OrderWidth, SortColumn.Order, marginLeft: CustomerOrderGap));
@@ -1284,6 +1285,10 @@ public class WorkQueuePanel : IUIPanel
         // Legacy Backorder rows: their OrderSelect task is long Complete, so without this branch they
         // resolve to no row at all — invisible, unactionable, and still holding a whole stage.
         if (order.Status == OrderData.OrderStatus.Backorder) return RowPhase.NoStock;
+        // Released to the floor but no staging lane was free: its tasks sit Open, yet it must NOT read as
+        // an unreleased placeholder (that would offer to release it again). Treated as Available so the
+        // player can still pick a lane by hand or cancel it; the Status column shows "Open" for it.
+        if (order.IsWaitingForLane) return RowPhase.Available;
         if (task == null) return null;
         return task.Status switch
         {
@@ -1320,7 +1325,7 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, WorkTaskTypeDisplayName(task.Type), TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
         AddRowCell(row, task.Status.ToString(), StatusWidth, ColStatusColor(task.Status), bold: true, marginLeft: TaskStatusGap);
         AddRowCell(row, task.FromLocation ?? "—", LocationWidth, ColSubtleText, marginLeft: StatusFromGap);
-        AddRowCell(row, task.ToLocation ?? "—", LocationWidth, ColSubtleText);
+        AddRowCell(row, task.ToLocation ?? "—", LocationWidth, ColSubtleText, marginLeft: ToGap);
         AddRowCell(row, GetOperatorName(task.AssignedToEmployeeGuid), OperatorWidth, ColTitleText);
         AddRowCell(row, "—", CustomerWidth, ColSubtleText, fontSize: 15); // Customer column stays proportionally smaller — was 12, bumped 25% same as everything else
         AddRowCell(row, "—", OrderWidth, ColSubtleText, marginLeft: CustomerOrderGap);
@@ -1399,9 +1404,13 @@ public class WorkQueuePanel : IUIPanel
         }
         AddRowCell(row, role, RoleWidth, ColSubtleText);
         AddRowCell(row, taskName, TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
-        AddRowCell(row, PhaseLabel(phase), StatusWidth, PhaseColor(phase), bold: true, marginLeft: TaskStatusGap);
+        // A released order still waiting for a lane reads "Open" (its tasks ARE Open); an ordinary released
+        // one reads Available. The phase underneath is Available either way — see DeterminePhase.
+        bool waitingForLane = order.IsWaitingForLane;
+        AddRowCell(row, waitingForLane ? PhaseLabel(RowPhase.Open) : PhaseLabel(phase), StatusWidth,
+                   waitingForLane ? PhaseColor(RowPhase.Open) : PhaseColor(phase), bold: true, marginLeft: TaskStatusGap);
         AddRowCell(row, from, LocationWidth, ColSubtleText, marginLeft: StatusFromGap);
-        AddRowCell(row, to, LocationWidth, ColSubtleText);
+        AddRowCell(row, to, LocationWidth, ColSubtleText, marginLeft: ToGap);
         AddRowCell(row, operatorName, OperatorWidth, ColTitleText);
         AddRowCell(row, order.CustomerName, CustomerWidth, ColTitleText, fontSize: 15); // Customer column stays proportionally smaller — was 12, bumped 25% same as everything else
         AddRowCell(row, order.OrderNumber ?? ShortId(order.OrderId), OrderWidth, ColSubtleText, marginLeft: CustomerOrderGap);
@@ -1433,8 +1442,8 @@ public class WorkQueuePanel : IUIPanel
             var path = OrderPickPath.Project(order);
             return path.Count > 0 ? path[0] : "—";
         }
-        if (order != null && order.AssignedDoorNumber > 0 && !string.IsNullOrEmpty(order.AssignedLane))
-            return $"{order.AssignedDoorNumber}{order.AssignedLane}";
+        if (order != null && order.EffectiveStagingDoor > 0 && !string.IsNullOrEmpty(order.AssignedLane))
+            return $"{order.EffectiveStagingDoor}{order.AssignedLane}";
         return string.IsNullOrEmpty(task?.FromLocation) ? "—" : task.FromLocation;
     }
 
@@ -1670,29 +1679,36 @@ public class WorkQueuePanel : IUIPanel
         // everything downstream (loading, close-out) that keys off AssignedDoorNumber is untouched.
         if (phases[0] == RowPhase.Available)
         {
-            var doors = checkedOrders.Select(o => o.AssignedDoorNumber).Where(d => d > 0).Distinct().ToList();
-            var currentLanes = checkedOrders.Select(o => o.AssignedLane).Where(l => !string.IsNullOrEmpty(l)).Distinct().ToList();
+            // A lane can now be chosen at ANY door (orders may stage away from their dock door); the dock
+            // door — and so the trailer — never changes. Orders must share one current lane (or none yet).
+            var currentLanes = checkedOrders.Select(o => $"{o.EffectiveStagingDoor}{o.AssignedLane}")
+                .Where((_, i) => !string.IsNullOrEmpty(checkedOrders[i].AssignedLane)).Distinct().ToList();
 
-            if (doors.Count == 1 && currentLanes.Count <= 1)
+            if (currentLanes.Count <= 1 && customers.Count == 1)
             {
                 ServiceLocator.TryGet<InventoryService>(out var inv2);
-                int door = doors[0];
                 string currentLane = currentLanes.Count == 1 ? currentLanes[0] : null;
 
                 var candidateLanes = LaneNamingService.AllLanes()
-                    .Where(l => l.door == door && l.lane != currentLane)
+                    .Where(l => $"{l.door}{l.lane}" != currentLane)
                     .Where(l => inv2 == null || inv2.LaneAllowsPicking(l.door, l.lane))
                     .Where(l => !StagingLaneAssignmentService.LaneHasInboundStock(inv2, l.door, l.lane))
                     .Where(l => !TrailerOffloadController.IsLanePendingInbound(l.door, l.lane))
-                    .OrderBy(l => l.lane)
+                    .Where(l => !StagingLaneAssignmentService.HasInboundTruckDocked(l.door))
+                    .Where(l => StagingLaneAssignmentService.IsLaneAvailableFor(orderService, l.door, l.lane, customerId))
+                    .OrderBy(l => l.door).ThenBy(l => l.lane)
                     .ToList();
                 _dropdownLanes = candidateLanes;
 
+                bool anyWaiting = checkedOrders.Any(o => o.IsWaitingForLane);
                 if (candidateLanes.Count > 0)
                 {
-                    string laneNote = currentLane != null ? $" from lane {door}{currentLane}" : string.Empty;
+                    string laneNote = currentLane != null ? $" from lane {currentLane}" : string.Empty;
+                    string lead = anyWaiting
+                        ? $"{checkedOrders.Count} order(s) released but waiting for a lane — assign one now"
+                        : $"{checkedOrders.Count} order(s) waiting for an Order Selector — move{laneNote} to a different lane";
                     SetBottomBar(ActionMode.ReassignLane,
-                        $"{checkedOrders.Count} order(s) waiting for an Order Selector — move{laneNote} to a different lane, or Cancel Selected to call them off:",
+                        $"{lead}, or Cancel Selected to call them off:",
                         candidateLanes.Select(l => $"{l.door}{l.lane}").ToList());
                     return;
                 }
@@ -1711,19 +1727,26 @@ public class WorkQueuePanel : IUIPanel
             // nothing to choose and the system assigns one stage per customer instead. Show the player
             // the exact plan it will commit — computed by the same method that commits it, so what
             // they read is what happens.
-            if (customers.Count > 1)
+            // Releasing is automatic for ANY number of customers now: each customer's orders get the first
+            // completely empty lane found searching outward from their trailer's dock door (see
+            // StagingLaneAssignmentService.TryFindLaneForOrder). With no lane free the release still goes
+            // through, held until one opens. The preview below is computed by the same planner.
             {
                 if (!orderService.TryPlanStageSpread(_checkedOrderIds.ToList(), out var plan, out string why))
                 {
                     SetBottomBar(ActionMode.ReleaseToStagesAuto,
-                        $"Can't release these {customers.Count} customers — {why}.",
+                        $"Can't release {(customers.Count == 1 ? "these orders" : $"these {customers.Count} customers")} — {why}.",
                         new List<string> { "—" }, enableTarget: false, enableSubmit: false);
                 }
                 else
                 {
-                    string assignments = string.Join(",   ", plan.Select(g => $"{g.CustomerName} → Stage {g.DoorNumber}"));
-                    SetBottomBar(ActionMode.ReleaseToStagesAuto,
-                        $"Release {checkedOrders.Count} order(s) across {customers.Count} customers — one stage each:   {assignments}",
+                    string assignments = string.Join(",   ", plan.Select(g => g.Waiting
+                        ? $"{g.CustomerName} → no lane free (will wait)"
+                        : $"{g.CustomerName} → {g.DoorNumber}{g.Lane}"));
+                    string lead = customers.Count == 1
+                        ? $"Release {checkedOrders.Count} order(s) to the floor:"
+                        : $"Release {checkedOrders.Count} order(s) across {customers.Count} customers — one lane each:";
+                    SetBottomBar(ActionMode.ReleaseToStagesAuto, $"{lead}   {assignments}",
                         new List<string> { "Release" }, enableTarget: false);
                 }
                 return;
@@ -1931,30 +1954,20 @@ public class WorkQueuePanel : IUIPanel
             int idx = _targetDropdown.index;
             if (idx < 0 || idx >= _dropdownLanes.Count) return;
             var (door, lane) = _dropdownLanes[idx];
-            ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue2);
-
             ok = true;
+            var movedOrders = new List<OrderData>();
             foreach (var id in orderIds)
             {
                 var order = orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == id);
                 if (order == null) { ok = false; continue; }
-
-                // Door is untouched — only which lane the order stages into changes, so the trailer
-                // (spawned/found at AssignedDoorNumber) and every close-out/loading lookup that keys
-                // off it are unaffected.
-                order.AssignedLane = lane;
-
-                // OrderSelect tasks read order.AssignedLane directly at delivery time (see
-                // OrderSelectionTaskDriver.FinishOrder) — nothing to touch there. PalletPick tasks
-                // carry their OWN destination baked into ToLocation at creation, so any of this
-                // order's still-open ones have to be redirected explicitly or they'd keep aiming at
-                // the lane just vacated.
-                if (workQueue2 != null)
-                    foreach (var t in workQueue2.Tasks.Where(t => t.OrderId == id && t.Type == WorkTaskType.PalletPick
-                                                                 && t.Status != WorkTaskStatus.Complete
-                                                                 && t.Status != WorkTaskStatus.Cancelled))
-                        t.AssignToLocation($"{door}{lane}");
+                movedOrders.Add(order);
             }
+
+            // The lane (and possibly the staging DOOR) changes; the DOCK door — and so the trailer — does
+            // not. AssignLaneToOrders re-points every still-claimable PalletPick at the new lane and flips
+            // an order that was waiting for a lane from Open to Available.
+            if (movedOrders.Count > 0) orderService.AssignLaneToOrders(movedOrders, door, lane);
+
 
             if (ok) UIToast.Show($"Moved {orderIds.Count} order(s) to lane {door}{lane}.");
         }

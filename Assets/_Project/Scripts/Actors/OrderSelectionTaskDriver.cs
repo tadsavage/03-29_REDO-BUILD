@@ -370,7 +370,7 @@ namespace GameCore.Actors
             Vector3 depthAxis = Vector3.forward;
             string failReason = null;
 
-            if (order.AssignedDoorNumber <= 0 || string.IsNullOrEmpty(order.AssignedLane))
+            if (order.EffectiveStagingDoor <= 0 || string.IsNullOrEmpty(order.AssignedLane))
             {
                 failReason = "order was never released to a staging lane (AssignedDoorNumber/AssignedLane unset — check the Work Queue panel release)";
             }
@@ -385,18 +385,18 @@ namespace GameCore.Actors
             // TrailerLoadController: it sat in the lane after the truck left, still billed, with no
             // task left to move it (a Shipped order files none). See
             // InventoryService.TryFindStagingLaneForPallets.
-            else if (!_inventoryService.TryFindStagingLaneForPallets(order.AssignedDoorNumber, order.AssignedLane,
+            else if (!_inventoryService.TryFindStagingLaneForPallets(order.EffectiveStagingDoor, order.AssignedLane,
                                                                     LivePalletCount(), out string resolvedLane))
             {
-                failReason = $"no lane in Stage {order.AssignedDoorNumber} has room for all {LivePalletCount()} of this order's pallets (every lane full or too tight, or none allows outbound picking)";
+                failReason = $"no lane in Stage {order.EffectiveStagingDoor} has room for all {LivePalletCount()} of this order's pallets (every lane full or too tight, or none allows outbound picking)";
             }
-            else if (!_inventoryService.TryFindStagingSlotInLane(order.AssignedDoorNumber, resolvedLane, out var slot))
+            else if (!_inventoryService.TryFindStagingSlotInLane(order.EffectiveStagingDoor, resolvedLane, out var slot))
             {
-                failReason = $"lane {order.AssignedDoorNumber}{resolvedLane} reported room for {LivePalletCount()} pallet(s) but then handed back no slot";
+                failReason = $"lane {order.EffectiveStagingDoor}{resolvedLane} reported room for {LivePalletCount()} pallet(s) but then handed back no slot";
             }
             else if (!LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var pos))
             {
-                failReason = $"slot {order.AssignedDoorNumber}{resolvedLane}-{slot.Slot} resolved but has no computed world position yet (lane geometry not baked?)";
+                failReason = $"slot {order.EffectiveStagingDoor}{resolvedLane}-{slot.Slot} resolved but has no computed world position yet (lane geometry not baked?)";
             }
             else
             {
@@ -411,7 +411,7 @@ namespace GameCore.Actors
                 if (!string.IsNullOrEmpty(resolvedLane) && resolvedLane != order.AssignedLane)
                 {
                     Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) overflowed " +
-                              $"from {order.AssignedDoorNumber}{order.AssignedLane} into {order.AssignedDoorNumber}{resolvedLane}.");
+                              $"from {order.EffectiveStagingDoor}{order.AssignedLane} into {order.EffectiveStagingDoor}{resolvedLane}.");
                     order.AssignedLane = resolvedLane;
                 }
             }
@@ -496,7 +496,7 @@ namespace GameCore.Actors
                 // already picked a lane with room for every pallet, so this lookup is expected to
                 // succeed for all of them.
                 if (order != null && _inventoryService != null &&
-                    _inventoryService.TryFindStagingSlotInLane(order.AssignedDoorNumber, order.AssignedLane,
+                    _inventoryService.TryFindStagingSlotInLane(order.EffectiveStagingDoor, order.AssignedLane,
                                                                out var slot) &&
                     LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var slotPos))
                 {
@@ -505,14 +505,14 @@ namespace GameCore.Actors
                     // pallet of this order has already been unparented by the time we get here, so it
                     // is counted and this one lands on top of it rather than through it.
                     float baseY = TrailerOffloadController.StagingDropBaseY(
-                        order.AssignedDoorNumber, order.AssignedLane, slot.Cell, pallet.gameObject);
+                        order.EffectiveStagingDoor, order.AssignedLane, slot.Cell, pallet.gameObject);
                     pos = new Vector3(slotPos.x, baseY, slotPos.z);
                 }
                 else if (order != null)
                 {
                     // Not cosmetic: this pallet is about to be left somewhere the loader does not scan,
                     // so it will not ship with the order. Loud on purpose.
-                    Debug.LogError($"[OrderSelectionTaskDriver] No free slot in lane {order.AssignedDoorNumber}" +
+                    Debug.LogError($"[OrderSelectionTaskDriver] No free slot in lane {order.EffectiveStagingDoor}" +
                                    $"{order.AssignedLane} for pallet {i + 1}/{_pallets.Count} of order {order.OrderId} " +
                                    $"({order.CustomerName}) — dropping it beside the last one, where the loader will " +
                                    $"NOT find it. The lane was verified to have room before placement began, so " +
@@ -542,6 +542,8 @@ namespace GameCore.Actors
 
             order.Status = OrderData.OrderStatus.Pending;
             order.AssignedDoorNumber = 0;
+            order.StagingDoorNumber = 0;
+            order.ReleasedToFloor = false;
             order.AssignedLane = null;
 
             if (task != null)

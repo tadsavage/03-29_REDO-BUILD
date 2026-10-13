@@ -68,6 +68,12 @@ public class SystemsLogWindow : MonoBehaviour
     private VisualElement _headerDivider;
     private Button _closeButton;
     private Button _clearButton;
+    private Button _fontDownButton;
+    private Button _fontUpButton;
+    // Reader-adjustable multiplier over the base entry size (header A-/A+ buttons). Header text is untouched.
+    private float _fontScale = 1f;
+    private const float FontScaleStep = 0.1f, FontScaleMin = 0.6f, FontScaleMax = 2.0f;
+    private const float BodyAlpha = 0.15f; // log body is deliberately see-through; the header stays opaque
     private ScrollView _scroll;
     private DraggableWindow _dragger;
     private ResizableWindow _resizeWindow;
@@ -258,7 +264,7 @@ public class SystemsLogWindow : MonoBehaviour
         // 46px in both; close is 30px floating / 24px docked, so 40 covers either) plus a small gap,
         // so the wrapping subtitle text (already WhiteSpace.Normal) wraps within that zone instead of
         // spilling under a button.
-        titleTextRow.style.marginLeft = 56;
+        titleTextRow.style.marginLeft = 112; // CLEAR + A- + A+
         titleTextRow.style.marginRight = 40;
 
         var title = new Label(DockedTitle);
@@ -327,7 +333,32 @@ public class SystemsLogWindow : MonoBehaviour
         SetRadius(clear, 3f);
         SetBorder(clear, Color.white, 1f);
 
+        // Font-size A- / A+ buttons, tucked right of CLEAR. Same pinned-absolute approach as CLEAR so they
+        // never skew the centred title. They resize only the log LINES, never the header.
+        Button MakeFontButton(string text, float left, System.Action onClick)
+        {
+            var b = new Button(onClick) { text = text };
+            b.style.position = Position.Absolute;
+            b.style.left = left;
+            b.style.top = 5;
+            b.style.width = 24;
+            b.style.height = 30;
+            b.style.fontSize = 12;
+            b.style.paddingLeft = 0; b.style.paddingRight = 0; b.style.paddingTop = 0; b.style.paddingBottom = 0;
+            b.style.marginLeft = 0; b.style.marginRight = 0; b.style.marginTop = 0; b.style.marginBottom = 0;
+            b.style.backgroundColor = new Color(0.20f, 0.30f, 0.46f, 1f);
+            b.style.color = Color.white;
+            b.style.unityFontStyleAndWeight = FontStyle.Bold;
+            SetRadius(b, 3f);
+            SetBorder(b, Color.white, 1f);
+            return b;
+        }
+        var fontDown = MakeFontButton("A-", 56f, () => NudgeFontScale(-FontScaleStep));
+        var fontUp = MakeFontButton("A+", 84f, () => NudgeFontScale(+FontScaleStep));
+
         titleBar.Add(clear);
+        titleBar.Add(fontDown);
+        titleBar.Add(fontUp);
         titleBar.Add(titleTextRow);
         titleBar.Add(close);
 
@@ -365,9 +396,11 @@ public class SystemsLogWindow : MonoBehaviour
         _headerDivider = headerDivider;
         _closeButton = close;
         _clearButton = clear;
+        _fontDownButton = fontDown;
+        _fontUpButton = fontUp;
         _scroll = scroll;
 
-        _dragger = new DraggableWindow(_panel, titleBar, close, clear);
+        _dragger = new DraggableWindow(_panel, titleBar, close, clear, fontDown, fontUp);
         _dragger.OnDragStart += OnDragStart;
         _dragger.OnDragMove += OnDragMove;
         _dragger.OnDragEnd += OnDragEnd;
@@ -445,7 +478,7 @@ public class SystemsLogWindow : MonoBehaviour
         _panel.style.flexDirection = FlexDirection.Column;
         _panel.style.marginLeft = 0;
         _panel.style.marginRight = 0;
-        _panel.style.backgroundColor = new Color(0.078f, 0.110f, 0.173f, 0.94f);
+        _panel.style.backgroundColor = new Color(0.078f, 0.110f, 0.173f, BodyAlpha);
         SetRadius(_panel, 6f);
         SetBorder(_panel, new Color(0.22f, 0.30f, 0.45f, 1f), 1f);
 
@@ -469,6 +502,8 @@ public class SystemsLogWindow : MonoBehaviour
             _clearButton.style.height = 30;
             _clearButton.style.fontSize = 10;
         }
+        if (_fontDownButton != null) { _fontDownButton.style.height = 30; _fontDownButton.style.fontSize = 12; }
+        if (_fontUpButton != null) { _fontUpButton.style.height = 30; _fontUpButton.style.fontSize = 12; }
 
         _resizeWindow?.SetInteractable(true);
 
@@ -494,7 +529,7 @@ public class SystemsLogWindow : MonoBehaviour
         _panel.style.marginRight = 8;
         _panel.style.marginTop = 4;
         _panel.style.marginBottom = 4;
-        _panel.style.backgroundColor = new Color(34f / 255f, 44f / 255f, 56f / 255f, 0.92f);
+        _panel.style.backgroundColor = new Color(34f / 255f, 44f / 255f, 56f / 255f, BodyAlpha);
         SetBorder(_panel, new Color(1f, 1f, 1f, 0.14f), 1f);
         SetRadius(_panel, 8f);
 
@@ -520,6 +555,8 @@ public class SystemsLogWindow : MonoBehaviour
             _clearButton.style.height = 22;
             _clearButton.style.fontSize = 8;
         }
+        if (_fontDownButton != null) { _fontDownButton.style.height = 22; _fontDownButton.style.fontSize = 9; }
+        if (_fontUpButton != null) { _fontUpButton.style.height = 22; _fontUpButton.style.fontSize = 9; }
 
         // Resizing only makes sense while floating — the docked card's size is owned by ApplyDockedLayout
         // itself (fixed, reasserted on every dock), so dragging an edge here would fight that or tear the
@@ -529,9 +566,16 @@ public class SystemsLogWindow : MonoBehaviour
         RestyleEntries(fontSize: DockedEntryFontSize);
     }
 
+    private void NudgeFontScale(float delta)
+    {
+        _fontScale = Mathf.Clamp(_fontScale + delta, FontScaleMin, FontScaleMax);
+        RestyleEntries(_docked ? DockedEntryFontSize : FloatingEntryFontSize);
+    }
+
     private void RestyleEntries(float fontSize)
     {
         if (_scroll == null) return;
+        fontSize *= _fontScale;
         foreach (var row in _scroll.contentContainer.Children())
         {
             foreach (var child in row.Children())
@@ -547,7 +591,7 @@ public class SystemsLogWindow : MonoBehaviour
     {
         if (_scroll == null) return;
 
-        float fontSize = _docked ? DockedEntryFontSize : FloatingEntryFontSize;
+        float fontSize = (_docked ? DockedEntryFontSize : FloatingEntryFontSize) * _fontScale;
 
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
