@@ -22,6 +22,7 @@ namespace GameCore.Inventory
         private const int MaxArchivedShipments = 250;
 
         private TruckYardManager _yardManager;
+        private int _noYardWarnedDay = int.MinValue;
         private SimulationTimeService _timeService;
         private MoneyService _moneyService;
 
@@ -556,7 +557,16 @@ namespace GameCore.Inventory
             }
             else
             {
-                Debug.LogError("[ShipmentService] Cannot spawn truck: TruckYardManager not found in scene.");
+                // No Guard Shack placed = no yard manager = nowhere for a truck to come from. This is a normal state for a new
+                // warehouse, not an error: the PO stays due and is retried every hour, so tell the player once a day instead of
+                // spamming the console.
+                var today = ServiceLocator.TryGet(out SimulationTimeService clock) && clock != null ? clock.Day : -1;
+                if (today != _noYardWarnedDay)
+                {
+                    _noYardWarnedDay = today;
+                    Debug.LogWarning("[ShipmentService] PO " + shipment.PONumber + " is due but there is no Guard Shack (TruckYardManager) in the warehouse; the truck will arrive once one is placed.");
+                    UIToast.Show("A delivery is waiting but there is no Guard Shack. Place one so trucks can arrive.");
+                }
             }
         }
 
