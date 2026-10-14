@@ -1684,6 +1684,50 @@ namespace GameCore.Inventory
             return count;
         }
 
+        /// <summary>
+        /// Ships every Loaded order with nothing left standing in its lane(s) -- no player click.
+        /// Called by the loaders the moment a load pass is finished and the dock stocker has been
+        /// released, so the driver can't pull away while the loader is still on the trailer.
+        ///
+        /// Both guards matter: <see cref="CanCloseOut"/> holds an order that is Loaded after only its
+        /// first lane's pass while another lane's loader is still coming, and the empty-lane check
+        /// stops a trailer that filled up from paying out on a half-load (the rest of the order is
+        /// still on the floor). Such an order stays Loaded, and the Work Queue's Close Out button
+        /// remains as the manual fallback.
+        ///
+        /// Each shipped order is announced in the Systems Log and with the big on-screen payout
+        /// (ShippedFanfare). Returns how many orders were shipped.
+        /// </summary>
+        public int AutoCloseLoadedOrders()
+        {
+            var ready = _activeOrders
+                .Where(o => o.Status == OrderData.OrderStatus.Loaded
+                            && CanCloseOut(o, out _)
+                            && StagedPalletsRemainingInLane(o) == 0)
+                .ToList();
+
+            int shipped = 0;
+            foreach (var order in ready)
+            {
+                string number = order.OrderNumber ?? order.OrderId;
+                int door = order.AssignedDoorNumber;
+
+                if (!CloseOutOrders(new List<string> { order.OrderId }, out int billed)) continue;
+                shipped++;
+
+                // Shipped orders are archived, so what's left at this door is whatever still rides
+                // the same trailer. Nothing => the driver was released to leave.
+                bool driverDeparting = !_activeOrders.Any(o => o.AssignedDoorNumber == door &&
+                    (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded));
+
+                SystemsLogWindow.Log(driverDeparting
+                    ? $"Order {number} has finished loading and the driver has departed — shipped, ${billed:N0} received."
+                    : $"Order {number} has finished loading — shipped, ${billed:N0} received. Driver is waiting on the rest of the load.");
+                ShippedFanfare.Show(number, billed);
+            }
+            return shipped;
+        }
+
         public bool CloseOutOrders(List<string> orderIds, out int totalBilled)
         {
             totalBilled = 0;

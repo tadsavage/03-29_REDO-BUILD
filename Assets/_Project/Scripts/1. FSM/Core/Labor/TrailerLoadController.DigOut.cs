@@ -416,6 +416,10 @@ namespace GameCore.Labor
             }
             DockEquipmentCommandeerRegistry.Release(slot);
             if (truck != null) truck.ReleaseLoadClaim();
+
+            // Same as LoadRoutine: anything this dig-out finished ships and pays without a click.
+            if (ServiceLocator.TryGet<OrderService>(out var autoOrders) && autoOrders != null)
+                autoOrders.AutoCloseLoadedOrders();
         }
 
         // ── Moves ────────────────────────────────────────────────────────────────────────────────

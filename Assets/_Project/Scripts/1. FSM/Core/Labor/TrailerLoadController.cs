@@ -358,7 +358,11 @@ namespace GameCore.Labor
             // orders stuck in Loading, which the panel gives the player no way to act on.
             truck.ReleaseLoadClaim();
             workQueue?.CompleteTask(task.TaskId);
-            Debug.Log($"[TrailerLoad] {truck.name} fully loaded — released dock stocker to patrol. Awaiting close-out to depart.");
+            Debug.Log($"[TrailerLoad] {truck.name} fully loaded — released dock stocker to patrol.");
+
+            // Loaded orders ship and pay on their own (no Close Out click) -- but only once the
+            // dock stocker is clear of the trailer, so the driver can't pull away mid-restore.
+            orderService?.AutoCloseLoadedOrders();
         }
 
         /// <summary>Every staged OutboundPalletBuilder whose current cell belongs to this SPECIFIC
