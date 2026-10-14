@@ -266,6 +266,17 @@ public class WorkQueuePanel : IUIPanel
         RebuildRows();
     }
 
+    /// <summary>Why the table is empty. An active column filter (its header turns orange) hides every row
+    /// that doesn't match it, and a plain "No work in the queue" then reads as if released orders vanished
+    /// (seen 2026-10-14: a stale Status filter hid a freshly released order).</summary>
+    private string EmptyQueueMessage()
+    {
+        var active = FilterableColumns.Where(c => GetFilter(c).Active).Select(c => c.ToString()).ToList();
+        if (active.Count > 0)
+            return $"No rows match the active filter on: {string.Join(", ", active)}. Click the orange column header and select every value to show everything.";
+        return "No work in the queue. Generate some orders or inbound tasks to get started.";
+    }
+
     private static string BuildLiveSignature()
     {
         ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
@@ -761,7 +772,7 @@ public class WorkQueuePanel : IUIPanel
 
             if (taskRows.Count == 0)
             {
-                var empty = new Label("No work in the queue. Generate some orders or inbound tasks to get started.");
+                var empty = new Label(EmptyQueueMessage());
                 ApplyFont(empty, size: 13);
                 empty.style.color = new StyleColor(ColSubtleText);
                 _rowScroll.Add(empty);
@@ -815,7 +826,7 @@ public class WorkQueuePanel : IUIPanel
 
         if (rows.Count == 0 && taskRows.Count == 0)
         {
-            var empty = new Label("No work in the queue. Generate some orders or inbound tasks to get started.");
+            var empty = new Label(EmptyQueueMessage());
             ApplyFont(empty, size: 13);
             empty.style.color = new StyleColor(ColSubtleText);
             _rowScroll.Add(empty);

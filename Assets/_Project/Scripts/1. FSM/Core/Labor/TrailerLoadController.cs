@@ -125,6 +125,16 @@ namespace GameCore.Labor
             // stage whose B lane was released before its A lane got emptied B first, against the
             // "finish lane A, then move on to lane B" rule. Sorting here (rather than at release time)
             // keeps it right no matter what order the releases arrive in.
+            // Duplicate Load tasks (same lane, same dock door) are pure churn: each one sends the loader out
+            // to do an empty pass. A bug filed hundreds of them; keep the oldest and cancel the rest, so a
+            // save that already carries them heals itself.
+            var seenLoads = new HashSet<string>();
+            foreach (var t in workQueue.Tasks)
+            {
+                if (t.Type != WorkTaskType.Load || t.Status != WorkTaskStatus.Available) continue;
+                if (!seenLoads.Add($"{t.FromLocation}>{t.ToLocation}")) t.Status = WorkTaskStatus.Cancelled;
+            }
+
             var byLane = new List<(WorkTask task, int door, string lane, int dock)>();
             foreach (var t in workQueue.GetPendingTasksForRole(EmployeeRole.DockStockerOperator))
                 if (t.Type == WorkTaskType.Load && TryParseLaneAddress(t.FromLocation, out int d, out string l))
@@ -202,6 +212,26 @@ namespace GameCore.Labor
             // Grouped by door, not by (door, customer): ReleaseOrdersToLoading itself refuses a
             // mixed-customer batch, and a door is single-customer while occupied by construction, so
             // grouping by door alone is enough and keeps every lane of a multi-lane stage together.
+            // An order is marked Loaded when a load pass finishes, but pallets can still be arriving in its
+            // lanes (reach trucks keep delivering while the loader already has a trailer). Found live
+            // 2026-10-14: 2 pallets loaded, 6 more landed afterwards, and nothing ever came back for them
+            // because only Staged orders were looked at. Reopen such an order so the next pass fetches them.
+            if (ServiceLocator.TryGet<WorkQueueSystem>(out var reopenQueue) && reopenQueue != null)
+            {
+                foreach (var order in orderService.ActiveOrders)
+                {
+                    if (order.Status != OrderData.OrderStatus.Loaded) continue;
+                    if (!HasStagedPalletForOrder(order.OrderId)) continue;
+                    var addresses = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
+                    bool loadPending = reopenQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
+                        (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned) &&
+                        addresses.Contains(t.FromLocation));
+                    if (loadPending) continue;
+                    order.Status = OrderData.OrderStatus.Staged;
+                    Debug.Log($"[TrailerLoad] Order {order.OrderNumber} has staged pallets again after its load pass — reopened for loading.");
+                }
+            }
+
             var orderIdsByDoor = new Dictionary<int, List<string>>();
             foreach (var order in orderService.ActiveOrders)
             {

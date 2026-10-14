@@ -1366,7 +1366,16 @@ namespace GameCore.Inventory
                     if (p == null || p.transform.parent != null || !ids.Contains(p.OrderId)) continue;
                     if (LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var s) &&
                         lanes.Any(l => l.door == s.DoorNumber) && !lanes.Contains((s.DoorNumber, s.Lane)))
+                    {
                         lanes.Add((s.DoorNumber, s.Lane));
+                        // Record it on the order too. Without this the order still lists only its primary
+                        // lane, so every later check that keys off the order's lanes (the loader's revert,
+                        // the empty-lane test, close-out) treats the pallets in this lane as foreign:
+                        // found live 2026-10-13, the pass over the empty primary lane reverted the order
+                        // to Staged while its pallets sat in 1B/1C, and AutoFileLoadTasks then re-filed
+                        // Load tasks every half second.
+                        orders.FirstOrDefault(o => o.OrderId == p.OrderId)?.AddOverflowLane(s.DoorNumber, s.Lane);
+                    }
                 }
             }
             lanes = lanes.OrderBy(l => l.door).ThenBy(l => l.lane).ToList();
@@ -1381,6 +1390,15 @@ namespace GameCore.Inventory
 
             foreach (var (stageDoor, lane) in lanes)
             {
+                // One live Load task per lane per dock door. AutoFileLoadTasks runs every half second, so
+                // without this an order that bounced back to Staged filed a fresh set each poll (hundreds
+                // of identical tasks were found in the queue).
+                string fromAddress = $"{stageDoor}{lane}";
+                if (_workQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
+                        (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned) &&
+                        t.FromLocation == fromAddress && t.ToLocation == doorNumber.ToString()))
+                    continue;
+
                 _workQueue.CreateTask(
                     WorkTaskType.Load,
                     EmployeeRole.DockStockerOperator,
@@ -1527,6 +1545,17 @@ namespace GameCore.Inventory
                 if (order.Status != OrderData.OrderStatus.Loading) continue;
                 if (!order.UsesLane(doorNumber, lane)) continue;
                 if (loadedOrderIds != null && loadedOrderIds.Contains(order.OrderId)) continue;
+
+                // This pass only covered ONE of the order's lanes. If another of its lanes still has a
+                // Load task waiting, that pass will find the pallets -- reverting now would drop the order
+                // to Staged and its remaining passes would treat its own pallets as foreign freight.
+                var thisLane = $"{doorNumber}{lane}";
+                var otherAddresses = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
+                otherAddresses.Remove(thisLane);
+                if (_workQueue != null && otherAddresses.Count > 0 && _workQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
+                        (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned) &&
+                        otherAddresses.Contains(t.FromLocation)))
+                    continue;
 
                 order.Status = OrderData.OrderStatus.Staged;
                 reverted++;
@@ -1703,7 +1732,10 @@ namespace GameCore.Inventory
             var ready = _activeOrders
                 .Where(o => o.Status == OrderData.OrderStatus.Loaded
                             && CanCloseOut(o, out _)
-                            && StagedPalletsRemainingInLane(o) == 0)
+                            && StagedPalletsRemainingInLane(o) == 0
+                            // Nothing still being picked or delivered: a pass can finish while reach
+                            // trucks are still carrying this order's pallets to the lane.
+                            && !LiveTasksForOrder(o.OrderId).Any(t => t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.OrderSelect))
                 .ToList();
 
             int shipped = 0;
