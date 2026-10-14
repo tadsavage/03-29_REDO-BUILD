@@ -539,6 +539,7 @@ namespace GameCore.Labor
                 // the carrier imposes and there's nothing left to compare against.
                 Vector3 palletFacingBeforePickup = palletT.forward;
                 palletT.SetParent(carrier, worldPositionStays: false);
+                pallet.Stage = OutboundPalletBuilder.PalletStage.Loading; // lifted: Loading until it's down in the trailer
                 palletT.localPosition = ForkCarryLocalPos;
                 palletT.localRotation = NearestFacing(Quaternion.Euler(ForkCarryLocalEuler),
                                                       carrier.InverseTransformDirection(palletFacingBeforePickup));
@@ -579,6 +580,10 @@ namespace GameCore.Labor
                                                   bool crossDoorLeg = false)
         {
             // ── CARRY to the trailer and place in the next open cargo slot ───────────────────
+            // Per-pallet stage: Loading from here (it's on the forks) until it is set down below. The
+            // dig-out route enters here too, with a pallet it just adopted as outbound freight.
+            var stagedPallet = palletT.GetComponent<OutboundPalletBuilder>();
+            if (stagedPallet != null) stagedPallet.Stage = OutboundPalletBuilder.PalletStage.Loading;
             Vector3 into = TrailerIntoDir(truck);
             Vector3 rightAxis = Vector3.Cross(Vector3.up, into);
 
@@ -647,6 +652,7 @@ namespace GameCore.Labor
             // the trailer is parked. (Same component OutboundPalletBuilder.SetNavObstacleActive toggles.)
             var obstacle = palletT.GetComponent<NavMeshObstacle>();
             if (obstacle != null) obstacle.enabled = false;
+            if (stagedPallet != null) stagedPallet.Stage = OutboundPalletBuilder.PalletStage.Loaded; // down in the trailer
 
             // 11. Reverse straight back out of the trailer to the shipping door pivot — cab-first,
             //     forks trailing, no spin. The next pallet's run starts from here.

@@ -1255,6 +1255,20 @@ namespace GameCore.Inventory
                 return;
             }
 
+            // BULK is the player's to place: it lands in the Pending Appt pool and waits for them to pick
+            // a door and block (the deadline-based rules in EvaluateMove still apply). Recurring orders
+            // keep auto-placing — they have a contracted hour; a bulk drop has no such promise, so
+            // choosing the slot is the whole point of the Scheduler for it.
+            if (order.IsBulk)
+            {
+                string bulkNumber = string.IsNullOrEmpty(order.OrderNumber) ? order.OrderId : order.OrderNumber;
+                UIToast.Show($"{order.CustomerName}'s bulk order is in the Pending Appt pool — schedule it on the Scheduler.");
+                SystemsLogWindow.LogGuard(
+                    $"{LogLinks.Order(order.OrderId, $"Bulk order {bulkNumber}")} is waiting in the Pending Appt pool " +
+                    $"for a dock appointment.");
+                return;
+            }
+
             if (CapacityPerBlock <= 0) return; // nothing to book against; stays unscheduled
 
             ServiceLocator.TryGet(out OrderArrivalService arrivals);

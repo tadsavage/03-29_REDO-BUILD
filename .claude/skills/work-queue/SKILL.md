@@ -59,3 +59,6 @@ Pair this with the `unity:ui-uitk` skill for general UI Toolkit rules, but see "
 
 ## Cancelling
 Cancel Selected (whole orders, only while nothing is claimed) and Cancel Remaining (held work only; the order ships short) both open a `ConfirmationModal` built by `OrderService.DescribeCancel` that states the reputation and partnership cost before anything happens. Unreleased orders do not appear in the Work Queue (hidden in `BuildVisibleOrderRows`); they are cancelled from the Scheduler tile. See the `order-system` skill for the penalty scale.
+
+## Per-pallet stage (2026-10-14)
+Staged / Loading / Loaded orders draw ONE ROW PER PALLET, and each row's Status is that pallet's own `OutboundPalletBuilder.Stage` (`Staged, Moving, Loading, Loaded, Shipped`), not the order's. `TrailerLoadController` sets Loading when the dock stocker lifts a pallet (and at the top of `PlaceCarriedInTrailer`) and Loaded when it is set down in the trailer; `OrderService.ShipOrder` sets Shipped (pallets then drop out of the panel with the archived order). `BuildLiveSignature` includes per-order stage counts so a stage change redraws. `Moving` is reserved for the planned reach-truck MOVE task (relocate a staged pallet to another lane via the bottom dropdown) and currently displays as Staged. Stage is not persisted (staged pallets aren't either).

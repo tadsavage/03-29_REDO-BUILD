@@ -100,6 +100,8 @@ public class TopBarUI : MonoBehaviour
             return;
         }
 
+        _deltaFx = new TopBarDeltaFx(root);
+
         _breakdownPanel   = new FinancialBreakdownPanel(root, _moneyService, _hourly.parent);
         _capitalPanel     = new CapitalSummaryPanel(root, _moneyService, _money.parent);
         _spentTodayPanel  = new SpentTodayPanel(root, _moneyService, _spent.parent);
@@ -522,14 +524,17 @@ public class TopBarUI : MonoBehaviour
     private int _lastRevenueWeek = -1, _lastExpensesWeek = -1;
     private int _lastMinute = -1, _lastHour = -1, _lastDay = -1;
     private int _lastReputationScore = -1;
+    private TopBarDeltaFx _deltaFx;   // green/red change pop-ups on the capital, expense and reputation boxes
 
     private void Refresh()
     {
         if (_moneyService == null || _timeService == null) return;
 
-        // Update capital
+        // Update capital — income shows green, spending red. The -1 sentinel skips the very first read.
         if (_moneyService.CurrentCapital != _lastMoney)
         {
+            if (_lastMoney >= 0)
+                _deltaFx?.Notify(_money.parent, _moneyService.CurrentCapital - _lastMoney, money: true);
             _lastMoney = _moneyService.CurrentCapital;
             _money.text = $"Capital: ${_lastMoney:N0}";
         }
@@ -540,6 +545,12 @@ public class TopBarUI : MonoBehaviour
             _moneyService.ExpensesLastHour != _lastExpensesLastHour ||
             _moneyService.RevenueLastHour != _lastRevenueLastHour)
         {
+            // Only a RISE is new spending; the hour rolling over drops the figure back to 0 and that
+            // is not a gain, so it stays silent.
+            int hourExpenseRise = _moneyService.ExpensesThisHour - _lastExpensesThisHour;
+            if (_lastExpensesThisHour >= 0 && hourExpenseRise > 0)
+                _deltaFx?.Notify(_hourly.parent, -hourExpenseRise, money: true);
+
             _lastExpensesThisHour = _moneyService.ExpensesThisHour;
             _lastRevenueThisHour = _moneyService.RevenueThisHour;
             _lastExpensesLastHour = _moneyService.ExpensesLastHour;
@@ -553,6 +564,10 @@ public class TopBarUI : MonoBehaviour
         if (_moneyService.ExpensesToday != _lastExpensesToday ||
             _moneyService.ExpensesYesterday != _lastExpensesYesterday)
         {
+            int todayExpenseRise = _moneyService.ExpensesToday - _lastExpensesToday;
+            if (_lastExpensesToday >= 0 && todayExpenseRise > 0)
+                _deltaFx?.Notify(_spent.parent, -todayExpenseRise, money: true);
+
             _lastExpensesToday = _moneyService.ExpensesToday;
             _lastExpensesYesterday = _moneyService.ExpensesYesterday;
             _spent.text = $"Today: ${_lastExpensesToday:N0} | Yesterday: ${_lastExpensesYesterday:N0}";
@@ -563,8 +578,10 @@ public class TopBarUI : MonoBehaviour
         if (ServiceLocator.TryGet(out ReputationService reputation) && reputation != null &&
             reputation.Score != _lastReputationScore)
         {
+            if (_lastReputationScore >= 0)
+                _deltaFx?.Notify(_reputation.parent, reputation.Score - _lastReputationScore, money: false);
             _lastReputationScore = reputation.Score;
-            _reputation.text = $"Rep: {ReputationService.BandLabel(reputation.Band)}";
+            _reputation.text = $"Rep: {ReputationService.BandLabel(reputation.Band)}({reputation.Score})";
             _reputation.style.color = ReputationService.ColorFor(reputation.Score);
             _reputationPanel?.RefreshIfVisible();
         }

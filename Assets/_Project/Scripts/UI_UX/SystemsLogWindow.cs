@@ -35,8 +35,11 @@ public class SystemsLogWindow : MonoBehaviour
     private const int MaxEntries = 200;
     private const float DockedCardWidth = 480f;
     private const float DockedCardHeight = 100f;
-    private const float FloatingWidth = 680f;
-    private const float FloatingHeight = 260f;
+    // Fixed home for the log: always opens here at this size (UI reference space, 1920x1080), per Tad.
+    private const float FloatingWidth = 420f;
+    private const float FloatingHeight = 839f;
+    private const float FloatingLeft = 5f;
+    private const float FloatingTop = 68f;
     private const float CardPadding = 12f;
     // 35% smaller than the title's 22/18 — the timestamp+message text was reading too heavy against
     // the "LOG" header at full size.
@@ -201,9 +204,9 @@ public class SystemsLogWindow : MonoBehaviour
         BuildMenuUI.OnActiveBarChanged -= FollowActiveBar;
         BuildMenuUI.OnActiveBarChanged += FollowActiveBar;
 
-        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
-        _docked = bar != null;
-        BuildUI(bar ?? _docRoot);
+        // Always starts floating at its fixed home rect (see SnapToHome) rather than docked in the bar.
+        _docked = false;
+        BuildUI(_docRoot);
 
         _built = true;
 
@@ -412,7 +415,7 @@ public class SystemsLogWindow : MonoBehaviour
             edges: ResizableWindow.Edges.Left | ResizableWindow.Edges.Bottom);
 
         if (_docked) ApplyDockedLayout();
-        else ApplyFloatingLayout();
+        else { ApplyFloatingLayout(); SnapToHome(); }
 
         BuildReopenTab();
         SyncReopenTabVisibility();
@@ -832,7 +835,21 @@ public class SystemsLogWindow : MonoBehaviour
         if (_panel == null) return;
         bool visible = _panel.resolvedStyle.display != DisplayStyle.None;
         _panel.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
+        if (!visible && !_docked) SnapToHome(); // reopening always returns it to its fixed spot and size
         SyncReopenTabVisibility();
+    }
+
+    /// <summary>Pins the floating panel to its fixed rect (FloatingLeft/Top/Width/Height).</summary>
+    private void SnapToHome()
+    {
+        if (_panel == null) return;
+        _panel.style.position = Position.Absolute;
+        _panel.style.left = FloatingLeft;
+        _panel.style.top = FloatingTop;
+        _panel.style.right = StyleKeyword.Auto;
+        _panel.style.bottom = StyleKeyword.Auto;
+        _panel.style.width = FloatingWidth;
+        _panel.style.height = FloatingHeight;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────

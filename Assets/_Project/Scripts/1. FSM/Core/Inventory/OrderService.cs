@@ -1867,6 +1867,11 @@ namespace GameCore.Inventory
             }
             if (order.Status == OrderData.OrderStatus.Shipped) return 0;
 
+            // Per-pallet stage: everything of this order that rode the trailer out is now Shipped. The
+            // order is archived below, so these pallets leave the Work Queue with it.
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+                if (p != null && p.OrderId == orderId) p.Stage = OutboundPalletBuilder.PalletStage.Shipped;
+
             int revenue = order.LineItems.Sum(li => li.QuantityPicked * li.SellingPrice);
 
             // SAME-DAY RUSH BONUS. An order the customer wanted out the door on its own arrival day
