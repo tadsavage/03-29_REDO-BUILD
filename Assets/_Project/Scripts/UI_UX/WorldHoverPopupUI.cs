@@ -1041,8 +1041,10 @@ private void ShowLocation(LocationData location)
     /// <summary>Fixed screen-space margins for the pinned popup's default position (see
     /// PositionPinnedPopupAtBottomLeft) — 30px in from the left edge of the viewport, 50px above the
     /// top of BuildMenuUI's bottom HUD bar, per Tad's reference mockup.</summary>
-    private const float PinnedPopupLeftMargin = 30f;
-    private const float PinnedPopupBottomMargin = 50f;
+    // Pinned truck card lives at the bottom-RIGHT (per Tad's screenshot): right edge 20px in from the
+    // viewport's right edge, bottom edge 20px above the bottom HUD bar. Width is the popup's own 300.
+    private const float PinnedPopupRightMargin = 20f;
+    private const float PinnedPopupBottomMargin = 20f;
 
     /// <summary>Keeps the pinned popup sitting in a fixed spot near the lower-left corner of the
     /// viewport — its LEFT edge 30px in from the viewport's left edge, its BOTTOM edge 50px above
@@ -1072,7 +1074,8 @@ private void ShowLocation(LocationData location)
         // box's LEFT edge only lands at PinnedPopupLeftMargin once left is pushed out by the box's
         // own current width, and its BOTTOM edge only lands PinnedPopupBottomMargin above the bar
         // once top is pulled up by that margin plus the bar's own reserved height.
-        float left = PinnedPopupLeftMargin + boxWidth;
+        // Translate is -100%/-100%, so `left` IS the box's right edge.
+        float left = layout.width - PinnedPopupRightMargin;
         float top = layout.height - BuildMenuUI.BottomHudReservedHeight - PinnedPopupBottomMargin;
 
         // Keep it fully on screen even if the popup somehow ends up larger than the viewport.
@@ -1169,7 +1172,7 @@ private void ShowLocation(LocationData location)
         doorBadge.pickingMode = PickingMode.Position;
         doorBadge.style.position = Position.Absolute;
         doorBadge.style.top = -28;
-        doorBadge.style.right = -28;
+        doorBadge.style.left = -28;
         doorBadge.style.width = 68;
         doorBadge.style.height = 68;
         var fullRadius = new Length(34, LengthUnit.Pixel);
@@ -1239,10 +1242,11 @@ private void ShowLocation(LocationData location)
         ui.CommentLabel = commentLabel;
         commentLabel.pickingMode = PickingMode.Ignore;
         commentLabel.style.position = Position.Absolute;
-        commentLabel.style.left = 4;
-        // Inset further than the box itself so the text stops before the door badge circle,
-        // while the commentBox background (above) keeps running underneath it — per Tad's ask.
-        commentLabel.style.right = 44;
+        // Door badge circle now hangs off the top-LEFT corner, so the text is inset from the left to
+        // clear it (the red close X sits on the right), while the commentBox background keeps running
+        // underneath both — per Tad's ask.
+        commentLabel.style.left = 44;
+        commentLabel.style.right = 36;
         commentLabel.style.top = 2;
         commentLabel.style.bottom = 2;
         commentLabel.style.fontSize = 16; // bumped to 16px per Tad's ask

@@ -157,13 +157,26 @@ namespace GameCore.Labor
             if (_truckYard == null) _truckYard = FindAnyObjectByType<TruckYardManager>();
             if (_truckYard == null) return;
 
+            // The trailer goes to the order's DOCK door (AssignedDoorNumber = where its appointment is
+            // booked), NOT the door whose lane the pallets happen to be staged in -- the loader hauls them
+            // across the dock. Keying this on the lane's door sent an unattributed truck to the staging
+            // door while the order waited for one at its dock door, so loading only began once the player
+            // clicked Assign in the Work Queue. A pallet with no known order/door falls back to its lane's door.
+            ServiceLocator.TryGet<OrderService>(out var orderService);
             var doorsWithStaged = new HashSet<int>();
             foreach (var pallet in FindObjectsByType<OutboundPalletBuilder>())
             {
                 if (pallet == null || pallet.transform.parent != null) continue;
                 var cell = _grid.WorldToCell(pallet.transform.position);
                 if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
-                doorsWithStaged.Add(slot.DoorNumber);
+
+                int dockDoor = slot.DoorNumber;
+                if (orderService != null && !string.IsNullOrEmpty(pallet.OrderId))
+                {
+                    var order = orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == pallet.OrderId);
+                    if (order != null && order.AssignedDoorNumber > 0) dockDoor = order.AssignedDoorNumber;
+                }
+                doorsWithStaged.Add(dockDoor);
             }
 
             ServiceLocator.TryGet<DockScheduleService>(out var schedule);

@@ -2559,13 +2559,20 @@ public class SchedulerPanel : IUIPanel
         if (!schedule.TryPark(appt.Id, out string why))
         {
             _selectedAppointmentId = null;
+            _heldKeyPrev = null;
             UIToast.Show(why);
             Rebuild();
             return;
         }
 
+        // Dropped means dropped: the tile leaves the cursor and sits in the pool, exactly like a drop
+        // on a door slot. (It used to stay in hand "so the next slot click re-places it", which left
+        // the tile glued to the pointer after the click — right-click was the only way to let go.)
+        // Pick it up again from the pool when it's time to place it.
+        _selectedAppointmentId = null;
+        _heldKeyPrev = null;
         UIToast.Show($"{who} is off the grid and waiting in the pool — " +
-                     $"click an open slot to put it back.");
+                     $"click it there to pick it up again.");
         Rebuild();
     }
 

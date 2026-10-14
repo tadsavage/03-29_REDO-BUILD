@@ -1366,7 +1366,16 @@ namespace GameCore.Inventory
                     if (p == null || p.transform.parent != null || !ids.Contains(p.OrderId)) continue;
                     if (LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var s) &&
                         lanes.Any(l => l.door == s.DoorNumber) && !lanes.Contains((s.DoorNumber, s.Lane)))
+                    {
                         lanes.Add((s.DoorNumber, s.Lane));
+                        // Record it on the order too. Without this the order still lists only its primary
+                        // lane, so every later check that keys off the order's lanes (the loader's revert,
+                        // the empty-lane test, close-out) treats the pallets in this lane as foreign:
+                        // found live 2026-10-13, the pass over the empty primary lane reverted the order
+                        // to Staged while its pallets sat in 1B/1C, and AutoFileLoadTasks then re-filed
+                        // Load tasks every half second.
+                        orders.FirstOrDefault(o => o.OrderId == p.OrderId)?.AddOverflowLane(s.DoorNumber, s.Lane);
+                    }
                 }
             }
             lanes = lanes.OrderBy(l => l.door).ThenBy(l => l.lane).ToList();
@@ -1381,6 +1390,15 @@ namespace GameCore.Inventory
 
             foreach (var (stageDoor, lane) in lanes)
             {
+                // One live Load task per lane per dock door. AutoFileLoadTasks runs every half second, so
+                // without this an order that bounced back to Staged filed a fresh set each poll (hundreds
+                // of identical tasks were found in the queue).
+                string fromAddress = $"{stageDoor}{lane}";
+                if (_workQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
+                        (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned) &&
+                        t.FromLocation == fromAddress && t.ToLocation == doorNumber.ToString()))
+                    continue;
+
                 _workQueue.CreateTask(
                     WorkTaskType.Load,
                     EmployeeRole.DockStockerOperator,
@@ -1527,6 +1545,17 @@ namespace GameCore.Inventory
                 if (order.Status != OrderData.OrderStatus.Loading) continue;
                 if (!order.UsesLane(doorNumber, lane)) continue;
                 if (loadedOrderIds != null && loadedOrderIds.Contains(order.OrderId)) continue;
+
+                // This pass only covered ONE of the order's lanes. If another of its lanes still has a
+                // Load task waiting, that pass will find the pallets -- reverting now would drop the order
+                // to Staged and its remaining passes would treat its own pallets as foreign freight.
+                var thisLane = $"{doorNumber}{lane}";
+                var otherAddresses = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
+                otherAddresses.Remove(thisLane);
+                if (_workQueue != null && otherAddresses.Count > 0 && _workQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
+                        (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned) &&
+                        otherAddresses.Contains(t.FromLocation)))
+                    continue;
 
                 order.Status = OrderData.OrderStatus.Staged;
                 reverted++;
@@ -1684,6 +1713,53 @@ namespace GameCore.Inventory
             return count;
         }
 
+        /// <summary>
+        /// Ships every Loaded order with nothing left standing in its lane(s) -- no player click.
+        /// Called by the loaders the moment a load pass is finished and the dock stocker has been
+        /// released, so the driver can't pull away while the loader is still on the trailer.
+        ///
+        /// Both guards matter: <see cref="CanCloseOut"/> holds an order that is Loaded after only its
+        /// first lane's pass while another lane's loader is still coming, and the empty-lane check
+        /// stops a trailer that filled up from paying out on a half-load (the rest of the order is
+        /// still on the floor). Such an order stays Loaded, and the Work Queue's Close Out button
+        /// remains as the manual fallback.
+        ///
+        /// Each shipped order is announced in the Systems Log and with the big on-screen payout
+        /// (ShippedFanfare). Returns how many orders were shipped.
+        /// </summary>
+        public int AutoCloseLoadedOrders()
+        {
+            var ready = _activeOrders
+                .Where(o => o.Status == OrderData.OrderStatus.Loaded
+                            && CanCloseOut(o, out _)
+                            && StagedPalletsRemainingInLane(o) == 0
+                            // Nothing still being picked or delivered: a pass can finish while reach
+                            // trucks are still carrying this order's pallets to the lane.
+                            && !LiveTasksForOrder(o.OrderId).Any(t => t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.OrderSelect))
+                .ToList();
+
+            int shipped = 0;
+            foreach (var order in ready)
+            {
+                string number = order.OrderNumber ?? order.OrderId;
+                int door = order.AssignedDoorNumber;
+
+                if (!CloseOutOrders(new List<string> { order.OrderId }, out int billed)) continue;
+                shipped++;
+
+                // Shipped orders are archived, so what's left at this door is whatever still rides
+                // the same trailer. Nothing => the driver was released to leave.
+                bool driverDeparting = !_activeOrders.Any(o => o.AssignedDoorNumber == door &&
+                    (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded));
+
+                SystemsLogWindow.Log(driverDeparting
+                    ? $"Order {number} has finished loading and the driver has departed — shipped, ${billed:N0} received."
+                    : $"Order {number} has finished loading — shipped, ${billed:N0} received. Driver is waiting on the rest of the load.");
+                ShippedFanfare.Show(number, billed);
+            }
+            return shipped;
+        }
+
         public bool CloseOutOrders(List<string> orderIds, out int totalBilled)
         {
             totalBilled = 0;
@@ -1790,6 +1866,11 @@ namespace GameCore.Inventory
                 return 0;
             }
             if (order.Status == OrderData.OrderStatus.Shipped) return 0;
+
+            // Per-pallet stage: everything of this order that rode the trailer out is now Shipped. The
+            // order is archived below, so these pallets leave the Work Queue with it.
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+                if (p != null && p.OrderId == orderId) p.Stage = OutboundPalletBuilder.PalletStage.Shipped;
 
             int revenue = order.LineItems.Sum(li => li.QuantityPicked * li.SellingPrice);
 

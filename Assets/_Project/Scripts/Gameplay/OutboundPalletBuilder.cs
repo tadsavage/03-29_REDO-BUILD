@@ -41,6 +41,14 @@ public class OutboundPalletBuilder : MonoBehaviour
     /// order a staged pallet belongs to without needing a separate lookup table.</summary>
     public string OrderId { get; set; }
 
+    /// <summary>Where THIS pallet is in the outbound flow. Tracked per pallet (not per order) so the
+    /// Work Queue can show one pallet Loading while its siblings are still Staged. Staged = standing in
+    /// a lane; Moving = a reach truck is relocating it between lanes; Loading = lifted by the loader and
+    /// not yet set down; Loaded = in the trailer; Shipped = the trailer has left the property.</summary>
+    public enum PalletStage { Staged, Moving, Loading, Loaded, Shipped }
+
+    public PalletStage Stage { get; set; } = PalletStage.Staged;
+
     /// <summary>
     /// Marks an ALREADY-BUILT pallet as outbound freight for an order, without touching its cases.
     ///

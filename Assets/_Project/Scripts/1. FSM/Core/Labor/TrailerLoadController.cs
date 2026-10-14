@@ -125,6 +125,16 @@ namespace GameCore.Labor
             // stage whose B lane was released before its A lane got emptied B first, against the
             // "finish lane A, then move on to lane B" rule. Sorting here (rather than at release time)
             // keeps it right no matter what order the releases arrive in.
+            // Duplicate Load tasks (same lane, same dock door) are pure churn: each one sends the loader out
+            // to do an empty pass. A bug filed hundreds of them; keep the oldest and cancel the rest, so a
+            // save that already carries them heals itself.
+            var seenLoads = new HashSet<string>();
+            foreach (var t in workQueue.Tasks)
+            {
+                if (t.Type != WorkTaskType.Load || t.Status != WorkTaskStatus.Available) continue;
+                if (!seenLoads.Add($"{t.FromLocation}>{t.ToLocation}")) t.Status = WorkTaskStatus.Cancelled;
+            }
+
             var byLane = new List<(WorkTask task, int door, string lane, int dock)>();
             foreach (var t in workQueue.GetPendingTasksForRole(EmployeeRole.DockStockerOperator))
                 if (t.Type == WorkTaskType.Load && TryParseLaneAddress(t.FromLocation, out int d, out string l))
@@ -202,6 +212,26 @@ namespace GameCore.Labor
             // Grouped by door, not by (door, customer): ReleaseOrdersToLoading itself refuses a
             // mixed-customer batch, and a door is single-customer while occupied by construction, so
             // grouping by door alone is enough and keeps every lane of a multi-lane stage together.
+            // An order is marked Loaded when a load pass finishes, but pallets can still be arriving in its
+            // lanes (reach trucks keep delivering while the loader already has a trailer). Found live
+            // 2026-10-14: 2 pallets loaded, 6 more landed afterwards, and nothing ever came back for them
+            // because only Staged orders were looked at. Reopen such an order so the next pass fetches them.
+            if (ServiceLocator.TryGet<WorkQueueSystem>(out var reopenQueue) && reopenQueue != null)
+            {
+                foreach (var order in orderService.ActiveOrders)
+                {
+                    if (order.Status != OrderData.OrderStatus.Loaded) continue;
+                    if (!HasStagedPalletForOrder(order.OrderId)) continue;
+                    var addresses = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
+                    bool loadPending = reopenQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
+                        (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned) &&
+                        addresses.Contains(t.FromLocation));
+                    if (loadPending) continue;
+                    order.Status = OrderData.OrderStatus.Staged;
+                    Debug.Log($"[TrailerLoad] Order {order.OrderNumber} has staged pallets again after its load pass — reopened for loading.");
+                }
+            }
+
             var orderIdsByDoor = new Dictionary<int, List<string>>();
             foreach (var order in orderService.ActiveOrders)
             {
@@ -358,7 +388,11 @@ namespace GameCore.Labor
             // orders stuck in Loading, which the panel gives the player no way to act on.
             truck.ReleaseLoadClaim();
             workQueue?.CompleteTask(task.TaskId);
-            Debug.Log($"[TrailerLoad] {truck.name} fully loaded — released dock stocker to patrol. Awaiting close-out to depart.");
+            Debug.Log($"[TrailerLoad] {truck.name} fully loaded — released dock stocker to patrol.");
+
+            // Loaded orders ship and pay on their own (no Close Out click) -- but only once the
+            // dock stocker is clear of the trailer, so the driver can't pull away mid-restore.
+            orderService?.AutoCloseLoadedOrders();
         }
 
         /// <summary>Every staged OutboundPalletBuilder whose current cell belongs to this SPECIFIC
@@ -505,6 +539,7 @@ namespace GameCore.Labor
                 // the carrier imposes and there's nothing left to compare against.
                 Vector3 palletFacingBeforePickup = palletT.forward;
                 palletT.SetParent(carrier, worldPositionStays: false);
+                pallet.Stage = OutboundPalletBuilder.PalletStage.Loading; // lifted: Loading until it's down in the trailer
                 palletT.localPosition = ForkCarryLocalPos;
                 palletT.localRotation = NearestFacing(Quaternion.Euler(ForkCarryLocalEuler),
                                                       carrier.InverseTransformDirection(palletFacingBeforePickup));
@@ -545,6 +580,10 @@ namespace GameCore.Labor
                                                   bool crossDoorLeg = false)
         {
             // ── CARRY to the trailer and place in the next open cargo slot ───────────────────
+            // Per-pallet stage: Loading from here (it's on the forks) until it is set down below. The
+            // dig-out route enters here too, with a pallet it just adopted as outbound freight.
+            var stagedPallet = palletT.GetComponent<OutboundPalletBuilder>();
+            if (stagedPallet != null) stagedPallet.Stage = OutboundPalletBuilder.PalletStage.Loading;
             Vector3 into = TrailerIntoDir(truck);
             Vector3 rightAxis = Vector3.Cross(Vector3.up, into);
 
@@ -613,6 +652,7 @@ namespace GameCore.Labor
             // the trailer is parked. (Same component OutboundPalletBuilder.SetNavObstacleActive toggles.)
             var obstacle = palletT.GetComponent<NavMeshObstacle>();
             if (obstacle != null) obstacle.enabled = false;
+            if (stagedPallet != null) stagedPallet.Stage = OutboundPalletBuilder.PalletStage.Loaded; // down in the trailer
 
             // 11. Reverse straight back out of the trailer to the shipping door pivot — cab-first,
             //     forks trailing, no spin. The next pallet's run starts from here.
