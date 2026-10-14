@@ -256,7 +256,7 @@ namespace GameCore.Inventory
                         priority: PalletPickPriority,
                         orderId: order.OrderId,
                         skuId: li.SkuId);
-                    if (pt != null && hasLane) pt.Status = WorkTaskStatus.Available;
+                    if (pt != null) pt.Status = hasLane ? WorkTaskStatus.Available : WorkTaskStatus.Open;   // no lane yet = HELD (Open): unclaimable, and AssignWaitingLanes / the Work Queue can release it
                     palletTasks++;
                 }
             }
@@ -269,7 +269,7 @@ namespace GameCore.Inventory
                     palletId: null,
                     description: $"Select {looseCases} loose case(s) for {order.CustomerName}",
                     orderId: order.OrderId);
-                if (st != null && hasLane) st.Status = WorkTaskStatus.Available;
+                if (st != null) st.Status = hasLane ? WorkTaskStatus.Available : WorkTaskStatus.Open;
             }
 
             Debug.Log($"[OrderService] Order {order.OrderNumber} released to {toLocation ?? "(no lane yet)"}: filed {palletTasks} " +
@@ -293,7 +293,29 @@ namespace GameCore.Inventory
             if (order == null || order.Status == OrderData.OrderStatus.Cancelled
                               || order.Status == OrderData.OrderStatus.Shipped) return false;
             var live = LiveTasksForOrder(order.OrderId).ToList();
-            return !order.ReleasedToFloor && live.Count > 0 && live.All(t => t.Status == WorkTaskStatus.Open);
+            return !order.ReleasedToFloor && live.Count > 0 && live.All(t => IsReleasablePlaceholder(t));
+        }
+
+        /// <summary>A live task of a never-released order that release may replace. Open is the normal placeholder; Available is
+        /// what a PalletPick can be left as when an order was sent back to Open (ReturnOrderToOpen only resets the task the
+        /// selector held), and release replaces those too. Anything a worker has already picked up (Assigned) is real work.</summary>
+        private static bool IsReleasablePlaceholder(WorkTask t)
+            => t.Status == WorkTaskStatus.Open || t.Status == WorkTaskStatus.Available;
+
+        /// <summary>Cancels placeholder tasks being replaced by a release, handing back any rack slot a PalletPick had reserved.</summary>
+        private void RetirePlaceholders(IEnumerable<WorkTask> placeholders)
+        {
+            var list = placeholders.ToList();
+            // A claimed lane pallet's Putaway was cancelled when the old pick claimed it; refile it so the new release can claim it again.
+            RefilePutawayForClaimedLanePallets(list);
+            foreach (var task in list)
+            {
+                if (task.Type == WorkTaskType.PalletPick && !string.IsNullOrEmpty(task.FromLocation)
+                    && LocationRegistry.TryGet(task.FromLocation, out var reserved)
+                    && reserved.Status == LocationStatus.Reserved)
+                    reserved.Unreserve();
+                task.Status = WorkTaskStatus.Cancelled;
+            }
         }
 
         /// <summary>What releasing an order puts on the floor: full-pallet picks for the Reach Trucks, and
@@ -310,6 +332,89 @@ namespace GameCore.Inventory
                 loose += li.QuantityNeeded % full;
             }
             return (pallets, loose);
+        }
+
+        private void SplitPalletNeed(OrderData order, out int whole, out int loose)
+        {
+            whole = 0;
+            loose = 0;
+            if (order == null) return;
+            float looseFraction = 0f;
+            foreach (var li in order.LineItems)
+            {
+                int full = FullPalletCases(li.SkuId);
+                if (full <= 0) { looseFraction += li.QuantityNeeded / 48f; continue; }
+                whole += li.QuantityNeeded / full;
+                looseFraction += (li.QuantityNeeded % full) / (float)full;
+            }
+            loose = looseFraction > 0.0001f ? Mathf.Max(1, Mathf.CeilToInt(looseFraction - 0.0001f)) : 0;
+        }
+
+        /// <summary>
+        /// How many staging positions (pallet tiers) this order will occupy once picked: one per whole
+        /// pallet pick, plus the pallets the loose cases build into (summed as fractions of a full
+        /// pallet of their own SKU, rounded up, minimum one if there are any loose cases). An estimate
+        /// - a selector's cubing decides the real count - but it is the room the order needs in its lanes.
+        /// </summary>
+        public int PalletsNeeded(OrderData order)
+        {
+            SplitPalletNeed(order, out int whole, out int loose);
+            return Mathf.Max(1, whole + loose);
+        }
+
+        /// <summary>Just the loose-case share of <see cref="PalletsNeeded"/>: the pallets a selector builds.
+        /// They always stage in the order's PRIMARY lane, so that much room is held back for them.</summary>
+        public int LoosePalletsNeeded(OrderData order)
+        {
+            SplitPalletNeed(order, out _, out int loose);
+            return loose;
+        }
+
+        // ── Held work: released tasks that are waiting for lane room ──────────────────────────────
+
+        /// <summary>The PalletPick / OrderSelect tasks of a released order that are still Open: filed, but
+        /// not claimable because no staging lane had room for them yet.</summary>
+        private IEnumerable<WorkTask> HeldTasks(OrderData order)
+        {
+            if (order == null || !order.ReleasedToFloor) return Enumerable.Empty<WorkTask>();
+            return LiveTasksForOrder(order.OrderId).Where(t => t.Status == WorkTaskStatus.Open &&
+                (t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.OrderSelect));
+        }
+
+        /// <summary>How many of this order's tasks are being held back for lack of lane room.</summary>
+        public int HeldWorkCount(OrderData order) => HeldTasks(order).Count();
+
+        /// <summary>Tiers in a lane already spoken for by released work that hasn't landed yet: pallet
+        /// picks headed there, and the pallets a selector will build into the order's primary lane.</summary>
+        private int CommittedTiers(int door, string lane)
+        {
+            if (_workQueue == null) return 0;
+            string address = $"{door}{lane}";
+            int committed = 0;
+            foreach (var t in _workQueue.Tasks)
+            {
+                if (t.Type == WorkTaskType.PalletPick && t.ToLocation == address &&
+                    (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned))
+                    committed++;
+            }
+            foreach (var o in _activeOrders)
+            {
+                if (o == null || o.AssignedLane != lane || o.EffectiveStagingDoor != door) continue;
+                if (o.Status == OrderData.OrderStatus.Shipped || o.Status == OrderData.OrderStatus.Cancelled) continue;
+                bool selectorPending = LiveTasksForOrder(o.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect &&
+                    (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned));
+                if (selectorPending) committed += LoosePalletsNeeded(o);
+            }
+            return committed;
+        }
+
+        /// <summary>Pallets a lane can still be given: free tiers minus tiers already promised to work
+        /// that hasn't arrived yet.</summary>
+        public int FreeRoom(int door, string lane)
+        {
+            ServiceLocator.TryGet<InventoryService>(out var inv);
+            if (inv == null) return 0;
+            return Mathf.Max(0, inv.CountFreeStagingSlotsInLane(door, lane) - CommittedTiers(door, lane));
         }
 
         /// <summary>Every not-yet-finished task belonging to an order, of any type. Bulk orders carry
@@ -356,6 +461,9 @@ namespace GameCore.Inventory
         /// by a PalletPick. Lets the selector finish its remainder and deliver normally instead of
         /// reporting a short pick, which is what it would otherwise conclude from finding no
         /// pickable location for the pallet quantities.</summary>
+        public bool HasLivePalletPicks(OrderData order)
+            => order != null && LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.PalletPick);
+
         public bool RemainingIsAllPalletPick(OrderData order)
         {
             if (order == null) return false;
@@ -448,6 +556,7 @@ namespace GameCore.Inventory
             public int DoorNumber;    // staging door
             public string Lane;       // staging lane at DoorNumber; null when Waiting
             public bool Waiting;      // no lane free right now
+            public List<(int door, string lane)> Lanes = new List<(int door, string lane)>(); // every lane chosen (DoorNumber/Lane = the first)
         }
 
         /// <summary>
@@ -499,14 +608,19 @@ namespace GameCore.Inventory
 
             foreach (var group in groups)
             {
-                if (StagingLaneAssignmentService.TryFindLaneForOrder(this, inv, group.DockDoor, group.CustomerId,
-                        out int stageDoor, out string lane, plannedLanes, plannedDoorOwners))
+                int groupPallets = group.OrderIds.Sum(id => PalletsNeeded(_activeOrders.FirstOrDefault(o => o.OrderId == id)));
+                if (StagingLaneAssignmentService.TryFindLanesForOrder(this, inv, group.DockDoor, group.CustomerId,
+                        groupPallets, plannedLanes, plannedDoorOwners, out var found))
                 {
-                    group.DoorNumber = stageDoor;
-                    group.Lane = lane;
-                    plannedLanes.Add((stageDoor, lane));
-                    plannedDoorOwners[stageDoor] = group.CustomerId;
-                    if (group.DockDoor <= 0) group.DockDoor = stageDoor; // unscheduled: dock where it stages
+                    group.Lanes = found;
+                    group.DoorNumber = found[0].door;
+                    group.Lane = found[0].lane;
+                    foreach (var (d, l) in found)
+                    {
+                        plannedLanes.Add((d, l));
+                        plannedDoorOwners[d] = group.CustomerId;
+                    }
+                    if (group.DockDoor <= 0) group.DockDoor = found[0].door; // unscheduled: dock where it stages
                 }
                 else
                 {
@@ -524,26 +638,42 @@ namespace GameCore.Inventory
         /// <paramref name="waitingForLane"/> is true if ANY customer in the batch had to wait.
         /// </summary>
         public bool ReleaseOrdersToStages(List<string> orderIds, out string failReason)
-            => ReleaseOrdersToStages(orderIds, out failReason, out _);
+            => ReleaseOrdersToStages(orderIds, out failReason, out _, out _);
 
         public bool ReleaseOrdersToStages(List<string> orderIds, out string failReason, out bool waitingForLane)
+            => ReleaseOrdersToStages(orderIds, out failReason, out waitingForLane, out _);
+
+        /// <summary>
+        /// Same as above, and also reports <paramref name="capacityNote"/>: non-null when the lanes that
+        /// were free could not hold everything, so only part of the work was released and the rest is
+        /// held Open until room opens up ("Releasing 20 of 25 pallet picks ... Free up some space!").
+        /// </summary>
+        public bool ReleaseOrdersToStages(List<string> orderIds, out string failReason, out bool waitingForLane, out string capacityNote)
         {
             waitingForLane = false;
+            capacityNote = null;
             if (!TryPlanStageSpread(orderIds, out var plan, out failReason)) return false;
 
+            var notes = new List<string>();
             foreach (var group in plan)
             {
+                string note = null;
                 bool ok = group.Waiting
                     ? ReleaseOrdersWaitingForLane(group.OrderIds, group.DockDoor)
-                    : ReleaseOrdersToLane(group.OrderIds, group.DoorNumber, group.Lane, group.DockDoor);
+                    : ReleaseOrdersToLanes(group.OrderIds, group.Lanes, group.DockDoor, out note);
                 if (ok)
                 {
                     if (group.Waiting)
                     {
                         waitingForLane = true;
-                        string msg = "No open lanes — released orders can't be assigned until one opens.";
-                        UIToast.Show(msg);
+                        UIToast.Show("No open lanes - released orders can't be assigned until one opens.");
                         SystemsLogWindow.LogWarning($"{group.CustomerName}: no open lanes; tasks can't be assigned until one opens.");
+                    }
+                    else if (note != null)
+                    {
+                        notes.Add(note);
+                        UIToast.Show(note);
+                        SystemsLogWindow.LogWarning(note);
                     }
                     continue;
                 }
@@ -554,9 +684,10 @@ namespace GameCore.Inventory
                 return false;
             }
 
+            if (notes.Count > 0) capacityNote = string.Join("  ", notes);
             Debug.Log($"[OrderService] Released {orderIds.Count} order(s) across {plan.Count} customer(s): " +
                       string.Join(", ", plan.Select(g => g.Waiting ? $"{g.CustomerName} -> (waiting for lane)"
-                                                                    : $"{g.CustomerName} -> {g.DoorNumber}{g.Lane}")));
+                                                                    : $"{g.CustomerName} -> {string.Join("+", g.Lanes.Select(l => $"{l.door}{l.lane}"))}")));
             return true;
         }
 
@@ -576,9 +707,23 @@ namespace GameCore.Inventory
         /// </remarks>
         public bool ReleaseOrdersToLane(List<string> orderIds, int doorNumber, string lane, int dockDoor = 0)
         {
-            if (_workQueue == null || orderIds == null || orderIds.Count == 0 || string.IsNullOrEmpty(lane)) return false;
+            if (string.IsNullOrEmpty(lane)) return false;
+            return ReleaseOrdersToLanes(orderIds, new List<(int door, string lane)> { (doorNumber, lane) }, dockDoor, out _);
+        }
 
-            // Every order must still have only its placeholder task(s) live and Open — release
+        /// <summary>
+        /// Releases a batch (one customer) to the floor and spreads its work over the given lanes, as far
+        /// as their room goes. Everything the batch owes is filed, but only what FITS is made claimable:
+        /// the rest stays Open ("held") until a lane has room (see <see cref="AssignWaitingLanes"/> and
+        /// the Work Queue's "Release Orders to Floor"). <paramref name="capacityNote"/> says so when
+        /// something had to be held back.
+        /// </summary>
+        public bool ReleaseOrdersToLanes(List<string> orderIds, IList<(int door, string lane)> lanes, int dockDoor, out string capacityNote)
+        {
+            capacityNote = null;
+            if (_workQueue == null || orderIds == null || orderIds.Count == 0 || lanes == null || lanes.Count == 0) return false;
+
+            // Every order must still have only its placeholder task(s) live and Open - release
             // replaces exactly those with the real, individually-trackable ones (see
             // FileReleasedOrderTasks). An order with anything Available/Assigned/etc. has already
             // been released once; releasing it again would double its work.
@@ -589,44 +734,151 @@ namespace GameCore.Inventory
                 if (order == null) return false;
 
                 var placeholders = LiveTasksForOrder(id).ToList();
-                // All-or-nothing per order: a partly-released order would put half its work on the
-                // floor while the panel still offers it as releasable. ReleasedToFloor also rules out
-                // an order released with no lane, whose (Open) tasks are real work, not placeholders.
+                // All-or-nothing per order: ReleasedToFloor also rules out an order released with no
+                // lane, whose (Open) tasks are real work, not placeholders.
                 if (order.ReleasedToFloor) return false;
-                if (placeholders.Count == 0 || placeholders.Any(t => t.Status != WorkTaskStatus.Open)) return false;
+                if (placeholders.Count == 0 || !placeholders.All(IsReleasablePlaceholder)) return false;
                 pairs.Add((order, placeholders));
             }
 
             string customerId = pairs[0].order.CustomerId;
             if (pairs.Any(p => p.order.CustomerId != customerId)) return false;
-            // Availability is reckoned per STAGE (the whole door), not per lane: an order staged into
-            // Stage 1 may overflow across all of 1A/1B/1C, so no other customer can be given any lane
-            // of that door while it's in use.
-            if (!StagingLaneAssignmentService.IsStageAvailableFor(this, doorNumber, customerId)) return false;
+            // Availability is reckoned per STAGE (the whole door): no other customer may use a door
+            // this customer is staging at.
+            foreach (var l in lanes)
+                if (!StagingLaneAssignmentService.IsStageAvailableFor(this, l.door, customerId)) return false;
 
             foreach (var (order, placeholders) in pairs)
             {
-                foreach (var task in placeholders) task.Status = WorkTaskStatus.Cancelled;
+                RetirePlaceholders(placeholders);
 
-                // AssignedDoorNumber is the DOCK door (whose trailer carries the order); the lane itself
-                // may be at another door — StagingDoorNumber. They coincide unless the dock door's own
-                // lanes were all busy.
-                order.AssignedDoorNumber = dockDoor > 0 ? dockDoor : doorNumber;
-                order.StagingDoorNumber = doorNumber;
-                order.AssignedLane = lane;
+                // AssignedDoorNumber is the DOCK door (whose trailer carries the order); the lanes may be at
+                // other doors. AssignedLane/StagingDoorNumber are stamped by AllocateHeldWork when the first
+                // task actually lands in a lane.
+                order.AssignedDoorNumber = dockDoor > 0 ? dockDoor : lanes[0].door;
+                order.StagingDoorNumber = 0;
+                order.AssignedLane = null;
+                order.OverflowLanes.Clear();
                 order.ReleasedToFloor = true;
-                // Every order is minted its OrderNumber at ReceiveOrder now, so this should always be
-                // a no-op by the time it's released — kept as a defensive fallback only, so an order
-                // that somehow reached here without one (e.g. a legacy save mid-migration) still gets
-                // a real number instead of shipping numberless.
                 if (string.IsNullOrEmpty(order.OrderNumber)) order.OrderNumber = GenerateOrderNumber(order);
-                FileReleasedOrderTasks(order, doorNumber, lane);
+                FileReleasedOrderTasks(order, 0, null);
             }
 
-            Debug.Log($"[OrderService] Released {pairs.Count} order(s) for {customerId} to {doorNumber}{lane}" +
-                      (dockDoor > 0 && dockDoor != doorNumber ? $" (dock door {dockDoor})" : "") + ": " +
-                      string.Join(", ", pairs.Select(p => p.order.OrderNumber)));
+            var orders = pairs.Select(p => p.order).ToList();
+            AllocateHeldWork(orders, lanes, out int pickReleased, out int pickHeld, out bool caseHeld);
+            capacityNote = BuildCapacityNote(orders, pickReleased, pickHeld, caseHeld);
+
+            Debug.Log($"[OrderService] Released {pairs.Count} order(s) for {customerId} to {string.Join("+", lanes.Select(l => $"{l.door}{l.lane}"))}" +
+                      (dockDoor > 0 ? $" (dock door {dockDoor})" : "") + ": " +
+                      string.Join(", ", pairs.Select(p => p.order.OrderNumber)) +
+                      (capacityNote != null ? $" - {capacityNote}" : ""));
             return true;
+        }
+
+        private static string BuildCapacityNote(IList<OrderData> orders, int pickReleased, int pickHeld, bool caseHeld)
+        {
+            if (pickHeld <= 0 && !caseHeld) return null;
+            string who = orders.Count > 0 ? orders[0].CustomerName : "the order";
+            if (pickHeld > 0)
+                return $"Releasing {pickReleased} of {pickReleased + pickHeld} pallet picks for {who} due to space limitation in lanes." +
+                       (caseHeld ? " The case pick is held too." : "") + " Free up some space!";
+            return $"{who}'s case pick is held - no lane has room for its pallets. Free up some space!";
+        }
+
+        /// <summary>
+        /// The core of a release: walks the given lanes and makes as much of each order's HELD work
+        /// claimable as the lanes have room for. A pallet pick takes one position (tier) in its lane; the
+        /// case pick takes the pallets its loose cases will build into, in the order's PRIMARY lane (the
+        /// first lane that receives anything), which is why that much room is set aside there before the
+        /// pallet picks fill the rest. Lanes that receive work after the first become overflow lanes.
+        /// Returns how many tasks were released; the rest is reported through the out parameters.
+        /// </summary>
+        public int AllocateHeldWork(IList<OrderData> orders, IList<(int door, string lane)> lanes,
+                                    out int pickReleased, out int pickHeld, out bool caseHeld)
+        {
+            pickReleased = 0;
+            pickHeld = 0;
+            caseHeld = false;
+            int tasksReleased = 0;
+
+            var room = new Dictionary<(int door, string lane), int>();
+            foreach (var l in lanes)
+                if (!room.ContainsKey(l)) room[l] = FreeRoom(l.door, l.lane);
+
+            foreach (var order in orders)
+            {
+                if (order == null) continue;
+                var held = HeldTasks(order).ToList();
+                var picks = held.Where(t => t.Type == WorkTaskType.PalletPick).ToList();
+                var select = held.FirstOrDefault(t => t.Type == WorkTaskType.OrderSelect);
+                int loose = LoosePalletsNeeded(order);
+
+                foreach (var l in lanes)
+                {
+                    if (picks.Count == 0 && select == null) break;
+                    if (!room.TryGetValue(l, out int r) || r <= 0) continue;
+
+                    bool hasPrimary = !string.IsNullOrEmpty(order.AssignedLane);
+                    bool isPrimary = hasPrimary && order.EffectiveStagingDoor == l.door && order.AssignedLane == l.lane;
+                    bool becomesPrimary = !hasPrimary;
+
+                    // The first lane an order uses is where its case pick stages. If that pick is still
+                    // waiting and this lane can't take it, let a roomier lane become the primary instead.
+                    if (select != null && becomesPrimary && r < loose) continue;
+
+                    int used = 0;
+                    if (select != null && (isPrimary || becomesPrimary) && r >= loose)
+                    {
+                        select.Status = WorkTaskStatus.Available;
+                        select = null;
+                        r -= loose;
+                        used += loose;
+                        tasksReleased++;
+                    }
+
+                    int n = Mathf.Min(r, picks.Count);
+                    string address = $"{l.door}{l.lane}";
+                    for (int i = 0; i < n; i++)
+                    {
+                        picks[i].AssignToLocation(address);
+                        picks[i].Status = WorkTaskStatus.Available;
+                    }
+                    if (n > 0) picks.RemoveRange(0, n);
+                    r -= n;
+                    used += n;
+                    pickReleased += n;
+                    tasksReleased += n;
+
+                    if (used > 0)
+                    {
+                        if (becomesPrimary)
+                        {
+                            order.StagingDoorNumber = l.door;
+                            order.AssignedLane = l.lane;
+                            if (order.AssignedDoorNumber <= 0) order.AssignedDoorNumber = l.door;
+                        }
+                        else if (!isPrimary)
+                        {
+                            order.AddOverflowLane(l.door, l.lane);
+                        }
+                    }
+                    room[l] = r;
+                }
+
+                pickHeld += picks.Count;
+                if (select != null) caseHeld = true;
+            }
+            return tasksReleased;
+        }
+
+        /// <summary>The player picked a lane for held work in the Work Queue: release as much of it as that
+        /// lane has room for. <paramref name="note"/> is set when some work still had to be held back.</summary>
+        public int ReleaseHeldWorkToLane(IList<OrderData> orders, int door, string lane, out string note)
+        {
+            int released = AllocateHeldWork(orders, new List<(int door, string lane)> { (door, lane) },
+                                            out int pr, out int ph, out bool ch);
+            note = BuildCapacityNote(orders, pr, ph, ch);
+            return released;
         }
 
         /// <summary>
@@ -645,13 +897,13 @@ namespace GameCore.Inventory
                 var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
                 if (order == null || order.ReleasedToFloor) return false;
                 var placeholders = LiveTasksForOrder(id).ToList();
-                if (placeholders.Count == 0 || placeholders.Any(t => t.Status != WorkTaskStatus.Open)) return false;
+                if (placeholders.Count == 0 || !placeholders.All(IsReleasablePlaceholder)) return false;
                 pairs.Add((order, placeholders));
             }
 
             foreach (var (order, placeholders) in pairs)
             {
-                foreach (var task in placeholders) task.Status = WorkTaskStatus.Cancelled;
+                RetirePlaceholders(placeholders);
                 order.AssignedDoorNumber = dockDoor;
                 order.StagingDoorNumber = 0;
                 order.AssignedLane = null;
@@ -697,29 +949,55 @@ namespace GameCore.Inventory
         }
 
         /// <summary>
-        /// The heartbeat retry for released orders that found no lane: groups them by customer + dock
-        /// door, looks for a lane exactly as a fresh release would, and — when one frees up — assigns it,
-        /// opens the tasks, and says so (toast + LOG). Quiet when nothing is waiting or nothing opened.
-        /// State is derived from persisted fields (<see cref="OrderData.IsWaitingForLane"/>), so a save
-        /// taken while waiting simply resumes waiting after load.
+        /// The heartbeat retry for released orders that still have HELD work (nothing claimable yet, or
+        /// only part of it): groups them by customer + dock door, offers the lanes they already use and
+        /// then any newly empty lanes, and releases whatever now fits. Quiet when nothing is held or no
+        /// room has opened. State is derived from persisted fields (the Open tasks themselves), so a
+        /// save taken while holding simply resumes after load.
         /// </summary>
         public void AssignWaitingLanes()
         {
-            var waiting = _activeOrders.Where(o => o != null && o.IsWaitingForLane).ToList();
-            if (waiting.Count == 0) return;
+            var holding = _activeOrders.Where(o => o != null && o.ReleasedToFloor &&
+                o.Status != OrderData.OrderStatus.Shipped && o.Status != OrderData.OrderStatus.Cancelled &&
+                o.Status != OrderData.OrderStatus.Loaded && HeldWorkCount(o) > 0).ToList();
+            if (holding.Count == 0) return;
 
             ServiceLocator.TryGet<InventoryService>(out var inv);
-            foreach (var group in waiting.GroupBy(o => (o.CustomerId, o.AssignedDoorNumber)))
+            foreach (var group in holding.GroupBy(o => (o.CustomerId, o.AssignedDoorNumber)))
             {
                 var batch = group.ToList();
-                if (!StagingLaneAssignmentService.TryFindLaneForOrder(this, inv, group.Key.AssignedDoorNumber,
-                        group.Key.CustomerId, out int stageDoor, out string lane))
-                    continue;
 
-                AssignLaneToOrders(batch, stageDoor, lane);
+                int needed = 0;
+                foreach (var o in batch)
+                {
+                    var held = HeldTasks(o).ToList();
+                    needed += held.Count(t => t.Type == WorkTaskType.PalletPick);
+                    if (held.Any(t => t.Type == WorkTaskType.OrderSelect)) needed += LoosePalletsNeeded(o);
+                }
+
+                // Lanes the batch already uses first (primary before overflow), then any empty lane.
+                var lanes = new List<(int door, string lane)>();
+                foreach (var o in batch)
+                    foreach (var l in o.AllStagingLanes())
+                        if (!lanes.Contains(l)) lanes.Add(l);
+
+                int ownRoom = lanes.Sum(l => FreeRoom(l.door, l.lane));
+                if (ownRoom < needed &&
+                    StagingLaneAssignmentService.TryFindLanesForOrder(this, inv, group.Key.AssignedDoorNumber,
+                        group.Key.CustomerId, needed - ownRoom, null, null, out var fresh))
+                {
+                    foreach (var l in fresh)
+                        if (!lanes.Contains(l)) lanes.Add(l);
+                }
+                if (lanes.Count == 0) continue;
+
+                int released = AllocateHeldWork(batch, lanes, out int pr, out int ph, out bool ch);
+                if (released == 0) continue;
 
                 string numbers = string.Join(", ", batch.Select(o => o.OrderNumber ?? o.OrderId));
-                string msg = $"Lane {stageDoor}{lane} opened — {batch[0].CustomerName}'s order {numbers} is released and can be picked.";
+                string where = string.Join("+", batch.SelectMany(o => o.AllStagingLanes()).Distinct().Select(l => $"{l.door}{l.lane}"));
+                string tail = (ph > 0 || ch) ? $" {ph} pallet pick(s) still waiting for room." : " Everything is released.";
+                string msg = $"Room opened in lane {where} - released {released} task(s) for {batch[0].CustomerName}'s order {numbers}.{tail}";
                 Debug.Log($"[OrderService] {msg}");
                 UIToast.Show(msg);
                 SystemsLogWindow.LogSystem(msg);
@@ -770,7 +1048,9 @@ namespace GameCore.Inventory
 
                 // ToList first — cancelling mutates nothing in the queue, but LiveTasksForOrder is a
                 // lazy query over it and the status writes below would change what it yields mid-walk.
-                foreach (var task in LiveTasksForOrder(id).ToList())
+                var cancelledNow = LiveTasksForOrder(id).ToList();
+                var unlifted = cancelledNow.Where(t => t.Status != WorkTaskStatus.Assigned).ToList();   // captured BEFORE the statuses change
+                foreach (var task in cancelledNow)
                 {
                     // A released-but-unclaimed PalletPick already has its source reserve locked (see
                     // FileReleasedOrderTasks) — cancelling has to hand that back, or the slot stays
@@ -786,6 +1066,7 @@ namespace GameCore.Inventory
                     task.Status = WorkTaskStatus.Cancelled;
                     task.AssignedToEmployeeGuid = null; // release the claim so nothing tries to "resume mine"
                 }
+                RefilePutawayForClaimedLanePallets(unlifted);
 
                 Debug.Log($"[OrderService] Order {order.OrderNumber ?? order.OrderId} ({order.CustomerName}) cancelled by the player — " +
                           $"{order.TotalUnitsPicked}/{order.TotalUnits} case(s) had been picked; released Stage {order.EffectiveStagingDoor}.");
@@ -793,6 +1074,7 @@ namespace GameCore.Inventory
                 order.AssignedDoorNumber = 0;
                 order.StagingDoorNumber = 0;
                 order.AssignedLane = null;
+                order.OverflowLanes.Clear();
                 order.Status = OrderData.OrderStatus.Cancelled;
                 StampClosedNow(order);
                 // Any reserve this order had locked was just handed back above. What's still real is
@@ -807,6 +1089,240 @@ namespace GameCore.Inventory
             }
 
             return cancelled;
+        }
+
+        // ── Player cancellation: preview the cost, then do it ───────────────────────────────────────
+
+        /// <summary>What cancelling would cost, computed BEFORE anything changes so the UI can show it and
+        /// the player can decide. <see cref="Allowed"/> false means it cannot be done (see WhyNot).</summary>
+        public class CancelImpact
+        {
+            public bool Allowed;
+            public string WhyNot;
+            public string OrderId;
+            public string OrderLabel;
+            public string Customer;
+            public int ReputationLoss;       // points of reputation lost
+            public float PartnershipLoss;    // points of customer satisfaction lost
+            public int CasesCancelled;       // partial cancel only: cases that will not ship
+            public int TasksCancelled;       // partial cancel only: held tasks removed
+            public int DaysToDue;
+        }
+
+        /// <summary>The scale of a cancellation: the closer to the due date, the worse it is for the
+        /// customer, and a bulk (full-pallet) deal hurts more. <paramref name="fraction"/> scales it down
+        /// for a partial cancel (the share of the order that will not ship).</summary>
+        private void CancelScale(OrderData order, float fraction, out int reputation, out float partnership, out int daysToDue)
+        {
+            daysToDue = order.DueDay - (_timeService != null ? _timeService.Day : order.DueDay);
+            int rep; float sat;
+            if (daysToDue >= 2)      { rep = 5;  sat = 3f;  }
+            else if (daysToDue == 1) { rep = 10; sat = 6f;  }
+            else if (daysToDue == 0) { rep = 20; sat = 10f; }
+            else                     { rep = 25; sat = 15f; }   // already overdue
+            if (order.IsBulk) { rep = Mathf.RoundToInt(rep * 1.5f); sat *= 2f; }
+
+            reputation = Mathf.Max(1, Mathf.RoundToInt(rep * Mathf.Clamp01(fraction)));
+            partnership = sat * Mathf.Clamp01(fraction);
+        }
+
+        /// <summary>Cost of cancelling this WHOLE order. Allowed only while nothing of it is committed
+        /// (see <see cref="CanCancelOrder"/>).</summary>
+        public CancelImpact PreviewCancel(OrderData order)
+        {
+            var impact = new CancelImpact
+            {
+                OrderId = order?.OrderId,
+                OrderLabel = order != null ? (order.OrderNumber ?? order.OrderId) : "?",
+                Customer = order?.CustomerName
+            };
+            if (order == null) { impact.WhyNot = "the order no longer exists"; return impact; }
+            if (!CanCancelOrder(order))
+            {
+                impact.WhyNot = "work on it has already started - use Cancel Remaining to drop what hasn't been picked, or ship what is done";
+                return impact;
+            }
+            impact.Allowed = true;
+            CancelScale(order, 1f, out impact.ReputationLoss, out impact.PartnershipLoss, out impact.DaysToDue);
+            return impact;
+        }
+
+        /// <summary>Cases still owed by work that is being HELD for lack of lane room: held pallet picks
+        /// (one full pallet each) plus, if the case pick is held, the loose cases left after every pallet
+        /// pick (held or not) is accounted for.</summary>
+        private int CasesOwedByHeldWork(OrderData order, out int heldTasks)
+        {
+            var held = HeldTasks(order).ToList();
+            heldTasks = held.Count;
+            int cases = 0;
+            foreach (var t in held.Where(t => t.Type == WorkTaskType.PalletPick))
+                cases += FullPalletCases(t.SkuId);
+
+            if (held.Any(t => t.Type == WorkTaskType.OrderSelect))
+            {
+                foreach (var li in order.LineItems)
+                    cases += Mathf.Max(0, li.QuantityRemaining - OutstandingPalletPickCases(order.OrderId, li.SkuId));
+            }
+            return cases;
+        }
+
+        /// <summary>Cost of dropping the part of an order that is being held for lack of lane room ("Cancel
+        /// Remaining"). The order carries on and ships SHORT with what has been released. Not allowed when
+        /// nothing is held, or when nothing has been released yet (cancel the whole order instead).</summary>
+        public CancelImpact PreviewCancelRemaining(OrderData order)
+        {
+            var impact = new CancelImpact
+            {
+                OrderId = order?.OrderId,
+                OrderLabel = order != null ? (order.OrderNumber ?? order.OrderId) : "?",
+                Customer = order?.CustomerName
+            };
+            if (order == null) { impact.WhyNot = "the order no longer exists"; return impact; }
+            if (!order.ReleasedToFloor || HeldWorkCount(order) == 0)
+            {
+                impact.WhyNot = "no part of it is being held back";
+                return impact;
+            }
+            bool somethingReleased = LiveTasksForOrder(order.OrderId).Any(t => t.Status != WorkTaskStatus.Open)
+                                     || order.TotalUnitsPicked > 0;
+            if (!somethingReleased)
+            {
+                impact.WhyNot = "none of it has been released yet - cancel the whole order instead";
+                return impact;
+            }
+
+            impact.CasesCancelled = CasesOwedByHeldWork(order, out impact.TasksCancelled);
+            if (impact.CasesCancelled <= 0) { impact.WhyNot = "there is nothing left to cancel"; return impact; }
+
+            float fraction = order.TotalUnits > 0 ? impact.CasesCancelled / (float)order.TotalUnits : 1f;
+            CancelScale(order, fraction, out impact.ReputationLoss, out impact.PartnershipLoss, out impact.DaysToDue);
+            impact.Allowed = true;
+            return impact;
+        }
+
+        /// <summary>The wording of a confirmation: what will be cancelled and exactly what it costs.</summary>
+        public static string DescribeCancel(IList<CancelImpact> impacts, bool partial)
+        {
+            var ok = impacts.Where(i => i.Allowed).ToList();
+            if (ok.Count == 0) return "Nothing here can be cancelled.";
+
+            int rep = ok.Sum(i => i.ReputationLoss);
+            int sat = Mathf.RoundToInt(ok.Sum(i => i.PartnershipLoss));
+            var sb = new System.Text.StringBuilder();
+
+            if (partial)
+            {
+                int cases = ok.Sum(i => i.CasesCancelled);
+                int tasks = ok.Sum(i => i.TasksCancelled);
+                string who = ok.Count == 1 ? $"{ok[0].Customer}'s order {ok[0].OrderLabel}" : $"{ok.Count} orders";
+                sb.Append($"Cancel the remaining {cases} case(s) ({tasks} held task(s)) of {who}?\n");
+                sb.Append("The order ships SHORT with what is already released. Held pallets go back to stock.\n");
+            }
+            else
+            {
+                string who = ok.Count == 1 ? $"{ok[0].Customer}'s order {ok[0].OrderLabel}" : $"{ok.Count} orders";
+                sb.Append($"Cancel {who}?\nNothing ships and its reserved pallets go back to stock.\n");
+            }
+            sb.Append($"\nConsequences: -{rep} Reputation / -{sat} Partnership");
+            int soonest = ok.Min(i => i.DaysToDue);
+            sb.Append(soonest > 1 ? $"\n(Due in {soonest} days - the earlier you cancel, the less it costs.)"
+                    : soonest == 1 ? "\n(Due tomorrow.)"
+                    : soonest == 0 ? "\n(Due TODAY - this hurts.)"
+                    : "\n(Already overdue.)");
+            var skipped = impacts.Where(i => !i.Allowed).ToList();
+            if (skipped.Count > 0) sb.Append($"\n{skipped.Count} selected order(s) can't be cancelled and are left alone.");
+            return sb.ToString();
+        }
+
+        /// <summary>Cancels whole orders on the PLAYER's say-so and charges the scaled penalty previewed by
+        /// <see cref="PreviewCancel"/>. Orders that cannot be cancelled are skipped. Returns how many were.</summary>
+        public int CancelOrdersByPlayer(List<string> orderIds)
+        {
+            if (orderIds == null) return 0;
+            ServiceLocator.TryGet(out OrderArrivalService arrivals);
+
+            var done = new List<string>();
+            foreach (var id in orderIds)
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
+                var impact = PreviewCancel(order);
+                if (!impact.Allowed) continue;
+
+                // Stamp BEFORE CancelOrders fires OnOrderCancelled, which is where reputation is charged.
+                order.CancelReputationCost = impact.ReputationLoss;
+                if (CancelOrders(new List<string> { id }) == 0) { order.CancelReputationCost = 0; continue; }
+                if (!string.IsNullOrEmpty(order.ContractId))
+                    arrivals?.PenalizeSatisfaction(order.ContractId, impact.PartnershipLoss);
+                done.Add(id);
+            }
+            return done.Count;
+        }
+
+        /// <summary>When an order claims a pallet that is still sitting in a staging lane, that pallet's Putaway task is
+        /// cancelled (see FileOrderTasks). If the order is then cancelled before a truck has lifted the pallet, nothing
+        /// would ever put it away, so file a fresh Putaway for it. Tasks a truck already holds (Assigned) are left alone:
+        /// the truck is mid-move and finishing it is safer than yanking the pallet out from under it.</summary>
+        private void RefilePutawayForClaimedLanePallets(IEnumerable<WorkTask> unliftedPalletPicks)
+        {
+            if (_workQueue == null || _inventoryService == null) return;
+            foreach (var task in unliftedPalletPicks)
+            {
+                if (task.Type != WorkTaskType.PalletPick || string.IsNullOrEmpty(task.PalletId)) continue;
+                if (string.IsNullOrEmpty(task.FromLocation) ||
+                    !task.FromLocation.StartsWith("STG", System.StringComparison.OrdinalIgnoreCase)) continue;
+
+                var pallet = _inventoryService.GetPallet(task.PalletId);
+                if (pallet == null || pallet.Quantity <= 0) continue;
+                if (_workQueue.Tasks.Any(t => t.Type == WorkTaskType.Putaway && t.PalletId == task.PalletId &&
+                                              t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled)) continue;
+
+                var sku = _inventoryService.GetSkuData(pallet.SkuId);
+                var created = _workQueue.CreateTask(
+                    WorkTaskType.Putaway,
+                    EmployeeRole.ReachTruckOperator,
+                    pallet.PalletId,
+                    $"Putaway pallet [{pallet.LoadId}] returned from a cancelled order at {task.FromLocation}",
+                    fromLocation: task.FromLocation,
+                    toLocation: null,
+                    area: sku != null ? sku.StorageArea : PalletData.AreaCategory.Grocery);
+                if (created != null)
+                    Debug.Log($"[OrderService] Order cancelled - pallet {pallet.PalletId} left in {task.FromLocation} goes back to putaway.");
+            }
+        }
+
+        /// <summary>Drops the held part of an order ("Cancel Remaining"): releases the pallets those tasks had
+        /// reserved, cancels the tasks, records the cases so they aren't penalised a second time at ship
+        /// time, and charges the scaled penalty. The order carries on and ships short.</summary>
+        public bool CancelRemaining(string orderId, out CancelImpact impact)
+        {
+            var order = _activeOrders.FirstOrDefault(o => o.OrderId == orderId);
+            impact = PreviewCancelRemaining(order);
+            if (!impact.Allowed) return false;
+
+            var heldNow = HeldTasks(order).ToList();
+            var unliftedHeld = heldNow.Where(t => t.Status != WorkTaskStatus.Assigned).ToList();   // captured BEFORE the statuses change
+            foreach (var task in heldNow)
+            {
+                if (task.Type == WorkTaskType.PalletPick && !string.IsNullOrEmpty(task.FromLocation)
+                    && LocationRegistry.TryGet(task.FromLocation, out var reserved)
+                    && reserved.Status == LocationStatus.Reserved)
+                    reserved.Unreserve();
+                task.Status = WorkTaskStatus.Cancelled;
+                task.AssignedToEmployeeGuid = null;
+            }
+            RefilePutawayForClaimedLanePallets(unliftedHeld);
+
+            order.CancelledCases += impact.CasesCancelled;
+
+            if (ServiceLocator.TryGet(out ReputationService reputation) && reputation != null)
+                reputation.Add(-impact.ReputationLoss, $"cancelled the remaining {impact.CasesCancelled} case(s) of order {impact.OrderLabel}");
+            if (!string.IsNullOrEmpty(order.ContractId) && ServiceLocator.TryGet(out OrderArrivalService arrivals))
+                arrivals?.PenalizeSatisfaction(order.ContractId, impact.PartnershipLoss);
+
+            Debug.Log($"[OrderService] Order {impact.OrderLabel} ({order.CustomerName}): player cancelled the remaining " +
+                      $"{impact.CasesCancelled} case(s) ({impact.TasksCancelled} held task(s)); it now ships short. " +
+                      $"-{impact.ReputationLoss} reputation, -{impact.PartnershipLoss:F0} partnership.");
+            return true;
         }
 
         /// <summary>Releases a batch of fully-Staged orders — same customer, same staging lane — to
@@ -836,7 +1352,7 @@ namespace GameCore.Inventory
 
             // doorNumber is the DOCK door (the trailer). The lanes may be at other (staging) doors — keep
             // each lane as (staging door, letter) so the Load task can name where to fetch from.
-            var lanes = orders.Select(o => (door: o.EffectiveStagingDoor, lane: o.AssignedLane)).Distinct().ToList();
+            var lanes = orders.SelectMany(o => o.AllStagingLanes()).Distinct().ToList();
             // Plus any lane at these doors where these orders' staged pallets PHYSICALLY are. A pallet
             // that landed outside the order's assigned lane (seen live 2026-09-23: an OG4104 pallet in
             // 1D with the order assigned to 1E) was never loaded — and the empty 1E pass reverted the
@@ -1009,7 +1525,7 @@ namespace GameCore.Inventory
             foreach (var order in _activeOrders)
             {
                 if (order.Status != OrderData.OrderStatus.Loading) continue;
-                if (order.EffectiveStagingDoor != doorNumber || order.AssignedLane != lane) continue;
+                if (!order.UsesLane(doorNumber, lane)) continue;
                 if (loadedOrderIds != null && loadedOrderIds.Contains(order.OrderId)) continue;
 
                 order.Status = OrderData.OrderStatus.Staged;
@@ -1085,7 +1601,11 @@ namespace GameCore.Inventory
         {
             if (order == null || order.TotalUnits <= 0) return;
 
-            float filled = order.TotalUnitsPicked / (float)order.TotalUnits;
+            // Cases the player cancelled off the order were charged at the time ("Cancel Remaining"), so only
+            // the shortfall BEYOND those counts here - otherwise one decision would be penalised twice.
+            float owed = order.TotalUnits - order.CancelledCases;
+            if (owed <= 0f) return;
+            float filled = Mathf.Min(1f, order.TotalUnitsPicked / owed);
             if (filled >= 0.999f) return;                       // shipped complete — nothing owed
 
             if (!ServiceLocator.TryGet(out OrderArrivalService arrivals) || arrivals == null) return;
@@ -1102,7 +1622,24 @@ namespace GameCore.Inventory
             whyNot = null;
             if (order == null) { whyNot = "no longer exists"; return false; }
 
-            if (order.Status == OrderData.OrderStatus.Loaded) return true;
+            if (order.Status == OrderData.OrderStatus.Loaded)
+            {
+                // An order staged across several lanes is marked Loaded after the FIRST lane's pass; the
+                // other lanes' Load tasks may still be on their way. Wait for them.
+                if (StagedPalletsRemainingInLane(order) > 0 && _workQueue != null)
+                {
+                    var addresses = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
+                    bool loaderComing = _workQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
+                        t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled &&
+                        addresses.Contains(t.FromLocation));
+                    if (loaderComing)
+                    {
+                        whyNot = "still has pallets in another staging lane - the loader hasn't finished it yet";
+                        return false;
+                    }
+                }
+                return true;
+            }
 
             if (order.Status != OrderData.OrderStatus.Loading)
             {
@@ -1129,7 +1666,7 @@ namespace GameCore.Inventory
         /// </summary>
         public int StagedPalletsRemainingInLane(OrderData order)
         {
-            if (order == null || order.EffectiveStagingDoor <= 0 || string.IsNullOrEmpty(order.AssignedLane))
+            if (order == null || !order.AllStagingLanes().Any())
                 return 0;
 
             var grid = Object.FindFirstObjectByType<PlacementGrid>();
@@ -1141,7 +1678,7 @@ namespace GameCore.Inventory
                 if (pallet == null || pallet.transform.parent != null) continue;   // mid-carry
                 var cell = grid.WorldToCell(pallet.transform.position);
                 if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
-                if (slot.DoorNumber != order.EffectiveStagingDoor || slot.Lane != order.AssignedLane) continue;
+                if (!order.UsesLane(slot.DoorNumber, slot.Lane)) continue;
                 count++;
             }
             return count;
@@ -1453,7 +1990,9 @@ namespace GameCore.Inventory
                     assignedDoorNumber = o.AssignedDoorNumber,
                     stagingDoorNumber = o.StagingDoorNumber,
                     releasedToFloor = o.ReleasedToFloor,
+                    cancelledCases = o.CancelledCases,
                     assignedLane = o.AssignedLane,
+                    overflowLanes = o.OverflowLanes.Select(l => new StagingLaneRef { door = l.door, lane = l.lane }).ToList(),
                     hasBeenFined = o.HasBeenFined,
                     hasBeenLateLoadFined = o.HasBeenLateLoadFined,
                     contractId = o.ContractId,
@@ -1528,6 +2067,10 @@ namespace GameCore.Inventory
                     PalletFee = snap.palletFee,
                     ShortNoticeFee = snap.shortNoticeFee
                 };
+                order.CancelledCases = snap.cancelledCases;
+                if (snap.overflowLanes != null)
+                    foreach (var l in snap.overflowLanes)
+                        if (l != null) order.AddOverflowLane(l.door, l.lane);
                 foreach (var liSnap in snap.lineItems)
                 {
                     var li = new OrderLineItem(liSnap.skuId, liSnap.quantityNeeded, liSnap.unitCost, liSnap.sellingPrice)
@@ -1619,13 +2162,14 @@ namespace GameCore.Inventory
                                  $"re-picked from current stock.");
 
                 if (order.Status == OrderData.OrderStatus.Loading)
-                    vacatedLanes.Add($"{order.EffectiveStagingDoor}{order.AssignedLane}");
+                    foreach (var vl in order.AllStagingLanes()) vacatedLanes.Add($"{vl.door}{vl.lane}");
 
                 order.Status = OrderData.OrderStatus.Pending;
                 order.AssignedDoorNumber = 0;
                 order.StagingDoorNumber = 0;
                 order.ReleasedToFloor = false;
                 order.AssignedLane = null;
+                order.OverflowLanes.Clear();
                 foreach (var li in order.LineItems)
                     li.QuantityPicked = 0;
 
@@ -1664,7 +2208,7 @@ namespace GameCore.Inventory
             {
                 bool stillLoading = _activeOrders.Any(
                     o => o != null && o.Status == OrderData.OrderStatus.Loading &&
-                         $"{o.EffectiveStagingDoor}{o.AssignedLane}" == laneAddress);
+                         o.AllStagingLanes().Any(l => $"{l.door}{l.lane}" == laneAddress));
                 if (stillLoading) continue;
 
                 var deadLoads = _workQueue?.Tasks.Where(

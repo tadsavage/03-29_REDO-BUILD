@@ -85,11 +85,54 @@ namespace GameCore.Inventory
         /// order and the order could be released twice.</summary>
         public bool ReleasedToFloor { get; set; }
 
+        /// <summary>Cases the player deliberately cancelled off this order ("Cancel Remaining") after it was
+        /// released. They were already charged for when cancelled, so the short-ship penalty and the
+        /// reputation fill check at ship time leave them out. Persisted.</summary>
+        public int CancelledCases { get; set; }
+
+        /// <summary>Reputation points this order's cancellation costs, stamped by the player-cancel path
+        /// just before OnOrderCancelled fires. 0 = not stamped (system cancels, the Contracts panel's own
+        /// cancel) -> ReputationService falls back to its flat default.</summary>
+        public int CancelReputationCost { get; set; }
+
         /// <summary>Released, still live, and no lane yet — the state AssignWaitingLanes works on.
         /// Derived entirely from persisted fields, so it survives save/load.</summary>
         public bool IsWaitingForLane =>
             ReleasedToFloor && string.IsNullOrEmpty(AssignedLane) &&
             Status != OrderStatus.Shipped && Status != OrderStatus.Cancelled && Status != OrderStatus.Loaded;
+
+        /// <summary>
+        /// Further staging lanes this order's pallets overflow into, beyond the primary
+        /// (<see cref="EffectiveStagingDoor"/> + <see cref="AssignedLane"/>). A lane holds only so many
+        /// pallets (positions x stack height, 2 per position by default), so a big order is spread over
+        /// as many lanes as it needs. Lanes may sit at different doors; each entry is a full address.
+        /// </summary>
+        public List<StagingLaneRef> OverflowLanes { get; } = new List<StagingLaneRef>();
+
+        /// <summary>Every lane this order stages into: the primary first, then the overflow lanes.
+        /// Empty until the order has been given a lane.</summary>
+        public IEnumerable<(int door, string lane)> AllStagingLanes()
+        {
+            if (!string.IsNullOrEmpty(AssignedLane)) yield return (EffectiveStagingDoor, AssignedLane);
+            foreach (var l in OverflowLanes)
+                if (!string.IsNullOrEmpty(l.lane)) yield return (l.door, l.lane);
+        }
+
+        /// <summary>True if this order stages into (or owns) the given lane, primary or overflow.</summary>
+        public bool UsesLane(int door, string lane)
+        {
+            if (string.IsNullOrEmpty(lane)) return false;
+            foreach (var l in AllStagingLanes())
+                if (l.door == door && l.lane == lane) return true;
+            return false;
+        }
+
+        /// <summary>Adds an overflow lane (no-op if the order already uses it).</summary>
+        public void AddOverflowLane(int door, string lane)
+        {
+            if (string.IsNullOrEmpty(lane) || UsesLane(door, lane)) return;
+            OverflowLanes.Add(new StagingLaneRef { door = door, lane = lane });
+        }
 
         /// <summary>
         /// True once this order has missed its deadline and been charged for it. One late fee per
@@ -336,6 +379,14 @@ namespace GameCore.Inventory
     /// <summary>JSON-serializable snapshot of an OrderData for save/load. OrderData itself uses
     /// auto-properties (JsonUtility can't serialize those directly), so this plain-field mirror is
     /// what actually goes in SaveData — see OrderService.Export()/Import().</summary>
+    /// <summary>A staging lane address (door number + lane letter) in a plain serializable form.</summary>
+    [System.Serializable]
+    public class StagingLaneRef
+    {
+        public int door;
+        public string lane;
+    }
+
     [System.Serializable]
     public class OrderSnapshot
     {
@@ -355,7 +406,10 @@ namespace GameCore.Inventory
         public int assignedDoorNumber;
         public string assignedLane;
         public int stagingDoorNumber;
+        /// <summary>Extra lanes for an order too big for one lane. Empty in older saves, which is correct.</summary>
+        public List<StagingLaneRef> overflowLanes = new List<StagingLaneRef>();
         public bool releasedToFloor;
+        public int cancelledCases;
         public bool hasBeenFined;
         /// <summary>False in a save written before the late-load fine existed — correct, since
         /// nothing in such a save could have been charged it.</summary>

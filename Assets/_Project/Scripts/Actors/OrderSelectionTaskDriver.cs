@@ -168,6 +168,15 @@ namespace GameCore.Actors
                     Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for its remaining line item(s) — staging short at {_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits} case(s).");
                     FinishOrder();
                 }
+                else if (_orderService.HasLivePalletPicks(_currentOrder))
+                {
+                    // Nothing for a CASE picker to take (the loose remainder has no stock), but Reach Trucks still owe whole pallets
+                    // for this order. Sending it back to Open here would wipe its lane and strand those pallet picks with no
+                    // destination, so the selector just finishes short on the loose cases and the order carries on as pallet picks.
+                    Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no loose cases to pick, " +
+                                     $"but pallet picks are still outstanding - leaving the order released and letting the Reach Trucks deliver.");
+                    FinishOrder(OrderData.OrderStatus.PartiallyPicked);
+                }
                 else
                 {
                     // Nothing picked at all, so nothing is physically committed anywhere: hand the
@@ -412,7 +421,9 @@ namespace GameCore.Actors
                 {
                     Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) overflowed " +
                               $"from {order.EffectiveStagingDoor}{order.AssignedLane} into {order.EffectiveStagingDoor}{resolvedLane}.");
-                    order.AssignedLane = resolvedLane;
+                    // The order keeps its primary lane (its pallet picks may be staging there); the lane the
+                    // case-pick pallets landed in is recorded alongside it so loading finds both.
+                    order.AddOverflowLane(order.EffectiveStagingDoor, resolvedLane);
                 }
             }
 
@@ -545,6 +556,7 @@ namespace GameCore.Actors
             order.StagingDoorNumber = 0;
             order.ReleasedToFloor = false;
             order.AssignedLane = null;
+            order.OverflowLanes.Clear();
 
             if (task != null)
             {

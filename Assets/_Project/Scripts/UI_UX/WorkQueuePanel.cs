@@ -115,7 +115,7 @@ public class WorkQueuePanel : IUIPanel
     private enum RowPhase { Open, Available, Assigned, Staged, Loading, Loaded, NoStock }
     // ReleaseToStagesAuto: a multi-customer Open selection, where the target dropdown is inert because
     // the stage is decided per customer by OrderService.TryPlanStageSpread rather than picked.
-    private enum ActionMode { None, ReleaseToLane, ReleaseToStagesAuto, ReleaseToLoading, ReleaseToLoadingAuto, CloseOut, Mixed, ReassignLane }
+    private enum ActionMode { None, ReleaseToLane, ReleaseToStagesAuto, ReleaseToLoading, ReleaseToLoadingAuto, CloseOut, Mixed, ReassignLane, ReleaseHeld }
 
     private readonly VisualElement _overlay;
     private readonly ScrollView _rowScroll;
@@ -124,6 +124,7 @@ public class WorkQueuePanel : IUIPanel
     private readonly Button _submitButton;
     private Button _selectAllButton;
     private Button _cancelSelectedButton;
+    private Button _cancelRemainingButton;
     private Button _scaleButton;
     private Label _dayLabel;
     private Label _timeLabel;
@@ -274,7 +275,7 @@ public class WorkQueuePanel : IUIPanel
             .Where(t => t.Status != WorkTaskStatus.Complete)
             .Select(t => $"{t.TaskId}:{t.Status}:{t.PalletId}:{t.OrderId}:{t.AssignedToEmployeeGuid}:{t.FromLocation}:{t.ToLocation}"));
         string orders = orderService == null ? "" : string.Join("|", orderService.ActiveOrders
-            .Select(o => $"{o.OrderId}:{o.Status}:{o.CustomerName}:{o.AssignedDoorNumber}:{o.StagingDoorNumber}:{o.ReleasedToFloor}:{o.AssignedLane}:{o.TotalUnitsPicked}"));
+            .Select(o => $"{o.OrderId}:{o.Status}:{o.CustomerName}:{o.AssignedDoorNumber}:{o.StagingDoorNumber}:{o.ReleasedToFloor}:{o.AssignedLane}:{o.OverflowLanes.Count}:{o.TotalUnitsPicked}"));
         return tasks + "#" + orders;
     }
 
@@ -397,6 +398,19 @@ public class WorkQueuePanel : IUIPanel
         _cancelSelectedButton.style.paddingRight = 0;
         _cancelSelectedButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
         titleBar.Add(_cancelSelectedButton);
+
+        // Cancel Remaining - drops the part of a released order that is being HELD for lack of lane room;
+        // the order carries on and ships short with what was released. Costs reputation/partnership,
+        // which the confirmation spells out first.
+        _cancelRemainingButton = StyleButton(new Button(CancelRemainingSelected) { text = "Cancel Remaining" },
+            ColWarning, ColOrangeEdge, ColOrangeText, ColOrangeHover);
+        _cancelRemainingButton.style.width = CancelSelectedWidth + 30f;
+        _cancelRemainingButton.style.flexShrink = 0;
+        _cancelRemainingButton.style.marginLeft = 8;
+        _cancelRemainingButton.style.paddingLeft = 0;
+        _cancelRemainingButton.style.paddingRight = 0;
+        _cancelRemainingButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+        titleBar.Add(_cancelRemainingButton);
 
         // Centered on the title bar's full width via absolute positioning rather than a flexGrow
         // spacer -- the left button cluster (Select All/Cancel Selected) and the right-side
@@ -559,7 +573,7 @@ public class WorkQueuePanel : IUIPanel
         modal.Add(titleBar);
 
         new DraggableWindow(modal, titleBar, closeButton);
-        _resizeWindow = new ResizableWindow(modal, minW: 900f, minH: 260f, grip: 10f, titleInset: 54f, allowVerticalResize: false);
+        _resizeWindow = new ResizableWindow(modal, minW: 900f, minH: 260f, grip: 10f, titleInset: 54f, allowVerticalResize: true);
         _scaleButton.clicked += () =>
         {
             _resizeWindow.CycleScale();
@@ -591,10 +605,17 @@ public class WorkQueuePanel : IUIPanel
 
         rowScroll = new ScrollView
         {
-            verticalScrollerVisibility = ScrollerVisibility.Auto,
+            verticalScrollerVisibility = ScrollerVisibility.AlwaysVisible,   // always shown so a long queue is never silently cut off
             horizontalScrollerVisibility = ScrollerVisibility.Hidden
         };
         rowScroll.style.flexGrow = 1;
+        rowScroll.style.flexShrink = 1;
+        rowScroll.style.minHeight = 0;   // without this a tall list pushes the scroller off the bottom of the modal instead of scrolling
+        rowScroll.verticalScroller.style.width = 16;
+        rowScroll.verticalScroller.style.backgroundColor = new StyleColor(new Color(0.08f, 0.11f, 0.15f, 1f));
+        rowScroll.verticalScroller.slider.style.backgroundColor = new StyleColor(new Color(0.08f, 0.11f, 0.15f, 1f));
+        rowScroll.verticalScroller.slider.Q("unity-dragger").style.backgroundColor = new StyleColor(ColBorder);
+        rowScroll.mouseWheelScrollSize = 60;
         // Was a hard maxHeight: 520 cap -- harmless back when the modal only ever opened at its normal
         // authored size, but now that it opens filled (FillScreenExact, see Show()) that cap left a
         // huge dead gap between the last row and the bottom bar instead of letting flexGrow actually
@@ -848,6 +869,10 @@ public class WorkQueuePanel : IUIPanel
         {
             var task = RepresentativeTask(order, workQueue);
             var phase = DeterminePhase(order, task);
+            // An order that has not been released from the Scheduler is not work yet, so it has no row
+            // here. It appears (as Open while lanes are scanned, then Available) only once the
+            // Scheduler tile's RELEASE ORDERS button has been pressed.
+            if (phase == RowPhase.Open) continue;
             if (phase.HasValue) rows.Add((order, phase.Value, task));
         }
         return ApplyOrderFilters(SortOrders(rows));
@@ -932,13 +957,54 @@ public class WorkQueuePanel : IUIPanel
         var ids = CancellableCheckedOrderIds();
         if (ids.Count == 0) return;
 
-        int cancelled = orderService.CancelOrders(ids);
-        _checkedOrderIds.ExceptWith(ids);
-        _liveSignature = null;   // statuses changed; force the next refresh tick to rebuild
-        RebuildRows();
+        // Say what it costs BEFORE doing it.
+        var impacts = ids.Select(id => orderService.PreviewCancel(orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == id))).ToList();
+        ConfirmationModal.Show(OrderService.DescribeCancel(impacts, partial: false), () =>
+        {
+            int cancelled = orderService.CancelOrdersByPlayer(ids);
+            _checkedOrderIds.ExceptWith(ids);
+            _liveSignature = null;   // statuses changed; force the next refresh tick to rebuild
+            RebuildRows();
 
-        if (cancelled > 0)
-            _bottomMessage.text = $"Cancelled {cancelled} order(s).";
+            if (cancelled > 0)
+                _bottomMessage.text = $"Cancelled {cancelled} order(s).";
+        });
+    }
+
+    /// <summary>The checked orders that have held work which can be cancelled off ("Cancel Remaining").</summary>
+    private List<string> RemainingCancellableCheckedOrderIds()
+    {
+        var ids = new List<string>();
+        if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null) return ids;
+        foreach (var id in _checkedOrderIds)
+        {
+            var order = orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == id);
+            if (order != null && orderService.PreviewCancelRemaining(order).Allowed) ids.Add(id);
+        }
+        return ids;
+    }
+
+    private void CancelRemainingSelected()
+    {
+        if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null) return;
+
+        var ids = RemainingCancellableCheckedOrderIds();
+        if (ids.Count == 0) return;
+
+        var impacts = ids.Select(id => orderService.PreviewCancelRemaining(orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == id))).ToList();
+        ConfirmationModal.Show(OrderService.DescribeCancel(impacts, partial: true), () =>
+        {
+            int done = 0;
+            foreach (var id in ids)
+                if (orderService.CancelRemaining(id, out _)) done++;
+            _liveSignature = null;
+            RebuildRows();
+            if (done > 0)
+            {
+                UIToast.Show($"Cancelled the remaining work on {done} order(s) - they ship short.");
+                _bottomMessage.text = $"Cancelled the remaining work on {done} order(s).";
+            }
+        });
     }
 
     /// <summary>Shows how many of the checked rows the button would actually cancel, so a mixed
@@ -958,6 +1024,16 @@ public class WorkQueuePanel : IUIPanel
     {
         UpdateSelectAllButton();
         UpdateCancelSelectedButton();
+        UpdateCancelRemainingButton();
+    }
+
+    private void UpdateCancelRemainingButton()
+    {
+        if (_cancelRemainingButton == null) return;
+        int n = RemainingCancellableCheckedOrderIds().Count;
+        _cancelRemainingButton.SetEnabled(n > 0);
+        _cancelRemainingButton.text = n > 0 ? $"Cancel Remaining ({n})" : "Cancel Remaining";
+        _cancelRemainingButton.style.opacity = n > 0 ? 1f : 0.5f;
     }
 
     /// <summary>Applies +/- one priority step to every still-active task (not Complete/Cancelled)
@@ -1289,6 +1365,9 @@ public class WorkQueuePanel : IUIPanel
         // an unreleased placeholder (that would offer to release it again). Treated as Available so the
         // player can still pick a lane by hand or cancel it; the Status column shows "Open" for it.
         if (order.IsWaitingForLane) return RowPhase.Available;
+        // Released, but some (or all) of its work is held back for lack of lane room: its least-advanced
+        // task is still Open. That is NOT an unreleased placeholder - it is released work waiting for room.
+        if (order.ReleasedToFloor && task != null && task.Status == WorkTaskStatus.Open) return RowPhase.Available;
         if (task == null) return null;
         return task.Status switch
         {
@@ -1406,7 +1485,7 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, taskName, TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
         // A released order still waiting for a lane reads "Open" (its tasks ARE Open); an ordinary released
         // one reads Available. The phase underneath is Available either way — see DeterminePhase.
-        bool waitingForLane = order.IsWaitingForLane;
+        bool waitingForLane = order.IsWaitingForLane || (order.ReleasedToFloor && task != null && task.Status == WorkTaskStatus.Open);
         AddRowCell(row, waitingForLane ? PhaseLabel(RowPhase.Open) : PhaseLabel(phase), StatusWidth,
                    waitingForLane ? PhaseColor(RowPhase.Open) : PhaseColor(phase), bold: true, marginLeft: TaskStatusGap);
         AddRowCell(row, from, LocationWidth, ColSubtleText, marginLeft: StatusFromGap);
@@ -1443,7 +1522,7 @@ public class WorkQueuePanel : IUIPanel
             return path.Count > 0 ? path[0] : "—";
         }
         if (order != null && order.EffectiveStagingDoor > 0 && !string.IsNullOrEmpty(order.AssignedLane))
-            return $"{order.EffectiveStagingDoor}{order.AssignedLane}";
+            return string.Join("+", order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
         return string.IsNullOrEmpty(task?.FromLocation) ? "—" : task.FromLocation;
     }
 
@@ -1636,8 +1715,7 @@ public class WorkQueuePanel : IUIPanel
         // ended up EMPTY (not "one phase") -> the bottom bar wrongly reported a mixed selection ("check
         // only Open orders together...") even when a single full-pallet order was checked by itself.
         var phases = checkedOrders
-            .Select(o => DeterminePhase(o, workQueue?.Tasks.FirstOrDefault(t => t.OrderId == o.OrderId
-                && (t.Type == WorkTaskType.OrderSelect || t.Type == WorkTaskType.PalletPick))))
+            .Select(o => DeterminePhase(o, RepresentativeTask(o, workQueue)))
             .Where(p => p.HasValue).Select(p => p.Value).Distinct().ToList();
 
         var customers = checkedOrders.Select(o => o.CustomerId).Distinct().ToList();
@@ -1679,16 +1757,64 @@ public class WorkQueuePanel : IUIPanel
         // everything downstream (loading, close-out) that keys off AssignedDoorNumber is untouched.
         if (phases[0] == RowPhase.Available)
         {
-            // A lane can now be chosen at ANY door (orders may stage away from their dock door); the dock
-            // door — and so the trailer — never changes. Orders must share one current lane (or none yet).
-            var currentLanes = checkedOrders.Select(o => $"{o.EffectiveStagingDoor}{o.AssignedLane}")
-                .Where((_, i) => !string.IsNullOrEmpty(checkedOrders[i].AssignedLane)).Distinct().ToList();
+            int heldTotal = checkedOrders.Sum(o => orderService.HeldWorkCount(o));
+            bool allHeld = checkedOrders.All(o => orderService.HeldWorkCount(o) > 0);
+            int palletsNeeded = checkedOrders.Sum(o => orderService.PalletsNeeded(o));
 
-            if (currentLanes.Count <= 1 && customers.Count == 1)
+            // One customer at a time: each customer stages into its own lane(s).
+            if (customers.Count != 1)
             {
-                ServiceLocator.TryGet<InventoryService>(out var inv2);
-                string currentLane = currentLanes.Count == 1 ? currentLanes[0] : null;
+                SetBottomBar(ActionMode.None,
+                    allHeld
+                        ? "Select one customer's orders at a time to choose their staging lane."
+                        : $"These {checkedOrders.Count} order(s) are already released and waiting for someone to claim them. Use Cancel Selected to call them off.",
+                    new List<string> { "\u2014" }, enableTarget: false, enableSubmit: false);
+                return;
+            }
 
+            ServiceLocator.TryGet<InventoryService>(out var inv2);
+
+            // HELD WORK: the orders are released but some of their tasks are Open (unclaimable) because
+            // no lane had room. Offer every lane with room - the orders' own lanes and any free lane -
+            // and release as much as that lane can take. Do it again for a second lane if needed.
+            if (allHeld)
+            {
+                var heldLanes = LaneNamingService.AllLanes()
+                    .Where(l => inv2 == null || inv2.LaneAllowsPicking(l.door, l.lane))
+                    .Where(l => !StagingLaneAssignmentService.LaneHasInboundStock(inv2, l.door, l.lane))
+                    .Where(l => !TrailerOffloadController.IsLanePendingInbound(l.door, l.lane))
+                    .Where(l => !StagingLaneAssignmentService.HasInboundTruckDocked(l.door))
+                    .Where(l => StagingLaneAssignmentService.IsLaneAvailableFor(orderService, l.door, l.lane, customerId))
+                    .Where(l => orderService.FreeRoom(l.door, l.lane) > 0)
+                    .OrderBy(l => l.door).ThenBy(l => l.lane)
+                    .ToList();
+                _dropdownLanes = heldLanes;
+
+                if (heldLanes.Count > 0)
+                {
+                    SetBottomBar(ActionMode.ReleaseHeld,
+                        $"{checkedOrders.Count} order(s) have {heldTotal} task(s) held back for lack of lane room (about {palletsNeeded} pallet(s) in all) -- pick a lane to release what fits, or Cancel Selected to call them off:",
+                        heldLanes.Select(l => $"{l.door}{l.lane}  ({orderService.FreeRoom(l.door, l.lane)} free)").ToList());
+                    return;
+                }
+
+                SetBottomBar(ActionMode.None,
+                    $"No staging lane has room yet for these {checkedOrders.Count} order(s) ({heldTotal} task(s) held). Free up a lane (load a trailer or close out an order) and they release themselves, or pick a lane here once one has room. Use Cancel Selected to call them off.",
+                    new List<string> { "\u2014" }, enableTarget: false, enableSubmit: false);
+                return;
+            }
+
+            // MOVE: fully released orders (nothing held) that sit in a single lane can be re-pointed at a
+            // different lane at ANY door, e.g. picking ahead into 2A for a truck that loads at door 1. The
+            // dock door - and so the trailer - never changes. Only lanes with room for the WHOLE selection
+            // are offered, since a move never splits an order.
+            bool canMove = checkedOrders.All(o => o.OverflowLanes.Count == 0 && !string.IsNullOrEmpty(o.AssignedLane) && orderService.HeldWorkCount(o) == 0);
+            var currentLanes = checkedOrders.Where(o => !string.IsNullOrEmpty(o.AssignedLane))
+                .Select(o => $"{o.EffectiveStagingDoor}{o.AssignedLane}").Distinct().ToList();
+
+            if (canMove && currentLanes.Count == 1)
+            {
+                string currentLane = currentLanes[0];
                 var candidateLanes = LaneNamingService.AllLanes()
                     .Where(l => $"{l.door}{l.lane}" != currentLane)
                     .Where(l => inv2 == null || inv2.LaneAllowsPicking(l.door, l.lane))
@@ -1696,117 +1822,33 @@ public class WorkQueuePanel : IUIPanel
                     .Where(l => !TrailerOffloadController.IsLanePendingInbound(l.door, l.lane))
                     .Where(l => !StagingLaneAssignmentService.HasInboundTruckDocked(l.door))
                     .Where(l => StagingLaneAssignmentService.IsLaneAvailableFor(orderService, l.door, l.lane, customerId))
+                    .Where(l => orderService.FreeRoom(l.door, l.lane) >= palletsNeeded)
                     .OrderBy(l => l.door).ThenBy(l => l.lane)
                     .ToList();
                 _dropdownLanes = candidateLanes;
 
-                bool anyWaiting = checkedOrders.Any(o => o.IsWaitingForLane);
                 if (candidateLanes.Count > 0)
                 {
-                    string laneNote = currentLane != null ? $" from lane {currentLane}" : string.Empty;
-                    string lead = anyWaiting
-                        ? $"{checkedOrders.Count} order(s) released but waiting for a lane — assign one now"
-                        : $"{checkedOrders.Count} order(s) waiting for an Order Selector — move{laneNote} to a different lane";
                     SetBottomBar(ActionMode.ReassignLane,
-                        $"{lead}, or Cancel Selected to call them off:",
-                        candidateLanes.Select(l => $"{l.door}{l.lane}").ToList());
+                        $"{checkedOrders.Count} order(s) waiting for an Order Selector -- move from lane {currentLane} to a different lane, or Cancel Selected to call them off:",
+                        candidateLanes.Select(l => $"{l.door}{l.lane}  ({orderService.FreeRoom(l.door, l.lane)} free)").ToList());
                     return;
                 }
             }
 
             SetBottomBar(ActionMode.None, $"These {checkedOrders.Count} order(s) are already released and waiting for an Order Selector to claim them. Use Cancel Selected to call them off.",
-                new List<string> { "—" }, enableTarget: false, enableSubmit: false);
+                new List<string> { "\u2014" }, enableTarget: false, enableSubmit: false);
             return;
         }
 
+        // Open = still just the placeholder task: the order has NOT been released. Releasing happens ONLY
+        // from the Scheduler's RELEASE ORDERS button -- the Work Queue no longer does it. (An order that was
+        // released but found no lane is NOT in this phase; it reads Available here and is handled below.)
         if (phases[0] == RowPhase.Open)
         {
-            ServiceLocator.TryGet<InventoryService>(out var inv);
-
-            // Several customers at once: there's no single stage to offer, so the target dropdown has
-            // nothing to choose and the system assigns one stage per customer instead. Show the player
-            // the exact plan it will commit — computed by the same method that commits it, so what
-            // they read is what happens.
-            // Releasing is automatic for ANY number of customers now: each customer's orders get the first
-            // completely empty lane found searching outward from their trailer's dock door (see
-            // StagingLaneAssignmentService.TryFindLaneForOrder). With no lane free the release still goes
-            // through, held until one opens. The preview below is computed by the same planner.
-            {
-                if (!orderService.TryPlanStageSpread(_checkedOrderIds.ToList(), out var plan, out string why))
-                {
-                    SetBottomBar(ActionMode.ReleaseToStagesAuto,
-                        $"Can't release {(customers.Count == 1 ? "these orders" : $"these {customers.Count} customers")} — {why}.",
-                        new List<string> { "—" }, enableTarget: false, enableSubmit: false);
-                }
-                else
-                {
-                    string assignments = string.Join(",   ", plan.Select(g => g.Waiting
-                        ? $"{g.CustomerName} → no lane free (will wait)"
-                        : $"{g.CustomerName} → {g.DoorNumber}{g.Lane}"));
-                    string lead = customers.Count == 1
-                        ? $"Release {checkedOrders.Count} order(s) to the floor:"
-                        : $"Release {checkedOrders.Count} order(s) across {customers.Count} customers — one lane each:";
-                    SetBottomBar(ActionMode.ReleaseToStagesAuto, $"{lead}   {assignments}",
-                        new List<string> { "Release" }, enableTarget: false);
-                }
-                return;
-            }
-
-            // The player picks a specific LANE now, not a whole door's stage — a door with an inbound
-            // trailer docked can still offer its other, unoccupied lanes for outbound release (only the
-            // lane(s) the dock stocker is actually using are excluded). Every lane across every door is
-            // a candidate; each is independently gated the same way a single lane always was:
-            // pickable usage, no landed inbound stock, no pending inbound drop (see
-            // TrailerOffloadController.IsLanePendingInbound), and not already owned by a different
-            // customer's staging.
-            var allLanes = LaneNamingService.AllLanes();
-            var freeLanes = new List<(int door, string lane)>();
-            var occupiedLanes = new List<string>();
-            foreach (var (door, lane) in allLanes)
-            {
-                bool pickable = inv == null || inv.LaneAllowsPicking(door, lane);
-                bool hasInboundStock = StagingLaneAssignmentService.LaneHasInboundStock(inv, door, lane);
-                bool pendingInbound = TrailerOffloadController.IsLanePendingInbound(door, lane);
-                bool availableForCustomer = StagingLaneAssignmentService.IsLaneAvailableFor(orderService, door, lane, customerId);
-
-                if (pickable && !hasInboundStock && !pendingInbound && availableForCustomer)
-                    freeLanes.Add((door, lane));
-                else if (pickable)
-                    // Inbound-only lanes are never offered either way, so they're not worth listing as
-                    // "occupied" — only lanes that WOULD be candidates but are currently spoken for.
-                    occupiedLanes.Add($"{door}{lane}");
-            }
-            freeLanes = freeLanes.OrderBy(l => l.door).ThenBy(l => l.lane).ToList();
-            _dropdownLanes = freeLanes;
-
-            string occupiedNote = occupiedLanes.Count > 0
-                ? $"   (Occupied: {string.Join(", ", occupiedLanes.OrderBy(s => s))})"
-                : string.Empty;
-
-            if (freeLanes.Count == 0)
-            {
-                Debug.LogWarning($"[WorkQueuePanel] No staging lane available for {checkedOrders[0].CustomerName}.{occupiedNote}");
-                SetBottomBar(ActionMode.ReleaseToLane, $"No available staging lane.{occupiedNote}", new List<string> { "—" }, enableTarget: false, enableSubmit: false);
-            }
-            else
-            {
-                // Default the dropdown to whatever door the Schedule tab already booked this order's
-                // trailer at, if that door has a free lane — a reminder of the door plan already made,
-                // rather than silently offering the lowest free lane instead.
-                ServiceLocator.TryGet<DockScheduleService>(out var schedule);
-                int? plannedDoor = schedule?.FindForOrder(checkedOrders[0].OrderId)?.DoorNumber;
-                var plannedLane = plannedDoor.HasValue ? freeLanes.FirstOrDefault(l => l.door == plannedDoor.Value) : default;
-                bool plannedDoorAvailable = plannedDoor.HasValue && plannedLane != default;
-
-                string message = plannedDoorAvailable
-                    ? $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a staging lane (Door {plannedDoor.Value} scheduled):{occupiedNote}"
-                    : $"Release {checkedOrders.Count} order(s) for {checkedOrders[0].CustomerName} to a staging lane:{occupiedNote}";
-
-                SetBottomBar(ActionMode.ReleaseToLane, message, freeLanes.Select(l => $"{l.door}{l.lane}").ToList());
-
-                if (plannedDoorAvailable)
-                    _targetDropdown.SetValueWithoutNotify($"{plannedLane.door}{plannedLane.lane}");
-            }
+            SetBottomBar(ActionMode.None,
+                $"{checkedOrders.Count} order(s) not released yet. Release them from the Scheduler (key 0): open the trailer's tile and press RELEASE ORDERS. Use Cancel Selected here to call them off.",
+                new List<string> { "—" }, enableTarget: false, enableSubmit: false);
             return;
         }
 
@@ -1896,8 +1938,9 @@ public class WorkQueuePanel : IUIPanel
                            : mode == ActionMode.CloseOut ? "Close Out"
                            : mode == ActionMode.ReleaseToStagesAuto ? "Release All"
                            : mode == ActionMode.ReassignLane ? "Move"
+                           : mode == ActionMode.ReleaseHeld ? "Release Orders to Floor"
                            : "Submit Selection";
-        _submitButton.SetEnabled(enableSubmit && (mode == ActionMode.ReleaseToLane || mode == ActionMode.ReleaseToStagesAuto || mode == ActionMode.ReleaseToLoading || mode == ActionMode.ReleaseToLoadingAuto || mode == ActionMode.CloseOut || mode == ActionMode.ReassignLane) && choices.Count > 0 && choices[0] != "—");
+        _submitButton.SetEnabled(enableSubmit && (mode == ActionMode.ReleaseToLane || mode == ActionMode.ReleaseToStagesAuto || mode == ActionMode.ReleaseToLoading || mode == ActionMode.ReleaseToLoadingAuto || mode == ActionMode.CloseOut || mode == ActionMode.ReassignLane || mode == ActionMode.ReleaseHeld) && choices.Count > 0 && choices[0] != "—");
         _submitButton.style.opacity = _submitButton.enabledSelf ? 1f : 0.5f;
     }
 
@@ -1910,25 +1953,7 @@ public class WorkQueuePanel : IUIPanel
         bool ok;
         int billed = 0;
         bool failAlreadyReported = false; // a branch that names its own reason suppresses the generic toast
-        if (_mode == ActionMode.ReleaseToLane)
-        {
-            int idx = _targetDropdown.index;
-            if (idx < 0 || idx >= _dropdownLanes.Count) return;
-            var (door, lane) = _dropdownLanes[idx];
-            ok = orderService.ReleaseOrdersToLane(orderIds, door, lane);
-        }
-        else if (_mode == ActionMode.ReleaseToStagesAuto)
-        {
-            // No dropdown index to read — the stage per customer was decided by the planner, and is
-            // re-planned here rather than carried over from the preview so a stage taken in the
-            // meantime is caught at commit time instead of being assigned blind.
-            ok = orderService.ReleaseOrdersToStages(orderIds, out string why);
-            if (!ok)
-            {
-                UIToast.Show($"Release failed — {why}");
-                failAlreadyReported = true;
-            }
-        }
+        if (_mode == ActionMode.None || _mode == ActionMode.Mixed) return;
         else if (_mode == ActionMode.ReleaseToLoading)
         {
             int idx = _targetDropdown.index;
@@ -1949,12 +1974,42 @@ public class WorkQueuePanel : IUIPanel
         {
             ok = orderService.CloseOutOrders(orderIds, out billed);
         }
+        else if (_mode == ActionMode.ReleaseHeld)
+        {
+            int idx = _targetDropdown.index;
+            if (idx < 0 || idx >= _dropdownLanes.Count) return;
+            var (door, lane) = _dropdownLanes[idx];
+            var heldOrders = orderIds
+                .Select(id => orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == id))
+                .Where(o => o != null).ToList();
+            int released = orderService.ReleaseHeldWorkToLane(heldOrders, door, lane, out string note);
+            ok = released > 0;
+            if (!ok)
+            {
+                UIToast.Show($"Lane {door}{lane} has no room for this work right now.");
+                failAlreadyReported = true;
+            }
+            else
+            {
+                UIToast.Show(note ?? $"Released {released} task(s) to lane {door}{lane}.");
+                if (note != null) SystemsLogWindow.LogWarning(note);
+            }
+        }
         else if (_mode == ActionMode.ReassignLane)
         {
             int idx = _targetDropdown.index;
             if (idx < 0 || idx >= _dropdownLanes.Count) return;
             var (door, lane) = _dropdownLanes[idx];
             ok = true;
+            // Re-check room at commit time: a pallet may have landed in the lane since the list was drawn.
+            ServiceLocator.TryGet<InventoryService>(out var invCommit);
+            int needed = orderIds.Sum(id => orderService.PalletsNeeded(orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == id)));
+            if (invCommit != null && invCommit.CountFreeStagingSlotsInLane(door, lane) < needed)
+            {
+                UIToast.Show($"Lane {door}{lane} only has room for {invCommit.CountFreeStagingSlotsInLane(door, lane)} pallet(s); these orders need about {needed}.");
+                RebuildRows();
+                return;
+            }
             var movedOrders = new List<OrderData>();
             foreach (var id in orderIds)
             {

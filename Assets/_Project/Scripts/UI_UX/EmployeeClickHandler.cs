@@ -77,13 +77,26 @@ public class EmployeeClickHandler : MonoBehaviour
         // Priority: identity record > EmployeeData > nothing
         if (_identity != null && _identity.Record != null)
         {
+            // Plain click on someone whose banner or card is already up: close BOTH (a second click is "put it away").
+            if (!EmployeeHighlighter.ShiftHeld)
+            {
+                bool bannerUp = EmployeeWorldBanners.Instance.IsShown(_identity);
+                bool cardUp = _employeeUI.IsVisible && _employeeUI.CurrentIdentity == _identity;
+                if (bannerUp || cardUp)
+                {
+                    EmployeeWorldBanners.Instance.Hide(_identity);
+                    _employeeUI.Hide();
+                    AudioManager.Play("UIClick");
+                    return;
+                }
+            }
             _employeeUI.Show(_identity.Record);
             AudioManager.Play("UIClick");
             // Shift-click in the world: also outline them and make the camera follow (after Show, which drops any previous focus).
             // If they are riding a machine the whole machine is outlined and followed (see EmployeeHighlighter.OutlineRoot).
             if (EmployeeHighlighter.ShiftHeld) EmployeeHighlighter.Instance.FocusAndHighlight(_identity);
             // Floating info banner over them: a plain click toggles it, a shift-click makes sure it is up (never closes it).
-            if (EmployeeHighlighter.ShiftHeld) EmployeeWorldBanners.Instance.Show(_identity); else EmployeeWorldBanners.Instance.Toggle(_identity);
+            EmployeeWorldBanners.Instance.Show(_identity);
         }
         else if (_employeeData != null)
         {

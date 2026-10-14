@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 /// RTS/simulation orbital camera. The focal point is ALWAYS centered on screen — the camera is
 /// positioned on an orbit around it and looks straight at it. The controls are fully
@@ -30,6 +32,20 @@ public class FreeLookCamera : MonoBehaviour
     private float zoomSpeed;
     private float minCameraHeight;
     private float rotateSpeed;
+
+    [Header("Diorama Depth of Field (Ultra)")]
+    [Tooltip("Drives a lens-style (Bokeh) depth of field that keeps the floor under the screen centre sharp and softly blurs the near and far distance, for a miniature / diorama look. Ultra preset only; Good keeps the project default and Toaster turns depth of field off.")]
+    [SerializeField] private bool  dioramaDepthOfField = true;
+    [Tooltip("Telephoto focal length in mm. Longer flattens perspective and thins the sharp zone (70-95 is subtle, 110+ is strong).")]
+    [SerializeField] private float dofFocalLengthMm = 90f;
+    [Tooltip("F-stop. Lower = thinner sharp zone and stronger blur (1.2 is strong, 1.8-2.8 subtle).")]
+    [SerializeField] private float dofFStop = 1.6f;
+    [Tooltip("Aperture blades; 5-6 gives angular highlights that suit the low-poly look.")]
+    [SerializeField] private int   dofBladeCount = 6;
+    [Tooltip("F-stop used while a clicked employee is in focus. Higher = a deeper sharp zone, so the whole person (head to feet) stays crisp while the surroundings still soften. 3-5 is good; set equal to the main f-stop for no change.")]
+    [SerializeField] private float dofFStopFocused = 3.6f;
+    [Tooltip("How quickly focus follows zoom/pan, in seconds. 0 = instant.")]
+    [SerializeField] private float dofFocusSmoothTime = 0.12f;
 
     [Header("Pitch (Tilt) Limits")]
     [SerializeField] private float pitchMin       = 15f;
@@ -205,6 +221,92 @@ public class FreeLookCamera : MonoBehaviour
         // Height too (smoothed): a followed employee is tracked at chest height, and a vehicle going up a ramp keeps its height.
         _focalPoint.y = Mathf.Lerp(_focalPoint.y, _followTarget.position.y, 1f - Mathf.Exp(-10f * Time.unscaledDeltaTime));
         _focusBeyondBounds = true;   // a followed unit may roam beyond the normal pan bounds
+    }
+
+    // ── Diorama depth of field ───────────────────────────────────────────────────────────────────────
+    // The game camera deliberately ignores every scene Volume (its volume layer mask is 0), so the only grade it
+    // sees is the project's default profile. To drive depth of field without touching that asset, this builds its
+    // own global Volume on a private layer and opens just that layer on this camera. The focus distance is the
+    // distance along the view axis to the orbit's focal point, i.e. the floor under the screen centre, so it
+    // follows zoom, pan and orbit without a target to assign.
+    private const int DofVolumeLayer = 30;
+    private Volume _dofVolume;
+    private VolumeProfile _dofProfile;
+    private DepthOfField _dof;
+    private float _dofFocusVelocity;
+    private float _dofFocus = 15f;
+    private float _dofFocusedBlend;          // 0 = floor focus, 1 = an employee is in focus
+    private bool _dofFocusInitialised;
+
+    private void EnsureDioramaDof()
+    {
+        if (_dof != null) return;
+        var cam = GetComponent<Camera>();
+        if (cam == null) cam = Camera.main;
+        if (cam == null) return;
+
+        var go = new GameObject("[DioramaDoF]") { hideFlags = HideFlags.DontSave };
+        go.layer = DofVolumeLayer;
+        _dofVolume = go.AddComponent<Volume>();
+        _dofVolume.isGlobal = true;
+        _dofVolume.priority = 100f;
+        _dofVolume.weight = 1f;
+        _dofProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+        _dof = _dofProfile.Add<DepthOfField>(true);
+        _dofVolume.sharedProfile = _dofProfile;
+
+        var data = cam.GetUniversalAdditionalCameraData();
+        if (data != null) data.volumeLayerMask |= 1 << DofVolumeLayer;
+    }
+
+    private void LateUpdate() => UpdateDioramaDof();
+
+    private void UpdateDioramaDof()
+    {
+        var preset = GraphicsPresetManager.Instance != null ? GraphicsPresetManager.Instance.CurrentPreset : GraphicsPresetManager.Preset.Ultra;
+
+        // Good leaves the project default alone (our volume off); Toaster must not blur at all.
+        bool wantVolume = dioramaDepthOfField && preset != GraphicsPresetManager.Preset.Good;
+        if (!wantVolume) { if (_dofVolume != null) _dofVolume.enabled = false; return; }
+
+        EnsureDioramaDof();
+        if (_dof == null) return;
+        _dofVolume.enabled = true;
+
+        if (preset == GraphicsPresetManager.Preset.Toaster)
+        {
+            _dof.mode.Override(DepthOfFieldMode.Off);
+            return;
+        }
+
+        // Focus pull: while an employee's banner is open, focus ON that person (chest height) so they stay
+        // crisp while the foreground and background blur. Otherwise focus the floor under the screen centre.
+        Vector3 focusPoint = _focalPoint;
+        var banners = EmployeeWorldBanners.Existing;
+        var focused = banners != null ? banners.FocusedEmployee : null;
+        if (focused != null) focusPoint = focused.transform.position + Vector3.up * 1.0f;
+
+        float target = Mathf.Max(0.1f, Vector3.Dot(focusPoint - transform.position, transform.forward));
+        if (!_dofFocusInitialised || dofFocusSmoothTime <= 0f) { _dofFocus = target; _dofFocusInitialised = true; }
+        else _dofFocus = Mathf.SmoothDamp(_dofFocus, target, ref _dofFocusVelocity, dofFocusSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
+
+        // With someone in focus, deepen the sharp zone (higher f-stop) so all of them is crisp, not just the plane
+        // at chest height; eases back out when the banner closes.
+        _dofFocusedBlend = Mathf.MoveTowards(_dofFocusedBlend, focused != null ? 1f : 0f, Time.unscaledDeltaTime * 4f);
+        float fStop = Mathf.Lerp(dofFStop, Mathf.Max(dofFStop, dofFStopFocused), _dofFocusedBlend);
+
+        _dof.mode.Override(DepthOfFieldMode.Bokeh);
+        _dof.focusDistance.Override(_dofFocus);
+        _dof.focalLength.Override(dofFocalLengthMm);
+        _dof.aperture.Override(fStop);
+        _dof.bladeCount.Override(Mathf.Clamp(dofBladeCount, 3, 9));
+        _dof.bladeCurvature.Override(1f);
+    }
+
+    private void OnDestroy()
+    {
+        if (_dofVolume != null) Destroy(_dofVolume.gameObject);
+        if (_dofProfile != null) Destroy(_dofProfile);
     }
 
     private void OnDisable()

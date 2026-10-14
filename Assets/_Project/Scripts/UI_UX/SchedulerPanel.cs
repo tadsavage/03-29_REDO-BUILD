@@ -229,6 +229,17 @@ public class SchedulerPanel : IUIPanel
     {
         _overlay = Build(out _modal, out _tabBar, out _tabHeader, out _content, out _footerMessage);
         root.Add(_overlay);
+        _overlay.RegisterCallback<PointerMoveEvent>(e =>
+        {
+            _lastPointerWorld = e.position;
+            PositionHeldGhost(e.position);
+        });
+        _overlay.RegisterCallback<PointerDownEvent>(e =>
+        {
+            if (e.button != 1 || HeldKey() == null) return;
+            CancelCarry();
+            e.StopPropagation();
+        }, TrickleDown.TrickleDown);
         // Added to the OVERLAY, not the modal: the modal is absolutely positioned and draggable, so a
         // dialog inside it would follow the window around and could sit half off-screen. The overlay
         // fills the panel's whole area, which is what a modal confirmation should darken and block.
@@ -497,6 +508,7 @@ public class SchedulerPanel : IUIPanel
         _focusedAppointmentId = null;
         _focusedAppt = null;
         _focusedCell = null;
+        if (_heldGhost != null) _heldGhost.style.display = DisplayStyle.None;
         _overlay.style.display = DisplayStyle.None;
     }
 
@@ -815,7 +827,8 @@ public class SchedulerPanel : IUIPanel
             _newSchedulerTooltip.style.borderBottomLeftRadius = _newSchedulerTooltip.style.borderBottomRightRadius = 8;
         _newSchedulerTooltip.style.paddingTop = 10; _newSchedulerTooltip.style.paddingBottom = 10;
         _newSchedulerTooltip.style.paddingLeft = 12; _newSchedulerTooltip.style.paddingRight = 12;
-        _newSchedulerTooltip.RegisterCallback<MouseLeaveEvent>(_ => HideNewSchedulerTooltip());
+        _newSchedulerTooltip.RegisterCallback<MouseEnterEvent>(_ => CancelPendingTooltipHide());
+        _newSchedulerTooltip.RegisterCallback<MouseLeaveEvent>(_ => ScheduleHideNewSchedulerTooltip());
 
         // Content scrolls vertically once it's taller than the space left below the hovered cell,
         // rather than running off the bottom of the modal -- max-height is set per-show once we
@@ -825,6 +838,7 @@ public class SchedulerPanel : IUIPanel
         _newSchedulerTooltip.Add(_newSchedulerTooltipScroll);
 
         modal.Add(_newSchedulerTooltip);
+        BuildHeldGhost(modal);
         modal.Add(footerMessage);
 
         // Side edges only. Height stays fixed on purpose: this modal's tabs each manage their own
@@ -983,6 +997,7 @@ public class SchedulerPanel : IUIPanel
         _orderDetailsBody.Clear();
         _poolHoverGhostHost?.Clear();
         _footerMessage.text = string.Empty;
+        UpdateHeldGhost();
 
         _content.mode = ScrollViewMode.Vertical;
         _content.style.display = DisplayStyle.Flex;
@@ -997,6 +1012,7 @@ public class SchedulerPanel : IUIPanel
         }
 
         BuildNewScheduler(arrivals);
+        ScheduleHeldTileAttach();
     }
 
     // ── Tab 1: New Contracts ─────────────────────────────────────────────────
@@ -1544,6 +1560,9 @@ public class SchedulerPanel : IUIPanel
     // transform is purely a render-time effect), so a tooltip anchored off the box's un-grown
     // worldBound.yMax would land partway up the now-larger box instead of just below it.
     private const float CellHoverGrowScale = 1.5f;
+    // Open drop slots swell half as much as a booked tile (+25% instead of +50%) so moving a tile around the grid
+    // doesn't make the neighbouring slots jump about.
+    private const float EmptySlotHoverGrowScale = 1.25f;
 
     /// <summary>
     /// The bordered strip under the day switcher, split into two hemispheres by a vertical rule:
@@ -1860,9 +1879,7 @@ public class SchedulerPanel : IUIPanel
             box.style.opacity = 1f;
             ghost.style.display = DisplayStyle.None;
             ghost.style.scale = new Scale(Vector3.one);
-            if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
-                _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
-            HideNewSchedulerTooltip();
+            ScheduleHideNewSchedulerTooltip();
         });
         return box;
     }
@@ -2122,9 +2139,7 @@ public class SchedulerPanel : IUIPanel
             box.style.opacity = 1f;
             ghost.style.display = DisplayStyle.None;
             ghost.style.scale = new Scale(Vector3.one);
-            if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
-                _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
-            HideNewSchedulerTooltip();
+            ScheduleHideNewSchedulerTooltip();
         });
         return box;
     }
@@ -2591,7 +2606,7 @@ public class SchedulerPanel : IUIPanel
                 AnnounceSlotResult(schedule, booked, block, doorNumber);
                 _selectedUnscheduledKey = null;
                 Rebuild();
-            });
+            }, group.OrderIds);
             return;
         }
 
@@ -2631,7 +2646,7 @@ public class SchedulerPanel : IUIPanel
     /// </summary>
     private void ConfirmOffSlotIfNeeded(DockScheduleService schedule, string contractId,
                                         string customerName, int block, DockAppointment existing,
-                                        System.Action onConfirmed)
+                                        System.Action onConfirmed, IEnumerable<string> orderIds = null)
     {
         bool alreadyPaid = existing != null && existing.OffSlotPenaltyApplied;
         if (alreadyPaid) { onConfirmed(); return; }
@@ -2640,7 +2655,8 @@ public class SchedulerPanel : IUIPanel
         // used to slip through silently — WouldMissRequestedSlot only ever compared blocks — which is
         // the single biggest thing a customer would actually notice.
         int requestedDay = existing != null ? existing.RequestedDay : _scheduleDay;
-        int cost = schedule.PredictOffSlotReputationCost(contractId, requestedDay, _scheduleDay, block);
+        var ids = orderIds ?? existing?.OrderIds;
+        int cost = schedule.PredictOffSlotReputationCost(contractId, requestedDay, _scheduleDay, block, ids);
         if (cost <= 0 && !schedule.WouldMissRequestedSlot(contractId, block)) { onConfirmed(); return; }
 
         schedule.TryGetRequestedBlock(contractId, out int wanted);
@@ -2650,7 +2666,7 @@ public class SchedulerPanel : IUIPanel
 
         ConfirmOffSlotMove(customerName, requestedLabel,
                            $"{DockScheduleService.BlockLabel(block)} on day {_scheduleDay}", onConfirmed,
-                           cost, schedule.PredictDescribeOffSlot(contractId, requestedDay, _scheduleDay, block));
+                           cost, schedule.PredictDescribeOffSlot(contractId, requestedDay, _scheduleDay, block, ids));
     }
 
     /// <summary>
@@ -3268,6 +3284,33 @@ private static void ApplyLilitaFont(VisualElement el)
         next.style.width = 30; next.style.height = 30;
         dayRow.Add(next);
 
+        // TEMPORARY dev buttons: drop a Small / Medium / Large order straight into the order pool.
+        var testBar = new VisualElement();
+        testBar.style.position = Position.Absolute;
+        testBar.style.left = 14;
+        testBar.style.top = 6;
+        testBar.style.flexDirection = FlexDirection.Row;
+        void AddTestButton(string text, int palletPicks, int casePallets)
+        {
+            var b = new Button(() =>
+            {
+                var tools = ToolsWindowController.Instance;
+                if (tools == null) { UIToast.Show("Dev console isn't available to create a test order."); return; }
+                tools.CreateSizedTestOrder(palletPicks, casePallets);
+                AudioManager.Play("UIClick");
+                Rebuild();
+            }) { text = text };
+            StyleOrangeButton(b);
+            b.style.height = 30;
+            b.style.marginRight = 8;
+            b.style.paddingLeft = 10; b.style.paddingRight = 10;
+            testBar.Add(b);
+        }
+        AddTestButton("+ SMALL ORDER", UnityEngine.Random.Range(1, 3), 1);
+        AddTestButton("+ MEDIUM ORDER", UnityEngine.Random.Range(5, 7), UnityEngine.Random.Range(2, 4));
+        AddTestButton("+ LARGE ORDER", 18, 4);
+        dayRow.Add(testBar);
+
         wrapper.Add(dayRow);
 
         var captions = new VisualElement();
@@ -3340,12 +3383,16 @@ private static void ApplyLilitaFont(VisualElement el)
             foreach (var appt in parked)
             {
                 if (shown++ >= PoolMaxBoxes) break;
-                boxes.Add(BuildParkedBox(appt, today));
+                var parkedBox = BuildParkedBox(appt, today);
+                if (appt.Id == _selectedAppointmentId) _heldCell = parkedBox;
+                boxes.Add(parkedBox);
             }
             foreach (var group in unscheduled)
             {
                 if (shown++ >= PoolMaxBoxes) break;
-                boxes.Add(BuildPoolBox(group, today, arrivals));
+                var poolBox = BuildPoolBox(group, today, arrivals);
+                if (group.Key == _selectedUnscheduledKey) _heldCell = poolBox;
+                boxes.Add(poolBox);
             }
 
             if (poolCount > PoolMaxBoxes)
@@ -3816,12 +3863,12 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             bool isHeldChip = appt != null && appt.Id == _selectedAppointmentId;
             if (holding && !isHeldChip)
                 verdict = schedule.EvaluateMove(movingAppt, holdContractId, _scheduleDay, _scheduleDay, block,
-                                                doorNumber, out verdictReason, outboundDoors);
+                                                doorNumber, out verdictReason, outboundDoors, holdOrderIds);
             string warning = null;
             if (verdict == DockScheduleService.MoveVerdict.Costly)
             {
                 int baseDay = movingAppt != null ? movingAppt.RequestedDay : _scheduleDay;
-                int repCost = schedule.PredictOffSlotReputationCost(holdContractId, baseDay, _scheduleDay, block);
+                int repCost = schedule.PredictOffSlotReputationCost(holdContractId, baseDay, _scheduleDay, block, holdOrderIds);
                 warning = $"Fees and Penalties: ${ChipLateFeeDollars(holdOrderIds):N0}\n" +
                           $"-{(int)OrderArrivalService.SatisfactionPenaltyPerMiss} Partnership\n" +
                           $"-{repCost} Reputation";
@@ -3840,6 +3887,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             cell.style.left = Length.Percent(block / (float)DockScheduleService.BlocksPerDay * 100f);
             cell.style.width = Length.Percent(100f / DockScheduleService.BlocksPerDay);
             lane.Add(cell);
+            if (appt != null && isHeldChip) _heldCell = cell;
 
             // A slot another trailer occupies (or that has already passed) is a flat refusal: lay the red
             // "no" tint over the chip itself, click-through so the chip stays selectable.
@@ -3875,20 +3923,27 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
         bool pending = live.Any(orders.IsAwaitingRelease);
 
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Column;   // RELEASE on top, CANCEL below, each the full tile width
+        row.style.alignSelf = Align.Stretch;
+        row.style.flexShrink = 0;
+        row.style.marginTop = 6;
+        cell.Add(row);
+
         var btn = new Label(pending ? "RELEASE ORDERS" : "RELEASED");
-        ApplyFont(btn, true, 13);
+        ApplyFont(btn, false, 16);
+        ApplyLilitaFont(btn);
         btn.style.color = new StyleColor(Color.white);
         btn.style.backgroundColor = new StyleColor(pending ? ReleaseGreen : ReleasedGray);
         btn.style.unityTextAlign = TextAnchor.MiddleCenter;
         btn.style.whiteSpace = WhiteSpace.NoWrap;
-        btn.style.height = 28;
+        btn.style.height = 30;
+        btn.style.alignSelf = Align.Stretch;
         btn.style.flexShrink = 0;
-        btn.style.marginTop = 6;
-        btn.style.marginLeft = 0; btn.style.marginRight = 0; btn.style.marginBottom = 0;
         btn.style.paddingTop = 0; btn.style.paddingBottom = 0;
         btn.style.borderTopLeftRadius = btn.style.borderTopRightRadius =
             btn.style.borderBottomLeftRadius = btn.style.borderBottomRightRadius = 4;
-        cell.Add(btn);
+        row.Add(btn);
 
         if (!pending) return;
 
@@ -3900,6 +3955,59 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         });
         btn.RegisterCallback<MouseEnterEvent>(_ => CustomCursorService.SetHoveringInteractable(true));
         btn.RegisterCallback<MouseLeaveEvent>(_ => CustomCursorService.SetHoveringInteractable(false));
+
+        // Cancel: only while the orders are still unreleased. Asks first and spells out the cost.
+        var cancel = new Label("CANCEL");
+        ApplyFont(cancel, false, 16);
+        ApplyLilitaFont(cancel);
+        cancel.style.color = new StyleColor(Color.white);
+        cancel.style.backgroundColor = new StyleColor(new Color(0.76f, 0.15f, 0.18f));
+        cancel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        cancel.style.whiteSpace = WhiteSpace.NoWrap;
+        cancel.style.height = 30;
+        cancel.style.alignSelf = Align.Stretch;
+        cancel.style.flexShrink = 0;
+        cancel.style.marginTop = 5;
+        cancel.style.borderTopLeftRadius = cancel.style.borderTopRightRadius =
+            cancel.style.borderBottomLeftRadius = cancel.style.borderBottomRightRadius = 4;
+        row.Add(cancel);
+        cancel.RegisterCallback<ClickEvent>(evt =>
+        {
+            evt.StopPropagation();
+            OnCancelOrdersClicked(appt);
+        });
+        cancel.RegisterCallback<MouseEnterEvent>(_ => CustomCursorService.SetHoveringInteractable(true));
+        cancel.RegisterCallback<MouseLeaveEvent>(_ => CustomCursorService.SetHoveringInteractable(false));
+    }
+
+    /// <summary>Cancels this trailer's UNRELEASED orders after a confirmation that states the cost
+    /// (reputation and partnership), the same way the slot tinting states fees before a move.</summary>
+    private void OnCancelOrdersClicked(DockAppointment appt)
+    {
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return;
+
+        var batch = orders.ActiveOrders
+            .Where(o => o != null && appt.OrderIds.Contains(o.OrderId) && orders.IsAwaitingRelease(o))
+            .ToList();
+        if (batch.Count == 0) { Rebuild(); return; }
+
+        var impacts = batch.Select(o => orders.PreviewCancel(o)).ToList();
+        if (!impacts.Any(i => i.Allowed))
+        {
+            UIToast.Show("These orders can't be cancelled right now.");
+            return;
+        }
+
+        string message = OrderService.DescribeCancel(impacts, partial: false);
+        var ids = impacts.Where(i => i.Allowed).Select(i => i.OrderId).ToList();
+        ConfirmationModal.Show(message, () =>
+        {
+            int n = orders.CancelOrdersByPlayer(ids);
+            AudioManager.Play("UIClick");
+            UIToast.Show($"Cancelled {n} order(s).");
+            SystemsLogWindow.LogWarning($"Cancelled {n} order(s) for {batch[0].CustomerName}: -{impacts.Where(i => i.Allowed).Sum(i => i.ReputationLoss)} Reputation.");
+            Rebuild();
+        });
     }
 
     /// <summary>Releases this trailer's orders to the floor (same call the Work Queue's Release makes),
@@ -3913,7 +4021,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             .ToList();
         if (batch.Count == 0) { Rebuild(); return; }
 
-        if (!orders.ReleaseOrdersToStages(batch.Select(o => o.OrderId).ToList(), out string why, out bool waitingForLane))
+        if (!orders.ReleaseOrdersToStages(batch.Select(o => o.OrderId).ToList(), out string why, out bool waitingForLane, out string capacityNote))
         {
             UIToast.Show($"Release failed — {why}");
             return;
@@ -3930,10 +4038,10 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
         string plainNumbers = string.Join(" + ", batch.Select(o => o.OrderNumber ?? o.OrderId));
         string linkedNumbers = string.Join(" + ", batch.Select(o => LogLinks.Order(o.OrderId, o.OrderNumber ?? o.OrderId)));
-        string tail = $"released to floor{(waitingForLane ? " (no open lane yet)" : "")}, Plt Picks: {picks}  |  Cases to Pick: {cases}";
+        string tail = $"released to floor{(waitingForLane ? " (no open lane yet)" : "")}, Plt Picks: {picks}  |  Cases to Pick: {cases}{(capacityNote != null ? "  |  " + capacityNote : "")}";
 
         Rebuild(); // the button flips to RELEASED right away
-        ReleaseTerminalFx.Play(_overlay, waitingForLane ? "WAITING FOR LANE" : "ORDER RELEASED", $"Order {plainNumbers} {tail}",
+        ReleaseTerminalFx.Play(_overlay, waitingForLane ? "WAITING FOR LANE" : capacityNote != null ? "PARTIAL RELEASE" : "ORDER RELEASED", $"Order {plainNumbers} {tail}",
             () => SystemsLogWindow.LogSystem($"Order {linkedNumbers} {tail}"));
     }
 
@@ -4096,9 +4204,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         {
             if (!locked) CustomCursorService.SetHoveringInteractable(false);
             cell.style.scale = new Scale(Vector3.one);
-            if (_newSchedulerTooltip != null && _newSchedulerTooltip.style.display == DisplayStyle.Flex &&
-                _newSchedulerTooltip.worldBound.Contains(evt.mousePosition)) return;
-            HideNewSchedulerTooltip();
+            ScheduleHideNewSchedulerTooltip();
         });
 
         return cell;
@@ -4304,9 +4410,23 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         // Refused slots are tint + text only: no click, no pointer cursor.
         if (verdict == DockScheduleService.MoveVerdict.Blocked) return cell;
 
+        // Same hover-grow the booked tiles use: the slot swells (so its fee / penalty text is readable) and is
+        // brought in front of its neighbours so the larger box draws over them.
+        cell.style.transitionProperty = new List<StylePropertyName> { new StylePropertyName("scale") };
+        cell.style.transitionDuration = new List<TimeValue> { new TimeValue(0.12f, TimeUnit.Second) };
+
         cell.RegisterCallback<ClickEvent>(_ => OnSlotClicked(block, doorNumber));
-        cell.RegisterCallback<MouseEnterEvent>(_ => CustomCursorService.SetHoveringInteractable(true));
-        cell.RegisterCallback<MouseLeaveEvent>(_ => CustomCursorService.SetHoveringInteractable(false));
+        cell.RegisterCallback<MouseEnterEvent>(_ =>
+        {
+            CustomCursorService.SetHoveringInteractable(true);
+            cell.style.scale = new Scale(new Vector3(EmptySlotHoverGrowScale, EmptySlotHoverGrowScale, 1f));
+            cell.BringToFront();
+        });
+        cell.RegisterCallback<MouseLeaveEvent>(_ =>
+        {
+            CustomCursorService.SetHoveringInteractable(false);
+            cell.style.scale = new Scale(Vector3.one);
+        });
         return cell;
     }
 
@@ -4323,6 +4443,112 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     /// otherwise be swept by `_content.Clear()`.</summary>
     private VisualElement _poolHoverGhostHost;
 
+    // ── Carried tile ─────────────────────────────────────────────────────────────────────────────────────
+    // Picking up a tile (left-click) lifts the REAL tile off the grid / pool and hangs it under the cursor, at the
+    // size it had, until it is dropped on a slot (left-click, where the existing placement logic snaps it in) or put
+    // back (right-click). The tile itself is moved into a click-through layer on the modal, so it keeps its exact
+    // look; every Rebuild() puts it back where it belongs and re-lifts it if it is still in hand.
+    private VisualElement _heldGhost;
+    private VisualElement _heldCell;          // the real tile for whatever is in hand, set while the grid is built
+    private string _heldKeyPrev;               // what was in hand last Rebuild, so a rebuild keeps the same grip
+    private Vector2 _heldGrabOffset;           // where on the tile the cursor took hold of it (world units)
+    private Vector2 _lastPointerWorld;
+    private int _heldAttachTries;
+
+    private void BuildHeldGhost(VisualElement modal)
+    {
+        _heldGhost = new VisualElement();
+        _heldGhost.pickingMode = PickingMode.Ignore;
+        _heldGhost.style.position = Position.Absolute;
+        _heldGhost.style.display = DisplayStyle.None;
+        modal.Add(_heldGhost);
+    }
+
+    private string HeldKey() => _selectedAppointmentId != null ? "A:" + _selectedAppointmentId
+                              : _selectedUnscheduledKey != null ? "U:" + _selectedUnscheduledKey : null;
+
+    /// <summary>Start of every Rebuild: whatever tile was being carried goes back into the rebuilt content (the
+    /// rebuild makes new ones), so just empty the carry layer.</summary>
+    private void UpdateHeldGhost()
+    {
+        _heldCell = null;
+        if (_heldGhost == null) return;
+        _heldGhost.Clear();
+        _heldGhost.style.display = DisplayStyle.None;
+    }
+
+    /// <summary>End of Rebuild: if something is in hand, lift its tile once layout has given it a size.</summary>
+    private void ScheduleHeldTileAttach()
+    {
+        if (_heldGhost == null) return;
+        if (HeldKey() == null) { _heldKeyPrev = null; return; }
+        _heldAttachTries = 0;
+        _overlay.schedule.Execute(AttachHeldTile).StartingIn(20);
+    }
+
+    private void AttachHeldTile()
+    {
+        if (!_visible || _heldGhost == null || _heldCell == null || _heldCell.parent == null) return;
+        string key = HeldKey();
+        if (key == null) return;
+
+        Rect wb = _heldCell.worldBound;
+        float w = _heldCell.resolvedStyle.width, h = _heldCell.resolvedStyle.height;
+        if ((w < 2f || h < 2f || float.IsNaN(w)) && _heldAttachTries++ < 4)
+        {
+            _overlay.schedule.Execute(AttachHeldTile).StartingIn(30);
+            return;
+        }
+        if (w < 2f || h < 2f || float.IsNaN(w)) return;
+
+        // A fresh pick-up remembers where on the tile the cursor grabbed it; a rebuild while it is still in hand
+        // keeps that grip, so the tile doesn't jump to the cursor's centre.
+        if (key != _heldKeyPrev)
+        {
+            Vector2 off = _lastPointerWorld - wb.position;
+            if (off.x < 0f || off.y < 0f || off.x > wb.width || off.y > wb.height) off = wb.size * 0.5f;
+            _heldGrabOffset = off;
+            _heldKeyPrev = key;
+        }
+
+        HideNewSchedulerTooltip();
+        var tile = _heldCell;
+        tile.RemoveFromHierarchy();
+        tile.style.position = Position.Absolute;
+        tile.style.left = 0; tile.style.top = 0;
+        tile.style.right = StyleKeyword.Auto; tile.style.bottom = StyleKeyword.Auto;
+        tile.style.width = w; tile.style.height = h;
+        tile.style.marginLeft = 0; tile.style.marginTop = 0; tile.style.marginRight = 0; tile.style.marginBottom = 0;
+        tile.style.scale = new Scale(Vector3.one);
+        tile.style.opacity = 1f;
+        SetPickingModeRecursive(tile, PickingMode.Ignore);
+
+        _heldGhost.Clear();
+        _heldGhost.Add(tile);
+        _heldGhost.style.width = w; _heldGhost.style.height = h;
+        _heldGhost.style.display = DisplayStyle.Flex;
+        _heldGhost.BringToFront();
+        PositionHeldGhost(_lastPointerWorld);
+    }
+
+    private void PositionHeldGhost(Vector2 worldPos)
+    {
+        if (_heldGhost == null || _heldGhost.style.display == DisplayStyle.None) return;
+        Vector2 local = _modal.WorldToLocal(worldPos - _heldGrabOffset);
+        _heldGhost.style.left = local.x;
+        _heldGhost.style.top = local.y;
+    }
+
+    /// <summary>Right-click while carrying a tile: it goes straight back where it came from.</summary>
+    private void CancelCarry()
+    {
+        _selectedAppointmentId = null;
+        _selectedUnscheduledKey = null;
+        _heldKeyPrev = null;
+        AudioManager.Play("UIClick");
+        Rebuild();
+    }
+
     /// <summary>Appointment the open hover tooltip is currently showing, if any — lets a live
     /// inventory event (see OnPalletReceivedForLiveRefresh) re-render the SAME tooltip's content in
     /// place without needing the mouse to leave and re-enter the chip.</summary>
@@ -4334,6 +4560,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     private void ShowNewSchedulerTooltip(DockAppointment appt, VisualElement cell)
     {
         if (_newSchedulerTooltip == null) return;
+        CancelPendingTooltipHide();
         _hoveredTooltipAppt = appt;
         _newSchedulerTooltipScroll.Clear();
         _newSchedulerTooltipScroll.scrollOffset = Vector2.zero;
@@ -4371,8 +4598,32 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         _newSchedulerTooltip.BringToFront();
     }
 
+    // Leaving the tile / pool box does not hide the tooltip at once: the cursor needs time to cross onto the tooltip (to scroll
+    // a long item list), and the tile shrinks back as it leaves, which opens a small gap. The hide is delayed, and entering the
+    // tooltip (or another tile, which re-shows it) cancels it.
+    private const long TooltipHideGraceMs = 450;
+    private IVisualElementScheduledItem _tooltipHideItem;
+
+    private void CancelPendingTooltipHide()
+    {
+        _tooltipHideItem?.Pause();
+        _tooltipHideItem = null;
+    }
+
+    private void ScheduleHideNewSchedulerTooltip()
+    {
+        if (_newSchedulerTooltip == null || _newSchedulerTooltip.style.display != DisplayStyle.Flex) return;
+        CancelPendingTooltipHide();
+        _tooltipHideItem = _newSchedulerTooltip.schedule.Execute(() =>
+        {
+            _tooltipHideItem = null;
+            HideNewSchedulerTooltip();
+        }).StartingIn(TooltipHideGraceMs);
+    }
+
     private void HideNewSchedulerTooltip()
     {
+        CancelPendingTooltipHide();
         _hoveredTooltipAppt = null;
         if (_newSchedulerTooltip != null) _newSchedulerTooltip.style.display = DisplayStyle.None;
     }

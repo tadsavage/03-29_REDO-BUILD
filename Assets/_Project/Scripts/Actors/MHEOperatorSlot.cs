@@ -51,6 +51,9 @@ public class MHEOperatorSlot : MonoBehaviour
     }
     private void Start()
     {
+        // Only a REAL placed vehicle still has its AiNavigation by now (the build-menu hover ghost is stripped of
+        // it right after Instantiate), so only real vehicles get floor-snapping and a contact shadow.
+        if (GetComponent<AiNavigation>() != null) VehicleGrounding.Attach(gameObject);
     }
 
 
@@ -78,12 +81,25 @@ public class MHEOperatorSlot : MonoBehaviour
         if (_employeeUI == null) _employeeUI = FindAnyObjectByType<EmployeeInfoUI>();
         if (_employeeUI == null || CurrentOperator.Record == null) return;
 
+        // Same rule as clicking a person on foot: a plain click while their banner or card is up puts both away.
+        if (!EmployeeHighlighter.ShiftHeld)
+        {
+            bool bannerUp = EmployeeWorldBanners.Instance.IsShown(CurrentOperator);
+            bool cardUp = _employeeUI.IsVisible && _employeeUI.CurrentIdentity == CurrentOperator;
+            if (bannerUp || cardUp)
+            {
+                EmployeeWorldBanners.Instance.Hide(CurrentOperator);
+                _employeeUI.Hide();
+                AudioManager.Play("UIClick");
+                return;
+            }
+        }
         _employeeUI.Show(CurrentOperator.Record);
         AudioManager.Play("UIClick");
         // Shift-click on the machine: outline the WHOLE machine (the rider is parented under it) and follow it, after Show drops any older focus.
         if (EmployeeHighlighter.ShiftHeld) EmployeeHighlighter.Instance.FocusAndHighlight(CurrentOperator);
         // Floating banner over the operator (same rule as clicking a person on foot).
-        if (EmployeeHighlighter.ShiftHeld) EmployeeWorldBanners.Instance.Show(CurrentOperator); else EmployeeWorldBanners.Instance.Toggle(CurrentOperator);
+        EmployeeWorldBanners.Instance.Show(CurrentOperator);
     }
 
     // Riders use the SAME controllers as everyone else (MaleStaff / FemaleStaff); the drive pose is just

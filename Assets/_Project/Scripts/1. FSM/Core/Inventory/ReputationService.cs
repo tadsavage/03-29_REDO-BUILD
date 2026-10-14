@@ -183,7 +183,7 @@ namespace GameCore.Inventory
         {
             if (order == null) return;
 
-            int needed = order.LineItems?.Sum(li => li.QuantityNeeded) ?? 0;
+            int needed = Mathf.Max(0, (order.LineItems?.Sum(li => li.QuantityNeeded) ?? 0) - order.CancelledCases);
             int picked = order.TotalUnitsPicked;
             float fill = needed > 0 ? picked / (float)needed : 1f;
 
@@ -206,7 +206,8 @@ namespace GameCore.Inventory
             => Add(-LateOrderPenalty, $"order {order?.OrderId} was late");
 
         private void HandleOrderCancelled(OrderData order)
-            => Add(-CancelledOrderPenalty, $"order {order?.OrderId} was cancelled");
+            => Add(-(order != null && order.CancelReputationCost > 0 ? order.CancelReputationCost : CancelledOrderPenalty),
+                   $"order {order?.OrderId} was cancelled");
 
         /// <summary>Rolls a per-vendor Partnership swing into the global score, damped by
         /// PartnershipContributionWeight — reuses the existing Add() gain/loss/band-crossing pipeline

@@ -984,6 +984,7 @@ namespace GameCore.Actors
                 ReleaseCarriedPalletToOrigin(pallet);
                 if (obstacle != null) obstacle.enabled = true;
                 yield return AbortRoutine(task, palletId, toAddress);
+                NoteMissingAnchor(toAddress);
                 yield break;
             }
 
@@ -2173,6 +2174,19 @@ namespace GameCore.Actors
                 yield break;
             }
 
+            // A hop of a couple of metres gains nothing from the NavMesh, and it is exactly where the mesh lets us
+            // down: the target sits beside the lane mouth in ground carved out by the pallets standing there, the
+            // snapped destination lands on a disconnected sliver, and the leg fails with "no path" (seen live at
+            // the lane 1B exit, 1.5 m from the truck). The caller's precise manual drive closes the last distance
+            // anyway, so treat a hop this short as arrived.
+            const float ShortLegSkipDistance = 2f;
+            Vector2 flatDelta = new Vector2(target.x - transform.position.x, target.z - transform.position.z);
+            if (flatDelta.magnitude < ShortLegSkipDistance)
+            {
+                onDone?.Invoke(true);
+                yield break;
+            }
+
             SetDriveMode(DriveMode.Ai, $"AI leg → {phase}");
 
             // ── WAIT FOR THE AGENT TO REGISTER WITH THE NAVMESH (load-bearing — do not remove) ────
@@ -2609,6 +2623,21 @@ namespace GameCore.Actors
             // Fallback to global search if SlotRegistry lookup fails
             return GameObject.Find(address)?.transform;
         }
+        private static readonly System.Collections.Generic.Dictionary<string, int> _anchorFailures = new System.Collections.Generic.Dictionary<string, int>();
+
+        /// <summary>A slot whose approach anchor can't be found would be chosen again and again by putaway, with
+        /// the truck lifting a pallet and putting it back every time. After three failures the slot is marked
+        /// Problem so putaway stops targeting it, and the cause is logged loudly.</summary>
+        private static void NoteMissingAnchor(string address)
+        {
+            if (string.IsNullOrEmpty(address)) return;
+            _anchorFailures.TryGetValue(address, out int n);
+            _anchorFailures[address] = ++n;
+            if (n < 3) return;
+            LocationStatusRegistry.Set(address, LocationStatus.Problem);
+            Debug.LogError($"[ReachTruckOperator] Slot {address} has no LocApproachAnchor ({n} failed deliveries) - marked Problem so putaway stops choosing it.");
+        }
+
         private static Transform FindLocApproachAnchor(string address) => FindLocationTransform(address)?.Find(LocApproachAnchorName);
 
         private static void EnsureUnderContainer(Transform obj, string containerName)

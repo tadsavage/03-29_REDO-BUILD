@@ -180,28 +180,15 @@ public class LocationRegistry : MonoBehaviour
 
                 if (data == null)
                 {
-                    // No hardcoded slot on this rack prefab — fall back to a generated location,
-                    // positioned from the label's true face position. The label GameObjects sit
-                    // at localPosition (0,0,0), so transform.position gives the rack corner;
-                    // Renderer.bounds.center reads the mesh vertices in world space and gives the
-                    // correct face-centre regardless of pivot placement.
-                    var go = new GameObject(address);
-                    go.transform.SetParent(po.transform, worldPositionStays: false);
-                    data = go.AddComponent<LocationData>();
-
-                    var parentRenderer = label.transform.parent?.GetComponent<Renderer>();
-                    var ownRenderer    = label.GetComponent<Renderer>();
-                    Vector3 faceCenter = parentRenderer != null
-                        ? parentRenderer.bounds.center
-                        : (ownRenderer != null && ownRenderer.bounds.size.sqrMagnitude > 0.001f
-                            ? ownRenderer.bounds.center
-                            : label.transform.position);
-                    // Use the label's own Z position, not the renderer bounds Z (which includes label thickness).
-                    faceCenter.z = label.transform.position.z;
-                    data.transform.position = faceCenter;
-
-                    Debug.Log($"[LocationRegistry] Created location '{address}' on rack '{po.name}' (no hardcoded slot found).");
+                    // No hardcoded slot on this rack prefab (the 48" racks have none) - use ONE generated
+                    // location per label face. It lives under the rack root, NOT under the label group, so the
+                    // lookup above can never find it again: without remembering it, every heartbeat built a
+                    // brand new one (thousands per rack, 27,000 in a session) and none of them ever carried
+                    // an approach anchor, so every putaway to those racks aborted and looped.
+                    data = GetOrCreateGeneratedLocation(po, label, address);
                 }
+
+                EnsureApproachAnchor(data, label);
 
                 // Always re-initialise identity in case the label text changed. Position is left
                 // untouched for hardcoded slots — their authored transform is the anchor everything
@@ -230,6 +217,85 @@ public class LocationRegistry : MonoBehaviour
 
         ReconcilePhysicalOccupancy();
         ReleasePhantomOccupancy();
+    }
+
+    // One generated LocationData per label face, keyed by the label's group (stable even if the address is
+    // renamed, which Initialize() does by renaming the GameObject).
+    private static readonly Dictionary<Transform, LocationData> _generatedByFace = new Dictionary<Transform, LocationData>();
+    private const string ApproachAnchorName = "LocApproachAnchor";
+    // Matches the authored anchor on the 80" rack prefab: 3 m straight out from the face, aisle side.
+    private const float ApproachAnchorDistance = 3f;
+
+    private static LocationData GetOrCreateGeneratedLocation(PlacedObject po, TextMeshPro label, string address)
+    {
+        Transform face = label.transform.parent != null ? label.transform.parent : label.transform;
+
+        if (_generatedByFace.TryGetValue(face, out var existing) && existing != null)
+        {
+            RemoveDuplicateGeneratedLocations(po.transform, existing);
+            return existing;
+        }
+
+        // A previous pass in this Play session (statics survive without a domain reload) may have left one
+        // under the rack root already: adopt the first named for this address and delete the rest.
+        LocationData adopted = null;
+        foreach (Transform child in po.transform)
+        {
+            if (child.name != address) continue;
+            var ld = child.GetComponent<LocationData>();
+            if (ld == null) continue;
+            if (adopted == null) adopted = ld;
+        }
+        if (adopted != null)
+        {
+            _generatedByFace[face] = adopted;
+            RemoveDuplicateGeneratedLocations(po.transform, adopted);
+            return adopted;
+        }
+
+        var go = new GameObject(address);
+        go.transform.SetParent(po.transform, worldPositionStays: false);
+        var data = go.AddComponent<LocationData>();
+
+        // Seat the pallet where the prefab-authored slots do (Rack-FullOrange80): at the rack's own origin on
+        // the rack's depth centre, shifted along the rack only for the right-hand position of a full bay.
+        // Placing it on the label FACE (the old way) left pallets half hanging out of the rack.
+        string faceName = face.name;
+        float x = faceName.Contains(".R") ? -1.325f : faceName.Contains(".L") ? 0f : -0.07f;
+        data.transform.position = po.transform.TransformPoint(new Vector3(x, 0f, 0f));
+        data.transform.rotation = po.transform.rotation;
+
+        _generatedByFace[face] = data;
+        Debug.Log($"[LocationRegistry] Created location '{address}' on rack '{po.name}' (no hardcoded slot found).");
+        return data;
+    }
+
+    /// <summary>Deletes every extra generated location under the rack root other than the one being kept.</summary>
+    private static void RemoveDuplicateGeneratedLocations(Transform rack, LocationData keep)
+    {
+        if (keep == null) return;
+        for (int i = rack.childCount - 1; i >= 0; i--)
+        {
+            var child = rack.GetChild(i);
+            if (child == keep.transform || child.name != keep.name) continue;
+            if (child.GetComponent<LocationData>() == null) continue;
+            UnityEngine.Object.Destroy(child.gameObject);
+        }
+    }
+
+    /// <summary>Gives a location the approach anchor a reach truck drives to. Prefab-authored slots already
+    /// have one; a generated slot (48" racks) gets one 3 m out from its face on the aisle side - the label
+    /// group's own direction (Front = rack +Z, Rear = rack -Z), the same layout the 80" prefab authors.</summary>
+    private static void EnsureApproachAnchor(LocationData data, TextMeshPro label)
+    {
+        if (data == null || data.transform.Find(ApproachAnchorName) != null) return;
+
+        bool rear = label.transform.parent != null &&
+                    label.transform.parent.name.IndexOf("Rear", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        var anchor = new GameObject(ApproachAnchorName).transform;
+        anchor.SetParent(data.transform, worldPositionStays: false);
+        anchor.localPosition = new Vector3(0f, 0f, rear ? -ApproachAnchorDistance : ApproachAnchorDistance);
+        anchor.localRotation = Quaternion.identity;
     }
 
     private static readonly Dictionary<string, int> _phantomStrikes = new Dictionary<string, int>();

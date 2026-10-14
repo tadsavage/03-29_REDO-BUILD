@@ -29,7 +29,7 @@ namespace GameCore.Inventory
         {
             if (orderService == null || string.IsNullOrEmpty(lane)) return null;
             var owner = orderService.ActiveOrders.FirstOrDefault(o =>
-                o.EffectiveStagingDoor == door && o.AssignedLane == lane && StillOccupiesItsLane(o));
+                o.UsesLane(door, lane) && StillOccupiesItsLane(o));
             return owner?.CustomerId;
         }
 
@@ -41,19 +41,71 @@ namespace GameCore.Inventory
         /// lanes (one customer per stage). A lane counts as empty only if it is pickable for outbound,
         /// holds no received pallets, has none arriving, has no staged OUTBOUND pallets (which
         /// InventoryService does not track), and is not already claimed by another order's lane.
+        /// When <c>palletsNeeded</c> is given the lane must also have room for that many pallets.
         /// </summary>
         public static bool TryFindLaneForOrder(OrderService orderService, InventoryService inv, int dockDoor,
                                                string customerId, out int stageDoor, out string lane,
                                                ICollection<(int door, string lane)> plannedLanes = null,
-                                               IDictionary<int, string> plannedDoorOwners = null)
+                                               IDictionary<int, string> plannedDoorOwners = null,
+                                               int palletsNeeded = 0)
         {
             stageDoor = 0;
             lane = null;
-            if (orderService == null) return false;
+            foreach (var (door, candidate) in EnumerateEmptyLanes(orderService, inv, dockDoor, customerId, plannedLanes, plannedDoorOwners))
+            {
+                // The WHOLE order must fit: skip an empty lane that is too short for it and keep looking.
+                if (palletsNeeded > 0 && inv != null && inv.CountFreeStagingSlotsInLane(door, candidate) < palletsNeeded) continue;
+                stageDoor = door;
+                lane = candidate;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Finds the lane(s) a released batch stages into. Prefers ONE lane with room for the whole
+        /// order; when none is big enough it takes several completely empty lanes, nearest first, until
+        /// their combined room covers <paramref name="palletsNeeded"/> - or until there are no more, in
+        /// which case the caller releases only what fits. Returns false when no lane is free at all.
+        /// </summary>
+        public static bool TryFindLanesForOrder(OrderService orderService, InventoryService inv, int dockDoor,
+                                                string customerId, int palletsNeeded,
+                                                ICollection<(int door, string lane)> plannedLanes,
+                                                IDictionary<int, string> plannedDoorOwners,
+                                                out List<(int door, string lane)> lanes)
+        {
+            lanes = new List<(int door, string lane)>();
+            if (TryFindLaneForOrder(orderService, inv, dockDoor, customerId, out int d1, out string l1,
+                                    plannedLanes, plannedDoorOwners, palletsNeeded))
+            {
+                lanes.Add((d1, l1));
+                return true;
+            }
+
+            int total = 0;
+            foreach (var (door, candidate) in EnumerateEmptyLanes(orderService, inv, dockDoor, customerId, plannedLanes, plannedDoorOwners))
+            {
+                int room = inv != null ? inv.CountFreeStagingSlotsInLane(door, candidate) : 0;
+                if (room <= 0) continue;
+                lanes.Add((door, candidate));
+                total += room;
+                if (palletsNeeded > 0 && total >= palletsNeeded) break;
+            }
+            return lanes.Count > 0;
+        }
+
+        /// <summary>Every completely empty, usable lane, in the order a release should consider them:
+        /// the dock door's own lanes first (A, B, C...), then the nearest doors either side.</summary>
+        private static IEnumerable<(int door, string lane)> EnumerateEmptyLanes(OrderService orderService, InventoryService inv,
+                                               int dockDoor, string customerId,
+                                               ICollection<(int door, string lane)> plannedLanes,
+                                               IDictionary<int, string> plannedDoorOwners)
+        {
+            if (orderService == null) yield break;
 
             var allLanes = LaneNamingService.AllLanes();
             var doors = allLanes.Select(l => l.door).Distinct().ToList();
-            if (doors.Count == 0) return false;
+            if (doors.Count == 0) yield break;
 
             // Nearest first; on a tie the lower-numbered door wins (dock 2 -> 2, 1, 3, 0/4...).
             int anchor = dockDoor > 0 ? dockDoor : doors.Min();
@@ -73,12 +125,9 @@ namespace GameCore.Inventory
                 {
                     if (plannedLanes != null && plannedLanes.Contains((door, candidate))) continue;
                     if (!LaneIsCompletelyEmpty(orderService, inv, door, candidate)) continue;
-                    stageDoor = door;
-                    lane = candidate;
-                    return true;
+                    yield return (door, candidate);
                 }
             }
-            return false;
         }
 
         /// <summary>A lane nothing is using or about to use — see <see cref="TryFindLaneForOrder"/>.</summary>
@@ -113,8 +162,7 @@ namespace GameCore.Inventory
         {
             if (orderService == null) return null;
             var owner = orderService.ActiveOrders.FirstOrDefault(o =>
-                o.EffectiveStagingDoor == door && !string.IsNullOrEmpty(o.AssignedLane) &&
-                StillOccupiesItsLane(o));
+                StillOccupiesItsLane(o) && o.AllStagingLanes().Any(l => l.door == door));
             return owner?.CustomerId;
         }
 

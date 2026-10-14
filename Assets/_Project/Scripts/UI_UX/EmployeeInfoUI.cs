@@ -378,6 +378,9 @@ public class EmployeeInfoUI : MonoBehaviour
 
     public bool IsVisible => _isVisible;
 
+    /// <summary>The live employee the open card is showing (null if closed / unresolved).</summary>
+    public EmployeeIdentity CurrentIdentity => _isVisible ? _currentIdentity : null;
+
     /// <summary>The HUD document's root (parent of the info card) - EmployeeWorldBanners adds its floating banners here.</summary>
     public VisualElement HudRoot => _panel != null ? _panel.parent : null;
 

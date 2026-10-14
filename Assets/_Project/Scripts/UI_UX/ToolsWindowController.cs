@@ -1674,6 +1674,122 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     // sitting in). D1's "real" trigger (automatic, tied to order due dates) is a later polish pass;
     // for now this mirrors every other milestone's debug-triggered testing.
     /// <summary>
+    /// DEBUG (temporary): drops ONE order of a chosen size straight into the order pool, as if a customer's
+    /// order had just come in (no contract or negotiation). It goes through the normal pipeline -
+    /// <see cref="OrderService.ReceiveOrder"/> raises OnOrderArrived, so it is booked on the dock schedule
+    /// and waits for RELEASE ORDERS like any other order.
+    ///
+    /// <paramref name="palletPicks"/> whole-pallet lines (each a different SKU, exactly one full pallet), plus
+    /// loose-case lines that build into about <paramref name="casePallets"/> pallets for the order selector
+    /// (two SKUs per pallet at 45% of a full pallet each, so they never add up to a pallet pick).
+    /// </summary>
+    public string CreateSizedTestOrder(int palletPicks, int casePallets)
+    {
+        if (_customerRegistry == null)
+        {
+            Debug.LogError("[DevConsole] No CustomerRegistry assigned on ToolsWindowController.");
+            return null;
+        }
+        if (!ServiceLocator.TryGet<InventoryService>(out var inventoryService) || inventoryService == null
+            || !ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null
+            || !ServiceLocator.TryGet<SimulationTimeService>(out var timeService) || timeService == null)
+        {
+            Debug.LogError("[DevConsole] Order/Inventory/Time service not available.");
+            return null;
+        }
+
+        var customer = _customerRegistry.GetRandom();
+        if (customer == null) return null;
+
+        // Only SKUs that are actually IN STOCK, with real pallet maths so "a pallet pick" means what the game
+        // thinks it means. "In stock" = on hand minus what orders already on the board still owe, so several
+        // test orders in a row can't all claim the same pallets.
+        int Available(SkuData k)
+        {
+            int owed = 0;
+            foreach (var o in orderService.ActiveOrders)
+                foreach (var li in o.LineItems)
+                    if (li.SkuId == k.SkuId) owed += li.QuantityRemaining;
+            return inventoryService.TotalOnHand(k.SkuId) - owed;
+        }
+
+        var pool = inventoryService.AllSkus
+            .Where(k => k != null && k.SellValue > 0f && k.Ti > 0 && k.Hi > 0)
+            .Select(k => (sku: k, avail: Available(k)))
+            .OrderBy(_ => UnityEngine.Random.value).ToList();
+        var used = new System.Collections.Generic.HashSet<string>();
+
+        // What a line of this kind needs on hand to be fully covered. A pallet pick is one whole pallet;
+        // a loose-case line is 45% of one (two of them make up a case-pick pallet without ever adding up
+        // to a pallet pick).
+        int Required(SkuData k, bool isPick) => isPick ? k.Ti * k.Hi : Mathf.Max(1, Mathf.FloorToInt(k.Ti * k.Hi * 0.45f));
+
+        // Takes an unused SKU that is either fully covered by stock or NOT (a deliberately short line).
+        SkuData Take(bool isPick, bool wantShort)
+        {
+            foreach (var x in pool)
+            {
+                if (used.Contains(x.sku.SkuId)) continue;
+                bool covered = x.avail >= Required(x.sku, isPick);
+                if (covered == wantShort) continue;
+                used.Add(x.sku.SkuId);
+                return x.sku;
+            }
+            return null;
+        }
+
+        // Roughly 90% of the lines are fully in stock; the rest are short or out, so there is always
+        // something that can't be filled to try the cancel / ship-short paths on. A bigger order is
+        // guaranteed at least one short line.
+        int lineCount = palletPicks + casePallets * 2;
+        var shortFlags = new bool[lineCount];
+        int shortCount = 0;
+        for (int i = 0; i < lineCount; i++)
+            if (UnityEngine.Random.value < 0.10f) { shortFlags[i] = true; shortCount++; }
+        if (shortCount == 0 && lineCount >= 6) shortFlags[UnityEngine.Random.Range(0, lineCount)] = true;
+
+        var order = new OrderData(
+            customer.CustomerId,
+            customer.CompanyName,
+            $"{customer.CompanyName} Distribution Center",
+            timeService.Day,
+            timeService.Day + OrderGenerator.DefaultDueDaysOut,
+            timeService.Minute);
+
+        int linesInStock = 0, linesAdded = 0, picksAdded = 0, looseAdded = 0;
+        for (int i = 0; i < lineCount; i++)
+        {
+            bool isPick = i < palletPicks;
+            var sku = Take(isPick, shortFlags[i]) ?? Take(isPick, !shortFlags[i]);
+            if (sku == null) continue;
+            if (Required(sku, isPick) <= pool.First(x => x.sku == sku).avail) linesInStock++;
+            order.LineItems.Add(new OrderLineItem(sku.SkuId, Required(sku, isPick),
+                Mathf.RoundToInt(sku.BuyValue), Mathf.RoundToInt(sku.SellValue)));
+            linesAdded++;
+            if (isPick) picksAdded++; else looseAdded++;
+        }
+
+        if (linesAdded == 0)
+        {
+            UIToast.Show("No SKUs available to build a test order from.");
+            return null;
+        }
+        if (linesInStock == 0)
+            UIToast.Show("Nothing in stock - this test order can't be filled at all. Receive some inventory first.");
+
+        int actualCasePallets = looseAdded / 2;
+        if (picksAdded < palletPicks || looseAdded < casePallets * 2)
+            UIToast.Show($"Not enough SKUs for the full size - ordering {picksAdded} pallet pick(s) and ~{actualCasePallets} case-pick pallet(s).");
+        palletPicks = picksAdded;
+        casePallets = actualCasePallets;
+
+        orderService.ReceiveOrder(order);
+        string label = $"{customer.CompanyName}: {palletPicks} pallet pick(s) + ~{casePallets} case-pick pallet(s), {linesInStock}/{linesAdded} lines in stock";
+        UIToast.Show($"Test order created - {label}");
+        return label;
+    }
+
+    /// <summary>
     /// Debug: put one new signable customer offer on the Contracts panel's Customers tab.
     ///
     /// Stands in for the real thing until reputation exists — offers are meant to arrive over time at

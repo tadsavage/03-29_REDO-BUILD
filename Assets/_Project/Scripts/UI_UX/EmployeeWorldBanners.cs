@@ -78,6 +78,24 @@ public class EmployeeWorldBanners : MonoBehaviour
 
     public bool IsShown(EmployeeIdentity id) => id != null && _banners.ContainsKey(id);
 
+    /// <summary>The instance if one already exists - never creates one (the camera polls this every frame).</summary>
+    public static EmployeeWorldBanners Existing => _instance;
+
+    private EmployeeIdentity _focused;
+
+    /// <summary>The employee whose banner was opened most recently and is still up, or null. The camera
+    /// pulls its depth-of-field focus onto this person so they stay sharp while the rest blurs.</summary>
+    public EmployeeIdentity FocusedEmployee
+    {
+        get
+        {
+            if (_focused != null && _banners.ContainsKey(_focused)) return _focused;
+            _focused = null;
+            foreach (var id in _banners.Keys) if (id != null) _focused = id;   // any survivor
+            return _focused;
+        }
+    }
+
     /// <summary>Plain left-click: open the banner, or close it if it is already open.</summary>
     public void Toggle(EmployeeIdentity id)
     {
@@ -97,6 +115,7 @@ public class EmployeeWorldBanners : MonoBehaviour
         host.Add(b.Root);
         b.Root.SendToBack();            // top bar + modal panels must draw over the banners
         _banners[id] = b;
+        _focused = id;
         RefreshRenderers(b);
         RefreshTask(b, force: true);
         PositionBanner(b);              // so it never flashes at the top-left corner for a frame

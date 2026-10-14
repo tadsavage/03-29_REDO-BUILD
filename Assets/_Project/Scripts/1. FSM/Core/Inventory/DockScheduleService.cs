@@ -675,7 +675,43 @@ namespace GameCore.Inventory
         /// nothing it could be said to have missed.
         /// </summary>
         public bool WouldMissRequestedSlot(string contractId, int blockIndex)
-            => TryGetRequestedBlock(contractId, out int wanted) && blockIndex != wanted;
+            => !ContractIsBulk(contractId) && TryGetRequestedBlock(contractId, out int wanted) && blockIndex != wanted;
+
+        // ── Bulk orders: a DEADLINE, not an appointment ─────────────────────────────────────────────────
+        // A standing account asks for a particular hour every day, so drifting off it is a broken promise. A bulk
+        // order asks for no hour at all - the customer just needs it picked up BY a date (the order's due day).
+        // So for bulk, every day and hour up to that date is fine and free; only moving it PAST the date upsets
+        // them, and it costs more the further past it goes. The booking defaults to today (or the next day) and
+        // the player may push it later without penalty, right up to the day the customer said.
+
+        /// <summary>True if this contract is a bulk deal (full pallets, priced off cost, picked up by a date).</summary>
+        public bool ContractIsBulk(string contractId)
+        {
+            if (string.IsNullOrEmpty(contractId)) return false;
+            if (!ServiceLocator.TryGet(out OrderArrivalService arrivals) || arrivals == null) return false;
+            var contract = arrivals.GetContract(contractId);
+            return contract != null && contract.IsBulk;
+        }
+
+        private bool IsBulkAppointment(DockAppointment appt)
+            => appt != null && (appt.Kind == AppointmentKind.Bulk || appt.Kind == AppointmentKind.Wholesale
+                                || ContractIsBulk(appt.ContractId));
+
+        /// <summary>The last day the customer will accept this trailer's freight: the earliest due day among its
+        /// orders. 0 when none can be found (the orders have shipped or left the list).</summary>
+        public int BulkDeadlineDay(IEnumerable<string> orderIds)
+        {
+            if (orderIds == null) return 0;
+            if (!ServiceLocator.TryGet(out OrderService orders) || orders == null) return 0;
+            int deadline = 0;
+            foreach (var id in orderIds)
+            {
+                var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
+                if (o == null) continue;
+                if (deadline == 0 || o.DueDay < deadline) deadline = o.DueDay;
+            }
+            return deadline;
+        }
 
         /// <summary>
         /// THE SINGLE GATE ON OFF-SLOT PENALTIES. Returns true exactly once per appointment — the
@@ -740,7 +776,14 @@ namespace GameCore.Inventory
         /// baseline was never recorded (pre-existing save) — see DockAppointment.RequestedDay.</summary>
         public int OffSlotDaysFrom(DockAppointment appt)
         {
-            if (appt == null || appt.RequestedDay <= 0) return 0;
+            if (appt == null) return 0;
+            // Bulk: only the days PAST the customer's deadline count - anywhere up to it is free.
+            if (IsBulkAppointment(appt))
+            {
+                int deadline = BulkDeadlineDay(appt.OrderIds);
+                return deadline > 0 ? Mathf.Max(0, appt.Day - deadline) : 0;
+            }
+            if (appt.RequestedDay <= 0) return 0;
             // No contract means nobody asked for a slot, so there is no promise to have broken. This
             // is what keeps a BULK trailer free to move: the player chose its day themselves, and its
             // lateness is already priced by its own due-day fine rather than twice over here.
@@ -752,7 +795,8 @@ namespace GameCore.Inventory
         /// 0 when there's no contract on record to have asked for anything.</summary>
         public int OffSlotBlocksFrom(DockAppointment appt)
         {
-            if (appt == null || !TryGetRequestedBlock(appt.ContractId, out int wanted)) return 0;
+            if (appt == null || IsBulkAppointment(appt)) return 0;   // bulk has no requested hour
+            if (!TryGetRequestedBlock(appt.ContractId, out int wanted)) return 0;
             return Mathf.Abs(appt.BlockIndex - wanted);
         }
 
@@ -779,8 +823,16 @@ namespace GameCore.Inventory
         /// been moved yet — reading it off the live object would price the move the player is trying to
         /// get away FROM.
         /// </summary>
-        public int PredictOffSlotReputationCost(string contractId, int requestedDay, int targetDay, int targetBlock)
+        public int PredictOffSlotReputationCost(string contractId, int requestedDay, int targetDay, int targetBlock,
+                                                IEnumerable<string> orderIds = null)
         {
+            if (ContractIsBulk(contractId))
+            {
+                int deadline = BulkDeadlineDay(orderIds);
+                int late = deadline > 0 ? Mathf.Max(0, targetDay - deadline) : 0;
+                return Mathf.Clamp(late * RepPointsPerDayOff, 0, MaxOffSlotRepPenalty);
+            }
+
             // Same rule as OffSlotDaysFrom: no contract, no promise, no penalty.
             if (!TryGetRequestedBlock(contractId, out int wanted)) return 0;
 
@@ -792,8 +844,16 @@ namespace GameCore.Inventory
         }
 
         /// <summary>Predictive twin of DescribeOffSlot, for the same reason.</summary>
-        public string PredictDescribeOffSlot(string contractId, int requestedDay, int targetDay, int targetBlock)
+        public string PredictDescribeOffSlot(string contractId, int requestedDay, int targetDay, int targetBlock,
+                                             IEnumerable<string> orderIds = null)
         {
+            if (ContractIsBulk(contractId))
+            {
+                int deadline = BulkDeadlineDay(orderIds);
+                int late = deadline > 0 ? Mathf.Max(0, targetDay - deadline) : 0;
+                return late > 0 ? $"{late} day{(late == 1 ? "" : "s")} past the date they need it"
+                                : "within the window the customer gave";
+            }
             if (!TryGetRequestedBlock(contractId, out int wanted)) return "on their requested slot";
             int blocks = Mathf.Abs(targetBlock - wanted);
             int days = requestedDay > 0 ? Mathf.Abs(targetDay - requestedDay) : 0;
@@ -803,7 +863,14 @@ namespace GameCore.Inventory
         /// <summary>Plain-language version of the same sum, for the warning dialog and the toast — the
         /// player should be told what it costs BEFORE they commit, in the units they moved it in.</summary>
         public string DescribeOffSlot(DockAppointment appt)
-            => Describe(OffSlotBlocksFrom(appt), OffSlotDaysFrom(appt));
+        {
+            if (IsBulkAppointment(appt))
+            {
+                int late = OffSlotDaysFrom(appt);
+                return late > 0 ? $"{late} day{(late == 1 ? "" : "s")} past the date they need it" : "within the window the customer gave";
+            }
+            return Describe(OffSlotBlocksFrom(appt), OffSlotDaysFrom(appt));
+        }
 
         private static string Describe(int blocks, int days)
         {
@@ -953,7 +1020,7 @@ namespace GameCore.Inventory
         /// </summary>
         public MoveVerdict EvaluateMove(DockAppointment appt, string contractId, int requestedDay,
                                         int day, int blockIndex, int doorNumber, out string reason,
-                                        List<int> outboundDoors = null)
+                                        List<int> outboundDoors = null, IEnumerable<string> orderIds = null)
         {
             reason = null;
 
@@ -992,10 +1059,11 @@ namespace GameCore.Inventory
             if (appt != null && appt.OffSlotPenaltyApplied) return MoveVerdict.Free; // already paid for
 
             int baseDay = appt != null ? appt.RequestedDay : requestedDay;
-            if (PredictOffSlotReputationCost(contractId, baseDay, day, blockIndex) > 0 ||
+            var ids = orderIds ?? appt?.OrderIds;
+            if (PredictOffSlotReputationCost(contractId, baseDay, day, blockIndex, ids) > 0 ||
                 WouldMissRequestedSlot(contractId, blockIndex))
             {
-                reason = PredictDescribeOffSlot(contractId, baseDay, day, blockIndex);
+                reason = PredictDescribeOffSlot(contractId, baseDay, day, blockIndex, ids);
                 return MoveVerdict.Costly;
             }
             return MoveVerdict.Free;

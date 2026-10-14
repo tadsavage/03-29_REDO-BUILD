@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ALWAYS consult the system skills first
+
+When a task touches one of these systems, invoke its skill (`.claude/skills/<name>/SKILL.md`) BEFORE reading or editing code, and keep it current (add new gotchas/changes to the skill, not only to this file):
+
+| Skill | Covers |
+|---|---|
+| `roadmap` | The agreed 7-step plan and scope guard; read at the start of planning and whenever a new idea comes up |
+| `work-queue` | WorkQueueSystem task model, WorkQueuePanel (key 7), row phases, columns, live-signature refresh |
+| `order-system` | Inbound (vendors, POs, shipments, Purchasing key 9) and outbound (contracts, negotiation, orders, scheduler key 0, close-out, fines), reputation |
+| `inventory-system` | Pallets, SKUs, slots/locations, putaway, replenishment, staging lanes, persistence, inventory UIs |
+| `finance-system` | MoneyService, EconomyService, PayrollService, FinanceCategory/GL lines, TopBar finance panels |
+| `physics-system` | PLANNED (not built): dormant-rigidbody cases, rack collapse, damage; see `FUTURE_IDEAS.md` |
+| `lane_setup` | Dock doors, lane naming, LaneConfig |
+| `racking-system` | Racks, chevrons, aisles, location naming |
+| `ModularAvatarSystem` | Avatars, AOD, Blender pipeline |
+| `unity:ui-uitk` | General UI Toolkit rules (note: most panels here are programmatic with inline styles) |
+
 ## Project Overview
 
 This is a Unity 6 (URP) warehouse/facility builder simulation game. Players place objects on a 2D grid in a 3D world, with a simulated economy (money + time) and full save/load support.
@@ -2854,3 +2871,33 @@ Tad's asks: a signed recurring account starts delivering TOMORROW and the player
 - **AOD:** preview background (3D wall and frame) is the same light tan as the icon backdrops (`ThumbBackdropColor` 0.82/0.87/0.69). Removed `Female_Hands_Black-Gloves_NSFW`, `Female_Legs_Stockings_GrayNSFW` and `Female_Neck_Collar_Latex_NSFW` from the blend, the FBX (re-exported headless with the `Unity_Avatar` preset, 83 meshes) and the finalized assets. Backups in `%TEMP%\del_backup`.
 - **Release-flow UI (see previous addendum):** LOG body alpha 0.15 with A-/A+ font buttons; Work Queue `ToGap`; New Item report lists incoming PO SKUs; confetti on PO dispatch +2s only.
 - **Tooling:** Unity does NOT recompile unless its window is focused, so check `Library/ScriptAssemblies/*.dll` mtime before trusting "compiled". In shell `sed`, `\n` expands to a real newline; use the Edit tool for C# string literals.
+
+### Addendum 2026-10-13 (night) — HANDOFF: where we are on the 7-step plan, and everything built this session
+
+**THE PLAN (7 steps, full text in `.claude/skills/roadmap/SKILL.md`; ideas parked in `FUTURE_IDEAS.md`):** (1) stabilize/close the CORE LOOP - order, receive, putaway, customer orders, pick, ship, get paid; (2) TUTORIAL / first-10-minutes; (3) player-drivable equipment + metrics; (4) sanitation + maintenance crews; (5) limited physics (case drops, one rack collapse); (6) demo, Steam Next Fest, Early Access; (7) cold chain -> competitors/industrial park -> everything else post-launch.
+**WE ARE ON STEP 1.** Tad's goal: keep play-testing and CLOSE OUT THE CORE LOOP THIS WEEK, then start the TUTORIAL (step 2) hopefully next week. Don't build ideas from `FUTURE_IDEAS.md` unasked; steer new ideas there.
+
+**Step 1 sub-plan status (case pick):** release -> tasks is built and being play-tested right now. Still open, in order: (a) finish play-testing release -> pallet picks -> staging -> load -> close-out; (b) order selector animation (empty CHEP onto pallet jack, drive to pick slots, pick cases); (c) heavy-to-light pallet building; (d) stretch wrap; (e) staging into lanes with the jack. Cancel-order return path: whole pallets back to putaway (BUILT, untested); case-picked cases = numbers + a make-believe walk-back animation (agreed design, NOT built).
+
+**Built this session (compiled clean unless marked; most play-verified, see notes):**
+- System skills created and listed at the top of this file: work-queue, order-system, inventory-system, finance-system, roadmap, physics-system. ALWAYS invoke them when touching those systems.
+- **Release flow:** Work Queue no longer releases orders - release only from the Scheduler tile's RELEASE ORDERS button. Unreleased orders are hidden from the Work Queue. Multi-lane orders (`OrderData.OverflowLanes`, `AllStagingLanes()`), partial release with a toast/log when lanes lack room ("Releasing 20 of 25..."), held work stays Open until room (`AssignWaitingLanes` every 3 game-minutes), Work Queue lane dropdown is capacity-aware.
+- **Player cancel system:** `CancelOrdersByPlayer`, `CancelRemaining`, preview of consequences (reputation, fees) in a confirmation modal; buttons Cancel Selected / Cancel Remaining in the Work Queue.
+- **Scheduler:** release/cancel button stack, temp test-order buttons (small/medium/large, in-stock SKUs only, ~10% deliberately short lines to test cancel), open slots grow 1.25x on hover, carried-tile UX (click a tile -> the whole tile follows the mouse, drop on a slot, RIGHT-CLICK puts it back), bulk orders are DEADLINE-based (free to move anywhere up to the due day, penalties only past it; `DockScheduleService.ContractIsBulk/BulkDeadlineDay`). Tooltip has a 450 ms hide grace (`TooltipHideGraceMs`) so you can reach it and scroll.
+- **Racks:** all 7 rack prefabs now carry authored `Location` + `LocApproachAnchor` children; `LocationRegistry` fallback seats a generated location at the rack origin (27,264 duplicate LocationData leak fixed -> 344). Reach truck short-leg (<2 m) NavMesh skip, `NoteMissingAnchor` -> Problem status after 3 failures.
+- **Vehicle grounding:** `Actors/VehicleGrounding.cs` (new) snaps MHE to the floor (nav surface sat 7-13 cm high) and adds contact-shadow blobs; attached from `MHEOperatorSlot.Start()`.
+- **Diorama depth of field** in `FreeLookCamera.cs`: private-layer runtime Volume, Bokeh. Serialized `dofFocalLengthMm=90`, `dofFStop=1.6` (lower = blurrier), `dofFStopFocused=3.6` (clicked employee sharpens); focus pulls to the employee whose banner is open (`EmployeeWorldBanners.FocusedEmployee`).
+- **Selection toggle:** plain left-click on an employee OR on their reach truck/dock stocker/pallet jack closes BOTH the banner and the Info UI when either is up (`EmployeeClickHandler`, `MHEOperatorSlot`; `EmployeeInfoUI.CurrentIdentity` added). Shift-click still follows.
+- **Work Queue:** always-visible vertical scroll bar, bottom/bottom-right resize grip enabled (was side-only).
+- **Misplaced rack pallets** (6 at Z 42.33, hanging off the top level) were snapped onto their slots in the live scene (Play-only: needs F5; the extra stacked pairs were moved to 01-10-00 / 01-08-00, whose location records were NOT updated).
+
+**ROOT CAUSES FOUND TONIGHT (fixed in code, NOT yet compiled/tested together - Tad was mid-play-test):**
+1. **Held tasks were Available, not Open.** `OrderService.FileReleasedOrderTasks` only set `Available` when a lane existed and otherwise left the `WorkTask` default (`Available`). So a release with no free lane filed 21 claimable PalletPicks with no destination (trucks spam "no parseable destination lane"), `HeldWorkCount` read 0 so `AssignWaitingLanes` never retried, and the Work Queue showed one aggregated Open row. Now: `hasLane ? Available : Open` for both PalletPick and OrderSelect.
+2. **Scheduler said RELEASED for an unreleased order.** `IsAwaitingRelease` required every live task to be Open; leftover Available PalletPicks flipped the button to RELEASED. Now `IsReleasablePlaceholder` (Open or Available); both release paths use `RetirePlaceholders` (unreserves rack slots, refiles Putaway for claimed lane pallets, cancels the stale tasks).
+3. **A selector with no loose cases to pick reset the whole order.** `OrderSelectionTaskDriver.AdvanceToNextPick` called `ReturnOrderToOpen` (clears lane/door, ReleasedToFloor=false) when nothing was pickable, stranding the PalletPicks. Now, if `OrderService.HasLivePalletPicks`, it finishes short (`FinishOrder(PartiallyPicked)`) and leaves the order released.
+4. **Cancel did not put claimed lane pallets back into putaway.** `RefilePutawayForClaimedLanePallets` now refiles a Putaway for a PalletPick-claimed pallet still sitting in a staging lane (skips tasks a truck already holds). When an order claims a lane pallet, its Putaway is cancelled ON PURPOSE (saves a round trip); those cancelled Putaway rows in the queue are expected.
+
+**FIRST THING TO DO ON THE NEXT MACHINE / SESSION:** pull, open Unity, STOP Play, let it compile, check `Logs/Editor.log` for `error CS`, press Play, load the save, then on the Happy Herd tile (order OG2156, 861 cases, 21 pallet picks) click RELEASE ORDERS again and confirm: pallet picks appear as Open then Available with a lane (the lane finder returns 1E / 2B), reach trucks drive them, then loader tasks for the trailer appear, then close-out. Also test cancelling an order whose pallets were claimed from a lane (should log "goes back to putaway"). Hire an Order Selector if the order has loose cases.
+**Open questions still:** does the Work Queue's manual "pick another door/lane" dropdown work on the aggregated Open row (Tad's expectation); outbound tasks for a docked trailer might deserve a default priority bump (offered, not decided); staged pallets still aren't persisted across save/load.
+
+**HARD RULE LEARNED (cost real time, twice):** do NOT edit scripts while Tad is in Play mode. The recompile wipes `ServiceLocator`/`EventManager` (domain reload) and the session silently dies (UI looks alive, nothing runs). Edit while stopped, or tell him to restart Play before testing. The compile gate is the `Library/ScriptAssemblies/GameCore.Simulation.dll` mtime vs the edited `.cs` plus `Logs/Editor.log` for `error CS`.
