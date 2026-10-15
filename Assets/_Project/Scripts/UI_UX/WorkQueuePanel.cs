@@ -319,6 +319,24 @@ public class WorkQueuePanel : IUIPanel
     /// same cross-navigation pattern ContractsPanel.OpenScheduler/PurchasingPanel.OpenScheduler already
     /// use. Routed through UIKeyBindingManager.CloseAll() rather than a bare Hide() so the key-binding
     /// registry's exclusivity/CurrentOpenKey bookkeeping stays correct.</summary>
+    private void OpenPurchasing()
+    {
+        Hide();
+        var panel = Object.FindAnyObjectByType<TopBarUI>()?.PurchasingPanel;
+        if (panel == null) { UIToast.Show("Couldn't open purchasing — the panel isn't loaded."); return; }
+        UIKeyBindingManager.Instance?.CloseAll();
+        panel.Show();
+    }
+
+    private void OpenOrders()
+    {
+        Hide();
+        var panel = Object.FindAnyObjectByType<TopBarUI>()?.ContractsPanel;
+        if (panel == null) { UIToast.Show("Couldn't open orders — the panel isn't loaded."); return; }
+        UIKeyBindingManager.Instance?.CloseAll();
+        panel.Show();
+    }
+
     private void OpenScheduler()
     {
         Hide();
@@ -583,12 +601,27 @@ public class WorkQueuePanel : IUIPanel
         // positioned (not flex flow) so it can't disturb the Select All/Cancel Selected widths or the
         // scale/close buttons' flush-right stacking — anchored just left of the day/time badge, which
         // occupies right:202 through right:(202+dayTimeBadge width).
-        var openScheduler = new Button(OpenScheduler) { text = "SCHEDULER" };
-        StyleButton(openScheduler, ColOrange, ColOrangeEdge, Color.white, ColOrangeHover);
-        openScheduler.style.height = titleBtnSize * 0.8f;
-        openScheduler.style.position = Position.Absolute;
-        openScheduler.style.right = 202 + dayTimeBadgeWidth + 10;
-        titleBar.Add(openScheduler);
+        // PURCHASING and ORDERS ride in the same absolutely-positioned row, to the left of SCHEDULER
+        // (Tad's ask), so the three sit together and the row — not each button — owns the right anchor.
+        var navRow = new VisualElement();
+        navRow.style.flexDirection = FlexDirection.Row;
+        navRow.style.position = Position.Absolute;
+        navRow.style.right = 202 + dayTimeBadgeWidth + 10;
+        titleBar.Add(navRow);
+
+        void AddNavButton(string label, System.Action onClick, bool last, NavButtonColors.Dest? dest = null)
+        {
+            var b = new Button(onClick) { text = label };
+            StyleButton(b, ColOrange, ColOrangeEdge, Color.white, ColOrangeHover);
+            b.style.height = titleBtnSize * 0.8f;
+            b.style.flexShrink = 0;
+            if (dest.HasValue) NavButtonColors.Apply(b, dest.Value);
+            if (!last) b.style.marginRight = 8;
+            navRow.Add(b);
+        }
+        AddNavButton("PURCHASING", OpenPurchasing, last: false, NavButtonColors.Dest.Purchasing);
+        AddNavButton("ORDERS", OpenOrders, last: false, NavButtonColors.Dest.Orders);
+        AddNavButton("SCHEDULER", OpenScheduler, last: true);
 
         titleBar.Add(_scaleButton);
         titleBar.Add(closeButton);

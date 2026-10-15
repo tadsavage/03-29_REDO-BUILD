@@ -192,6 +192,89 @@ namespace GameCore.Labor
             return side * TruckController.PalletsPerRow + depth;
         }
 
+        /// <summary>Rendered height of a pallet (world metres).</summary>
+        internal static float MeasurePalletHeight(Transform pallet)
+        {
+            const float Fallback = 1.3f;
+            if (pallet == null) return Fallback;
+            bool any = false; Bounds b = default;
+            foreach (var r in pallet.GetComponentsInChildren<Renderer>())
+            {
+                if (r == null || !r.enabled) continue;
+                if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds);
+            }
+            return any && b.size.y > 0.2f ? b.size.y : Fallback;
+        }
+
+        /// <summary>
+        /// Where does a pallet go? The SAME rule inbound planning uses (TrailerCapacity): the trailer is
+        /// 2.5 m tall with 12 floor positions; a SHORT pallet (at most half the interior height) can have
+        /// another short pallet on top of it, a TALL one rides alone, stacks are two high.
+        ///
+        /// So the loader builds up as it goes: a short pallet goes onto a position that holds one lone
+        /// short pallet whenever there is one (that is what frees floor for the tall ones), and only
+        /// otherwise takes the next empty floor position (nose first, left/right pairs).
+        /// <paramref name="stackBaseY"/> is the container-local height of the surface it sits on (0 on
+        /// the deck). False when it fits nowhere: the trailer is full for a pallet like this.
+        /// </summary>
+        internal static bool TryChooseCargoSlot(TruckController truck, float palletHeightWorld, out int slotIndex, out float stackBaseY)
+        {
+            slotIndex = -1; stackBaseY = 0f;
+            if (truck == null || truck.LoadContainer == null) return false;
+
+            float scaleY = Mathf.Max(0.01f, truck.LoadContainer.lossyScale.y);
+            int slots = TruckController.PalletSlotCount;
+            var tops = new float[slots];
+            var counts = new int[slots];
+            var bottomHeight = new float[slots];
+
+            foreach (Transform child in truck.LoadContainer)
+            {
+                if (child == null || !child.gameObject.activeSelf) continue;
+                int nearest = -1; float bestD = float.MaxValue;
+                for (int s = 0; s < slots; s++)
+                {
+                    Vector3 sp = truck.SlotLocalPosition(s, 0, null);
+                    float d = (child.localPosition.x - sp.x) * (child.localPosition.x - sp.x) +
+                              (child.localPosition.z - sp.z) * (child.localPosition.z - sp.z);
+                    if (d < bestD) { bestD = d; nearest = s; }
+                }
+                if (nearest < 0) continue;
+                float h = MeasurePalletHeight(child) / scaleY;
+                counts[nearest]++;
+                if (counts[nearest] == 1 || child.localPosition.y < 0.05f) bottomHeight[nearest] = h;
+                float top = child.localPosition.y + h;
+                if (top > tops[nearest]) tops[nearest] = top;
+            }
+
+            float need = palletHeightWorld / scaleY;
+            float roof = TrailerCapacity.SafeInteriorHeight / scaleY;
+            float stackable = TrailerCapacity.StackableHeight / scaleY;
+
+            // 1. A short pallet tops up a lone short pallet first.
+            if (need <= stackable)
+            {
+                for (int seq = 0; seq < slots; seq++)
+                {
+                    int s = CargoSlotForSequence(seq);
+                    if (counts[s] == 1 && bottomHeight[s] <= stackable &&
+                        tops[s] + TrailerCapacity.StackGap + need <= roof)
+                    {
+                        slotIndex = s; stackBaseY = tops[s] + TrailerCapacity.StackGap;
+                        return true;
+                    }
+                }
+            }
+
+            // 2. Otherwise the next empty floor position.
+            for (int seq = 0; seq < slots; seq++)
+            {
+                int s = CargoSlotForSequence(seq);
+                if (counts[s] == 0) { slotIndex = s; stackBaseY = 0f; return true; }
+            }
+            return false;
+        }
+
         /// <summary>
         /// Files the Load task for every Staged (or partially-picked-but-staged) order whose assigned
         /// door already has a trailer sitting there AwaitingLoad — the player no longer has to check
@@ -323,7 +406,6 @@ namespace GameCore.Labor
             // pallets a deal actually shipped on, and only the loader ever sees that number — the
             // order itself knows cases, never pallets.
             var loadedPalletsByOrder = new Dictionary<string, int>();
-            int startSlotIndex = truck.LoadContainer != null ? truck.LoadContainer.childCount : 0;
             for (int i = 0; i < pallets.Count; i++)
             {
                 var pallet = pallets[i];
@@ -336,13 +418,13 @@ namespace GameCore.Labor
                 // sequence past the end folds back onto a low slot index (sequence 12 → slot 6) and a
                 // slot-index check would silently double-place on top of an already-loaded pallet
                 // instead of stopping.
-                int sequence = startSlotIndex + i;
-                if (sequence >= TruckController.PalletSlotCount)
+                // The trailer is 2.5 m tall, so a pallet can ride ON another when it still clears the
+                // roof: floor slot first, then the first stack with headroom. Nothing fits = full.
+                if (!TryChooseCargoSlot(truck, MeasurePalletHeight(pallet.transform), out int slotIndex, out float stackBaseY))
                 {
-                    Debug.LogWarning($"[TrailerLoad] {truck.name} cargo full ({TruckController.PalletSlotCount} slots) — leaving {pallets.Count - i} pallet(s) staged for a later truck.");
+                    Debug.LogWarning($"[TrailerLoad] {truck.name} cargo full (12 floor positions, 2.5 m roof) — leaving {pallets.Count - i} pallet(s) staged for a later truck.");
                     break;
                 }
-                int slotIndex = CargoSlotForSequence(sequence);
 
                 if (!string.IsNullOrEmpty(pallet.OrderId))
                 {
@@ -350,7 +432,7 @@ namespace GameCore.Labor
                     loadedPalletsByOrder[pallet.OrderId] = soFar + 1;
                 }
 
-                yield return LoadOnePallet(ds, forks, forkRestY, truck, pallet, slotIndex);
+                yield return LoadOnePallet(ds, forks, forkRestY, truck, pallet, slotIndex, stackBaseY);
             }
 
             // Mark every order this truck just finished loading Loaded (not shipped/billed yet —
@@ -402,20 +484,26 @@ namespace GameCore.Labor
         /// since that pallet isn't actually staged yet/still.</summary>
         private List<OutboundPalletBuilder> FindStagedPalletsInLane(int doorNumber, string lane, int dockDoor)
         {
-            var found = new List<(OutboundPalletBuilder pallet, int slotIndex)>();
+            var found = new List<(OutboundPalletBuilder pallet, int slotIndex, float y)>();
             foreach (var pallet in FindObjectsByType<OutboundPalletBuilder>())
             {
                 if (pallet == null || pallet.transform.parent != null) continue;
                 var cell = _grid.WorldToCell(pallet.transform.position);
                 if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
                 if (slot.DoorNumber != doorNumber || slot.Lane != lane) continue;
-                found.Add((pallet, slot.Slot));
+                found.Add((pallet, slot.Slot, pallet.transform.position.y));
             }
 
             // Slot 1 loads FIRST, then 2, on out to the end of the lane (e.g. 2A-1 before 2A-6) --
             // the SAME door-outward order staging fills in, deliberately NOT the offloader's
             // reversed sequence.
-            found.Sort((a, b) => a.slotIndex.CompareTo(b.slotIndex));
+            //
+            // Within ONE slot, lane stacking puts pallets on top of each other: take the TOP one first.
+            // Grabbing the bottom pallet first leaves the upper one hanging in mid-air (and offload
+            // already works top-down for the same reason).
+            found.Sort((a, b) => a.slotIndex != b.slotIndex
+                ? a.slotIndex.CompareTo(b.slotIndex)
+                : b.y.CompareTo(a.y));
 
             // Only the freight of orders actually being loaded at this door (Tad, 2026-09-23: it was
             // loading every pallet in the lane, whoever's it was). And STOP at the first pallet that
@@ -446,7 +534,7 @@ namespace GameCore.Labor
         }
 
         private IEnumerator LoadOnePallet(Transform ds, Transform forks, float forkRestY,
-                                          TruckController truck, OutboundPalletBuilder pallet, int slotIndex)
+                                          TruckController truck, OutboundPalletBuilder pallet, int slotIndex, float stackBaseY = 0f)
         {
             Transform palletT = pallet.transform;
 
@@ -560,7 +648,7 @@ namespace GameCore.Labor
                 if (inv != null) inv.ReleaseLaneEntry(laneSlot.DoorNumber, laneSlot.Lane);
             }
 
-            yield return PlaceCarriedInTrailer(ds, forks, truck, palletT, slotIndex, doorPos, driveY, crossDoor);
+            yield return PlaceCarriedInTrailer(ds, forks, truck, palletT, slotIndex, doorPos, driveY, crossDoor, stackBaseY);
 
             // "cargoSlot" spelled out because these numbers run 0-11 over the TRAILER's 12-slot bed
             // (nose-first, alternating left/right — see CargoSlotForSequence) and read nothing like the
@@ -577,7 +665,7 @@ namespace GameCore.Labor
         /// </summary>
         private IEnumerator PlaceCarriedInTrailer(Transform ds, Transform forks, TruckController truck,
                                                   Transform palletT, int slotIndex, Vector3 doorPos, float driveY,
-                                                  bool crossDoorLeg = false)
+                                                  bool crossDoorLeg = false, float stackBaseY = 0f)
         {
             // ── CARRY to the trailer and place in the next open cargo slot ───────────────────
             // Per-pallet stage: Loading from here (it's on the forks) until it is set down below. The
@@ -598,6 +686,8 @@ namespace GameCore.Labor
             // the trailer's own layout: its X is the left- or right-hand column, its depth is how far
             // in the row sits.
             Vector3 targetLocal = truck.SlotLocalPosition(slotIndex, OutboundStackTier, null);
+            // Stacked on another pallet: the set-down height is that stack's top (container-local metres).
+            targetLocal.y += stackBaseY;
             Vector3 targetWorld = truck.LoadContainer.TransformPoint(targetLocal);
             float targetLat = Vector3.Dot(targetWorld, rightAxis);
 
@@ -633,6 +723,11 @@ namespace GameCore.Labor
             yield return DriveTailFirst(ds, shippingDoorPivot);
             // 7. Spin so the forks (and the carried pallet) face straight into the trailer.
             yield return FaceForks(ds, into);
+            // 7b. Stacking on a pallet already in the slot: raise the forks by that stack's height BEFORE
+            //     driving in so the carried pallet clears the one below (step 9 lowers by exactly
+            //     PalletLiftClearance, leaving it resting on top).
+            if (stackBaseY > 0.01f && forks != null)
+                yield return LiftForks(forks, forks.localPosition.y + stackBaseY * Mathf.Max(0.01f, truck.LoadContainer.lossyScale.y));
             // 8. Drive straight in until the carried pallet's XZ lines up over its cargo slot.
             Vector3 palletOffset = palletT.position - ds.position; palletOffset.y = 0f;
             Vector3 targetXZ = new Vector3(targetWorld.x, driveY, targetWorld.z);

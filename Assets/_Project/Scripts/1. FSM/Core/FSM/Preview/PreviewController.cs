@@ -442,6 +442,27 @@ public class PreviewController : MonoBehaviour
     // ---------------------------------------------------------
     // GHOST CREATION
     // ---------------------------------------------------------
+    /// <summary>True if another component on the same GameObject declares [RequireComponent] for
+    /// this component's type (or a base of it), i.e. Unity would refuse to destroy it right now.</summary>
+    private static bool IsRequiredByOther(Component target)
+    {
+        if (target == null) return false;
+        var targetType = target.GetType();
+        foreach (var other in target.gameObject.GetComponents<Component>())
+        {
+            if (other == null || other == target) continue;
+            foreach (var attr in other.GetType().GetCustomAttributes(typeof(RequireComponent), true))
+            {
+                var req = (RequireComponent)attr;
+                if ((req.m_Type0 != null && req.m_Type0.IsAssignableFrom(targetType)) ||
+                    (req.m_Type1 != null && req.m_Type1.IsAssignableFrom(targetType)) ||
+                    (req.m_Type2 != null && req.m_Type2.IsAssignableFrom(targetType)))
+                    return true;
+            }
+        }
+        return false;
+    }
+
     private GameObject CreateGhostFromPrefab(GameObject source)
     {
         GameObject ghost = Instantiate(source);
@@ -494,7 +515,7 @@ public class PreviewController : MonoBehaviour
         {
             foreach (var comp in ghost.GetComponentsInChildren(type, true))
             {
-                if (comp != null)
+                if (comp != null && !IsRequiredByOther(comp))
                     try { DestroyImmediate(comp); } catch { }
             }
         }
@@ -508,6 +529,18 @@ public class PreviewController : MonoBehaviour
             foreach (var comp in ghost.GetComponentsInChildren<Component>(true))
             {
                 if (comp is Transform || comp is Renderer || comp is MeshFilter || comp is Light || comp is Animator)
+                    continue;
+                // Colliders are left for STEP 4. A script can [RequireComponent(typeof(Collider))]
+                // (SideLotController does); destroying the collider before that script logs "Can't
+                // remove BoxCollider because ... depends on it" — a console error try/catch can't
+                // suppress. By STEP 4 every dependent script is already gone.
+                if (comp is Collider)
+                    continue;
+                // Dependency-aware: a component another one [RequireComponent]s can't go yet — it is
+                // picked up on a later pass of this loop once its dependent has been removed. Letting
+                // Unity refuse instead logs a console error that try/catch can't suppress
+                // (AgentEmoteController needs NavMeshAgent + EmoteBubble, SideLotController a Collider).
+                if (IsRequiredByOther(comp))
                     continue;
                 try { DestroyImmediate(comp); removed = true; }
                 catch { }
@@ -527,7 +560,7 @@ public class PreviewController : MonoBehaviour
             colRemoved = false;
             foreach (var col in ghost.GetComponentsInChildren<Collider>(true))
             {
-                if (col == null) continue;
+                if (col == null || IsRequiredByOther(col)) continue;
                 try { DestroyImmediate(col); colRemoved = true; }
                 catch { }
             }

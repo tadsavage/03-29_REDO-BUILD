@@ -1119,6 +1119,15 @@ namespace GameCore.Inventory
                 int qty = pallets * fullPallet + remainder;
                 lines.Add(new BulkPreviewLine { SkuId = sku.SkuId, Quantity = qty });
             }
+
+            // Never offer more than ONE trailer can carry (12 floor positions, 2.5 m roof). Trimming is
+            // in whole pallets, so a wholesale deal stays full pallets.
+            var fitted = TrailerCapacity.TrimToFit(lines
+                .Select(l => (sku: _inventoryService.GetSkuData(l.SkuId), cases: l.Quantity)));
+            if (fitted.Count > 0)
+            {
+                lines = fitted.Select(f => new BulkPreviewLine { SkuId = f.sku.SkuId, Quantity = f.cases }).ToList();
+            }
             return lines;
         }
 
@@ -1311,6 +1320,18 @@ namespace GameCore.Inventory
                             terms != null ? Mathf.RoundToInt(sku.BuyValue * (1f + terms.MarkupPercent))
                                           : Mathf.RoundToInt(sku.SellValue * contract.PayRateMultiplier)));
                 }
+            }
+
+            // One order = one trailer. Trim the lines until the whole order fits a single trailer, so a
+            // customer never asks for more than the dock can ship in one go.
+            var fittedLines = TrailerCapacity.TrimToFit(order.LineItems
+                .Select(li => (sku: _inventoryService.GetSkuData(li.SkuId), cases: li.QuantityNeeded)));
+            if (fittedLines.Count > 0)
+            {
+                var keep = new Dictionary<string, int>();
+                foreach (var f in fittedLines) keep[f.sku.SkuId] = f.cases;
+                order.LineItems.RemoveAll(li => !keep.ContainsKey(li.SkuId));
+                foreach (var li in order.LineItems) li.QuantityNeeded = keep[li.SkuId];
             }
 
             _orderService.ReceiveOrder(order);

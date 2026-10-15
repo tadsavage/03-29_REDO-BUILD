@@ -1,6 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
     <Style src="project://database/Assets/3.%20UI/2.BottomHud/buildmenuNEW.uss?fileID=7433441132597879392&amp;guid=6451556a33fb0be46aa059d66682505f&amp;type=3#buildmenuNEW"/>
     <Style src="project://database/Assets/3.%20UI/4.PopupUIs/WorldHoverPopup.uss?fileID=7433441132597879392&amp;guid=e7f4862e76357b3469d9ad92258f0600&amp;type=3#WorldHoverPopup"/>
+    <Style src="MiniDockTimeline.uss"/>
 
     <ui:VisualElement name="BuildMenuRoot" picking-mode="Ignore" class="buildmenu-root">
         <ui:VisualElement name="SubmenuContainer" picking-mode="Position" class="buildmenu-submenu buildmenu-submenu-closed">
@@ -63,6 +64,21 @@
                 <ui:Label text="0" class="playbar-key"/>
             </ui:Button>
 
+        </ui:VisualElement>
+        <!-- Read-only picture of TODAY's dock schedule (MiniDockTimeline.cs fills the door rows and chips). -->
+        <ui:VisualElement name="MiniDockTimeline" picking-mode="Position" class="mini-timeline">
+            <ui:VisualElement picking-mode="Ignore" class="mini-timeline-header">
+                <ui:Label text="DOOR" picking-mode="Ignore" class="mini-timeline-corner"/>
+                <ui:VisualElement name="MiniTimelineHours" picking-mode="Ignore" class="mini-timeline-hours">
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement picking-mode="Ignore" class="mini-timeline-body">
+                <ui:VisualElement name="MiniTimelineDoors" picking-mode="Ignore" class="mini-timeline-doors"/>
+                <ui:VisualElement name="MiniTimelineGrid" class="mini-timeline-grid">
+                    <ui:Label name="MiniTimelineEmpty" text="No doors yet" picking-mode="Ignore" class="mini-timeline-empty"/>
+                    <ui:VisualElement name="MiniTimelineNow" picking-mode="Ignore" class="mini-timeline-now"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="PlayUtilityRow" picking-mode="Position" class="buildmenu-utility-row"/>
     </ui:VisualElement>

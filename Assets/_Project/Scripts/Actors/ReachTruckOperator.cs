@@ -366,6 +366,8 @@ namespace GameCore.Actors
                 return;
             }
 
+            EnsureLanePalletsHavePutaway();
+
             var pending = _workQueue.GetPendingTasksForRole(EmployeeRole.ReachTruckOperator);
             if (pending.Count == 0)
             {
@@ -514,6 +516,54 @@ namespace GameCore.Actors
                 StartCoroutine(PalletPickRoutine(best));
             else
                 StartCoroutine(PutawayRoutine(best));
+        }
+
+        private static float _nextLanePutawaySweepAt;
+
+        /// <summary>
+        /// Self-healing: a received inventory pallet standing in a staging lane with NO live task of any kind will
+        /// never be put away by anyone - and because a reach truck can only take the exit-most pallet of a lane, one
+        /// such pallet can also bury every other pallet behind it. (Seen live: a pallet whose Putaway had been
+        /// cancelled sat at a lane's exit while two other Putaways stayed unclaimable and both trucks idled.)
+        /// Files a fresh Putaway for it. Skips outbound freight, pallets on forks or in a trailer, and pallets whose
+        /// SKU isn't in the SKU database (phantom records), and is throttled to once every 5 seconds.
+        /// </summary>
+        private void EnsureLanePalletsHavePutaway()
+        {
+            if (Time.time < _nextLanePutawaySweepAt) return;
+            _nextLanePutawaySweepAt = Time.time + 5f;
+
+            var grid = FindFirstObjectByType<PlacementGrid>();
+            if (grid == null || _inventoryService == null || _workQueue == null) return;
+
+            foreach (var link in FindObjectsByType<PalletMasterLink>(FindObjectsSortMode.None))
+            {
+                if (link == null || string.IsNullOrEmpty(link.PalletId)) continue;
+                if (link.GetComponentInParent<MHEOperatorSlot>() != null || link.GetComponentInParent<TruckController>() != null) continue;
+                if (link.GetComponent<OutboundPalletBuilder>() != null) continue;
+
+                var record = _inventoryService.GetPallet(link.PalletId);
+                if (record == null || record.Quantity <= 0 || string.IsNullOrEmpty(record.LoadId)) continue;   // unreceived pallets are the Receiver's
+                var sku = _inventoryService.GetSkuData(record.SkuId);
+                if (sku == null) continue;
+                if (!LaneNamingService.TryGetSlot(grid.WorldToCell(link.transform.position), out var slot)) continue;
+
+                string palletId = record.PalletId;
+                if (_workQueue.Tasks.Any(t => t.PalletId == palletId &&
+                                              t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled)) continue;
+
+                string from = $"STG{slot.DoorNumber}{slot.Lane}-{slot.Slot}";
+                var created = _workQueue.CreateTask(
+                    WorkTaskType.Putaway,
+                    EmployeeRole.ReachTruckOperator,
+                    palletId,
+                    $"Putaway pallet [{record.LoadId}] left in {slot.DoorNumber}{slot.Lane} with no task",
+                    fromLocation: from,
+                    toLocation: null,
+                    area: sku.StorageArea);
+                if (created != null)
+                    Debug.LogWarning($"[ReachTruckOperator] Pallet {palletId} ({record.SkuId}) was standing in {slot.DoorNumber}{slot.Lane} with no task - filed a new Putaway.");
+            }
         }
 
         /// <summary>
@@ -1866,6 +1916,16 @@ namespace GameCore.Actors
             _busy = true;
             NavMeshObstacle obstacle = pallet.GetComponent<NavMeshObstacle>();
             Debug.Log($"[ReachTruckOperator] '{name}' RESUMING task {task.TaskId} — delivering '{task.PalletId}' to {task.ToLocation}.");
+            // An outbound PalletPick carries its pallet to a staging LANE (e.g. "1B"), not a rack
+            // slot. Routing it through DeliverPalletToRack looked for a rack approach anchor that
+            // can't exist, aborted, and eventually marked the lane Problem.
+            if (task.Type == WorkTaskType.PalletPick && TryParseLaneName(task.ToLocation, out int stgDoor, out string stgLane))
+            {
+                var pd = pallet.GetComponent<PalletData>();
+                StartCoroutine(DeliverPalletToStagingLane(pallet, task.PalletId, task.SkuId,
+                    pd != null ? pd.CaseQuantity : 0, stgDoor, stgLane, task, obstacle));
+                return;
+            }
             StartCoroutine(DeliverPalletToRack(pallet, task.PalletId, task.ToLocation, task, obstacle));
         }
 

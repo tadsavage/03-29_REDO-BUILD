@@ -628,6 +628,7 @@ public class PlacementSystem : MonoBehaviour
 
     private void ApplySaveData(SaveData save)
     {
+        ShaderWarmup.Run("save load");
         // RestoreCapital, NOT SetMoney: SetMoney books the difference between starting capital and
         // the saved balance as a real "Debug" transaction, so every load charged that gap to lifetime
         // expenses. On a real save that was $26,731 of $26,879 total — 99.4% of everything the player

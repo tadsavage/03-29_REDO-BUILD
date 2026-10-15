@@ -115,6 +115,12 @@ public class PalletInventoryTracker : MonoBehaviour
         foreach (var po in PlacedObjectRegistry.All)
         {
             if (!IsPallet(po)) continue;
+            // Staged outbound freight is NOT inventory: its record was deliberately destroyed when a truck or
+            // selector staged it for an order. Its PalletMasterLink still points at that dead record, so without
+            // this skip the branch below read it as "link with no record" and registered a PHANTOM pallet of the
+            // prefab-name SKU "A Chep" x84 for every staged pallet (24 of them were found in one save) - phantom
+            // stock the putaway system could never act on, standing in the lanes after every reload.
+            if (po.GetComponent<OutboundPalletBuilder>() != null) continue;
             var cell = new Vector2Int(po.gridX, po.gridY);
 
             if (_linked.TryGetValue(po, out var id))
@@ -123,6 +129,23 @@ public class PalletInventoryTracker : MonoBehaviour
                 var pallet = inv.GetPallet(id);
                 if (pallet != null && pallet.CurrentLocation != cell)
                     inv.MovePallet(id, cell);
+
+                // Linked to a record that no longer exists, while ANOTHER record carries this very Load ID: this
+                // object is a duplicate copy of a pallet that is already tracked (a load restored it twice). One
+                // Load ID is one physical pallet - remove the copy rather than leave it standing in the lane,
+                // untracked and untouchable by any putaway.
+                if (pallet == null)
+                {
+                    var copyData = po.GetComponent<PalletData>();
+                    if (copyData != null && !string.IsNullOrEmpty(copyData.LoadId) &&
+                        po.GetComponent<OutboundPalletBuilder>() == null &&
+                        inv.GetAllPallets().Any(r => r.LoadId == copyData.LoadId))
+                    {
+                        _linked.Remove(po);
+                        Destroy(po.gameObject);
+                        continue;
+                    }
+                }
             }
             else
             {
@@ -140,9 +163,25 @@ public class PalletInventoryTracker : MonoBehaviour
                 }
                 else
                 {
-                    string sku = po.data != null ? po.data.name : "PHYS";
-                    int qty = po.GetComponent<PalletBuilder>()?.TotalCases ?? 1;
+                    // A RECEIVED pallet already knows what it is (PalletData: SKU, cases, Load ID). When its inventory
+                    // record has gone missing, rebuild the record from THAT - registering it under the prefab name
+                    // "A Chep" x84 instead made phantom stock of the wrong SKU and left the real pallet unrecoverable.
+                    var knownData = po.GetComponent<PalletData>();
+                    bool known = knownData != null && !string.IsNullOrEmpty(knownData.ItemNumber) && knownData.CaseQuantity > 0;
+
+                    // A second object for a pallet that already has a record is a duplicate copy (a load restored the
+                    // same pallet twice: once from its record, once from the saved dock objects). One Load ID = one
+                    // physical pallet, so the copy goes instead of becoming a second ledger entry for the same stock.
+                    if (known && !string.IsNullOrEmpty(knownData.LoadId) &&
+                        inv.GetAllPallets().Any(r => r.LoadId == knownData.LoadId))
+                    {
+                        Destroy(po.gameObject);
+                        continue;
+                    }
+                    string sku = known ? knownData.ItemNumber : (po.data != null ? po.data.name : "PHYS");
+                    int qty = known ? knownData.CaseQuantity : (po.GetComponent<PalletBuilder>()?.TotalCases ?? 1);
                     var pallet = inv.RegisterPhysicalPallet(cell, sku, Mathf.Max(1, qty));
+                    if (known && !string.IsNullOrEmpty(knownData.LoadId)) pallet.LoadId = knownData.LoadId;
                     _linked[po] = pallet.PalletId;
 
                     // Attach a real PalletMasterLink, not just this tracker's own in-memory map —

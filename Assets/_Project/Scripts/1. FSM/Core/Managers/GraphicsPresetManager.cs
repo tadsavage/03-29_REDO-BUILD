@@ -78,6 +78,8 @@ public class GraphicsPresetManager : MonoBehaviour
             case Preset.Toaster: ApplyToaster(); break;
         }
 
+        ShaderWarmup.Run($"preset {preset}");
+
         if (notify)
         {
             string[] labels = { "Ultra", "Good", "Toaster" };

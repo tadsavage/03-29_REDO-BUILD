@@ -509,6 +509,7 @@ public class PurchasingPanel : IUIPanel
         // toScheduler above, just the other destination. Per Tad's ask, sitting right next to it.
         var toOrders = new Button(OpenOrders) { text = "ORDERS" };
         StyleOrangeButton(toOrders);
+        NavButtonColors.Apply(toOrders, NavButtonColors.Dest.Orders);
         ApplyFont(toOrders, bold: true, size: 16);
         toOrders.style.height = TitleButtonSize;
         toOrders.style.paddingLeft = toOrders.style.paddingRight = 18;
@@ -520,6 +521,20 @@ public class PurchasingPanel : IUIPanel
 
         // ORDERS then SCHEDULER — swapped from creation order per Tad's request, so ORDERS sits
         // leftmost (closer to the title) and SCHEDULER sits to its right, closer to the window chrome.
+        // WORK Q leftmost, left of ORDERS, per Tad's ask.
+        var toWorkQueue = new Button(OpenWorkQueue) { text = "WORK Q" };
+        StyleOrangeButton(toWorkQueue);
+        NavButtonColors.Apply(toWorkQueue, NavButtonColors.Dest.WorkQueue);
+        ApplyFont(toWorkQueue, bold: true, size: 16);
+        toWorkQueue.style.height = TitleButtonSize;
+        toWorkQueue.style.paddingLeft = toWorkQueue.style.paddingRight = 18;
+        toWorkQueue.style.marginRight = 10;
+        toWorkQueue.style.flexShrink = 0;
+        toWorkQueue.style.borderTopLeftRadius = toWorkQueue.style.borderTopRightRadius =
+            toWorkQueue.style.borderBottomLeftRadius = toWorkQueue.style.borderBottomRightRadius = 8;
+        RuntimeTooltip.Attach(toWorkQueue, "Close purchasing and open the Work Queue.");
+
+        rightGroup.Add(toWorkQueue);
         rightGroup.Add(toOrders);
         rightGroup.Add(toScheduler);
 
@@ -1283,6 +1298,24 @@ public class PurchasingPanel : IUIPanel
 
     /// <summary>Closes this panel and opens Orders (key 8's ContractsPanel) — same shape as
     /// OpenScheduler above, just the other destination, for the ORDERS button.</summary>
+    /// <summary>Cross-link to the Work Queue (key 7), same close-then-open pattern as the other
+    /// panel hops.</summary>
+    private void OpenWorkQueue()
+    {
+        Hide();
+
+        var topBar = UnityEngine.Object.FindAnyObjectByType<TopBarUI>();
+        var workQueue = topBar != null ? topBar.WorkQueuePanel : null;
+        if (workQueue == null)
+        {
+            UIToast.Show("Couldn't open the work queue — the panel isn't loaded.");
+            return;
+        }
+
+        UIKeyBindingManager.Instance?.CloseAll();
+        workQueue.Show();
+    }
+
     private void OpenOrders()
     {
         Hide();

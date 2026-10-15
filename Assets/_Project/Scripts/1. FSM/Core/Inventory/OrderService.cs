@@ -946,6 +946,31 @@ namespace GameCore.Inventory
         {
             if (++_waitingLaneTick % 3 != 0) return;
             AssignWaitingLanes();
+            ReclaimOrphanedFreight();
+        }
+
+        /// <summary>
+        /// Outbound pallets standing in a staging lane whose ORDER no longer exists (shipped, cancelled or
+        /// archived while they were still there) can never be loaded - and used to pull an order-less truck to
+        /// the dock. Whole pallets (they still carry their SKU) are registered back into inventory and get a
+        /// Putaway, exactly like a pallet cut by Cancel Remaining. Pallets mid-carry, loading or on a trailer are
+        /// left alone.
+        /// </summary>
+        private void ReclaimOrphanedFreight()
+        {
+            if (_inventoryService == null) return;
+            var activeIds = new HashSet<string>(_activeOrders.Select(o => o.OrderId));
+            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            {
+                if (pallet == null || string.IsNullOrEmpty(pallet.OrderId) || activeIds.Contains(pallet.OrderId)) continue;
+                if (pallet.transform.parent != null && pallet.transform.parent.name != "PlacedObjectsContainer") continue;   // on forks / in a trailer
+                if (pallet.Stage != OutboundPalletBuilder.PalletStage.Staged) continue;
+
+                var data = pallet.GetComponent<PalletData>();
+                if (data == null || string.IsNullOrEmpty(data.ItemNumber) || data.CaseQuantity <= 0) continue;
+                if (ReturnLanePalletToStock(pallet, data.ItemNumber, data.CaseQuantity))
+                    Debug.LogWarning($"[OrderService] Freight for order {pallet.OrderId} outlived the order - {data.CaseQuantity} cs of {data.ItemNumber} returned to stock for putaway.");
+            }
         }
 
         /// <summary>
@@ -1106,6 +1131,7 @@ namespace GameCore.Inventory
             public float PartnershipLoss;    // points of customer satisfaction lost
             public int CasesCancelled;       // partial cancel only: cases that will not ship
             public int TasksCancelled;       // partial cancel only: held tasks removed
+            public int PalletsReturned;      // partial cancel only: pallets left on the dock that go back to stock
             public int DaysToDue;
         }
 
@@ -1166,6 +1192,78 @@ namespace GameCore.Inventory
             return cases;
         }
 
+        /// <summary>Whole pallets of this order standing in its staging lane(s) that can be cut: a real
+        /// received pallet a reach truck carried out of the racks (PalletData still on it), so it can be
+        /// registered back into inventory and put away. caseBuilt counts the ones a selector built from
+        /// case picks (mixed cases, no single SKU) - those can't be returned as a pallet yet.</summary>
+        private List<(OutboundPalletBuilder pallet, string sku, int cases)> CuttableLanePallets(OrderData order, out int caseBuilt)
+        {
+            caseBuilt = 0;
+            var result = new List<(OutboundPalletBuilder, string, int)>();
+            if (order == null || !order.AllStagingLanes().Any()) return result;
+            var grid = Object.FindFirstObjectByType<PlacementGrid>();
+            if (grid == null) return result;
+
+            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            {
+                if (pallet == null || pallet.OrderId != order.OrderId || pallet.transform.parent != null) continue;
+                if (!LaneNamingService.TryGetSlot(grid.WorldToCell(pallet.transform.position), out var slot)) continue;
+                if (!order.UsesLane(slot.DoorNumber, slot.Lane)) continue;
+
+                var data = pallet.GetComponent<PalletData>();
+                if (data != null && !string.IsNullOrEmpty(data.ItemNumber) && data.CaseQuantity > 0)
+                    result.Add((pallet, data.ItemNumber, data.CaseQuantity));
+                else
+                    caseBuilt++;
+            }
+            return result;
+        }
+
+        /// <summary>True while a dock stocker has actually claimed a Load task for one of this order's lanes.</summary>
+        private bool LoaderIsWorkingOrder(OrderData order)
+        {
+            if (_workQueue == null || order == null) return false;
+            var lanes = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
+            return _workQueue.Tasks.Any(t => t.Type == WorkTaskType.Load && t.Status == WorkTaskStatus.Assigned &&
+                                             lanes.Contains(t.FromLocation));
+        }
+
+        /// <summary>Puts a pallet that never made it onto the trailer back into stock: registers it in
+        /// inventory at the lane slot it stands in, strips its outbound tag, and files a Putaway.</summary>
+        private bool ReturnLanePalletToStock(OutboundPalletBuilder outbound, string skuId, int cases)
+        {
+            var grid = Object.FindFirstObjectByType<PlacementGrid>();
+            if (outbound == null || grid == null || _inventoryService == null) return false;
+
+            var go = outbound.gameObject;
+            var cell = grid.WorldToCell(go.transform.position);
+            string address = LaneNamingService.TryGetSlot(cell, out var slot)
+                ? $"STG{slot.DoorNumber}{slot.Lane}-{slot.Slot}" : null;
+
+            var record = _inventoryService.RegisterPhysicalPallet(cell, skuId, cases);
+            if (record == null) return false;
+            PalletMasterLink.Attach(go, record.PalletId);
+            var pdata = go.GetComponent<PalletData>();
+            if (pdata != null) pdata.Initialize(pdata.LoadId, skuId, cases, pdata.ExpirationDay, pdata.Area, pdata.IconSprite, cell);
+
+            outbound.SetNavObstacleActive(true);
+            Object.Destroy(outbound);   // no longer outbound freight: the loader and the lane-occupancy scan stop seeing it
+
+            if (_workQueue != null)
+            {
+                var sku = _inventoryService.GetSkuData(skuId);
+                _workQueue.CreateTask(
+                    WorkTaskType.Putaway,
+                    EmployeeRole.ReachTruckOperator,
+                    record.PalletId,
+                    $"Putaway pallet [{record.LoadId}] cut from an order, left at {address ?? "the dock"}",
+                    fromLocation: address,
+                    toLocation: null,
+                    area: sku != null ? sku.StorageArea : PalletData.AreaCategory.Grocery);
+            }
+            return true;
+        }
+
         /// <summary>Cost of dropping the part of an order that is being held for lack of lane room ("Cancel
         /// Remaining"). The order carries on and ships SHORT with what has been released. Not allowed when
         /// nothing is held, or when nothing has been released yet (cancel the whole order instead).</summary>
@@ -1178,20 +1276,38 @@ namespace GameCore.Inventory
                 Customer = order?.CustomerName
             };
             if (order == null) { impact.WhyNot = "the order no longer exists"; return impact; }
-            if (!order.ReleasedToFloor || HeldWorkCount(order) == 0)
+            // Two kinds of "remaining": work HELD back for lack of lane room, and finished pallets that
+            // never made it onto the trailer (it filled up, or the loader can't take them). Both are cut
+            // the same way a real dock cuts an order: ship what's aboard, put the rest back in the racks.
+            int heldCases = 0;
+            if (order.ReleasedToFloor && HeldWorkCount(order) > 0)
             {
-                impact.WhyNot = "no part of it is being held back";
+                bool somethingReleased = LiveTasksForOrder(order.OrderId).Any(t => t.Status != WorkTaskStatus.Open)
+                                         || order.TotalUnitsPicked > 0;
+                if (somethingReleased) heldCases = CasesOwedByHeldWork(order, out impact.TasksCancelled);
+            }
+
+            var leftOnDock = CuttableLanePallets(order, out int caseBuiltLeft);
+            bool loadingOrLoaded = order.Status == OrderData.OrderStatus.Loading || order.Status == OrderData.OrderStatus.Loaded;
+            int cutCases = loadingOrLoaded ? leftOnDock.Sum(c => c.cases) : 0;
+            impact.PalletsReturned = loadingOrLoaded ? leftOnDock.Count : 0;
+
+            if (heldCases <= 0 && cutCases <= 0)
+            {
+                impact.WhyNot = caseBuiltLeft > 0 && loadingOrLoaded
+                    ? "what is left on the dock was built from case picks - those can't be cut yet, load them"
+                    : !order.ReleasedToFloor || HeldWorkCount(order) == 0
+                        ? "no part of it is being held back or left on the dock"
+                        : "none of it has been released yet - cancel the whole order instead";
                 return impact;
             }
-            bool somethingReleased = LiveTasksForOrder(order.OrderId).Any(t => t.Status != WorkTaskStatus.Open)
-                                     || order.TotalUnitsPicked > 0;
-            if (!somethingReleased)
+            if (cutCases > 0 && LoaderIsWorkingOrder(order))
             {
-                impact.WhyNot = "none of it has been released yet - cancel the whole order instead";
+                impact.WhyNot = "the loader is on it right now - wait for it to finish this pass";
                 return impact;
             }
 
-            impact.CasesCancelled = CasesOwedByHeldWork(order, out impact.TasksCancelled);
+            impact.CasesCancelled = heldCases + cutCases;
             if (impact.CasesCancelled <= 0) { impact.WhyNot = "there is nothing left to cancel"; return impact; }
 
             float fraction = order.TotalUnits > 0 ? impact.CasesCancelled / (float)order.TotalUnits : 1f;
@@ -1216,7 +1332,10 @@ namespace GameCore.Inventory
                 int tasks = ok.Sum(i => i.TasksCancelled);
                 string who = ok.Count == 1 ? $"{ok[0].Customer}'s order {ok[0].OrderLabel}" : $"{ok.Count} orders";
                 sb.Append($"Cancel the remaining {cases} case(s) ({tasks} held task(s)) of {who}?\n");
-                sb.Append("The order ships SHORT with what is already released. Held pallets go back to stock.\n");
+                int pallets = ok.Sum(i => i.PalletsReturned);
+                sb.Append("The order ships SHORT with what is already released or loaded. Held pallets go back to stock");
+                sb.Append(pallets > 0 ? $", and {pallets} pallet(s) left on the dock are put away again. The customer is not charged for what is cut.\n"
+                                       : ".\n");
             }
             else
             {
@@ -1312,6 +1431,37 @@ namespace GameCore.Inventory
             }
             RefilePutawayForClaimedLanePallets(unliftedHeld);
 
+            // Finished pallets left on the dock (the trailer was full): back into stock via putaway, and
+            // taken off what the customer is billed - the order ships with what actually went aboard.
+            int returned = 0;
+            if (impact.PalletsReturned > 0)
+            {
+                foreach (var (pallet, sku, cases) in CuttableLanePallets(order, out _))
+                {
+                    if (!ReturnLanePalletToStock(pallet, sku, cases)) continue;
+                    returned++;
+                    var line = order.LineItems.FirstOrDefault(li => li.SkuId == sku && li.QuantityPicked > 0);
+                    if (line != null) line.QuantityPicked = Mathf.Max(0, line.QuantityPicked - cases);
+                }
+
+                // Nothing left to load in those lanes: close out the loader's still-open Load tasks.
+                if (_workQueue != null)
+                {
+                    var lanes = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
+                    var grid = Object.FindFirstObjectByType<PlacementGrid>();
+                    foreach (var task in _workQueue.Tasks.Where(t => t.Type == WorkTaskType.Load &&
+                                 (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Open) &&
+                                 lanes.Contains(t.FromLocation)).ToList())
+                    {
+                        bool laneStillHasFreight = grid != null && Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
+                            .Any(p => p != null && p.transform.parent == null &&
+                                      LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var sl) &&
+                                      $"{sl.DoorNumber}{sl.Lane}" == task.FromLocation);
+                        if (!laneStillHasFreight) task.Status = WorkTaskStatus.Cancelled;
+                    }
+                }
+            }
+
             order.CancelledCases += impact.CasesCancelled;
 
             if (ServiceLocator.TryGet(out ReputationService reputation) && reputation != null)
@@ -1321,7 +1471,12 @@ namespace GameCore.Inventory
 
             Debug.Log($"[OrderService] Order {impact.OrderLabel} ({order.CustomerName}): player cancelled the remaining " +
                       $"{impact.CasesCancelled} case(s) ({impact.TasksCancelled} held task(s)); it now ships short. " +
-                      $"-{impact.ReputationLoss} reputation, -{impact.PartnershipLoss:F0} partnership.");
+                      $"-{impact.ReputationLoss} reputation, -{impact.PartnershipLoss:F0} partnership." +
+                      (returned > 0 ? $" {returned} pallet(s) left on the dock go back to stock." : ""));
+
+            // A loaded order whose leftovers are gone is ready to ship - do it now rather than waiting for
+            // a loader pass that will never come.
+            if (order.Status == OrderData.OrderStatus.Loaded) AutoCloseLoadedOrders();
             return true;
         }
 

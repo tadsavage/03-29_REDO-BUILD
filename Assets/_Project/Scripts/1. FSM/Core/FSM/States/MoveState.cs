@@ -671,6 +671,12 @@ Vector2Int newRoot = hitCell - _selectionDelta;
     {
         var hitBD = hitObject != null ? hitObject.GetComponentInParent<BuildingData>() : null;
 
+        // A BuildingData with no ObjDataSO assigned (a runtime-spawned/stripped object that still
+        // carries the component) has nothing to resolve — treat it as "not a placed object" rather
+        // than dereferencing Data below, which threw a NullReferenceException every frame the
+        // cursor sat over it.
+        if (hitBD != null && hitBD.Data == null) return null;
+
         if (hitBD == null || hitBD.Data.isFloor || hitBD.Data.category == "Foundation" || hitBD.Data.category == "Grounds")
         {
             // When we DID hit a Foundation/Grounds slab directly, scan its own real footprint rather

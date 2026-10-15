@@ -1,0 +1,141 @@
+.mini-timeline {
+    width: 380px;
+    flex-shrink: 0;
+    height: 102px;
+    align-self: center;
+    margin-left: auto;
+    margin-right: 12px;
+    background-color: rgba(20, 28, 38, 0.94);
+    border-width: 2px;
+    border-color: rgb(92, 155, 196);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.mini-timeline-header {
+    flex-direction: row;
+    flex-shrink: 0;
+    height: 14px;
+}
+
+.mini-timeline-corner {
+    width: 34px;
+    font-size: 8px;
+    color: rgb(158, 184, 204);
+    -unity-text-align: middle-center;
+}
+
+.mini-timeline-hours {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.mini-timeline-hour {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 44px;
+    padding-left: 2px;
+    font-size: 8px;
+    color: rgb(158, 184, 204);
+    -unity-text-align: middle-left;
+}
+
+.mini-timeline-body {
+    flex-grow: 1;
+    flex-direction: row;
+}
+
+.mini-timeline-doors {
+    width: 34px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.mini-timeline-door {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 20px;
+    font-size: 10px;
+    color: white;
+    -unity-text-align: middle-center;
+}
+
+.mini-timeline-grid {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.mini-timeline-empty {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    display: none;
+    font-size: 11px;
+    color: rgb(158, 184, 204);
+    -unity-text-align: middle-center;
+}
+
+.mini-timeline-empty-visible {
+    display: flex;
+}
+
+.mini-timeline-hline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: rgba(92, 155, 196, 0.22);
+}
+
+.mini-timeline-vline {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: rgba(92, 155, 196, 0.22);
+}
+
+.mini-timeline-chip {
+    position: absolute;
+    height: 20px;
+    padding: 1px;
+}
+
+.mini-timeline-face {
+    flex-grow: 1;
+    border-radius: 2px;
+}
+
+.mini-timeline-face-recurring {
+    background-color: rgb(115, 184, 224);
+}
+
+.mini-timeline-face-bulk {
+    background-color: rgb(51, 173, 97);
+}
+
+.mini-timeline-face-inbound {
+    background-color: rgb(184, 115, 77);
+}
+
+.mini-timeline-face-missed {
+    background-color: rgb(217, 41, 41);
+}
+
+.mini-timeline-face-done {
+    opacity: 0.4;
+}
+
+.mini-timeline-now {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    margin-left: -1px;
+    width: 2px;
+    background-color: rgb(255, 219, 26);
+}

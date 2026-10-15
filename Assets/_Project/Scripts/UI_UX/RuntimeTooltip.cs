@@ -101,6 +101,7 @@ public static class RuntimeTooltip
 
     private static void Show(VisualElement target, Func<VisualElement> buildContent, Vector2 pointerPos)
     {
+        if (TooltipSettings.Blocked) return;
         IPanel panel = target.panel;
         if (panel == null) return;
         _activeTarget = target;

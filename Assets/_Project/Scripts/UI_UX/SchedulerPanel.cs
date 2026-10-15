@@ -227,6 +227,10 @@ public class SchedulerPanel : IUIPanel
 
         public SchedulerPanel(VisualElement root)
     {
+        // "Carrying" means a tile is actually hanging under the cursor (the held-ghost layer has it), NOT merely that
+        // something is selected - a selected block that nothing is carrying must still show its tooltip.
+        TooltipSettings.CarryingTile = () => _visible && _heldGhost != null && _heldGhost.childCount > 0
+                                             && _heldGhost.resolvedStyle.display != DisplayStyle.None;
         _overlay = Build(out _modal, out _tabBar, out _tabHeader, out _content, out _footerMessage);
         root.Add(_overlay);
         _overlay.RegisterCallback<PointerMoveEvent>(e =>
@@ -641,16 +645,23 @@ public class SchedulerPanel : IUIPanel
         // Cross-links to the other two outbound/inbound screens — the mirror of PurchasingPanel's own
         // "Scheduler" button, which is what sends the player here in the first place. Sits left of the
         // window buttons so the destructive ✕ keeps the far corner it always has.
-        var toOrders = new Button(OpenOrders) { text = "ORDERS" };
-        StyleCrossLinkButton(toOrders);
+        var toWorkQueue = new Button(OpenWorkQueue) { text = "WORK Q" };
+        StyleCrossLinkButton(toWorkQueue);
+        NavButtonColors.Apply(toWorkQueue, NavButtonColors.Dest.WorkQueue);
         // The title label above is no longer in the flex flow (it's an absolute overlay), so this
         // button group needs its own push to the right edge that the title's old flexGrow used to
         // provide as a side effect.
-        toOrders.style.marginLeft = new StyleLength(StyleKeyword.Auto);
+        toWorkQueue.style.marginLeft = new StyleLength(StyleKeyword.Auto);
+        titleBar.Add(toWorkQueue);
+
+        var toOrders = new Button(OpenOrders) { text = "ORDERS" };
+        StyleCrossLinkButton(toOrders);
+        NavButtonColors.Apply(toOrders, NavButtonColors.Dest.Orders);
         titleBar.Add(toOrders);
 
         var backToPurchasing = new Button(OpenPurchasing) { text = "PURCHASING" };
         StyleCrossLinkButton(backToPurchasing);
+        NavButtonColors.Apply(backToPurchasing, NavButtonColors.Dest.Purchasing);
         titleBar.Add(backToPurchasing);
 
         _scaleBtn = new Button { text = string.Empty };
@@ -3114,6 +3125,24 @@ private static void ApplyLilitaFont(VisualElement el)
     ///
     /// Says why if purchasing can't be reached, rather than reading as a dead button.
     /// </summary>
+    /// <summary>Cross-link to the Work Queue (key 7), same close-then-open pattern as the other
+    /// panel hops.</summary>
+    private void OpenWorkQueue()
+    {
+        Hide();
+
+        var topBar = UnityEngine.Object.FindAnyObjectByType<TopBarUI>();
+        var workQueue = topBar != null ? topBar.WorkQueuePanel : null;
+        if (workQueue == null)
+        {
+            UIToast.Show("Couldn't open the work queue — the panel isn't loaded.");
+            return;
+        }
+
+        UIKeyBindingManager.Instance?.CloseAll();
+        workQueue.Show();
+    }
+
     private void OpenPurchasing()
     {
         Hide();
@@ -4567,6 +4596,8 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     private void ShowNewSchedulerTooltip(DockAppointment appt, VisualElement cell)
     {
         if (_newSchedulerTooltip == null) return;
+        // F1 off, or a tile in hand: no cards. HideNewSchedulerTooltip also clears one that was already up.
+        if (TooltipSettings.Blocked) { HideNewSchedulerTooltip(); return; }
         CancelPendingTooltipHide();
         _hoveredTooltipAppt = appt;
         _newSchedulerTooltipScroll.Clear();
@@ -4590,11 +4621,35 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         // cell's true (grown) bottom instead of drifting up into it and covering its own (and
         // neighboring cells') text.
         float grownExtra = (CellHoverGrowScale - 1f) * cell.resolvedStyle.height / 2f;
+        float grownExtraX = (CellHoverGrowScale - 1f) * cell.resolvedStyle.width / 2f;
         Vector2 local = _modal.WorldToLocal(new Vector2(cell.worldBound.x, cell.worldBound.yMax + grownExtra - 4));
         float maxLeft = Mathf.Max(4f, _modal.resolvedStyle.width - 476f);
         float maxTop = Mathf.Max(4f, _modal.resolvedStyle.height - 60f);
         float top = Mathf.Clamp(local.y, 4f, maxTop);
-        _newSchedulerTooltip.style.left = Mathf.Clamp(local.x, 4f, maxLeft);
+        float left = Mathf.Clamp(local.x, 4f, maxLeft);
+
+        // Beside the tile, top-aligned with it, instead of under it. A tall tile (several lines +
+        // buttons) put "just below" far from where the cursor is when the player hovers its top,
+        // and the tooltip's hide grace expired mid-trip. Beside it the tooltip is a few pixels away
+        // from the tile edge wherever the cursor is, and the tile's own buttons stay uncovered.
+        // Prefer the right side, fall back to the left, and only drop below if neither fits.
+        const float TooltipW = 460f;
+        float modalW = _modal.resolvedStyle.width;
+        Vector2 tl = _modal.WorldToLocal(new Vector2(cell.worldBound.x, cell.worldBound.y));
+        Vector2 br = _modal.WorldToLocal(new Vector2(cell.worldBound.xMax, cell.worldBound.yMax));
+        float rightX = br.x + grownExtraX - 4f;
+        float leftX = tl.x - grownExtraX - TooltipW + 4f;
+        if (rightX + TooltipW + 4f <= modalW)
+        {
+            left = rightX;
+            top = Mathf.Clamp(tl.y - grownExtra, 4f, maxTop);
+        }
+        else if (leftX >= 4f)
+        {
+            left = leftX;
+            top = Mathf.Clamp(tl.y - grownExtra, 4f, maxTop);
+        }
+        _newSchedulerTooltip.style.left = left;
         _newSchedulerTooltip.style.top = top;
         // Cap the scroll area to whatever room is left below it in the modal, rather than letting
         // tall item lists (see BuildOutboundTooltipContent) push the tooltip off the bottom edge --
@@ -4642,6 +4697,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     {
         if (_newSchedulerTooltip == null || _hoveredTooltipAppt == null) return;
         if (_newSchedulerTooltip.style.display != DisplayStyle.Flex) return;
+        if (TooltipSettings.Blocked) { HideNewSchedulerTooltip(); return; }
 
         _newSchedulerTooltipScroll.Clear();
         VisualElement content = IsInboundPo(_hoveredTooltipAppt) ? BuildInboundTooltipContent(_hoveredTooltipAppt)

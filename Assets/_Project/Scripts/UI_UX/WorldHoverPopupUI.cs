@@ -366,6 +366,69 @@ private void ShowBuilding(string name, int cost, int hourlyCost)
     // ---------------------------------------------------------
     // VISUALS - Pallet
     // ---------------------------------------------------------
+    /// <summary>The "DISPOSITION" header plus one line saying where this pallet is going.</summary>
+    private void AddDispositionBlock(string text)
+    {
+        var header = new Label("DISPOSITION");
+        header.style.color = new Color(0.55f, 0.72f, 0.88f, 1f);
+        header.style.fontSize = 10;
+        header.style.unityFontStyleAndWeight = FontStyle.Bold;
+        header.style.marginTop = 2;
+        _palletInfoPanel.Add(header);
+
+        var line = new Label(text);
+        line.style.color = new Color(0.9f, 0.95f, 1f, 1f);
+        line.style.fontSize = 13;
+        line.style.whiteSpace = WhiteSpace.Normal;
+        _palletInfoPanel.Add(line);
+    }
+
+    /// <summary>
+    /// Where is this pallet going? "Going out on order OG1234 for Customer" when an order has claimed it (it is
+    /// staged outbound freight, or a Pallet Pick is reserving it); "Pending put away" while it waits for a reach
+    /// truck; otherwise it is simply in stock.
+    /// </summary>
+    private static string ResolveDisposition(GameObject palletGO)
+    {
+        if (palletGO == null) return "In stock";
+
+        ServiceLocator.TryGet<OrderService>(out var orders);
+        string orderId = palletGO.GetComponent<OutboundPalletBuilder>()?.OrderId;
+
+        var link = palletGO.GetComponent<PalletMasterLink>();
+        string palletId = link != null ? link.PalletId : null;
+        ServiceLocator.TryGet<GameCore.Labor.WorkQueueSystem>(out var queue);
+
+        if (string.IsNullOrEmpty(orderId) && queue != null && !string.IsNullOrEmpty(palletId))
+        {
+            var pick = queue.Tasks.FirstOrDefault(t => t.PalletId == palletId && t.Type == GameCore.Labor.WorkTaskType.PalletPick
+                && t.Status != GameCore.Labor.WorkTaskStatus.Complete && t.Status != GameCore.Labor.WorkTaskStatus.Cancelled);
+            if (pick != null) orderId = pick.OrderId;
+        }
+
+        if (!string.IsNullOrEmpty(orderId) && orders != null)
+        {
+            var order = orders.ActiveOrders.FirstOrDefault(o => o.OrderId == orderId);
+            if (order != null)
+                return $"Going out on order {(string.IsNullOrEmpty(order.OrderNumber) ? order.OrderId : order.OrderNumber)} for {order.CustomerName}";
+        }
+
+        if (queue != null && !string.IsNullOrEmpty(palletId) &&
+            queue.Tasks.Any(t => t.PalletId == palletId && t.Type == GameCore.Labor.WorkTaskType.Putaway
+                && t.Status != GameCore.Labor.WorkTaskStatus.Complete && t.Status != GameCore.Labor.WorkTaskStatus.Cancelled))
+            return "Pending put away";
+
+        // "In stock" is only honest for a pallet that is racked. One standing in a staging lane with no task at all
+        // is stranded - say so, instead of a reassuring word that hides it.
+        var grid = Object.FindFirstObjectByType<PlacementGrid>();
+        if (grid != null && LaneNamingService.TryGetSlot(grid.WorldToCell(palletGO.transform.position), out var laneSlot))
+            return queue == null
+                ? "Unknown - work queue offline"
+                : $"Waiting in lane {laneSlot.DoorNumber}{laneSlot.Lane} - no task assigned";
+
+        return "In stock";
+    }
+
     private void ShowPallet(PalletData pallet)
     {
         if (_popup == null || pallet == null) return;
@@ -389,65 +452,12 @@ private void ShowBuilding(string name, int cost, int hourlyCost)
             _iconImage.style.display = pallet.IconSprite != null ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
-        // Build pallet info text
+        // Just the disposition: where this pallet is headed. Icon and description are above.
         if (_palletInfoPanel != null)
         {
             _palletInfoPanel.Clear();
             _palletInfoPanel.style.display = DisplayStyle.Flex;
-
-            // Wholesale cost
-            if (sku != null)
-            {
-                // Item Number
-                var itemNumLbl = new Label($"Item #: {sku.ItemNumber}");
-                itemNumLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-                itemNumLbl.style.fontSize = 12;
-                _palletInfoPanel.Add(itemNumLbl);
-
-                // Case Quantity
-                var caseQtyLbl = new Label($"Cases: {pallet.CaseQuantity}");
-                caseQtyLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-                caseQtyLbl.style.fontSize = 12;
-                _palletInfoPanel.Add(caseQtyLbl);
-
-                var wholesaleLbl = new Label($"Wholesale: ${sku.BuyValue:N0}");
-                wholesaleLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-                wholesaleLbl.style.fontSize = 12;
-                _palletInfoPanel.Add(wholesaleLbl);
-
-                // Retail cost
-                var retailLbl = new Label($"Retail: ${sku.SellValue:N0}");
-                retailLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-                retailLbl.style.fontSize = 12;
-                _palletInfoPanel.Add(retailLbl);
-
-                // Ti x Hi
-                var tiHiLbl = new Label($"Ti×Hi: {sku.Ti}×{sku.Hi}");
-                tiHiLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-                tiHiLbl.style.fontSize = 12;
-                _palletInfoPanel.Add(tiHiLbl);
-
-                // Pallet height
-                float palletHeight = sku.PltHeight;
-                var heightLbl = new Label($"Height: {palletHeight:F2}m");
-                heightLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-                heightLbl.style.fontSize = 12;
-                _palletInfoPanel.Add(heightLbl);
-            }
-
-            // Pick slot assignment (check if SKU has a slot assigned globally)
-            var pickSlotStr = GetPickSlotForSku(pallet.ItemNumber);
-            var pickLbl = new Label($"Pick Slot: {pickSlotStr}");
-            pickLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-            pickLbl.style.fontSize = 12;
-            _palletInfoPanel.Add(pickLbl);
-
-            // Load ID
-            var loadIdStr = string.IsNullOrEmpty(pallet.LoadId) ? "N/A" : pallet.LoadId;
-            var loadIdLbl = new Label($"Load ID: {loadIdStr}");
-            loadIdLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-            loadIdLbl.style.fontSize = 12;
-            _palletInfoPanel.Add(loadIdLbl);
+            AddDispositionBlock(ResolveDisposition(pallet.gameObject));
         }
 
         // Hide building-specific elements
@@ -786,59 +796,13 @@ private void ShowLocation(LocationData location)
             _iconImage.style.display = sku.Icon != null ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
-        // Build pallet info text
+        // Icon and description only for the New Item preview; a real pallet in the world also says
+        // where it is headed.
         if (_palletInfoPanel != null)
         {
             _palletInfoPanel.Clear();
             _palletInfoPanel.style.display = DisplayStyle.Flex;
-
-            // Item number
-            var itemNumLbl = new Label($"Item #: {sku.ItemNumber}");
-            itemNumLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-            itemNumLbl.style.fontSize = 12;
-            _palletInfoPanel.Add(itemNumLbl);
-
-            // Load ID (if available via MasterLink)
-            if (builder != null)
-            {
-                var link = builder.GetComponent<PalletMasterLink>();
-                if (link != null)
-                {
-                    ServiceLocator.TryGet<InventoryService>(out var inventory);
-                    var record = inventory?.GetPallet(link.PalletId);
-                    if (record != null && !string.IsNullOrEmpty(record.LoadId))
-                    {
-                        var loadIdLbl = new Label($"Load ID: {record.LoadId}");
-                        loadIdLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-                        loadIdLbl.style.fontSize = 12;
-                        _palletInfoPanel.Add(loadIdLbl);
-                    }
-                }
-            }
-
-            // Case quantity
-            var caseQtyLbl = new Label($"Case Qty: {caseQty}");
-            caseQtyLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-            caseQtyLbl.style.fontSize = 12;
-            _palletInfoPanel.Add(caseQtyLbl);
-
-            // Wholesale cost
-            var wholesaleLbl = new Label($"Wholesale: ${sku.BuyValue:N0}");
-            wholesaleLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-            wholesaleLbl.style.fontSize = 12;
-            _palletInfoPanel.Add(wholesaleLbl);
-
-            // Retail cost
-            var retailLbl = new Label($"Retail: ${sku.SellValue:N0}");
-            retailLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-            retailLbl.style.fontSize = 12;
-            _palletInfoPanel.Add(retailLbl);
-
-            // Ti x Hi
-            var tiHiLbl = new Label($"Ti×Hi: {sku.Ti}×{sku.Hi}");
-            tiHiLbl.style.color = new Color(0.8f, 0.9f, 1f, 1f);
-            tiHiLbl.style.fontSize = 12;
-            _palletInfoPanel.Add(tiHiLbl);
+            if (builder != null) AddDispositionBlock(ResolveDisposition(builder.gameObject));
         }
 
         // Hide building-specific elements

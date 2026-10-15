@@ -44,6 +44,8 @@ public class FreeLookCamera : MonoBehaviour
     [SerializeField] private int   dofBladeCount = 6;
     [Tooltip("F-stop used while a clicked employee is in focus. Higher = a deeper sharp zone, so the whole person (head to feet) stays crisp while the surroundings still soften. 3-5 is good; set equal to the main f-stop for no change.")]
     [SerializeField] private float dofFStopFocused = 3.6f;
+    [Tooltip("F-stop while a clicked pallet is in focus. Very high = the depth-of-field blur is effectively gone, so the pallet and everything around it is sharp.")]
+    [SerializeField] private float dofFStopPalletFocus = 32f;
     [Tooltip("How quickly focus follows zoom/pan, in seconds. 0 = instant.")]
     [SerializeField] private float dofFocusSmoothTime = 0.12f;
 
@@ -207,7 +209,48 @@ public class FreeLookCamera : MonoBehaviour
         ProcessOrbit(overUI);
         ProcessZoom(overUI, fast ? zoomSpeed * 3f : zoomSpeed);
         ProcessFollow();
+        ProcessPalletFocusClick(overUI);
         ApplyTransform();
+    }
+
+    // ── Click a pallet: focus on it and remove the depth-of-field blur ──────────────────────────────────
+    private Transform _focusedPallet;
+    private PlacementStateMachine _placementFsm;
+
+    /// <summary>Plain left-click on a pallet (or on any case on it - the click resolves to the pallet it sits on)
+    /// pulls focus onto it and takes the blur out; click it again, or click anywhere else, to release.
+    /// Only while the placement state machine is idle, so build/move/delete clicks are never eaten, and never with
+    /// shift held (shift-click follows an employee).</summary>
+    private void ProcessPalletFocusClick(bool overUI)
+    {
+        var mouse = Mouse.current;
+        if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
+        if (overUI || UIInputGuard.IsPointerOverUIToolkit()) return;
+        var kb = Keyboard.current;
+        if (kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed)) return;
+
+        if (_placementFsm == null) _placementFsm = FindFirstObjectByType<PlacementStateMachine>();
+        if (_placementFsm != null && !(_placementFsm.CurrentState is IdleState)) return;
+
+        var cam = GetComponent<Camera>() != null ? GetComponent<Camera>() : Camera.main;
+        if (cam == null) return;
+        Ray ray = cam.ScreenPointToRay(mouse.position.ReadValue());
+        if (!Physics.Raycast(ray, out RaycastHit hit)) { _focusedPallet = null; return; }
+
+        Transform pallet = null;
+        var link = hit.collider.GetComponentInParent<GameCore.Inventory.PalletMasterLink>();
+        if (link != null) pallet = link.transform;
+        else
+        {
+            var builder = hit.collider.GetComponentInParent<PalletBuilder>();
+            if (builder != null) pallet = builder.transform;
+            else
+            {
+                var outbound = hit.collider.GetComponentInParent<OutboundPalletBuilder>();
+                if (outbound != null) pallet = outbound.transform;
+            }
+        }
+        _focusedPallet = (pallet != null && pallet != _focusedPallet) ? pallet : null;
     }
 
     // Track a followed target on the XZ plane (the player keeps orbit/zoom control).
@@ -235,6 +278,7 @@ public class FreeLookCamera : MonoBehaviour
     private DepthOfField _dof;
     private float _dofFocusVelocity;
     private float _dofFocus = 15f;
+    private float _dofPalletBlend;
     private float _dofFocusedBlend;          // 0 = floor focus, 1 = an employee is in focus
     private bool _dofFocusInitialised;
 
@@ -285,6 +329,9 @@ public class FreeLookCamera : MonoBehaviour
         var banners = EmployeeWorldBanners.Existing;
         var focused = banners != null ? banners.FocusedEmployee : null;
         if (focused != null) focusPoint = focused.transform.position + Vector3.up * 1.0f;
+        // A clicked pallet wins over everything: focus lands on it (about mid-height).
+        bool palletFocus = _focusedPallet != null;
+        if (palletFocus) focusPoint = _focusedPallet.position + Vector3.up * 0.6f;
 
         float target = Mathf.Max(0.1f, Vector3.Dot(focusPoint - transform.position, transform.forward));
         if (!_dofFocusInitialised || dofFocusSmoothTime <= 0f) { _dofFocus = target; _dofFocusInitialised = true; }
@@ -294,6 +341,8 @@ public class FreeLookCamera : MonoBehaviour
         // at chest height; eases back out when the banner closes.
         _dofFocusedBlend = Mathf.MoveTowards(_dofFocusedBlend, focused != null ? 1f : 0f, Time.unscaledDeltaTime * 4f);
         float fStop = Mathf.Lerp(dofFStop, Mathf.Max(dofFStop, dofFStopFocused), _dofFocusedBlend);
+        _dofPalletBlend = Mathf.MoveTowards(_dofPalletBlend, palletFocus ? 1f : 0f, Time.unscaledDeltaTime * 4f);
+        fStop = Mathf.Lerp(fStop, Mathf.Max(fStop, dofFStopPalletFocus), _dofPalletBlend);
 
         _dof.mode.Override(DepthOfFieldMode.Bokeh);
         _dof.focusDistance.Override(_dofFocus);

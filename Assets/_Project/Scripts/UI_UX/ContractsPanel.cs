@@ -374,7 +374,30 @@ public class ContractsPanel : IUIPanel
             backToPurchasing.style.backgroundColor = new StyleColor(ColOrangeHover));
         backToPurchasing.RegisterCallback<PointerLeaveEvent>(_ =>
             backToPurchasing.style.backgroundColor = new StyleColor(ColOrange));
+        NavButtonColors.Apply(backToPurchasing, NavButtonColors.Dest.Purchasing);
         titleBar.Add(backToPurchasing);
+
+        // Straight to the Work Queue (key 7), right beside PURCHASING, per Tad's ask. Same look.
+        var toWorkQueue = new Button(OpenWorkQueue) { text = "WORK Q" };
+        ApplyFont(toWorkQueue, bold: true, size: 16);
+        toWorkQueue.style.height = titleBtnSize;
+        toWorkQueue.style.paddingLeft = toWorkQueue.style.paddingRight = 18;
+        toWorkQueue.style.marginRight = 10;
+        toWorkQueue.style.flexShrink = 0;
+        toWorkQueue.style.color = new StyleColor(ColOrangeText);
+        toWorkQueue.style.backgroundColor = new StyleColor(ColOrange);
+        toWorkQueue.style.borderTopWidth = toWorkQueue.style.borderBottomWidth =
+            toWorkQueue.style.borderLeftWidth = toWorkQueue.style.borderRightWidth = 2;
+        toWorkQueue.style.borderTopColor = toWorkQueue.style.borderBottomColor =
+            toWorkQueue.style.borderLeftColor = toWorkQueue.style.borderRightColor = new StyleColor(ColOrangeEdge);
+        toWorkQueue.style.borderTopLeftRadius = toWorkQueue.style.borderTopRightRadius =
+            toWorkQueue.style.borderBottomLeftRadius = toWorkQueue.style.borderBottomRightRadius = 8;
+        toWorkQueue.RegisterCallback<PointerEnterEvent>(_ =>
+            toWorkQueue.style.backgroundColor = new StyleColor(ColOrangeHover));
+        toWorkQueue.RegisterCallback<PointerLeaveEvent>(_ =>
+            toWorkQueue.style.backgroundColor = new StyleColor(ColOrange));
+        NavButtonColors.Apply(toWorkQueue, NavButtonColors.Dest.WorkQueue);
+        titleBar.Add(toWorkQueue);
 
         // Same trip, sideways instead of back — straight to the dock appointment grid (key 0's
         // standalone Scheduler), so a player looking at a contract doesn't have to remember the hotkey
@@ -2749,6 +2772,22 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
     ///
     /// Says why if purchasing can't be reached, rather than reading as a dead button.
     /// </summary>
+    private void OpenWorkQueue()
+    {
+        Hide();
+
+        var topBar = UnityEngine.Object.FindAnyObjectByType<TopBarUI>();
+        var workQueue = topBar != null ? topBar.WorkQueuePanel : null;
+        if (workQueue == null)
+        {
+            UIToast.Show("Couldn't open the work queue — the panel isn't loaded.");
+            return;
+        }
+
+        UIKeyBindingManager.Instance?.CloseAll();
+        workQueue.Show();
+    }
+
     private void OpenPurchasing()
     {
         Hide();

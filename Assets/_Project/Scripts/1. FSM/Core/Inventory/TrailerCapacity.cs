@@ -43,10 +43,11 @@ namespace GameCore.Inventory
     /// <summary>
     /// Works out how much of a trailer an inbound order fills, and where each pallet rides.
     ///
-    /// THE RULE, in Tad's terms: the trailer has 12 floor positions (6 down each side) and 1.9m of
-    /// safe interior height. A pallet at or under 0.95m can have another short pallet stacked on it,
-    /// so it costs 1/24 of the load. A pallet over 0.95m rides alone in its footprint and costs
-    /// 1/12 — a whole floor position. Stacks are two high, never three, and may MIX SKUs freely.
+    /// THE RULE, in Tad's terms: the trailer has 12 floor positions (6 down each side) and 2.5m of
+    /// interior height. A pallet at or under 1.25m (half the interior height) can have another short
+    /// pallet stacked on it, so it costs 1/24 of the load. A pallet over 1.25m rides alone in its
+    /// footprint and costs 1/12 — a whole floor position. The LOADER follows the same rule
+    /// (TrailerLoadController.TryChooseCargoSlot): shorts pair up as it goes, talls ride alone. Stacks are two high, never three, and may MIX SKUs freely.
     ///
     /// HEIGHT IS ALWAYS THE SKU'S FULL PALLET HEIGHT (Tad's call), even when the line only part-fills
     /// its last pallet. The alternative — measuring the actual layers on a part pallet — is more
@@ -61,12 +62,16 @@ namespace GameCore.Inventory
     /// </summary>
     public static class TrailerCapacity
     {
-        /// <summary>Usable interior height, metres. Two stacked pallets must both fit under this.</summary>
-        public const float SafeInteriorHeight = 1.90f;
+        /// <summary>Usable interior height, metres (deck to roof: 2.5). Two stacked pallets must both
+        /// fit under this.</summary>
+        public const float SafeInteriorHeight = 2.50f;
 
         /// <summary>At or below this a pallet can be stacked; above it, it rides alone. Exactly half
         /// the safe height, so two of the tallest stackable pallets still clear the roof.</summary>
-        public const float StackableHeight = SafeInteriorHeight / 2f;   // 0.95
+        public const float StackableHeight = SafeInteriorHeight / 2f;   // 1.25
+
+        /// <summary>Air left between one stacked pallet's top and the next one's deck, metres.</summary>
+        public const float StackGap = 0.02f;
 
         /// <summary>Floor positions: 6 down each side.</summary>
         public const int FloorSlots = 12;
@@ -166,6 +171,32 @@ namespace GameCore.Inventory
                 FloorSlotsUsed = tall.Count + shortSlots,
                 UnitsUsed = tall.Count * 2 + shorts.Count
             };
+        }
+
+        /// <summary>
+        /// Trims a set of order lines until they fit ONE trailer, taking a pallet's worth of cases off the
+        /// line that uses the most pallets each pass. Used when ORDERS are generated, so a customer never
+        /// asks for more than a single trailer can carry. A line is dropped only when it shrinks to
+        /// nothing and other lines remain; a lone line is never trimmed below one pallet.
+        /// </summary>
+        public static List<(SkuData sku, int cases)> TrimToFit(IEnumerable<(SkuData sku, int cases)> lines)
+        {
+            var list = lines.Where(l => l.sku != null && l.cases > 0).ToList();
+            for (int guard = 0; guard < 2000 && list.Count > 0 && Plan(list).OverCapacity; guard++)
+            {
+                int idx = 0, most = -1;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    int pallets = PalletsFor(list[i].sku, list[i].cases);
+                    if (pallets > most) { most = pallets; idx = i; }
+                }
+                var (sku, cases) = list[idx];
+                int left = cases - CasesPerPallet(sku);
+                if (left > 0) list[idx] = (sku, left);
+                else if (list.Count > 1) list.RemoveAt(idx);
+                else break;
+            }
+            return list;
         }
 
         /// <summary>Convenience for the UI: would adding <paramref name="extraCases"/> of a SKU to an

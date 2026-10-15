@@ -55,6 +55,13 @@ namespace GameCore.Persistence
                 // do (it always instantiates as a free-standing pallet under PlacedObjectsContainer).
                 if (entry.GetComponentInParent<MHEOperatorSlot>() != null) continue;
 
+                // Pallets riding INSIDE a trailer are saved with that truck (TruckPersistenceService,
+                // trailerPallets) and rebuilt by it. A loaded outbound pallet keeps its PlacedObject enabled,
+                // so it is still in the registry — capturing it here too restored a SECOND free-standing copy
+                // at the trailer's old position on every load, which was left hovering over the yard when the
+                // truck drove off (each copy also registered a bogus 'A Chep' inventory record).
+                if (entry.GetComponentInParent<TruckController>() != null) continue;
+
                 var builder = entry.GetComponent<PalletBuilder>();
                 if (builder == null) continue; // not a pallet root (shouldn't happen for category Inventory, but be defensive)
 
@@ -65,6 +72,13 @@ namespace GameCore.Persistence
                     worldRotation = entry.transform.rotation,
                     worldSpaceYHeight = entry.worldSpaceYHeight > 0f ? entry.worldSpaceYHeight : entry.transform.position.y,
                 };
+
+                var outboundTag = entry.GetComponent<OutboundPalletBuilder>();
+                if (outboundTag != null && !string.IsNullOrEmpty(outboundTag.OrderId))
+                {
+                    snap.outboundOrderId = outboundTag.OrderId;
+                    snap.outboundCases = outboundTag.TotalCases;
+                }
 
                 var link = entry.GetComponent<PalletMasterLink>();
                 if (link != null)
@@ -224,6 +238,15 @@ namespace GameCore.Persistence
 
                 RestoreCases(go, snap, registry, inv);
                 RestoreInventoryLink(go, snap, inv, cell);
+
+                // Staged outbound freight comes back as outbound freight (same tag the reach truck / selector set).
+                if (!string.IsNullOrEmpty(snap.outboundOrderId))
+                {
+                    var outbound = go.GetComponent<OutboundPalletBuilder>() ?? go.AddComponent<OutboundPalletBuilder>();
+                    int cases = snap.outboundCases > 0 ? snap.outboundCases : (go.GetComponent<PalletData>()?.CaseQuantity ?? 0);
+                    outbound.AdoptFullPallet(snap.outboundOrderId, cases);
+                    outbound.SetNavObstacleActive(true);
+                }
 
                 // Force the restored pallet's Ti/Hi to the ground truth captured at save time —
                 // NEVER leave it at whatever the fresh prefab instance's default manualTi/manualHi

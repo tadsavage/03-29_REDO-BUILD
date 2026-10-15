@@ -252,6 +252,14 @@ public class GameContext : MonoBehaviour
                 Debug.Log($"[GameContext.Start] Loading from slot {loadSlotIndex} via SaveManager.");
                 SaveManager.Instance.LoadFromSlot(loadSlotIndex);
             }
+            else if (!System.IO.File.Exists(System.IO.Path.Combine(SaveSystem.SaveFolder, "quicksave.json")))
+            {
+                // "Continue" with nothing to continue (first run, or the save was deleted) is not an
+                // error — send the player to the main menu to start or pick a game.
+                Debug.Log("[GameContext.Start] No quicksave to continue — returning to the main menu.");
+                UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
+                return;
+            }
             else
             {
                 Debug.Log("[GameContext.Start] Loading quicksave via PlacementSystem.QuickLoad().");

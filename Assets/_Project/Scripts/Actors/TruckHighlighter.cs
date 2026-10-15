@@ -76,6 +76,8 @@ public class TruckHighlighter : MonoBehaviour
         Clear();
         _current = truck;
         BuildOutline(truck);
+        // The freight reserved for this truck's order(s) gets boxed in the same colour. Outbound only.
+        OrderFreightHighlighter.Instance.Show(truck);
     }
 
     /// <summary>Remove the current outline, if any.</summary>
@@ -85,6 +87,7 @@ public class TruckHighlighter : MonoBehaviour
             if (go != null) Destroy(go);
         _clones.Clear();
         _current = null;
+        if (OrderFreightHighlighter.HasInstance) OrderFreightHighlighter.Instance.Clear();
     }
 
     public bool IsHighlighted(TruckController truck) => truck != null && _current == truck;

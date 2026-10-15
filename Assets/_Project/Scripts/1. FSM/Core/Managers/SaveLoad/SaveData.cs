@@ -275,6 +275,12 @@ public class DockPalletSnapshot
     // "Current" reading in the dev panel and the editable value can never disagree again.
     public int capturedTi = 0;
     public int capturedHi = 0;
+
+    // Staged OUTBOUND freight: the order it is waiting to ship on (empty = ordinary inventory) and its case count.
+    // Without these a staged whole pallet reloaded as an untagged pallet with no inventory record - invisible to
+    // the loader, blind to the order, and standing in the lane forever.
+    public string outboundOrderId = "";
+    public int outboundCases = 0;
 }
 
 /// <summary>

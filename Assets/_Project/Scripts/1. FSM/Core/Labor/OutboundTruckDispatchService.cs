@@ -174,7 +174,11 @@ namespace GameCore.Labor
                 if (orderService != null && !string.IsNullOrEmpty(pallet.OrderId))
                 {
                     var order = orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == pallet.OrderId);
-                    if (order != null && order.AssignedDoorNumber > 0) dockDoor = order.AssignedDoorNumber;
+                    // Freight tagged for an order that no longer exists (shipped, cancelled, archived) is an
+                    // orphan: nothing is waiting for a truck. Counting it dispatched a driver with no order and
+                    // no appointment to the lane's door (OrderService.ReclaimOrphanedFreight puts it back in stock).
+                    if (order == null) continue;
+                    if (order.AssignedDoorNumber > 0) dockDoor = order.AssignedDoorNumber;
                 }
                 doorsWithStaged.Add(dockDoor);
             }

@@ -208,7 +208,7 @@ namespace SaveLoadSystem
             string quicksavePath = Path.Combine(saveFolderPath, "quicksave.json");
             if (!File.Exists(quicksavePath))
             {
-                Debug.LogError("[SaveManager] Quicksave file not found");
+                Debug.LogWarning("[SaveManager] No quicksave file yet — nothing to load.");
                 return false;
             }
 

@@ -76,7 +76,8 @@ namespace GameCore.Labor
 
                 var truck = FindDockedOutboundTruck(dstDoor);
                 if (truck == null || !truck.AwaitingLoad) continue;
-                if (truck.LoadContainer == null || truck.LoadContainer.childCount >= TruckController.PalletSlotCount) continue;
+                if (truck.LoadContainer == null ||
+                    !TryChooseCargoSlot(truck, MeasurePalletHeight(PalletMasterLink.Find(task.PalletId)?.transform), out _, out _)) continue;
 
                 if (!TryPlanDig(inv, workQueue, srcDoor, srcLane, task.PalletId, out var blockers, out string why))
                 {
@@ -361,9 +362,13 @@ namespace GameCore.Labor
                     if (!carry.Ok) { ok = false; failWhy = "couldn't pick up the order's pallet"; }
                     else
                     {
-                        int slotIndex = CargoSlotForSequence(truck.LoadContainer.childCount);
+                        if (!TryChooseCargoSlot(truck, MeasurePalletHeight(link.transform), out int slotIndex, out float stackBaseY))
+                        {
+                            slotIndex = CargoSlotForSequence(truck.LoadContainer.childCount % TruckController.PalletSlotCount);
+                            stackBaseY = 0f;
+                        }
                         Vector3 doorPos = truck.DockedAt != null ? truck.DockedAt.transform.position : srcDoorPos;
-                        yield return PlaceCarriedInTrailer(ds, forks, truck, link.transform, slotIndex, doorPos, ds.position.y);
+                        yield return PlaceCarriedInTrailer(ds, forks, truck, link.transform, slotIndex, doorPos, ds.position.y, false, stackBaseY);
 
                         // Same bookkeeping as a reach-truck pallet pick, plus the loader's "on the trailer".
                         var outbound = link.GetComponent<OutboundPalletBuilder>() ?? link.gameObject.AddComponent<OutboundPalletBuilder>();

@@ -230,6 +230,16 @@ public class TopBarUI : MonoBehaviour
         // what gives the Shift Manager its chance to confirm before losing unsaved edits.
         var keys = UIKeyBindingManager.Instance;
 
+        // F1: tooltips on/off (all of them - the world hover cards and the UI cards). For now; may move.
+        if (!UIModalGuard.IsCapturing && Keyboard.current != null && Keyboard.current.f1Key.wasPressedThisFrame)
+        {
+            bool on = !TooltipSettings.Enabled;
+            TooltipSettings.Enabled = on;
+            var hover = FindAnyObjectByType<WorldHoverPopupUI>();
+            if (hover != null) hover.SetEnabled(on);
+            UIToast.Show(on ? "Tooltips ON  (F1)" : "Tooltips OFF  (F1)", 1.5f);
+        }
+
         if (!UIModalGuard.IsCapturing && Keyboard.current.digit5Key.wasPressedThisFrame)
             keys.ToggleUI(5);
 

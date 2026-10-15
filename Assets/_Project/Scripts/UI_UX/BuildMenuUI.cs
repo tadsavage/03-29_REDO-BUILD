@@ -68,6 +68,7 @@ public class BuildMenuUI : MonoBehaviour
     private VisualElement _modeTabs;
     private Button _tabBuild;
     private Button _tabPlay;
+    private MiniDockTimeline _miniTimeline;
     private Button _tabStaff;
     private Button _tabReports;
     private VisualElement _staffBar;
@@ -355,6 +356,12 @@ public class BuildMenuUI : MonoBehaviour
 
             _barCallbacksRegistered = true;
         }
+
+        // Today's dock schedule, drawn into the Orders bar (declared in BuildMenu.uxml). CacheElements runs
+        // on every enable, so only wrap the element once per instance of it.
+        var miniTimelineRoot = _root.Q<VisualElement>(MiniDockTimeline.ElementName);
+        if (miniTimelineRoot != null && (_miniTimeline == null || _miniTimeline.Root != miniTimelineRoot))
+            _miniTimeline = new MiniDockTimeline(miniTimelineRoot);
 
         // Rebuilt every CacheElements call, same as BuildCategoryButtons/BuildUtilityButtons above —
         // idempotent because ReportsPanelController clears its tab row before repopulating it. Needs
