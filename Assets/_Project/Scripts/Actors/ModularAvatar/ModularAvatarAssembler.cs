@@ -1583,21 +1583,33 @@ public static class ModularAvatarAssembler
 
         var instance = Object.Instantiate(sourcePrefab);
 
+        var all = instance.GetComponentsInChildren<Transform>(true);
+        bool HasMesh(Transform t) => t.GetComponent<MeshFilter>() != null || t.GetComponent<SkinnedMeshRenderer>() != null;
+
+        // Find the requested mesh first, so pruning below can never destroy it.
         Transform target = null;
-        foreach (var t in instance.GetComponentsInChildren<Transform>(true))
+        foreach (var t in all)
         {
-            bool hasMesh = t.GetComponent<MeshFilter>() != null || t.GetComponent<SkinnedMeshRenderer>() != null;
-            if (!hasMesh) continue;
+            if (!HasMesh(t)) continue;
             // Instantiate() only renames the CLONED ROOT (appends "(Clone)") — children keep their
             // original names, so only the root needs the suffix stripped before comparing.
             string cleaned = t == instance.transform && t.name.EndsWith("(Clone)")
                 ? t.name.Substring(0, t.name.Length - "(Clone)".Length)
                 : t.name;
-            if (cleaned == part.ObjectName) { target = t; continue; }
-            if (IsPartObject(t)) SafeDestroy(t.gameObject); // a sibling part (e.g. a different hardhat color) — remove it
+            if (cleaned == part.ObjectName) { target = t; break; }
         }
-
         if (target == null) { Object.DestroyImmediate(instance); return null; }
+
+        foreach (var t in all)
+        {
+            if (t == null || t == target) continue; // null = destroyed with a pruned parent part
+            if (!HasMesh(t) || !IsPartObject(t)) continue;
+            // A sibling part (e.g. a different hardhat color) — remove it. If the requested part is
+            // parented under it in Blender, lift that one out first so it survives; anything else
+            // under the sibling (e.g. its own eyes) goes with it.
+            if (target.IsChildOf(t)) target.SetParent(t.parent, true);
+            SafeDestroy(t.gameObject);
+        }
 
         instance.name = part.ObjectName;
         return instance;
