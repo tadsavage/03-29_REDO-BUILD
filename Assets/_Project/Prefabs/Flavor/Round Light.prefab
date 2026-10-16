@@ -16,7 +16,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!4 &644698762212679135
 Transform:
@@ -44,10 +44,10 @@ Light:
   serializedVersion: 13
   m_Type: 0
   m_Color: {r: 0.98490566, g: 0.94414276, b: 0.8603987, a: 1}
-  m_Intensity: 80
-  m_Range: 15
+  m_Intensity: 150
+  m_Range: 14
   m_SpotAngle: 120
-  m_InnerSpotAngle: 30
+  m_InnerSpotAngle: 0
   m_CookieSize2D: {x: 0.5, y: 0.5}
   m_Shadows:
     m_Type: 2
@@ -88,7 +88,7 @@ Light:
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
   m_ColorTemperature: 6570
-  m_UseColorTemperature: 0
+  m_UseColorTemperature: 1
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
@@ -179,6 +179,10 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: ba50933cc472bcb4f86d27fe13d7f7c2, type: 3}
+      propertyPath: m_LightProbeUsage
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: -6258308266687358523, guid: ba50933cc472bcb4f86d27fe13d7f7c2, type: 3}
       propertyPath: m_LocalPosition.y
       value: 0
@@ -198,6 +202,14 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: ba50933cc472bcb4f86d27fe13d7f7c2, type: 3}
       propertyPath: m_Name
       value: Round Light
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: ba50933cc472bcb4f86d27fe13d7f7c2, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5742457972603948551, guid: ba50933cc472bcb4f86d27fe13d7f7c2, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6959186870197602566, guid: ba50933cc472bcb4f86d27fe13d7f7c2, type: 3}
       propertyPath: m_CastShadows
