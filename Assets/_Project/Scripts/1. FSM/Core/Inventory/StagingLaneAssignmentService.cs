@@ -94,6 +94,40 @@ namespace GameCore.Inventory
             return lanes.Count > 0;
         }
 
+        /// <summary>
+        /// Where one selector trip of <paramref name="pallets"/> pallets stages: the order's primary lane or the
+        /// next lane of its own door first, then any lane the order already uses (at any door), then the nearest
+        /// completely empty lane at another door (same door rules as a release: no inbound trailer docked, no
+        /// other customer holding it). The found lane is the caller's to record via AddOverflowLane.
+        /// </summary>
+        public static bool TryFindTripLane(OrderService orderService, InventoryService inv, OrderData order, int pallets,
+                                           out int door, out string lane)
+        {
+            door = order != null ? order.EffectiveStagingDoor : 0;
+            lane = null;
+            if (order == null || inv == null) return false;
+            if (pallets < 1) pallets = 1;
+
+            if (door > 0 && inv.TryFindStagingLaneForPallets(door, order.AssignedLane, pallets, out lane)) return true;
+
+            foreach (var used in order.AllStagingLanes())
+            {
+                if (!inv.LaneAllowsPicking(used.door, used.lane)) continue;
+                if (inv.CountFreeStagingSlotsInLane(used.door, used.lane) < pallets) continue;
+                door = used.door; lane = used.lane;
+                return true;
+            }
+
+            foreach (var (d, candidate) in EnumerateEmptyLanes(orderService, inv, order.EffectiveStagingDoor, order.CustomerId, null, null))
+            {
+                if (inv.CountFreeStagingSlotsInLane(d, candidate) < pallets) continue;
+                door = d; lane = candidate;
+                return true;
+            }
+            lane = null;
+            return false;
+        }
+
         /// <summary>Every completely empty, usable lane, in the order a release should consider them:
         /// the dock door's own lanes first (A, B, C...), then the nearest doors either side.</summary>
         private static IEnumerable<(int door, string lane)> EnumerateEmptyLanes(OrderService orderService, InventoryService inv,

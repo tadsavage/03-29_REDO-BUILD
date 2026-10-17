@@ -72,7 +72,9 @@ public static class AddCarryLayerToStaffControllers
                 name = LayerName,
                 stateMachine = sm,
                 avatarMask = mask,
-                defaultWeight = 1f,
+                // 0, not 1: on a humanoid rig the empty state still forces the arms into a reference pose at
+                // weight 1. OrderSelectionTaskDriver.SetAnimBool raises the weight only while a case is held.
+                defaultWeight = 0f,
                 blendingMode = AnimatorLayerBlendingMode.Override,
             });
 

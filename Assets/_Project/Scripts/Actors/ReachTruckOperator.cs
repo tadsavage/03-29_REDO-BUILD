@@ -1966,7 +1966,12 @@ namespace GameCore.Actors
 
             _busy = true;
             BeginActiveTask(task);
-            StartCoroutine(PutawayRoutine(task));
+            // Route by type, same as TryClaimAndStart's already-assigned branch. This used to start PutawayRoutine for
+            // EVERY unstarted task, so a replenishment or pallet pick saved before pickup looked for its pallet in a
+            // staging lane after the load, never found it, and stalled until the stuck-task watchdog (2026-10-17).
+            if (task.Type == WorkTaskType.Replenish) StartCoroutine(ReplenishRoutine(task));
+            else if (task.Type == WorkTaskType.PalletPick) StartCoroutine(PalletPickRoutine(task));
+            else StartCoroutine(PutawayRoutine(task));
         }
 
         private void ResolveServices()

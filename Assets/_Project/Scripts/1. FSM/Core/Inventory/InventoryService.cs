@@ -509,7 +509,7 @@ namespace GameCore.Inventory
 
             foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
             {
-                if (pallet == null || pallet.transform.parent != null) continue;
+                if (pallet == null || !pallet.IsOnFloor) continue;
 
                 Vector2Int nearestCell = default;
                 float nearestSqrDist = float.MaxValue;

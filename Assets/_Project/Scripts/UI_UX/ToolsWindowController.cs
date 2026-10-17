@@ -1885,7 +1885,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         int? doorWithStaged = null;
         foreach (var pallet in FindObjectsByType<OutboundPalletBuilder>())
         {
-            if (pallet == null || pallet.transform.parent != null) continue;
+            if (pallet == null || !pallet.IsOnFloor) continue;
             var cell = grid.WorldToCell(pallet.transform.position);
             if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
             doorWithStaged = slot.DoorNumber;

@@ -429,6 +429,28 @@ private void ShowBuilding(string name, int cost, int hourlyCost)
         return "In stock";
     }
 
+    /// <summary>"Status: AVAILABLE" etc. - where the pallet is in its lifecycle (PalletLifecycleResolver).</summary>
+    private void AddLifecycleLabel(GameObject pallet)
+    {
+        if (_palletInfoPanel == null || pallet == null) return;
+        var s = PalletLifecycleResolver.Resolve(pallet);
+        Color c = s switch
+        {
+            PalletLifecycle.Unknown   => new Color(0.75f, 0.75f, 0.75f),
+            PalletLifecycle.Available => new Color(0.45f, 0.90f, 0.45f),
+            PalletLifecycle.InTransit => new Color(0.45f, 0.75f, 1.00f),
+            PalletLifecycle.Reserved  => new Color(1.00f, 0.75f, 0.30f),
+            PalletLifecycle.Staged    => new Color(0.30f, 0.85f, 0.75f),
+            PalletLifecycle.Loading   => new Color(0.95f, 0.60f, 0.95f),
+            _                         => new Color(1.00f, 1.00f, 1.00f),
+        };
+        var lbl = new Label($"Status: {PalletLifecycleResolver.Label(s)}");
+        lbl.style.color = c;
+        lbl.style.fontSize = 13;
+        lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+        _palletInfoPanel.Add(lbl);
+    }
+
     private void ShowPallet(PalletData pallet)
     {
         if (_popup == null || pallet == null) return;
@@ -457,6 +479,7 @@ private void ShowBuilding(string name, int cost, int hourlyCost)
         {
             _palletInfoPanel.Clear();
             _palletInfoPanel.style.display = DisplayStyle.Flex;
+            AddLifecycleLabel(pallet.gameObject);
             AddDispositionBlock(ResolveDisposition(pallet.gameObject));
         }
 
@@ -802,7 +825,11 @@ private void ShowLocation(LocationData location)
         {
             _palletInfoPanel.Clear();
             _palletInfoPanel.style.display = DisplayStyle.Flex;
-            if (builder != null) AddDispositionBlock(ResolveDisposition(builder.gameObject));
+            if (builder != null)
+            {
+                AddLifecycleLabel(builder.gameObject);
+                AddDispositionBlock(ResolveDisposition(builder.gameObject));
+            }
         }
 
         // Hide building-specific elements

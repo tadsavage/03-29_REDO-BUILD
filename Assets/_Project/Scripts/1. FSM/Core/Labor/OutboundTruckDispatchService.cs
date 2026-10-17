@@ -166,7 +166,7 @@ namespace GameCore.Labor
             var doorsWithStaged = new HashSet<int>();
             foreach (var pallet in FindObjectsByType<OutboundPalletBuilder>())
             {
-                if (pallet == null || pallet.transform.parent != null) continue;
+                if (pallet == null || !pallet.IsOnFloor) continue;
                 var cell = _grid.WorldToCell(pallet.transform.position);
                 if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
 

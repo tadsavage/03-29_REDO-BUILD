@@ -487,7 +487,7 @@ namespace GameCore.Labor
             var found = new List<(OutboundPalletBuilder pallet, int slotIndex, float y)>();
             foreach (var pallet in FindObjectsByType<OutboundPalletBuilder>())
             {
-                if (pallet == null || pallet.transform.parent != null) continue;
+                if (pallet == null || !pallet.IsOnFloor) continue;
                 var cell = _grid.WorldToCell(pallet.transform.position);
                 if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
                 if (slot.DoorNumber != doorNumber || slot.Lane != lane) continue;
@@ -518,7 +518,7 @@ namespace GameCore.Labor
                     foreach (var rec in invForBlock.GetPalletsAtLocation(s.Cell))
                     {
                         var link = PalletMasterLink.Find(rec.PalletId);
-                        if (link != null && link.transform.parent == null || (link != null && link.transform.parent.name == "PlacedObjectsContainer"))
+                        if (link != null && OutboundPalletBuilder.IsOnFloorTransform(link.transform))
                             top = Mathf.Max(top, link.transform.position.y);
                     }
                     if (top > float.NegativeInfinity) stockTopBySlot[s.Slot] = top;

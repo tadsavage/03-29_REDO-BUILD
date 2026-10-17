@@ -37,6 +37,16 @@ public class OutboundPalletBuilder : MonoBehaviour
 
     public int TotalCases { get; private set; }
 
+    /// <summary>Cases on this pallet per SKU. Empty for an adopted whole pallet (its SKU lives on PalletData).</summary>
+    public IReadOnlyDictionary<string, int> CaseCountsBySku => _caseCountBySku;
+
+    /// <summary>The SKU of every case under PalletLoad, in child order. Saved so a mixed pallet restores case-for-case.</summary>
+    public IReadOnlyList<string> CaseSkus => _caseSkus;
+    private readonly List<string> _caseSkus = new();
+
+    /// <summary>Lifecycle status (see PalletLifecycle) - derived, never stored.</summary>
+    public PalletLifecycle Lifecycle => PalletLifecycleResolver.Resolve(gameObject);
+
     /// <summary>The order this pallet was built for — set once, right after creation, by
     /// OrderSelectionTaskDriver. Lets a later system (TrailerLoadController, billing) find which
     /// order a staged pallet belongs to without needing a separate lookup table.</summary>
@@ -49,6 +59,18 @@ public class OutboundPalletBuilder : MonoBehaviour
     public enum PalletStage { Staged, Moving, Loading, Loaded, Shipped }
 
     public PalletStage Stage { get; set; } = PalletStage.Staged;
+
+    /// <summary>
+    /// Standing on the floor (in a lane), as opposed to riding forks, a selector, a pallet jack or a trailer.
+    /// THE test for "is this pallet staged where it stands" - use it instead of <c>transform.parent != null</c>.
+    /// A pallet restored from a save is parented to PlacedObjectsContainer, so the old parent check made every
+    /// restored staged pallet look carried: the loader never took it and lane occupancy never counted it
+    /// (2026-10-17 save/load audit).
+    /// </summary>
+    public bool IsOnFloor => IsOnFloorTransform(transform);
+
+    public static bool IsOnFloorTransform(Transform t)
+        => t != null && (t.parent == null || t.parent.name == "PlacedObjectsContainer");
 
     /// <summary>
     /// Marks an ALREADY-BUILT pallet as outbound freight for an order, without touching its cases.
@@ -155,6 +177,48 @@ public class OutboundPalletBuilder : MonoBehaviour
 
         _caseCountBySku.TryGetValue(skuId, out int existing);
         _caseCountBySku[skuId] = existing + 1;
+        _caseSkus.Add(skuId);
+    }
+
+    /// <summary>
+    /// Save/load: puts one case back exactly where it was (local pose under PalletLoad) and rebuilds the height map,
+    /// counts and fill so the pallet behaves as if it had been built case by case. Used by OutboundPalletPersistence
+    /// and by restored outbound trailer cargo.
+    /// </summary>
+    public void RestoreCase(string skuId, GameObject casePrefab, Vector3 caseDim, int ti, int hi, Vector3 localPos, Quaternion localRot)
+    {
+        if (_loadRoot == null)
+        {
+            var existingLoad = transform.Find("PalletLoad");
+            if (existingLoad != null) _loadRoot = existingLoad;
+            else
+            {
+                var loadGo = new GameObject("PalletLoad");
+                loadGo.transform.SetParent(transform, false);
+                _loadRoot = loadGo.transform;
+            }
+        }
+        if (casePrefab != null)
+        {
+            var instance = Instantiate(casePrefab, _loadRoot, false);
+            instance.transform.localPosition = localPos;
+            instance.transform.localRotation = localRot;
+            var po = instance.GetComponent<PlacedObject>();
+            if (po != null) { po.enabled = false; Destroy(po); }
+            var bd = instance.GetComponent<BuildingData>();
+            if (bd != null) Destroy(bd);
+            var bh = instance.GetComponent<BuildingHighlighter>();
+            if (bh != null) Destroy(bh);
+        }
+
+        float yaw = localRot.eulerAngles.y;
+        Footprint((localPos, Mathf.Round(yaw / 90f) * 90f), caseDim, out Vector2 min, out Vector2 max);
+        _placed.Add((min, max, localPos.y + caseDim.y));
+        TotalCases++;
+        FillFraction += 1f / Mathf.Max(1, ti * hi);
+        _caseCountBySku.TryGetValue(skuId ?? "", out int existing);
+        _caseCountBySku[skuId ?? ""] = existing + 1;
+        _caseSkus.Add(skuId ?? "");
     }
 
     /// <summary>Sale value of everything on this pallet: for each SKU present, its case count times

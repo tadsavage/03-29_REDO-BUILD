@@ -223,18 +223,13 @@ namespace GameCore.Persistence
         {
             var map = new Dictionary<Transform, TruckController>();
 
-            // Find the truck currently being actively offloaded (claimed but not complete).
-            TruckController offloadTruck = null;
-            foreach (var t in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None))
-            {
-                if (t != null && t.OffloadClaimed && !t.OffloadComplete &&
-                    t.CurrentState == TruckController.TruckState.Docked)
-                {
-                    offloadTruck = t;
-                    break;
-                }
-            }
-            if (offloadTruck == null) return map;
+            // Every truck being actively offloaded (claimed but not complete). It used to take only the FIRST one, so with
+            // two dock stockers on two trailers the second one's carried pallet went back onto the wrong truck.
+            var offloadTrucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+                .Where(t => t != null && t.OffloadClaimed && !t.OffloadComplete && !t.IsOutbound &&
+                            t.CurrentState == TruckController.TruckState.Docked)
+                .ToList();
+            if (offloadTrucks.Count == 0) return map;
 
             // Scan every dock stocker's Forks child for carried pallets.
             foreach (var slot in Object.FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None))
@@ -255,6 +250,9 @@ namespace GameCore.Persistence
                     if (pd != null && string.IsNullOrEmpty(pd.LoadId)
                         && child.GetComponent<GameCore.Inventory.PalletMasterLink>() == null)
                     {
+                        // The trailer this dock stocker is working: the nearest offloading truck.
+                        var offloadTruck = offloadTrucks
+                            .OrderBy(t => (t.transform.position - slot.transform.position).sqrMagnitude).First();
                         map[child] = offloadTruck;
                         Debug.Log($"[TruckPersistenceService] Fork-carried pallet '{child.name}' found on DS '{slot.name}' — will be returned to trailer.");
                     }

@@ -17,6 +17,13 @@ namespace GameCore.Inventory.EditorTools
         {
             serializedObject.Update();
 
+            if (Application.isPlaying)
+            {
+                var status = PalletLifecycleResolver.Resolve(((PalletData)target).gameObject);
+                EditorGUILayout.LabelField("Lifecycle Status", PalletLifecycleResolver.Label(status), EditorStyles.boldLabel);
+                Repaint();
+            }
+
             SerializedProperty prop = serializedObject.GetIterator();
             bool enterChildren = true;
             while (prop.NextVisible(enterChildren))

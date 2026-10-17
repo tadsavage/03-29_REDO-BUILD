@@ -367,7 +367,48 @@ namespace GameCore.Inventory
         public int LoosePalletsNeeded(OrderData order)
         {
             SplitPalletNeed(order, out _, out int loose);
-            return loose;
+            // A selector stages at most SelectorPalletsPerTrip per trip (later trips overflow across the door's
+            // lanes). Requiring room for the WHOLE loose share in one lane made any order over one lane's
+            // capacity (11 loose pallets vs a 10-tier lane) unreleasable forever - 2026-10-17 playtest.
+            return Mathf.Min(loose, SelectorPalletsPerTrip);
+        }
+
+        /// <summary>Must match OrderSelectionTaskDriver.MaxPalletsPerOrder (the pallets one selector carries).</summary>
+        public const int SelectorPalletsPerTrip = 2;
+
+        /// <summary>Files another OrderSelect trip for an order whose selector filled its pallets before the
+        /// order was done. Only when loose cases remain and at least one of them is in a pick slot right now
+        /// or can be replenished (stock exists somewhere); otherwise the order ships with what was staged.</summary>
+        public bool FileContinuationSelect(OrderData order)
+        {
+            if (order == null || _workQueue == null) return false;
+            if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return false;
+            if (LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect)) return false;
+
+            int remaining = 0;
+            bool stockExists = false;
+            foreach (var li in order.LineItems)
+            {
+                int want = SelectableRemaining(order, li);
+                if (want <= 0) continue;
+                remaining += want;
+                if (!stockExists && (OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null ||
+                    (_inventoryService != null && GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, li.SkuId, out _))))
+                    stockExists = true;
+            }
+            if (remaining <= 0 || !stockExists) return false;
+
+            var st = _workQueue.CreateTask(
+                WorkTaskType.OrderSelect,
+                EmployeeRole.OrderSelector,
+                palletId: null,
+                description: $"Continue selecting {remaining} loose case(s) for {order.CustomerName}",
+                area: DominantArea(order),
+                orderId: order.OrderId);
+            if (st == null) return false;
+            st.Status = WorkTaskStatus.Available;
+            Debug.Log($"[OrderService] Order {order.OrderNumber}: selector's pallets were full - filed another trip for {remaining} case(s).");
+            return true;
         }
 
         // ── Held work: released tasks that are waiting for lane room ──────────────────────────────
@@ -1021,7 +1062,7 @@ namespace GameCore.Inventory
             foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
             {
                 if (pallet == null || string.IsNullOrEmpty(pallet.OrderId) || activeIds.Contains(pallet.OrderId)) continue;
-                if (pallet.transform.parent != null && pallet.transform.parent.name != "PlacedObjectsContainer") continue;   // on forks / in a trailer
+                if (!pallet.IsOnFloor) continue;   // on forks / in a trailer
                 if (pallet.Stage != OutboundPalletBuilder.PalletStage.Staged) continue;
 
                 var data = pallet.GetComponent<PalletData>();
@@ -1264,7 +1305,7 @@ namespace GameCore.Inventory
 
             foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
             {
-                if (pallet == null || pallet.OrderId != order.OrderId || pallet.transform.parent != null) continue;
+                if (pallet == null || pallet.OrderId != order.OrderId || !pallet.IsOnFloor) continue;
                 if (!LaneNamingService.TryGetSlot(grid.WorldToCell(pallet.transform.position), out var slot)) continue;
                 if (!order.UsesLane(slot.DoorNumber, slot.Lane)) continue;
 
@@ -1512,7 +1553,7 @@ namespace GameCore.Inventory
                                  lanes.Contains(t.FromLocation)).ToList())
                     {
                         bool laneStillHasFreight = grid != null && Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
-                            .Any(p => p != null && p.transform.parent == null &&
+                            .Any(p => p != null && p.IsOnFloor &&
                                       LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var sl) &&
                                       $"{sl.DoorNumber}{sl.Lane}" == task.FromLocation);
                         if (!laneStillHasFreight) task.Status = WorkTaskStatus.Cancelled;
@@ -1576,7 +1617,7 @@ namespace GameCore.Inventory
                 var ids = new HashSet<string>(orders.Select(o => o.OrderId));
                 foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
                 {
-                    if (p == null || p.transform.parent != null || !ids.Contains(p.OrderId)) continue;
+                    if (p == null || !p.IsOnFloor || !ids.Contains(p.OrderId)) continue;
                     if (LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var s) &&
                         lanes.Any(l => l.door == s.DoorNumber) && !lanes.Contains((s.DoorNumber, s.Lane)))
                     {
@@ -1906,6 +1947,29 @@ namespace GameCore.Inventory
         /// still there. Mirrors TrailerLoadController.FindStagedPalletsInLane, including its rule that
         /// a parented pallet is mid-carry and therefore not standing in the lane.
         /// </summary>
+        /// <summary>On forks or inside a trailer. A pallet parented to PlacedObjectsContainer (save-restored)
+        /// is standing on the floor, not carried.</summary>
+        /// <summary>(SKU, cases) on an outbound pallet: per-SKU counts for a case-picked pallet, or the whole pallet's
+        /// SKU and quantity (PalletData) for an adopted full pallet.</summary>
+        private static IEnumerable<(string sku, int cases)> CasesOn(OutboundPalletBuilder p)
+        {
+            if (p.CaseCountsBySku.Count > 0)
+            {
+                foreach (var kv in p.CaseCountsBySku)
+                    if (!string.IsNullOrEmpty(kv.Key) && kv.Value > 0) yield return (kv.Key, kv.Value);
+                yield break;
+            }
+            var pd = p.GetComponent<PalletData>();
+            if (pd != null && !string.IsNullOrEmpty(pd.ItemNumber) && pd.CaseQuantity > 0)
+                yield return (pd.ItemNumber, pd.CaseQuantity);
+        }
+
+        private static bool IsCarriedOrInTrailer(OutboundPalletBuilder pallet)
+        {
+            var parent = pallet.transform.parent;
+            return parent != null && parent.name != "PlacedObjectsContainer";
+        }
+
         public int StagedPalletsRemainingInLane(OrderData order)
         {
             if (order == null || !order.AllStagingLanes().Any())
@@ -1917,7 +1981,11 @@ namespace GameCore.Inventory
             int count = 0;
             foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
             {
-                if (pallet == null || pallet.transform.parent != null) continue;   // mid-carry
+                // Mid-carry / in a trailer. A save-restored pallet sits under PlacedObjectsContainer and IS in
+                // the lane: skipping every parented pallet let an order auto-ship (and bill) with 40 cases still
+                // standing in its lane (2026-10-17 playtest).
+                if (pallet == null || IsCarriedOrInTrailer(pallet)) continue;
+                if (!string.IsNullOrEmpty(pallet.OrderId) && pallet.OrderId != order.OrderId) continue;
                 var cell = grid.WorldToCell(pallet.transform.position);
                 if (!LaneNamingService.TryGetSlot(cell, out var slot)) continue;
                 if (!order.UsesLane(slot.DoorNumber, slot.Lane)) continue;
@@ -2098,9 +2166,33 @@ namespace GameCore.Inventory
             if (order.Status == OrderData.OrderStatus.Shipped) return 0;
 
             // Per-pallet stage: everything of this order that rode the trailer out is now Shipped. The
-            // order is archived below, so these pallets leave the Work Queue with it.
+            // order is archived below, so these pallets leave the Work Queue with it. A pallet still standing
+            // in the lane did NOT ship: it is not billed (its cases come off QuantityPicked) and stays Staged so
+            // ReclaimOrphanedFreight returns it to stock once the order is archived.
+            // BILLING = SHIPPED PALLETS ONLY (Tad, 2026-10-17). A pallet of this order that is not in the trailer (still
+            // staged, on the loader's forks, riding a selector) did not ship: its cases come off QuantityPicked so they are
+            // not billed, and it stays tagged so ReclaimOrphanedFreight returns it to stock once the order is archived.
             foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
-                if (p != null && p.OrderId == orderId) p.Stage = OutboundPalletBuilder.PalletStage.Shipped;
+            {
+                if (p == null || p.OrderId != orderId) continue;
+                if (p.Lifecycle == PalletLifecycle.Shipped)
+                {
+                    p.Stage = OutboundPalletBuilder.PalletStage.Shipped;
+                    continue;
+                }
+                int unbilledTotal = 0;
+                foreach (var (sku, cases) in CasesOn(p))
+                {
+                    var line = order.LineItems.FirstOrDefault(li => li.SkuId == sku && li.QuantityPicked > 0);
+                    if (line == null) continue;
+                    int unbilled = Mathf.Min(line.QuantityPicked, cases);
+                    line.QuantityPicked -= unbilled;
+                    unbilledTotal += unbilled;
+                }
+                if (unbilledTotal > 0)
+                    Debug.LogWarning($"[OrderService] Order {order.OrderNumber} closed with a {PalletLifecycleResolver.Label(p.Lifecycle)} pallet " +
+                                     $"({unbilledTotal} cs) that never made the trailer - not billed, returning it to stock.");
+            }
 
             int revenue = order.LineItems.Sum(li => li.QuantityPicked * li.SellingPrice);
 

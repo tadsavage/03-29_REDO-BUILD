@@ -157,6 +157,7 @@ namespace GameCore.Labor
 
                 var record = inventory.GetPallet(t.PalletId);
                 if (record == null || record.SkuId != skuId) continue;
+                if (PalletLifecycleResolver.IsReservedByTask(t.PalletId, out _)) continue;   // already claimed by another task
 
                 if (record.ReceivedDayNumber < bestDay)
                 {
@@ -192,6 +193,10 @@ namespace GameCore.Labor
                 // pallets are not saved — and a task filed against a ghost can never be done: the truck drives out, finds nothing
                 // and aborts, and the replenishment gets filed again.
                 if (PalletMasterLink.Find(location.PalletId) == null) continue;
+
+                // RESERVED is exclusive (Tad, 2026-10-17): a pallet a live replenishment or pallet pick already claimed
+                // can't be handed to a second task, even if its slot's status was reset (phantom-occupancy repair, reload).
+                if (PalletLifecycleResolver.IsReservedByTask(location.PalletId, out _)) continue;
 
                 if (record.ReceivedDayNumber < bestDay)
                 {

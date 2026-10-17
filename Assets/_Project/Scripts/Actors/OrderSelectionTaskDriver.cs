@@ -368,8 +368,12 @@ namespace GameCore.Actors
             Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) stopped at {MaxPalletsPerOrder} cubed-out pallet(s) — {caseCount} case(s), {_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits} units picked. Selector's capacity is full; delivering to staging.");
 
             _currentOrder.Status = OrderData.OrderStatus.PartiallyPicked;
+            _cubingCapHit = true;
             FinishOrder();
         }
+
+        /// <summary>Set when this trip stopped because the pallets were full, not because the order was done.</summary>
+        private bool _cubingCapHit;
 
         /// <summary>Shared tail for both a fully-picked order and the cubing-cap cutoff: deliver the
         /// pallet(s) to this order's assigned door's outbound staging lane — walking to the deepest
@@ -386,6 +390,8 @@ namespace GameCore.Actors
             Vector3? stagingPos = null;
             Vector3 depthAxis = Vector3.forward;
             string failReason = null;
+            int tripDoor = 0;
+            string tripLane = null;
 
             if (order.EffectiveStagingDoor <= 0 || string.IsNullOrEmpty(order.AssignedLane))
             {
@@ -402,18 +408,18 @@ namespace GameCore.Actors
             // TrailerLoadController: it sat in the lane after the truck left, still billed, with no
             // task left to move it (a Shipped order files none). See
             // InventoryService.TryFindStagingLaneForPallets.
-            else if (!_inventoryService.TryFindStagingLaneForPallets(order.EffectiveStagingDoor, order.AssignedLane,
-                                                                    LivePalletCount(), out string resolvedLane))
+            else if (!StagingLaneAssignmentService.TryFindTripLane(_orderService, _inventoryService, order,
+                                                                   LivePalletCount(), out tripDoor, out tripLane))
             {
-                failReason = $"no lane in Stage {order.EffectiveStagingDoor} has room for all {LivePalletCount()} of this order's pallets (every lane full or too tight, or none allows outbound picking)";
+                failReason = $"no lane at Stage {order.EffectiveStagingDoor} or any nearby door has room for {LivePalletCount()} pallet(s) (every lane full, held by another customer, or an inbound trailer is docked)";
             }
-            else if (!_inventoryService.TryFindStagingSlotInLane(order.EffectiveStagingDoor, resolvedLane, out var slot))
+            else if (!_inventoryService.TryFindStagingSlotInLane(tripDoor, tripLane, out var slot))
             {
-                failReason = $"lane {order.EffectiveStagingDoor}{resolvedLane} reported room for {LivePalletCount()} pallet(s) but then handed back no slot";
+                failReason = $"lane {tripDoor}{tripLane} reported room for {LivePalletCount()} pallet(s) but then handed back no slot";
             }
             else if (!LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var pos))
             {
-                failReason = $"slot {order.EffectiveStagingDoor}{resolvedLane}-{slot.Slot} resolved but has no computed world position yet (lane geometry not baked?)";
+                failReason = $"slot {tripDoor}{tripLane}-{slot.Slot} resolved but has no computed world position yet (lane geometry not baked?)";
             }
             else
             {
@@ -421,17 +427,13 @@ namespace GameCore.Actors
                 if (LaneNamingService.TryGetLaneGeometry(slot.DoorNumber, slot.Lane, out var geo))
                     depthAxis = geo.DepthAxis;
 
-                // Record where the pallets ACTUALLY landed. If this order overflowed out of the lane
-                // it was released to, AssignedLane has to follow — it's what ReleaseOrdersToLoading
-                // groups by and what TrailerLoadController scans to find the staged pallets. Leaving
-                // it pointing at the original lane would strand the overflowed pallets.
-                if (!string.IsNullOrEmpty(resolvedLane) && resolvedLane != order.AssignedLane)
+                // Record where the pallets ACTUALLY land (possibly another lane or another door): loading
+                // scans every lane in AllStagingLanes, so an unrecorded lane would strand them.
+                if (!(tripDoor == order.EffectiveStagingDoor && tripLane == order.AssignedLane))
                 {
                     Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) overflowed " +
-                              $"from {order.EffectiveStagingDoor}{order.AssignedLane} into {order.EffectiveStagingDoor}{resolvedLane}.");
-                    // The order keeps its primary lane (its pallet picks may be staging there); the lane the
-                    // case-pick pallets landed in is recorded alongside it so loading finds both.
-                    order.AddOverflowLane(order.EffectiveStagingDoor, resolvedLane);
+                              $"from {order.EffectiveStagingDoor}{order.AssignedLane} into {tripDoor}{tripLane}.");
+                    order.AddOverflowLane(tripDoor, tripLane);
                 }
             }
 
@@ -439,11 +441,13 @@ namespace GameCore.Actors
             {
                 Vector3 targetPos = stagingPos.Value;
                 Vector3 axis = depthAxis;
+                int stageDoor = tripDoor;
+                string stageLane = tripLane;
                 // Same silent-no-op guard as the pick-location seek above.
                 _nav.CancelSeekPosition();
                 _nav.SeekPosition(targetPos, () =>
                 {
-                    PlacePalletsAtStagingSlot(order, targetPos, axis);
+                    PlacePalletsAtStagingSlot(order, stageDoor, stageLane, targetPos, axis);
                     // Pallets are now physically sitting in a real staging lane slot — distinct
                     // from FullyPicked/PartiallyPicked, which only describe picking progress, not
                     // where the goods physically are. TrailerLoadController (D1) finds pallets to
@@ -500,9 +504,12 @@ namespace GameCore.Actors
         /// chosen with room for the whole order. They must never overflow into another lane: the order
         /// records one lane, and a pallet outside it never gets loaded or cleared.
         /// </summary>
-        private void PlacePalletsAtStagingSlot(OrderData order, Vector3 fallbackBasePos, Vector3 depthAxis)
+        private void PlacePalletsAtStagingSlot(OrderData order, int door, string lane, Vector3 fallbackBasePos, Vector3 depthAxis)
         {
             Vector3 axis = depthAxis.sqrMagnitude > 0.0001f ? depthAxis.normalized : Vector3.forward;
+            // The lane this trip resolved (TryFindTripLane) - possibly an overflow lane at another door. It used to
+            // be order.AssignedLane unconditionally, so an overflowed trip was dropped back into the full primary lane.
+            if (door <= 0 || string.IsNullOrEmpty(lane)) { door = order != null ? order.EffectiveStagingDoor : 0; lane = order?.AssignedLane; }
 
             for (int i = 0; i < _pallets.Count; i++)
             {
@@ -515,7 +522,7 @@ namespace GameCore.Actors
                 // already picked a lane with room for every pallet, so this lookup is expected to
                 // succeed for all of them.
                 if (order != null && _inventoryService != null &&
-                    _inventoryService.TryFindStagingSlotInLane(order.EffectiveStagingDoor, order.AssignedLane,
+                    _inventoryService.TryFindStagingSlotInLane(door, lane,
                                                                out var slot) &&
                     LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var slotPos))
                 {
@@ -524,15 +531,15 @@ namespace GameCore.Actors
                     // pallet of this order has already been unparented by the time we get here, so it
                     // is counted and this one lands on top of it rather than through it.
                     float baseY = TrailerOffloadController.StagingDropBaseY(
-                        order.EffectiveStagingDoor, order.AssignedLane, slot.Cell, pallet.gameObject);
+                        door, lane, slot.Cell, pallet.gameObject);
                     pos = new Vector3(slotPos.x, baseY, slotPos.z);
                 }
                 else if (order != null)
                 {
                     // Not cosmetic: this pallet is about to be left somewhere the loader does not scan,
                     // so it will not ship with the order. Loud on purpose.
-                    Debug.LogError($"[OrderSelectionTaskDriver] No free slot in lane {order.EffectiveStagingDoor}" +
-                                   $"{order.AssignedLane} for pallet {i + 1}/{_pallets.Count} of order {order.OrderId} " +
+                    Debug.LogError($"[OrderSelectionTaskDriver] No free slot in lane {door}" +
+                                   $"{lane} for pallet {i + 1}/{_pallets.Count} of order {order.OrderId} " +
                                    $"({order.CustomerName}) — dropping it beside the last one, where the loader will " +
                                    $"NOT find it. The lane was verified to have room before placement began, so " +
                                    $"something claimed a slot mid-drop.");
@@ -558,6 +565,19 @@ namespace GameCore.Actors
         {
             var task = _currentTask;
             var order = _currentOrder;
+
+            // A continuation trip (see FinishOrderCleanup) on an order whose earlier trips already staged
+            // freight: un-releasing it would wipe the lane those pallets sit in. Ship what's there instead.
+            if (order.TotalUnitsPicked > 0)
+            {
+                foreach (var p in _pallets) if (p != null) Destroy(p.gameObject);
+                _pallets.Clear();
+                Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderNumber} ({order.CustomerName}) has nothing left to pick " +
+                                 $"on this trip; earlier trips staged {order.TotalUnitsPicked}/{order.TotalUnits} - it ships with that.");
+                order.Status = OrderData.OrderStatus.Staged;
+                FinishOrderCleanup(task);
+                return;
+            }
 
             order.Status = OrderData.OrderStatus.Pending;
             order.AssignedDoorNumber = 0;
@@ -586,6 +606,15 @@ namespace GameCore.Actors
         private void FinishOrderCleanup(WorkTask task)
         {
             _workQueue.CompleteTask(task.TaskId);
+
+            // MULTI-TRIP PICKING (2026-10-17 playtest): a selector carries at most MaxPalletsPerOrder pallets.
+            // An order bigger than that used to ship short every time (a 439-case daily order shipped ~20%
+            // and cost reputation each day). Now the rest goes back on the queue as another OrderSelect trip;
+            // the order stays PartiallyPicked until the last trip stages, and AutoCloseLoadedOrders waits
+            // while any OrderSelect task for it is live.
+            if (_cubingCapHit && _currentOrder != null && _orderService.FileContinuationSelect(_currentOrder))
+                _currentOrder.Status = OrderData.OrderStatus.PartiallyPicked;
+            _cubingCapHit = false;
 
             _currentTask = null;
             _currentOrder = null;

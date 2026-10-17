@@ -57,6 +57,12 @@ namespace GameCore.Persistence
                 var link = identity.AssignedSlot.GetComponentInChildren<PalletMasterLink>();
                 if (link == null || string.IsNullOrEmpty(link.PalletId)) continue;
 
+                // Outbound freight on the forks (a loader mid-load) belongs to OutboundPalletPersistence. Captured here
+                // its inventory record (destroyed when it was staged) is gone, and the restore re-registered it as a
+                // brand-new inbound pallet - phantom stock.
+                var outboundTag = link.GetComponent<OutboundPalletBuilder>();
+                if (outboundTag != null && !string.IsNullOrEmpty(outboundTag.OrderId)) continue;
+
                 var rec = inv?.GetPallet(link.PalletId);
                 var placed  = link.GetComponent<PlacedObject>();
                 var builder = link.GetComponentInChildren<PalletBuilder>();
@@ -343,11 +349,53 @@ namespace GameCore.Persistence
                     }
                     Debug.Log($"[MHEOperatorPersistenceService] No resumable task for '{snap.inventoryPalletId}' — staged directly at {record.CurrentLocation}.");
                 }
-                else
+                else if (!SetDownUnreceivedPallet(inv, grid, go, sku, snap.skuId, obstacle, po))
                 {
                     Debug.LogWarning($"[MHEOperatorPersistenceService] Carried pallet '{snap.inventoryPalletId}' restored but nothing could resume it — left on operator's forks.");
                 }
             }
+        }
+
+        /// <summary>
+        /// A dock stocker saved mid-offload carries a pallet that was never registered (it gets its inventory
+        /// record when it lands in the lane). Nothing resumes that carry, so it rode the forks forever while the
+        /// dock stocker patrolled (2026-10-17 playtest). Finish the job here: set it down in the first free
+        /// inbound-capable lane slot, register it, and queue its Receive task, exactly like a normal drop.
+        /// </summary>
+        private static bool SetDownUnreceivedPallet(InventoryService inv, PlacementGrid grid, GameObject go, SkuData sku,
+                                                    string skuId, UnityEngine.AI.NavMeshObstacle obstacle, PlacedObject po)
+        {
+            if (inv == null || grid == null || go == null || string.IsNullOrEmpty(skuId)) return false;
+            int qty = sku != null ? TrailerCapacity.CasesPerPallet(sku) : 0;
+            if (qty <= 0) return false;
+
+            foreach (var (door, lane) in LaneNamingService.AllLanes())
+            {
+                if (!inv.LaneAcceptsPutaway(door, lane)) continue;
+                if (!inv.TryGetNextFreeSlot(door, lane, out var slot)) continue;
+                if (!LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var pos)) continue;
+
+                float y = TrailerOffloadController.StagingDropBaseY(door, lane, slot.Cell, go);
+                go.transform.SetParent(null, worldPositionStays: true);
+                go.transform.position = new Vector3(pos.x, y, pos.z);
+                if (LaneNamingService.TryGetLaneGeometry(door, lane, out var geo) && geo.DepthAxis.sqrMagnitude > 0.0001f)
+                    go.transform.rotation = Quaternion.LookRotation(geo.DepthAxis.normalized, Vector3.up);
+                if (obstacle != null) obstacle.enabled = true;
+
+                var record = inv.RegisterPhysicalPallet(slot.Cell, skuId, qty);
+                PalletMasterLink.Attach(go, record.PalletId);
+                if (po != null)
+                {
+                    po.gridX = slot.Cell.x;
+                    po.gridY = slot.Cell.y;
+                    po.enabled = true;
+                    PlacedObjectRegistry.Register(po);
+                }
+                ReceivingService.CreateReceiveTaskForPallet(record);
+                Debug.LogWarning($"[MHEOperatorPersistenceService] Dock stocker was saved mid-offload with an unregistered pallet of {skuId} - set it down in {door}{lane} and queued it for receiving.");
+                return true;
+            }
+            return false;
         }
 
         /// <summary>

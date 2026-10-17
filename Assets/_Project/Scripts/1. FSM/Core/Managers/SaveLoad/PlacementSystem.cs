@@ -620,6 +620,9 @@ public class PlacementSystem : MonoBehaviour
         // Truck, or the rare late-stage Dock Stocker carry) — see MHEOperatorPersistenceService.
         save.carriedPallets = GameCore.Persistence.MHEOperatorPersistenceService.CaptureAll();
 
+        // Case-picked pallets in lanes + any outbound pallet riding a selector/jack/dock stocker (nothing else saves them).
+        save.outboundPallets = GameCore.Persistence.OutboundPalletPersistence.CaptureAll();
+
         // Trim portrait PNGs for anyone no longer in the active character database (e.g. unhired
         // candidates that cycled off the hiring board) so the Portraits folder can't grow unbounded.
         if (EmployeePhotoBooth.Instance != null)
@@ -1056,6 +1059,9 @@ public class PlacementSystem : MonoBehaviour
         // orphaned-Reserved-locations pass above — restored bookkeeping that outlived its physical
         // counterpart. Must run after PalletPersistenceService.RestoreAll and the work-queue restore,
         // never inside OrderService.Import, or it would judge the world before it finished loading.
+        // Case-picked and mid-carry outbound pallets first, so the reconcile below sees their orders' freight.
+        GameCore.Persistence.OutboundPalletPersistence.RestoreAll(save.outboundPallets);
+
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderServiceForReconcile))
             orderServiceForReconcile.ReconcileStagedOrdersAgainstScene();
 
@@ -1174,6 +1180,9 @@ public class PlacementSystem : MonoBehaviour
         // placedObjects loop) exists. Boarding first (carried-pallet restore needs AssignedSlot).
         GameCore.Persistence.MHEOperatorPersistenceService.RestoreBoarding(records);
         GameCore.Persistence.MHEOperatorPersistenceService.RestoreCarriedPallets(carriedPallets, grid);
+
+        // Outbound pallets that were mid-carry go into a lane slot now that lane geometry exists.
+        GameCore.Persistence.OutboundPalletPersistence.SetDownCarried();
     }
 
     // ---------------------------------------------------------

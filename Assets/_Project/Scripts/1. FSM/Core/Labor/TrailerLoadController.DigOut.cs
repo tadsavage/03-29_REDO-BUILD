@@ -160,7 +160,7 @@ namespace GameCore.Labor
 
             foreach (var s in LaneNamingService.GetLane(door, lane)) // slot 1 = door end
             {
-                if (inv.GetOutboundPalletObjectsAt(door, lane, s.Cell).Any(go => go != null && go.transform.parent == null))
+                if (inv.GetOutboundPalletObjectsAt(door, lane, s.Cell).Any(go => go != null && OutboundPalletBuilder.IsOnFloorTransform(go.transform)))
                 {
                     why = $"staged outbound freight at {s.Name} is in the way";
                     return false;
@@ -262,7 +262,7 @@ namespace GameCore.Labor
         private bool HasStagedPalletForOrder(string orderId)
         {
             foreach (var p in FindObjectsByType<OutboundPalletBuilder>())
-                if (p != null && p.transform.parent == null && p.OrderId == orderId) return true;
+                if (p != null && p.IsOnFloor && p.OrderId == orderId) return true;
             return false;
         }
 

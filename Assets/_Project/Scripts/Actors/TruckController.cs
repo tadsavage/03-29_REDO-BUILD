@@ -1089,9 +1089,57 @@ private DockSlot        _dock;
                 }
             }
 
+            // Outbound cargo: keep the order tag, each case's SKU and the exact pose (see TrailerPalletSnapshot).
+            var outbound = pallet.GetComponent<OutboundPalletBuilder>();
+            if (outbound != null && !string.IsNullOrEmpty(outbound.OrderId))
+            {
+                snap.outboundOrderId = outbound.OrderId;
+                snap.hasLocalPose = true;
+                snap.localPosition = pallet.localPosition;
+                snap.localRotation = pallet.localRotation;
+                int n = snap.caseLocalPositions.Count;
+                for (int j = 0; j < n; j++)
+                    snap.caseSkus.Add(outbound.CaseSkus.Count == n ? outbound.CaseSkus[j] : snap.skuId);
+            }
+
             result.Add(snap);
         }
         return result;
+    }
+
+    /// <summary>Rebuilds one OUTBOUND pallet that was already in this trailer at save time: exact pose, every case with its
+    /// own SKU's prefab, and the order tag at stage Loaded (lifecycle SHIPPED), so the loader and billing see it again.</summary>
+    private void RestoreOutboundTrailerPallet(TrailerPalletSnapshot snap, Transform loadParent, int index,
+                                              GameCore.Inventory.InventoryService inv)
+    {
+        var instance = Instantiate(palletVisualPrefab);
+        instance.transform.SetParent(loadParent, false);
+        instance.transform.localPosition = snap.localPosition;
+        instance.transform.localRotation = snap.localRotation;
+        instance.name = $"OutboundPallet_{snap.outboundOrderId}_{index + 1}";
+
+        var po = instance.GetComponent<PlacedObject>();
+        if (po != null) { po.enabled = false; Destroy(po); }
+        var bd = instance.GetComponent<BuildingData>();
+        if (bd != null) Destroy(bd);
+        var pb = instance.GetComponent<PalletBuilder>();
+        if (pb != null) DestroyImmediate(pb);
+        var stale = instance.transform.Find("PalletLoad");
+        if (stale != null) DestroyImmediate(stale.gameObject);
+
+        var outbound = instance.AddComponent<OutboundPalletBuilder>();
+        outbound.OrderId = snap.outboundOrderId;
+        int count = Mathf.Min(snap.caseLocalPositions.Count, snap.caseLocalRotations.Count);
+        for (int j = 0; j < count; j++)
+        {
+            string skuId = j < snap.caseSkus.Count && !string.IsNullOrEmpty(snap.caseSkus[j]) ? snap.caseSkus[j] : snap.skuId;
+            var sku = inv?.GetSkuData(skuId);
+            Vector3 dim = sku != null ? new Vector3(sku.CaseWidth, sku.CaseHeight, sku.CaseLength) : new Vector3(0.4f, 0.3f, 0.3f);
+            outbound.RestoreCase(skuId, sku?.Prefab, dim, sku != null ? Mathf.Max(1, sku.Ti) : 1,
+                                 sku != null ? Mathf.Max(1, sku.Hi) : 1, snap.caseLocalPositions[j], snap.caseLocalRotations[j]);
+        }
+        outbound.Stage = OutboundPalletBuilder.PalletStage.Loaded;
+        outbound.SetNavObstacleActive(false);
     }
 
     /// <summary>
@@ -1413,6 +1461,12 @@ private DockSlot        _dock;
         {
             var palletSnap = palletSnaps[i];
             if (palletSnap == null) continue;
+
+            if (!string.IsNullOrEmpty(palletSnap.outboundOrderId) && palletSnap.hasLocalPose)
+            {
+                RestoreOutboundTrailerPallet(palletSnap, loadParent, i, inventoryService);
+                continue;
+            }
 
             var sku = inventoryService?.GetSkuData(palletSnap.skuId);
 

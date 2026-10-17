@@ -228,6 +228,7 @@ namespace GameCore.Actors
                     Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) — both pallets on the jack are full ({_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits}). Driving to staging.");
                     _currentOrder.Status = OrderData.OrderStatus.PartiallyPicked;
                     completion = OrderData.OrderStatus.Staged;
+                    _cubingCapHit = true;
                     break;
                 }
             }
@@ -343,7 +344,7 @@ namespace GameCore.Actors
                 yield return new WaitForSeconds(StagingRetryInterval);
             }
 
-            int door = order.EffectiveStagingDoor;
+            int door = slot.DoorNumber;   // may be a neighbouring door's lane (overflow)
             if (!LaneNamingService.TryGetLaneGeometry(door, resolvedLane, out var geo))
             {
                 yield return AbandonJackOnFoot($"lane {door}{resolvedLane} has no geometry", completion);
@@ -399,7 +400,7 @@ namespace GameCore.Actors
 
             // Lower and leave them.
             yield return MoveForks(0f);
-            PlacePalletsAtStagingSlot(order, slotPos, axis);
+            PlacePalletsAtStagingSlot(order, door, resolvedLane, slotPos, axis);
             order.Status = completion;
             _pallets.Clear();
 
@@ -604,6 +605,15 @@ namespace GameCore.Actors
                 if (anim == null || anim.runtimeAnimatorController == null) continue;
                 foreach (var p in anim.parameters)
                     if (p.name == param && p.type == AnimatorControllerParameterType.Bool) { anim.SetBool(param, value); break; }
+
+                // The Carry layer sits at weight 0 and is only switched on while a case is held. On a humanoid
+                // rig an empty state on a full-weight override layer still forces the arms into a reference pose,
+                // which froze every walking employee's arms (2026-10-17).
+                if (param == "CarryCase")
+                {
+                    int layer = anim.GetLayerIndex("Carry");
+                    if (layer >= 0) anim.SetLayerWeight(layer, value ? 1f : 0f);
+                }
             }
         }
 
@@ -991,15 +1001,15 @@ namespace GameCore.Actors
             resolvedLane = null; slot = default; pos = default; depthAxis = Vector3.forward; failReason = null;
             if (order.EffectiveStagingDoor <= 0 || string.IsNullOrEmpty(order.AssignedLane))
             { failReason = "order was never released to a staging lane"; return false; }
-            if (!_inventoryService.TryFindStagingLaneForPallets(order.EffectiveStagingDoor, order.AssignedLane, LivePalletCount(), out resolvedLane))
-            { failReason = $"no lane in Stage {order.EffectiveStagingDoor} has room for all {LivePalletCount()} of this order's pallets"; return false; }
-            if (!_inventoryService.TryFindStagingSlotInLane(order.EffectiveStagingDoor, resolvedLane, out slot))
-            { failReason = $"lane {order.EffectiveStagingDoor}{resolvedLane} reported room but handed back no slot"; return false; }
+            if (!StagingLaneAssignmentService.TryFindTripLane(_orderService, _inventoryService, order, LivePalletCount(), out int door, out resolvedLane))
+            { failReason = $"no lane at Stage {order.EffectiveStagingDoor} or any nearby door has room for {LivePalletCount()} pallet(s)"; return false; }
+            if (!_inventoryService.TryFindStagingSlotInLane(door, resolvedLane, out slot))
+            { failReason = $"lane {door}{resolvedLane} reported room but handed back no slot"; return false; }
             if (!LaneNamingService.TryGetSlotWorldPos(slot.Cell, out pos))
             { failReason = $"slot {slot.Name} has no world position yet"; return false; }
             if (LaneNamingService.TryGetLaneGeometry(slot.DoorNumber, slot.Lane, out var geo)) depthAxis = geo.DepthAxis;
-            if (!string.IsNullOrEmpty(resolvedLane) && resolvedLane != order.AssignedLane)
-                order.AddOverflowLane(order.EffectiveStagingDoor, resolvedLane);
+            if (!string.IsNullOrEmpty(resolvedLane) && !(door == order.EffectiveStagingDoor && resolvedLane == order.AssignedLane))
+                order.AddOverflowLane(door, resolvedLane);
             return true;
         }
 

@@ -495,7 +495,7 @@ namespace GameCore.Labor
                     {
                         var go = PalletMasterLink.Find(rec.PalletId)?.gameObject;
                         if (go == null || go == pallet.gameObject) continue;
-                        if (go.transform.parent != null) continue; // skip carried pallets
+                        if (!OutboundPalletBuilder.IsOnFloorTransform(go.transform)) continue; // skip carried pallets (restored ones sit under PlacedObjectsContainer and DO count)
                         float top = MeasureTopY(go);
                         if (top > targetTopY) targetTopY = top;
                     }

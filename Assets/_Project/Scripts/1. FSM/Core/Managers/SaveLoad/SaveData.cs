@@ -113,6 +113,10 @@ public class SaveData
     // InventoryService record). See MHEOperatorPersistenceService. Absent in older saves.
     public List<CarriedPalletSnapshot> carriedPallets = new();
 
+    // ── OUTBOUND (case-picked / carried) PALLETS (2026-10-17) ────────────────
+    // See OutboundPalletSnapshot. Absent in older saves.
+    public List<OutboundPalletSnapshot> outboundPallets = new();
+
     // ── Game settings captured per-save ──────────────────────────────────────
     // Sentinel defaults (-1 / empty) mean "not stored in this file" so that
     // loading an OLD save does not overwrite the player's current settings.
@@ -403,6 +407,38 @@ public class TrailerPalletSnapshot
 
     /// <summary>Local-space rotation of each case child under PalletLoad.</summary>
     public List<Quaternion> caseLocalRotations = new();
+
+    // ── OUTBOUND cargo (2026-10-17) ──────────────────────────────────────────
+    // A pallet already loaded onto an outbound trailer: the order it ships on, the SKU of EVERY case (a case-picked
+    // pallet is mixed), and its exact pose in the Load container (outbound pallets don't follow the inbound SlotN/TierN
+    // naming, so the slot parse put them all in slot 0). Empty orderId = ordinary inbound cargo, restored as before.
+    public string outboundOrderId = "";
+    public List<string> caseSkus = new();
+    public bool hasLocalPose;
+    public Vector3 localPosition;
+    public Quaternion localRotation;
+}
+
+/// <summary>
+/// One OUTBOUND pallet that is not a rack/lane PlacedObject and not inside a trailer: a case-picked (mixed) pallet
+/// standing in a staging lane, or any outbound pallet riding a selector, a pallet jack or a dock stocker's forks at
+/// save time. Before 2026-10-17 none of these were saved: a case-picked pallet simply vanished on load while its
+/// order still counted the cases as picked (and the rack stock was already gone).
+/// </summary>
+[System.Serializable]
+public class OutboundPalletSnapshot
+{
+    public string orderId = "";
+    public int stage;                       // OutboundPalletBuilder.PalletStage
+    public bool wasCarried;                 // riding something at save time -> set down in a lane on load
+    public Vector3 worldPosition;
+    public Quaternion worldRotation;
+    public List<string> caseSkus = new();
+    public List<Vector3> caseLocalPositions = new();
+    public List<Quaternion> caseLocalRotations = new();
+    /// <summary>Whole-pallet pick (one SKU, built by PalletBuilder): its SKU and case count, for PalletData.</summary>
+    public string wholeSkuId = "";
+    public int wholeCases;
 }
 
 /// <summary>
