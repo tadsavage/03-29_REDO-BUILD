@@ -183,7 +183,7 @@ namespace GameCore.Economy
                 if (kvp.Value <= 0) continue;
 
                 _fractionalByGLLine.TryGetValue(kvp.Key, out float owed);
-                owed += kvp.Value / 60f;
+                owed += kvp.Value * UpkeepScale / 60f;
 
                 int wholeDollars = Mathf.FloorToInt(owed);
                 _fractionalByGLLine[kvp.Key] = owed - wholeDollars;
@@ -212,15 +212,29 @@ namespace GameCore.Economy
         /// not per hour). Quick, simple stand-in pending a real lease/property system — easy to
         /// remove or replace wholesale later.
         /// </summary>
+        /// <summary>
+        /// BALANCE (2026-10-17 playtest): every placed object's ObjDataSO.hourlyCost is multiplied by this before
+        /// it's charged. At 1 real second = 1 game minute a game day is 24 real minutes, and the authored per-hour
+        /// costs ($1/h per foundation slab, $1–2/h per rack level) added up to $11k/day of upkeep for a modest
+        /// 3-aisle, 3-door building — against ~$1k/day of revenue from the only customer available at reputation
+        /// 0. Tune here rather than editing ~100 assets; 1 = authored values.
+        /// </summary>
+        public static float UpkeepScale = 0.1f;
+
+        /// <summary>BALANCE (2026-10-17): lease per BUILT floor cell (foundation/grounds) per day. It used to charge
+        /// the whole 100×100 grid ($1,000/day) no matter how little was built, so a tiny starter shed paid the
+        /// same rent as a full warehouse.</summary>
+        public static float LeasePerBuiltCellPerDay = 0.5f;
+
         private void ChargeLease()
         {
             if (_moneyService == null) return;
 
-            var grid = UnityEngine.Object.FindAnyObjectByType<PlacementGrid>();
-            if (grid == null) return;
-
-            int totalTiles = grid.Width * grid.Height;
-            int leaseCost = totalTiles / 10;
+            int builtCells = 0;
+            foreach (var po in PlacedObjectRegistry.All)
+                if (po != null && po.data != null && (po.data.category == "Grounds" || po.data.category == "Foundation"))
+                    builtCells += Mathf.Max(1, po.data.footprint.x * po.data.footprint.y);
+            int leaseCost = Mathf.RoundToInt(builtCells * LeasePerBuiltCellPerDay);
             if (leaseCost <= 0) return;
 
             _moneyService.RemoveCapital(leaseCost, FinanceCategory.LeaseMortgage);

@@ -1912,7 +1912,13 @@ private DockSlot        _dock;
                 Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
                 Vector3 toTarget = flat - transform.position;
                 toTarget.y = 0f;
-                bool arrived = toTarget.magnitude < arrivedThreshold;
+                // Arrived ALSO when this frame's step would carry it past the point, or the point is already
+                // behind it. Radius-only arrival let a fast frame (game speed 3x, or a hitch) jump past the
+                // arrival circle, and with the heading locked the truck drove straight on forever — one was
+                // found 2.6 km off the map (2026-10-17 soak test).
+                bool arrived = toTarget.magnitude < arrivedThreshold
+                            || toTarget.magnitude <= driveSpeed * Time.deltaTime
+                            || Vector3.Dot(toTarget, transform.forward) <= 0f;
 
                 if (arrived)
                     transform.position = flat;
@@ -2397,7 +2403,8 @@ private DockSlot        _dock;
                 Vector3 toTarget = flat - transform.position;
                 toTarget.y = 0f;
 
-                if (toTarget.magnitude < arrivedThreshold)
+                if (toTarget.magnitude < arrivedThreshold || toTarget.magnitude <= sideLotPullInSpeed * Time.deltaTime ||
+                    Vector3.Dot(toTarget, transform.forward) <= 0f)   // same overshoot guard as ToTruckNavPoint1
                 {
                     transform.position = flat;
                     if (_sideLotSlot != null && _sideLotSlot.Anchor != null) transform.rotation = _sideLotSlot.Anchor.rotation;
@@ -2714,7 +2721,8 @@ private DockSlot        _dock;
         Vector3 toTarget = flat - transform.position;
         toTarget.y = 0f;
 
-        if (toTarget.magnitude < arrivedThreshold)
+        // Also arrived when one frame's step would overshoot the point (fast game speed / frame hitch).
+        if (toTarget.magnitude < arrivedThreshold || toTarget.magnitude <= driveSpeed * Time.deltaTime)
         {
             transform.position = flat;
             return true;
@@ -3730,6 +3738,11 @@ private DockSlot        _dock;
         if (_state == TruckState.Queuing || _state == TruckState.GuardCheck) return; // not through the gate yet
         if (_state == TruckState.Exiting || _state == TruckState.Idle) return;
         if (_inboundPenaltyTierApplied >= 4) return; // already resolved — nothing left to tick
+        // The dwell ladder punishes a trailer left waiting with NOTHING offloaded. Once a dock stocker has claimed
+        // it (or finished, or the truck is pulling away) the wait is over — the clock kept running and charged
+        // "waited 2 hours with nothing offloaded" right after the same PO earned "beat the offload Standard"
+        // (2026-10-17 soak test, PO IG4160).
+        if (_offloadClaimed || _offloadComplete || IsLeaving || IsDeparting) return;
 
         var gameCtx = FindAnyObjectByType<GameContext>();
         if (gameCtx == null || gameCtx.TimeService == null) return;

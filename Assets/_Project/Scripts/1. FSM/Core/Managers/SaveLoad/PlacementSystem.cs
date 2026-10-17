@@ -589,7 +589,9 @@ public class PlacementSystem : MonoBehaviour
 
                 // MHE boarding — record which vehicle (by stable grid cell) this operator was
                 // riding, if any, so RestoreBoarding can re-seat them on load.
-                if (ident.AssignedSlot != null)
+                // A pallet jack is only borrowed by an order selector for one order (the run itself is not
+                // saved), so the selector reloads on foot and the jack reloads parked.
+                if (ident.AssignedSlot != null && !ident.AssignedSlot.IsPalletJack)
                 {
                     var vehiclePo = ident.AssignedSlot.GetComponent<PlacedObject>();
                     if (vehiclePo != null)

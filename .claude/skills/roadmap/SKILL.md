@@ -23,10 +23,10 @@ Customer asks for a product -> player has it or orders it from a vendor -> sched
 ## Step 1 sub-plan: case pick
 Status: orders -> release -> tasks is built; Work Queue no longer releases orders (release happens from the Scheduler tile's RELEASE ORDERS button). Open items, in order:
 1. Play-test release: confirm it creates the PalletPick and case-pick (OrderSelect) tasks in the Work Queue. IN PROGRESS 2026-10-13 night: four root-cause fixes are in code but untested together (held tasks must be Open; IsAwaitingRelease; selector must not reset a released order; cancel refiles putaway). Then load a trailer and close out an order.
-2. Order selector animation/behaviour: get an empty CHEP pallet onto a pallet jack, drive to pick slots, dismount, pick cases, return them to the pallet.
-3. Pallet building: dimension-aware "heavy to light" stacking (sturdy base, mid-density, flimsy top), square pallets, no clipping. Needs case dimensions/weight/crush strength per SKU.
+2. Order selector animation/behaviour: get an empty CHEP pallet onto a pallet jack, drive to pick slots, dismount, pick cases, return them to the pallet. BUILT + play-verified 2026-10-16 (`OrderSelectionTaskDriver.PalletJack.cs`): one full order picked and staged by jack. Needs a placed Pallet Jack, otherwise selectors pick by hand.
+3. Pallet building: dimension-aware "heavy to light" stacking (sturdy base, mid-density, flimsy top), square pallets, no clipping. Needs case dimensions/weight/crush strength per SKU. PARTLY DONE 2026-10-16: cases now fill down into the lowest spot (height map, 0.05 clip tolerance) so mixed-SKU pallets have no air layers; heavy-to-light ordering not started.
 4. Stretch wrap: special material/model, player wraps the pallet.
-5. Staging: pallet jack backs into the staging lane (rear toward the entry, reverses into the empty position, lowers). Tad can supply reference photos.
+5. Staging: pallet jack backs into the staging lane (rear toward the entry, reverses into the empty position, lowers). BUILT with item 2 (enters from the open end facing away from the door; door end if the far side is blocked). Stacking onto an existing staged pallet still snaps up (no lift animation).
 Slotting (pick-slot assignment, inventory control role) supports step 3 later.
 
 ## How to use this skill

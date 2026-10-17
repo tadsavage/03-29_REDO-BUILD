@@ -94,6 +94,13 @@ public class PalletInventoryTracker : MonoBehaviour
         _subscribedTo.Unsubscribe<PlacedObject>(GameEvents.Build.OnObjectDeleted, OnChanged);
     }
 
+    /// <summary>True when a DIFFERENT live object already carries a link to this record.</summary>
+    private static bool HeldByAnotherObject(string palletId, GameObject self)
+    {
+        var holder = PalletMasterLink.Find(palletId);
+        return holder != null && holder.gameObject != self && holder.isActiveAndEnabled;
+    }
+
     private static bool IsPallet(PlacedObject po)
         => po != null && po.gameObject.activeInHierarchy && po.data != null && po.data.category == "Inventory";
 
@@ -112,7 +119,10 @@ public class PalletInventoryTracker : MonoBehaviour
         }
 
         // 2. Add/refresh links for every placed pallet currently in the world.
-        foreach (var po in PlacedObjectRegistry.All)
+        // Iterate a SNAPSHOT: registering a record below raises inventory events whose listeners can place or
+        // remove objects, which mutated the registry mid-loop — "Collection was modified" every frame, so the
+        // sync never finished (found by the 2026-10-17 soak test).
+        foreach (var po in PlacedObjectRegistry.All.ToList())
         {
             if (!IsPallet(po)) continue;
             // Staged outbound freight is NOT inventory: its record was deliberately destroyed when a truck or
@@ -137,13 +147,21 @@ public class PalletInventoryTracker : MonoBehaviour
                 if (pallet == null)
                 {
                     var copyData = po.GetComponent<PalletData>();
-                    if (copyData != null && !string.IsNullOrEmpty(copyData.LoadId) &&
-                        po.GetComponent<OutboundPalletBuilder>() == null &&
-                        inv.GetAllPallets().Any(r => r.LoadId == copyData.LoadId))
+                    var byLoad = copyData != null && !string.IsNullOrEmpty(copyData.LoadId)
+                        ? inv.GetAllPallets().FirstOrDefault(r => r.LoadId == copyData.LoadId) : null;
+                    if (byLoad != null && po.GetComponent<OutboundPalletBuilder>() == null)
                     {
-                        _linked.Remove(po);
-                        Destroy(po.gameObject);
-                        continue;
+                        if (HeldByAnotherObject(byLoad.PalletId, po.gameObject))
+                        {
+                            // A genuine second copy of a pallet that another object already carries.
+                            _linked.Remove(po);
+                            Destroy(po.gameObject);
+                            continue;
+                        }
+                        // Nobody else holds that record: this IS the pallet. Re-link rather than delete it.
+                        PalletMasterLink.Attach(po.gameObject, byLoad.PalletId);
+                        _linked[po] = byLoad.PalletId;
+                        if (byLoad.CurrentLocation != cell) inv.MovePallet(byLoad.PalletId, cell);
                     }
                 }
             }
@@ -172,10 +190,22 @@ public class PalletInventoryTracker : MonoBehaviour
                     // A second object for a pallet that already has a record is a duplicate copy (a load restored the
                     // same pallet twice: once from its record, once from the saved dock objects). One Load ID = one
                     // physical pallet, so the copy goes instead of becoming a second ledger entry for the same stock.
-                    if (known && !string.IsNullOrEmpty(knownData.LoadId) &&
-                        inv.GetAllPallets().Any(r => r.LoadId == knownData.LoadId))
+                    //
+                    // BUT only when another object really holds that record. A pallet restored with a stale link
+                    // whose record WAS restored (same Load ID, new id) is the only object for it — the 2026-10-17
+                    // soak test found this branch deleting all four such pallets on load. Re-link it instead.
+                    var sameLoad = known && !string.IsNullOrEmpty(knownData.LoadId)
+                        ? inv.GetAllPallets().FirstOrDefault(r => r.LoadId == knownData.LoadId) : null;
+                    if (sameLoad != null)
                     {
-                        Destroy(po.gameObject);
+                        if (HeldByAnotherObject(sameLoad.PalletId, po.gameObject))
+                        {
+                            Destroy(po.gameObject);
+                            continue;
+                        }
+                        PalletMasterLink.Attach(po.gameObject, sameLoad.PalletId);
+                        _linked[po] = sameLoad.PalletId;
+                        if (sameLoad.CurrentLocation != cell) inv.MovePallet(sameLoad.PalletId, cell);
                         continue;
                     }
                     string sku = known ? knownData.ItemNumber : (po.data != null ? po.data.name : "PHYS");

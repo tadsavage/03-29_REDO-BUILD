@@ -93,6 +93,7 @@ Claude's thoughts for when this is built (not a decision): the static/dynamic sw
 - Lighting system (purchasable fixtures, safety/accuracy effect) remains on deck before the core loop is "done" (see CLAUDE.md).
 - Worker respect / manager prestige should be modelled with the same shape as vendor/customer reputation (one visible score, a few inputs) to avoid a pile of disconnected meters.
 - Night shift + darkness + safety is a natural place for the lighting system and sanitation/maintenance to pay off.
+- Pallet jack battery charging (Tad, 2026-10-16): a charger placed on a Pallet Jack Parking bay (`PalletJackParkingSpot`, built 2026-10-16) charges the parked jack; jacks drain while driving and must come back to charge. Fits step 3 (player-drivable equipment) or step 4 (maintenance), not step 1.
 
 ---
 

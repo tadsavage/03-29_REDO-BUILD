@@ -111,6 +111,34 @@ public class MHEOperatorSlot : MonoBehaviour
         return _operatorDriveController.name.IndexOf("Pallet", System.StringComparison.OrdinalIgnoreCase) >= 0 ? 2 : 1;
     }
 
+    /// <summary>True for a pallet jack (walk-behind / stand-on). Order selectors borrow these per order.</summary>
+    public bool IsPalletJack => DriveStyle() == 2;
+
+    /// <summary>Where the rider stands while driving.</summary>
+    public Transform OperatorAnchor => _operatorAnchor != null ? _operatorAnchor : transform;
+
+    /// <summary>Order-selector use: the rider hops off to pick a case but KEEPS the machine (still
+    /// CurrentOperator, own navigation stays off, vehicle stays parked). The caller walks them around by
+    /// script and calls <see cref="StepOn"/> to get back on.</summary>
+    public void StepOff()
+    {
+        if (CurrentOperator == null) return;
+        SetDriveStyle(CurrentOperator, 0);
+        CurrentOperator.transform.SetParent(null, worldPositionStays: true);
+    }
+
+    /// <summary>Back onto the machine after <see cref="StepOff"/>.</summary>
+    public void StepOn()
+    {
+        if (CurrentOperator == null) return;
+        Transform t = CurrentOperator.transform;
+        t.SetParent(OperatorAnchor, worldPositionStays: false);
+        t.localPosition = Vector3.zero;
+        t.localRotation = Quaternion.identity;
+        t.localScale    = Vector3.one;
+        SetDriveStyle(CurrentOperator, DriveStyle());
+    }
+
     private static void SetDriveStyle(EmployeeIdentity identity, int style)
     {
         foreach (var anim in identity.GetComponentsInChildren<Animator>(true))

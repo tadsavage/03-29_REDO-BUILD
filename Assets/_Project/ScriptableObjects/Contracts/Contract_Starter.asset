@@ -13,8 +13,7 @@ MonoBehaviour:
   m_Name: Contract_Starter
   m_EditorClassIdentifier: Assembly-CSharp::GameCore.Inventory.ContractData
   _customer: {fileID: 11400000, guid: 2995d9b1cbba39a4ea998ed7dab7f891, type: 2}
-  _pitch: "A small, forgiving account. Two or three modest orders a day \u2014 a
-    good first customer."
+  _pitch: "A small, forgiving account. Two or three modest orders a day \u2014 a good first customer."
   _kind: 0
   _frequency: 0
   _reputationRequired: 0
@@ -22,13 +21,14 @@ MonoBehaviour:
   _bulkLinesMax: 3
   _bulkPalletsPerLineMin: 1
   _bulkPalletsPerLineMax: 10
+  _bulkPreviewLines: []
   _palletCount: 1
-  _ordersPerDayMin: 1
-  _ordersPerDayMax: 2
-  _lineItemsMin: 2
-  _lineItemsMax: 3
-  _casesPerLineMin: 4
-  _casesPerLineMax: 8
+  _ordersPerDayMin: 4
+  _ordersPerDayMax: 6
+  _lineItemsMin: 3
+  _lineItemsMax: 5
+  _casesPerLineMin: 15
+  _casesPerLineMax: 30
   _cutoffHour: 17
   _leadTimeDays: 1
   _payRateMultiplier: 1

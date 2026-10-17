@@ -497,6 +497,16 @@ namespace GameCore.Inventory
             var byCell = new Dictionary<Vector2Int, List<GameObject>>();
             if (laneSlots.Count == 0) return byCell;
 
+            // A pallet belongs to THIS lane only if it stands on the lane's centre line. Lanes sit side by side
+            // one cell (1.33 m) apart, so the old "nearest slot within 2.5 m" test claimed the NEIGHBOURING
+            // lane's pallets too: 1B-3 "contained" 1A-3's pallet, a reach truck measured that pallet's top as
+            // the stack height and set its own pallet down at 2.03 m on thin air (2026-10-17 soak test).
+            Vector3 axis = Vector3.forward;
+            if (LaneNamingService.TryGetLaneGeometry(laneSlots[0].DoorNumber, laneSlots[0].Lane, out var laneGeo) &&
+                laneGeo.DepthAxis.sqrMagnitude > 0.0001f)
+                axis = new Vector3(laneGeo.DepthAxis.x, 0f, laneGeo.DepthAxis.z).normalized;
+            const float MaxLateral = 0.6f;
+
             foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
             {
                 if (pallet == null || pallet.transform.parent != null) continue;
@@ -510,6 +520,8 @@ namespace GameCore.Inventory
                     // position, and measuring in 3D would push it past OutboundClaimDistance and make
                     // the cell read as emptier than it is.
                     Vector3 d = pallet.transform.position - slotPos; d.y = 0f;
+                    float along = Vector3.Dot(d, axis);
+                    if ((d - axis * along).magnitude > MaxLateral) continue;   // beside the lane, not in it
                     float sqrDist = d.sqrMagnitude;
                     if (sqrDist < nearestSqrDist) { nearestSqrDist = sqrDist; nearestCell = s.Cell; }
                 }

@@ -23,7 +23,7 @@ namespace GameCore.Actors
     /// pallets are placeholder passengers on the selector, parented directly to them, until a later
     /// pass wires up real jack-carrying and an actual reverse-in animation.
     /// </summary>
-    public class OrderSelectionTaskDriver : MonoBehaviour
+    public partial class OrderSelectionTaskDriver : MonoBehaviour
     {
         private const float TaskPollInterval = 1f;
         private const float PickSecondsPerCase = 0.6f;
@@ -93,6 +93,10 @@ namespace GameCore.Actors
                 return;
             }
 
+            // Keep a live claim fresh. A big order easily takes longer than the queue's 90 s stale-claim sweep,
+            // which would otherwise hand it to a second selector mid-pick.
+            if (_taskInProgress && _currentTask != null) _currentTask.AssignedAtRealtime = Time.realtimeSinceStartup;
+
             if (_taskInProgress) return;
 
             if (_workQueue == null)
@@ -120,6 +124,8 @@ namespace GameCore.Actors
 
             _taskInProgress = true;
             _nav.SetTaskBusy(true);
+            // Pallet jack if one is free (see OrderSelectionTaskDriver.PalletJack.cs), otherwise by hand.
+            if (TryStartJackRun()) return;
             AdvanceToNextPick();
         }
 
@@ -278,6 +284,7 @@ namespace GameCore.Actors
             go.transform.SetParent(transform, false);
             go.transform.localPosition = PalletOffsets[Mathf.Min(index, PalletOffsets.Length - 1)];
             go.transform.localRotation = Quaternion.identity;
+            bool onJack = OnJack;
 
             // This prefab is a build-menu placeable item (PlacedObject/BuildingData) with its own
             // PalletBuilder — none of that applies to a transient outbound WIP pallet, which must
@@ -295,6 +302,7 @@ namespace GameCore.Actors
             var builder = go.AddComponent<OutboundPalletBuilder>();
             builder.OrderId = _currentOrder.OrderId;
             _pallets.Add(builder);
+            if (onJack) SeatPalletOnJack(builder, index);
 
             if (index > 0)
                 Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) pallet #{index + 1} started — pallet #{index} cubed out.");

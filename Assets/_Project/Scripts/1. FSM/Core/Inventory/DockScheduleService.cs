@@ -1623,8 +1623,12 @@ namespace GameCore.Inventory
                                       && !string.IsNullOrEmpty(a.ShipmentPoNumber)
                                       && a.Day < today);
 
+            // Inbound: a PARKED box (unscheduled pool — e.g. an automatic backfill waiting for the player to book
+            // it) holds no door and promised no slot, and a box already CLOSED OUT has been judged once. Judging
+            // either charged the vendor "driver never showed" — twice for one backfill in the 2026-10-17 soak test
+            // (PO IG4160, which had arrived and offloaded fine).
             var elapsed = _appointments
-                .Where(a => (a.Kind != AppointmentKind.Inbound || !string.IsNullOrEmpty(a.ShipmentPoNumber)) &&
+                .Where(a => (a.Kind != AppointmentKind.Inbound || (!string.IsNullOrEmpty(a.ShipmentPoNumber) && !a.Parked && !a.ClosedOut)) &&
                             (a.Day < today || (a.Day == today && a.BlockIndex < nowBlock)))
                 .ToList();
 

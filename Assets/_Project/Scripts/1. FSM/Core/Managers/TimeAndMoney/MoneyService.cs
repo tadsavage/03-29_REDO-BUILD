@@ -491,8 +491,18 @@ namespace GameCore.Economy
 
             // Unwind the original expense bookkeeping (never below zero — a save/load boundary could
             // in principle leave a reversal without a matching recorded deduction).
-            if (_lifetimeExpenses.TryGetValue(category, out int lifetime))
-                _lifetimeExpenses[category] = Mathf.Max(0, lifetime - amount);
+            _lifetimeExpenses.TryGetValue(category, out int lifetime);
+            int absorbed = Mathf.Min(lifetime, amount);
+            if (absorbed > 0) _lifetimeExpenses[category] = lifetime - absorbed;
+            // Whatever the recorded expense can't absorb (the purchase was booked before this session's ledger,
+            // e.g. a short-shipped PO paid before a save) is real money in: book it as income so capital and the
+            // ledger still agree (2026-10-17 soak test: +$1,404 of PO credits appeared with no ledger entry).
+            int excess = amount - absorbed;
+            if (excess > 0)
+            {
+                _lifetimeIncome.TryGetValue("Refunds", out int refunds);
+                _lifetimeIncome["Refunds"] = refunds + excess;
+            }
 
             if (_spentTodayByObjectCategory.TryGetValue(category, out int spentToday))
                 _spentTodayByObjectCategory[category] = Mathf.Max(0, spentToday - amount);

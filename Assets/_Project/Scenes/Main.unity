@@ -1533,6 +1533,7 @@ MonoBehaviour:
     - {fileID: 11400000, guid: df7cf6797c88db941862c0a885f9f451, type: 2}
     - {fileID: 11400000, guid: 40172defa8e8f6f4291791dc70f1a081, type: 2}
     - {fileID: 11400000, guid: f94b11ce10a004d4ca2aac43024ebcec, type: 2}
+    - {fileID: 11400000, guid: 88e5f03ab0c8d9c479acf30af1e620e1, type: 2}
   - id: Walls
     displayName: Walls
     icon: {fileID: 2800000, guid: fa57bfbed552d07478809fc1778425db, type: 3}
@@ -5847,6 +5848,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FreeLookCamera
   buildMenuUI: {fileID: 93724068}
+  dioramaDepthOfField: 1
+  dofFocalLengthMm: 90
+  dofFStop: 1.6
+  dofBladeCount: 6
+  dofFStopFocused: 3.6
+  dofFStopPalletFocus: 32
+  dofFocusSmoothTime: 0.12
   pitchMin: 15
   pitchMax: 80
   defaultPitch: 45

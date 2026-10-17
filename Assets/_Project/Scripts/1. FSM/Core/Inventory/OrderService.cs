@@ -947,6 +947,9 @@ namespace GameCore.Inventory
             if (++_waitingLaneTick % 3 != 0) return;
             AssignWaitingLanes();
             ReclaimOrphanedFreight();
+            // Loaders call this when a pass ends, but an order can become closable later (its last pallet pick
+            // lands, or turns out to be unfillable) with no loader pass left to notice. Re-check on the tick.
+            AutoCloseLoadedOrders();
         }
 
         /// <summary>
@@ -956,10 +959,65 @@ namespace GameCore.Inventory
         /// Putaway, exactly like a pallet cut by Cancel Remaining. Pallets mid-carry, loading or on a trailer are
         /// left alone.
         /// </summary>
+        /// <summary>Cancels an order's still-unclaimed PalletPick / OrderSelect tasks, handing back any rack slot a
+        /// PalletPick had reserved. Claimed (Assigned) work is left to finish; what it delivers for a gone order
+        /// is returned to stock by <see cref="ReclaimOrphanedFreight"/>.</summary>
+        private int CancelLeftoverTasks(string orderId)
+        {
+            int n = 0;
+            foreach (var t in LiveTasksForOrder(orderId).ToList())
+            {
+                if (t.Status == WorkTaskStatus.Assigned) continue;
+                if (t.Type != WorkTaskType.PalletPick && t.Type != WorkTaskType.OrderSelect) continue;
+                if (t.Type == WorkTaskType.PalletPick && !string.IsNullOrEmpty(t.FromLocation)
+                    && LocationRegistry.TryGet(t.FromLocation, out var reserved) && reserved.Status == LocationStatus.Reserved)
+                    reserved.Unreserve();
+                t.Status = WorkTaskStatus.Cancelled;
+                t.AssignedToEmployeeGuid = null;
+                n++;
+            }
+            return n;
+        }
+
+        /// <summary>Load tasks are keyed by LANE (FromLocation "1E", no OrderId), so cancelling an order's own tasks
+        /// never touches them. Once no active order uses a lane any more, its still-unclaimed Load tasks are
+        /// orphans: a dock stocker would claim them and drive off to load nothing (two such tasks were left
+        /// behind by a shipped Cracker Barrel order in the 2026-10-17 soak test).</summary>
+        private void CancelIdleLoadTasksForUnusedLanes()
+        {
+            if (_workQueue == null) return;
+            foreach (var t in _workQueue.Tasks.Where(t => t.Type == WorkTaskType.Load &&
+                                                          (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Open)).ToList())
+            {
+                string from = t.FromLocation ?? "";
+                int i = 0;
+                while (i < from.Length && char.IsDigit(from[i])) i++;
+                if (i == 0 || i >= from.Length || !int.TryParse(from.Substring(0, i), out int door)) continue;
+                string lane = from.Substring(i);
+                int dash = lane.IndexOf('-');
+                if (dash >= 0) lane = lane.Substring(0, dash);
+                if (_activeOrders.Any(o => o.UsesLane(door, lane))) continue;
+                t.Status = WorkTaskStatus.Cancelled;
+                t.AssignedToEmployeeGuid = null;
+                Debug.LogWarning($"[OrderService] Cancelled Load task for lane {door}{lane}: no active order uses that lane any more.");
+            }
+        }
+
         private void ReclaimOrphanedFreight()
         {
             if (_inventoryService == null) return;
+            CancelIdleLoadTasksForUnusedLanes();
             var activeIds = new HashSet<string>(_activeOrders.Select(o => o.OrderId));
+
+            // Tasks still pointing at an order that's gone (saves made before Archive cancelled them).
+            if (_workQueue != null)
+                foreach (var orphanId in _workQueue.Tasks.Where(t => !string.IsNullOrEmpty(t.OrderId) && !activeIds.Contains(t.OrderId)
+                                                                   && t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled)
+                                                         .Select(t => t.OrderId).Distinct().ToList())
+                {
+                    int n = CancelLeftoverTasks(orphanId);
+                    if (n > 0) Debug.LogWarning($"[OrderService] Cancelled {n} leftover task(s) of order {orphanId}, which is no longer active.");
+                }
             foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
             {
                 if (pallet == null || string.IsNullOrEmpty(pallet.OrderId) || activeIds.Contains(pallet.OrderId)) continue;
@@ -1884,6 +1942,23 @@ namespace GameCore.Inventory
         /// </summary>
         public int AutoCloseLoadedOrders()
         {
+            // A LOADED order whose remaining pallet picks have no stock anywhere in the building can never get
+            // them: those picks sat Available forever, so the order never auto-closed and its trailer waited at
+            // the door indefinitely (2026-10-17 soak test, OG5169). It ships short, exactly like a case pick
+            // with no stock does; QuantityPicked already bills only what went on the trailer.
+            if (_workQueue != null && _inventoryService != null)
+                foreach (var o in _activeOrders.Where(o => o.Status == OrderData.OrderStatus.Loaded).ToList())
+                    foreach (var t in LiveTasksForOrder(o.OrderId).Where(t => t.Type == WorkTaskType.PalletPick &&
+                                                                              t.Status != WorkTaskStatus.Assigned).ToList())
+                    {
+                        if (!string.IsNullOrEmpty(t.FromLocation)) continue;   // a source is bound: it can still come
+                        if (GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, t.SkuId, out _)) continue;
+                        if (GameCore.Labor.ReplenishmentService.TryFindStagedPalletAwaitingPutaway(_workQueue, _inventoryService, t.SkuId, out _, out _)) continue;
+                        t.Status = WorkTaskStatus.Cancelled;
+                        t.AssignedToEmployeeGuid = null;
+                        Debug.LogWarning($"[OrderService] Order {o.OrderNumber} is loaded but no pallet of {t.SkuId} exists to fill its pallet pick — shipping short without it.");
+                    }
+
             var ready = _activeOrders
                 .Where(o => o.Status == OrderData.OrderStatus.Loaded
                             && CanCloseOut(o, out _)
@@ -2190,7 +2265,11 @@ namespace GameCore.Inventory
         {
             if (order == null) return;
 
+            // A short-shipped order can leave pallet picks nobody will ever need; left Available, a reach truck
+            // pulls those pallets out of the racks into a lane for an order that no longer exists.
+            CancelLeftoverTasks(order.OrderId);
             _activeOrders.Remove(order);
+            CancelIdleLoadTasksForUnusedLanes();
             _orderHistory.Add(order);
 
             // Oldest-first trim: history is append-ordered, so index 0 is the longest-finished.

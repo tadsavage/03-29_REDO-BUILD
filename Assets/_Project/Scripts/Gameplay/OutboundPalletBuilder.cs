@@ -10,10 +10,10 @@ using GameCore.Inventory;
 /// shot. A selector's pallet needs to grow one case at a time, across multiple different SKUs (one
 /// per order line item), without ever discarding what's already been placed.
 ///
-/// Layout approach: each SKU gets its own layer group, stacked on top of whatever's already on the
-/// pallet, using that SKU's own best-fit single-layer pattern from PalletOptimizer (same packing
-/// math PalletBuilder uses). Real mixed-SKU pallets are typically built this way too — one SKU's
-/// cases per layer, not interleaved with a different case footprint.
+/// Layout approach: each SKU uses its own best-fit single-layer pattern from PalletOptimizer (same
+/// packing math PalletBuilder uses), and every case drops to the lowest spot in that pattern on a
+/// height map of what's already placed — so a new SKU fills in beside a partial layer instead of
+/// starting a new layer of air above it (see AddCase).
 /// </summary>
 public class OutboundPalletBuilder : MonoBehaviour
 {
@@ -29,9 +29,10 @@ public class OutboundPalletBuilder : MonoBehaviour
     private Transform _loadRoot;
     private string _currentSkuId;
     private List<(Vector3 pos, float rot)> _currentPattern;
-    private int _currentPatternIndex;
-    private float _currentLayerY;
-    private float _nextLayerY;
+    /// <summary>Footprint (pallet-local XZ) and top height of every case placed so far — the height map.</summary>
+    private readonly List<(Vector2 min, Vector2 max, float top)> _placed = new();
+    /// <summary>How far neighbouring cases may overlap at their edges so a case can sit flat (Tad: 0.05).</summary>
+    private const float ClipTolerance = 0.05f;
     private readonly Dictionary<string, int> _caseCountBySku = new();
 
     public int TotalCases { get; private set; }
@@ -84,12 +85,20 @@ public class OutboundPalletBuilder : MonoBehaviour
     /// if a second pallet isn't available either.</summary>
     public bool IsCubedOut => FillFraction >= 1f;
 
-    /// <summary>Adds one case of the given SKU to the pallet at the next open slot. Starting a SKU
-    /// different from whatever's currently on top begins a fresh layer stacked on top of everything
-    /// placed so far — matches how a selector actually works (finish this line item's picks, then
-    /// move to the next), rather than interleaving different case footprints on one layer.
+    /// <summary>
+    /// Adds one case of the given SKU to the pallet, BUILT UP rather than stacked in layers (Tad, 2026-10-16).
+    ///
+    /// Each SKU still uses its own best-fit layer pattern, but a case no longer starts a fresh layer above
+    /// everything already on the pallet. Every pattern position is tested against a height map of the cases
+    /// already placed: the case would rest on the highest case it actually overlaps (or the deck), and it goes
+    /// in whichever position lets it rest LOWEST (ties keep pattern order). So the next SKU fills the holes
+    /// beside a partial layer first and only climbs onto that partial layer once the low spots are full: a few
+    /// gaps are fine, whole layers of air are not. Neighbouring cases may overlap by up to ClipTolerance at the
+    /// edges so a case can sit flat; with physics later a case resting half on a step would tilt (and the
+    /// pallet might topple), which is the fun part.
     /// ti/hi are the SKU's own cases-per-layer/layers-per-pallet (SkuData.Ti/Hi) — used only to
-    /// accumulate FillFraction, not for layout on this mixed pallet.</summary>
+    /// accumulate FillFraction, not for layout on this mixed pallet.
+    /// </summary>
     public void AddCase(string skuId, GameObject casePrefab, Vector3 caseDim, int ti, int hi)
     {
         if (casePrefab == null) return;
@@ -100,31 +109,29 @@ public class OutboundPalletBuilder : MonoBehaviour
             loadGo.transform.SetParent(transform, false);
             loadGo.transform.localPosition = Vector3.zero;
             _loadRoot = loadGo.transform;
-            _nextLayerY = PalletDim.y;
         }
 
-        bool newGroup = _currentPattern == null || skuId != _currentSkuId;
-        if (newGroup)
+        if (_currentPattern == null || skuId != _currentSkuId)
         {
             RebuildPattern(caseDim);
             _currentSkuId = skuId;
-            _currentPatternIndex = 0;
-            _currentLayerY = _nextLayerY;
-        }
-        else if (_currentPatternIndex >= _currentPattern.Count)
-        {
-            _currentLayerY = _nextLayerY;
-            _currentPatternIndex = 0;
         }
 
-        var slot = _currentPattern[_currentPatternIndex];
-        _currentPatternIndex++;
+        // Lowest resting spot across the pattern.
+        int bestIndex = 0;
+        float bestBase = float.MaxValue;
+        for (int i = 0; i < _currentPattern.Count; i++)
+        {
+            float b = RestingBase(_currentPattern[i], caseDim);
+            if (b < bestBase - 0.001f) { bestBase = b; bestIndex = i; }
+        }
+        var slot = _currentPattern[bestIndex];
 
         var instance = Instantiate(casePrefab);
         instance.transform.SetParent(_loadRoot, false);
         instance.transform.localPosition = new Vector3(
             slot.pos.x + Random.Range(-PositionJitterMeters, PositionJitterMeters),
-            _currentLayerY,
+            bestBase,
             slot.pos.z + Random.Range(-PositionJitterMeters, PositionJitterMeters));
 
         // Case prefabs carry PlacedObject/BuildingData for the build menu — must not self-register
@@ -141,7 +148,8 @@ public class OutboundPalletBuilder : MonoBehaviour
         float randomRot = (Random.value < 0.5f ? -1f : 1f) * magnitude;
         instance.transform.localRotation = Quaternion.Euler(0, slot.rot + randomRot, 0);
 
-        _nextLayerY = _currentLayerY + caseDim.y;
+        Footprint(slot, caseDim, out Vector2 min, out Vector2 max);
+        _placed.Add((min, max, bestBase + caseDim.y));
         TotalCases++;
         FillFraction += 1f / Mathf.Max(1, ti * hi);
 
@@ -199,6 +207,31 @@ public class OutboundPalletBuilder : MonoBehaviour
         }
         _obstacle.carving = true;
         _obstacle.enabled = true;
+    }
+
+    /// <summary>Height this case would rest at in that pattern position: the top of the highest placed case its
+    /// footprint (shrunk by ClipTolerance per side) overlaps, or the pallet deck.</summary>
+    private float RestingBase((Vector3 pos, float rot) slot, Vector3 caseDim)
+    {
+        Footprint(slot, caseDim, out Vector2 min, out Vector2 max);
+        min += new Vector2(ClipTolerance, ClipTolerance);
+        max -= new Vector2(ClipTolerance, ClipTolerance);
+        float baseY = PalletDim.y;
+        foreach (var c in _placed)
+        {
+            if (max.x <= c.min.x || min.x >= c.max.x || max.y <= c.min.y || min.y >= c.max.y) continue;
+            if (c.top > baseY) baseY = c.top;
+        }
+        return baseY;
+    }
+
+    private static void Footprint((Vector3 pos, float rot) slot, Vector3 caseDim, out Vector2 min, out Vector2 max)
+    {
+        bool turned = Mathf.Abs(Mathf.DeltaAngle(slot.rot, 90f)) < 45f || Mathf.Abs(Mathf.DeltaAngle(slot.rot, 270f)) < 45f;
+        float hx = (turned ? caseDim.z : caseDim.x) * 0.5f;
+        float hz = (turned ? caseDim.x : caseDim.z) * 0.5f;
+        min = new Vector2(slot.pos.x - hx, slot.pos.z - hz);
+        max = new Vector2(slot.pos.x + hx, slot.pos.z + hz);
     }
 
     private void RebuildPattern(Vector3 caseDim)

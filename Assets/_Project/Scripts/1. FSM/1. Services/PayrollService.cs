@@ -65,6 +65,9 @@ namespace GameCore.Economy
             Debug.Log("[PayrollService] Shut down complete.");
         }
 
+        /// <summary>See OnHourChanged: off-shift hours are unpaid until shifts actually send people home.</summary>
+        public static bool PayOffShiftHours = false;
+
         private void OnHourChanged(string eventId, int newHour)
         {
             if (_moneyService == null || EmployeeRegistry.Instance == null)
@@ -83,7 +86,14 @@ namespace GameCore.Economy
                 // Working past their own scheduled shift window — pay 1.5x for that hour.
                 // Flexible-shift employees have no fixed window and are never overtime.
                 if (ShiftSchedule.IsOvertime(record.shift, newHour))
+                {
+                    // BALANCE (2026-10-17 playtest): nothing sends staff home yet (the Shift Manager is UI-only),
+                    // so every employee works all 24 hours and 16 of them were billed as 1.5x overtime — ~32 paid
+                    // hours a day per head. Until shifts actually end a worker's day, only the scheduled shift is
+                    // paid. Flip this back on when shift scheduling is wired into behaviour.
+                    if (!PayOffShiftHours) continue;
                     rate *= 1.5f;
+                }
 
                 int wage = Mathf.RoundToInt(rate);
                 if (wage <= 0)

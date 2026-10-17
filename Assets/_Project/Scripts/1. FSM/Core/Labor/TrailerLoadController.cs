@@ -505,6 +505,34 @@ namespace GameCore.Labor
                 ? a.slotIndex.CompareTo(b.slotIndex)
                 : b.y.CompareTo(a.y));
 
+            // Received (inbound) pallets in the same lane are invisible to the scan above, but they are just as
+            // solid: one stacked ON an outbound pallet buries it, and one standing in a slot nearer the door
+            // blocks everything behind it. Stop at the first outbound pallet that can't be reached without
+            // pulling it out from under, or driving through, stock (mirror of the reach-truck fix, 2026-10-17).
+            if (ServiceLocator.TryGet<InventoryService>(out var invForBlock) && invForBlock != null)
+            {
+                var stockTopBySlot = new Dictionary<int, float>();
+                foreach (var s in LaneNamingService.GetLane(doorNumber, lane))
+                {
+                    float top = float.NegativeInfinity;
+                    foreach (var rec in invForBlock.GetPalletsAtLocation(s.Cell))
+                    {
+                        var link = PalletMasterLink.Find(rec.PalletId);
+                        if (link != null && link.transform.parent == null || (link != null && link.transform.parent.name == "PlacedObjectsContainer"))
+                            top = Mathf.Max(top, link.transform.position.y);
+                    }
+                    if (top > float.NegativeInfinity) stockTopBySlot[s.Slot] = top;
+                }
+                int cut = found.FindIndex(f =>
+                    (stockTopBySlot.TryGetValue(f.slotIndex, out float t) && t > f.y + 0.05f) ||
+                    stockTopBySlot.Keys.Any(k => k < f.slotIndex && !found.Any(o => o.slotIndex == k)));
+                if (cut >= 0)
+                {
+                    Debug.LogWarning($"[TrailerLoad] {doorNumber}{lane}: received stock blocks the pallet at pos{found[cut].slotIndex} — loading only what's reachable.");
+                    found = found.Take(cut).ToList();
+                }
+            }
+
             // Only the freight of orders actually being loaded at this door (Tad, 2026-09-23: it was
             // loading every pallet in the lane, whoever's it was). And STOP at the first pallet that
             // isn't theirs rather than skipping it — anything behind it can't be reached without

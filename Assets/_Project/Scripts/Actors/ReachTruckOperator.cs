@@ -644,7 +644,18 @@ namespace GameCore.Actors
             for (int i = slots.Count - 1; i >= 0; i--)
             {
                 List<PalletMasterRecord> pallets = _inventoryService?.GetPalletsAtLocation(slots[i].Cell);
-                if (pallets == null || pallets.Count == 0) continue;
+
+                // Staged OUTBOUND pallets have no inventory record, so the record list alone can't see them. A
+                // slot holding one is occupied (it blocks the forks from anything deeper), and an outbound
+                // pallet resting on top of a stock pallet means the stock pallet is buried. Ignoring them let a
+                // truck pull a pallet out from UNDER an outbound one and leave it floating in mid-air (2026-10-17
+                // soak test, lane 1B-3).
+                var outbound = _inventoryService?.GetOutboundPalletObjectsAt(door, lane, slots[i].Cell);
+                bool hasOutbound = outbound != null && outbound.Count > 0;
+                if ((pallets == null || pallets.Count == 0) && !hasOutbound) continue;
+                if (pallets == null || pallets.Count == 0) return null;   // only outbound freight here: blocked
+                float outboundTop = float.NegativeInfinity;
+                if (hasOutbound) foreach (var o in outbound) if (o != null) outboundTop = Mathf.Max(outboundTop, o.transform.position.y);
 
                 // Topmost by ACTUAL measured world height, never by list order. InventoryService's
                 // per-cell list is append-order, which normally matches stacking order since a new
@@ -682,6 +693,7 @@ namespace GameCore.Actors
                 // received. Reaching past an unreceived pallet to grab one beneath it is exactly the
                 // immersion break this guards against.
                 if (topmost.GetComponent<PalletData>() == null) return null;
+                if (outboundTop > highestY + 0.05f) return null;   // an outbound pallet sits on top of it
 
                 palletId = topmost.PalletId;
                 return topmost;

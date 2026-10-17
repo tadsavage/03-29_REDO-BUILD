@@ -27,7 +27,20 @@ namespace GameCore.Inventory
             // skipped it, leaving the pallet permanently unfindable via Find(). Register explicitly
             // here too; OnEnable/OnDisable still handle any later enable/disable cycles correctly
             // since PalletId is set by the time those would fire again.
-            var link = pallet.AddComponent<PalletMasterLink>();
+            // ONE link per pallet. A pallet restored with a link to a record that no longer exists gets re-linked
+            // (PalletInventoryTracker rebuilds its record from PalletData) — adding a SECOND component left the
+            // dead one first in line for every GetComponent<PalletMasterLink>(), so the pallet read as untracked:
+            // no putaway, no pickup (four such pallets found standing in lanes, 2026-10-17).
+            var link = pallet.GetComponent<PalletMasterLink>();
+            if (link != null)
+            {
+                if (!string.IsNullOrEmpty(link.PalletId) && _registry.TryGetValue(link.PalletId, out var old) && old == link)
+                    _registry.Remove(link.PalletId);
+            }
+            else
+            {
+                link = pallet.AddComponent<PalletMasterLink>();
+            }
             link.PalletId = palletId;
             if (!string.IsNullOrEmpty(palletId))
                 _registry[palletId] = link;

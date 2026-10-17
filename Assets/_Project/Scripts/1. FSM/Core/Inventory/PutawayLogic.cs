@@ -120,8 +120,29 @@ namespace GameCore.Inventory
 
         // ============ RESOLUTION LOGIC ============
 
+        /// <summary>Height of the pallet currently being placed (SkuData.PltHeight), used by <see cref="Fits"/>.</summary>
+        private float _placingHeight;
+
+        /// <summary>
+        /// A reserve slot only takes a pallet that fits under the beam above it (the rack level's objHeight:
+        /// 1.22 m for a 48" rack, 2.0 m for an 80"). The top level of a stack has no beam above, so anything fits.
+        /// Without this, 1.5 m pallets were racked into 1.22 m openings and their cases poked through the beam
+        /// into the slot above (10 such pallets found in the 2026-10-17 soak test). Same rule the slotting
+        /// overlay uses for pick slots.
+        /// </summary>
+        private bool Fits(SlotRegistry.Slot s)
+        {
+            if (_placingHeight <= 0f || s.Rack == null || s.Rack.data == null) return true;
+            int level = s.Rack.rackLevelIndex;
+            bool topLevel = !SlotRegistry.ReserveSlots.Concat(SlotRegistry.PickSlots).Any(o =>
+                o.Rack != null && o.Aisle == s.Aisle && o.Bay == s.Bay && o.Rack.rackLevelIndex > level);
+            return topLevel || _placingHeight <= s.Rack.data.objHeight + 0.01f;
+        }
+
         private string ResolveDestination(PalletMasterRecord pallet, Vector2 rtoPickupPosition)
         {
+            var placingSku = _inventoryService?.GetSkuData(pallet.SkuId);
+            _placingHeight = placingSku != null ? placingSku.PltHeight : 0f;
             var pickSlotAddresses = SlotAssignmentService.GetSlotsForSku(pallet.SkuId);
 
             if (pickSlotAddresses.Count == 0)
@@ -204,7 +225,8 @@ namespace GameCore.Inventory
                          && s.Position == position
                          && Mathf.Abs(s.Bay - bayOrigin) <= radius
                          && s.Rack != null
-                         && LocationStatusRegistry.IsAvailable(s.Address))
+                         && LocationStatusRegistry.IsAvailable(s.Address)
+                         && Fits(s))
                 .OrderBy(s => Mathf.Abs(s.Bay - bayOrigin))
                 .Select(s => s.Address)
                 .FirstOrDefault();
@@ -217,7 +239,8 @@ namespace GameCore.Inventory
                 .Where(s => s.Aisle == aisle
                          && s.Position == position
                          && s.Rack != null
-                         && LocationStatusRegistry.IsAvailable(s.Address))
+                         && LocationStatusRegistry.IsAvailable(s.Address)
+                         && Fits(s))
                 .OrderBy(s => s.Bay)
                 .Select(s => s.Address)
                 .FirstOrDefault();
@@ -314,7 +337,7 @@ namespace GameCore.Inventory
             // Compute the nearest aisle by XZ proximity — the aisle whose racks are closest
             // to the RTO's current position is the most convenient carry path to the dock.
             var allReserves = SlotRegistry.ReserveSlots
-                .Where(s => LocationStatusRegistry.IsAvailable(s.Address) && s.Rack != null)
+                .Where(s => LocationStatusRegistry.IsAvailable(s.Address) && s.Rack != null && Fits(s))
                 .ToList();
 
             if (allReserves.Count == 0)

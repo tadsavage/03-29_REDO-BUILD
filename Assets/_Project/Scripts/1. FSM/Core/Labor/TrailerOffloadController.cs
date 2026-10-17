@@ -908,6 +908,16 @@ namespace GameCore.Labor
         // exit), but it can no longer drive through pallets left by an earlier batch/other truck.
         // Returns the lane identity so the drop maneuver can route in via the entry. doorNumber <= 0
         // falls back to any door.
+        /// <summary>A "Both" lane that a released outbound order has claimed is NOT free for inbound freight: the
+        /// order's pallets are being picked for it and the selector's pallet jack backs in from the open end. Seen
+        /// live 2026-10-16: an inbound trailer at door 1 dropped two pallets at 1A-4/1A-5 while an order released
+        /// to 1A was mid-pick, and the jack then reversed straight through them to reach 1A-1.</summary>
+        private static bool LaneClaimedByOutboundOrder(int door, string lane)
+        {
+            if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return false;
+            return StagingLaneAssignmentService.GetOwningCustomerId(orders, door, lane) != null;
+        }
+
         private bool TryFindLaneTarget(InventoryService inv, WorkQueueSystem queue, int doorNumber, Vector3 doorPos,
                                        out int door, out string laneLetter, out Vector2Int cell, out int tier)
         {
@@ -916,6 +926,7 @@ namespace GameCore.Labor
             {
                 if (doorNumber > 0 && d != doorNumber) continue; // only this truck's dock-door lanes
                 if (!inv.LaneAcceptsPutaway(d, lane)) continue;  // Inbound or Both only
+                if (LaneClaimedByOutboundOrder(d, lane)) continue;
                 if (!TryFindSlotInLane(inv, queue, d, lane, doorPos, out var chosenCell, out int chosenTier)) continue;
 
                 door = d; laneLetter = lane; cell = chosenCell; tier = chosenTier;
@@ -944,6 +955,7 @@ namespace GameCore.Labor
             foreach (var (d, lane) in LaneNamingService.AllLanes())
             {
                 if (!inv.LaneAcceptsPutaway(d, lane)) continue;
+                if (LaneClaimedByOutboundOrder(d, lane)) continue;
                 if (!TryFindSlotInLane(inv, queue, d, lane, doorPos, out var candCell, out int candTier)) continue;
 
                 float distSqr = (_grid.GetCellCenter(candCell) - doorPos).sqrMagnitude;
