@@ -679,7 +679,7 @@ namespace GameCore.Labor
 
                 // Straight in only — NO steering. The DS was squared up at the pivot before entering
                 // (FaceForks at the call site), and rotating inside the trailer looked wrong.
-                ds.position += into * (DriveSpeed * Time.deltaTime);
+                ds.position += into * (DriveSpeed * EquipmentBattery.SpeedMultiplierFor(ds) * Time.deltaTime);
 
                 if ((ds.position - start).magnitude >= maxTravel)
                 {
@@ -704,7 +704,7 @@ namespace GameCore.Labor
                 Vector3 gd = pallet.position - grab; gd.y = 0f;
                 if (gd.magnitude <= GrabThreshold) break;
 
-                ds.position += into * (DriveSpeed * Time.deltaTime);
+                ds.position += into * (DriveSpeed * EquipmentBattery.SpeedMultiplierFor(ds) * Time.deltaTime);
 
                 if ((ds.position - start).magnitude >= maxTravel)
                 {
@@ -743,8 +743,8 @@ namespace GameCore.Labor
                 if (to.magnitude <= ArriveThreshold) { t.position = flat; break; }
                 Vector3 travel = Flat(to);
                 Vector3 bodyFwd = forksLead ? BodyForwardForForks(travel) : travel;
-                t.rotation = Quaternion.RotateTowards(t.rotation, Quaternion.LookRotation(bodyFwd), TurnSpeed * Time.deltaTime);
-                t.position = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
+                t.rotation = Quaternion.RotateTowards(t.rotation, Quaternion.LookRotation(bodyFwd), TurnSpeed * EquipmentBattery.SpeedMultiplierFor(t) * Time.deltaTime);
+                t.position = Vector3.MoveTowards(t.position, flat, DriveSpeed * EquipmentBattery.SpeedMultiplierFor(t) * Time.deltaTime);
                 yield return null;
             }
         }
@@ -755,7 +755,7 @@ namespace GameCore.Labor
             Quaternion want = Quaternion.LookRotation(Flat(dir));
             while (Quaternion.Angle(t.rotation, want) > FaceThreshold)
             {
-                t.rotation = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * Time.deltaTime);
+                t.rotation = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * EquipmentBattery.SpeedMultiplierFor(t) * Time.deltaTime);
                 yield return null;
                 if (t == null) yield break; // destroyed mid-turn — see DriveInternal
             }

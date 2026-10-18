@@ -40,7 +40,28 @@ public class PalletJackParkingSpot : MonoBehaviour
     }
 
     private Vector3 Center => transform.position;
-    private Vector3 Axis => transform.right;
+
+    /// <summary>The bay's long axis, pointing at the charger post. Read from the model rather than assumed: the
+    /// first bay ran along local X, Tad's MHE_Station runs along local Z with the post at +Z and the AlphaID letter
+    /// at the open end (2026-10-17 - jacks were parking sideways across the new bays).</summary>
+    private Vector3 Axis
+    {
+        get
+        {
+            if (!_axisResolved)
+            {
+                _axisResolved = true;
+                var mf = GetComponent<MeshFilter>();
+                Vector3 size = mf != null && mf.sharedMesh != null ? mf.sharedMesh.bounds.size : new Vector3(1f, 0f, 0f);
+                _localAxis = size.z > size.x ? Vector3.forward : Vector3.right;
+                var letter = transform.Find("AlphaID");
+                if (letter != null && Vector3.Dot(letter.localPosition, _localAxis) > 0.05f) _localAxis = -_localAxis;   // post is away from the letter
+            }
+            return transform.TransformDirection(_localAxis);
+        }
+    }
+    private bool _axisResolved;
+    private Vector3 _localAxis = Vector3.right;
 
     /// <summary>Where the jack's operator anchor goes, and which way it faces: always nose-in toward the charger
     /// post, which sits at the bay's +X end (the MHE_Charger model).</summary>
@@ -55,16 +76,20 @@ public class PalletJackParkingSpot : MonoBehaviour
         if (!IsReal) return false;
         if (_reservedFor != null && _reservedFor != jack)
         {
+            // A machine driving here to CHARGE holds its bay the whole way (it reserves from across the building,
+            // so the distance test below would drop it at once and every machine piled onto one bay - 2026-10-17).
+            var rb = _reservedFor.GetComponent<EquipmentBattery>();
+            if (rb != null && rb.OnChargeTrip) return false;
             // A reservation whose jack has since gone somewhere else is stale (it was driven off without
             // releasing, or the save was reloaded).
             if (Flat(_reservedFor.transform.position - Center).magnitude < StaleReservationDistance) return false;
             _reservedFor = null;
         }
-        foreach (var slot in FindObjectsByType<MHEOperatorSlot>())
+        // Any machine standing in the bay takes it (reach trucks and dock stockers charge here too).
+        foreach (var b in EquipmentBattery.All)
         {
-            if (slot == null || slot == jack || !slot.IsPalletJack) continue;
-            Vector3 body = slot.transform.position - slot.transform.forward * JackBodyCenterOffset;
-            if (Flat(body - Center).magnitude < OccupiedRadius) return false;
+            if (b == null || b.Slot == null || b.Slot == jack) continue;
+            if (Flat(b.BodyCentre - Center).magnitude < OccupiedRadius) return false;
         }
         return true;
     }
@@ -94,6 +119,44 @@ public class PalletJackParkingSpot : MonoBehaviour
         }
         return best;
     }
+
+    /// <summary>Nearest real station, free or not (a machine with nowhere to charge parks beside one).</summary>
+    public static PalletJackParkingSpot FindNearest(Vector3 from)
+    {
+        PalletJackParkingSpot best = null;
+        float bestD = float.MaxValue;
+        foreach (var s in s_all)
+        {
+            if (s == null || !s.IsReal) continue;
+            float d = Flat(s.Center - from).magnitude;
+            if (d < bestD) { bestD = d; best = s; }
+        }
+        return best;
+    }
+
+    /// <summary>Where a machine stands to charge here and which way it faces (nose toward the charger post).
+    /// <paramref name="beside"/> = no free station: the same spot shifted off to the side of the bay.</summary>
+    public void ChargePose(MHEOperatorSlot machine, bool beside, out Vector3 origin, out Vector3 forward)
+    {
+        forward = Axis; forward.y = 0f; forward.Normalize();
+        // A pallet jack's anchor sits ahead of its body middle; other machines are centred on the bay.
+        origin = Center + (machine != null && machine.IsPalletJack ? forward * JackBodyCenterOffset : Vector3.zero);
+        if (beside) origin += Vector3.Cross(Vector3.up, forward).normalized * 2.4f;
+    }
+
+    public bool IsFree(MHEOperatorSlot machine) => IsFreeFor(machine);
+
+    /// <summary>The charging station (every bay is an MHE_Station charger) a machine is standing in, or null.
+    /// <paramref name="bodyCentre"/> is the middle of the machine's body, not its operator anchor.</summary>
+    public static PalletJackParkingSpot ChargerAt(Vector3 bodyCentre)
+    {
+        foreach (var s in s_all)
+            if (s != null && s.IsReal && Flat(bodyCentre - s.Center).magnitude < OccupiedRadius) return s;
+        return null;
+    }
+
+    /// <summary>Middle of a pallet jack's body (its forks trail behind the operator anchor).</summary>
+    public static Vector3 JackBodyCentre(Transform jack) => jack.position - jack.forward * JackBodyCenterOffset;
 
     private static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
 }

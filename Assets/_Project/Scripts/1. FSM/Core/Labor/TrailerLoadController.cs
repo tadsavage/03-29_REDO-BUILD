@@ -406,6 +406,9 @@ namespace GameCore.Labor
             // pallets a deal actually shipped on, and only the loader ever sees that number — the
             // order itself knows cases, never pallets.
             var loadedPalletsByOrder = new Dictionary<string, int>();
+            bool cargoFull = false;
+            bool batteryDied = false;
+            var battery = slot.GetComponent<EquipmentBattery>();
             for (int i = 0; i < pallets.Count; i++)
             {
                 var pallet = pallets[i];
@@ -413,6 +416,9 @@ namespace GameCore.Labor
                 // Rig destroyed mid-run — stop dispatching pallets and FALL THROUGH to the restore
                 // block below, rather than piling up more exceptions and skipping cleanup entirely.
                 if (ds == null) break;
+                // Flat battery (Tad, 2026-10-17): the pallet that was on the forks has been delivered; take no more.
+                // The rest stays staged and the Load task goes back on the queue for another dock stocker.
+                if (battery != null && battery.NeedsCharge) { batteryDied = true; break; }
 
                 // Bound the SEQUENCE, not the mapped slot. The pair interleave isn't monotonic, so a
                 // sequence past the end folds back onto a low slot index (sequence 12 → slot 6) and a
@@ -422,7 +428,8 @@ namespace GameCore.Labor
                 // roof: floor slot first, then the first stack with headroom. Nothing fits = full.
                 if (!TryChooseCargoSlot(truck, MeasurePalletHeight(pallet.transform), out int slotIndex, out float stackBaseY))
                 {
-                    Debug.LogWarning($"[TrailerLoad] {truck.name} cargo full (12 floor positions, 2.5 m roof) — leaving {pallets.Count - i} pallet(s) staged for a later truck.");
+                    Debug.LogWarning($"[TrailerLoad] {truck.name} cargo full (12 floor positions, 2.5 m roof) — {pallets.Count - i} pallet(s) don't fit.");
+                    cargoFull = true;
                     break;
                 }
 
@@ -433,6 +440,20 @@ namespace GameCore.Labor
                 }
 
                 yield return LoadOnePallet(ds, forks, forkRestY, truck, pallet, slotIndex, stackBaseY);
+            }
+
+            if (batteryDied)
+            {
+                if (forks != null) SetForkLocalY(forks, forkRestY);
+                if (agent != null) { agent.enabled = agentWas; RestoreAgentToWorkingSurface(ds, agent, homePos); }
+                if (nav != null) nav.enabled = navWas;   // no patrol: EquipmentBattery drives it to a charger
+                DockEquipmentCommandeerRegistry.Release(slot);
+                truck.ReleaseLoadClaim();
+                task.Status = WorkTaskStatus.Available;
+                task.AssignedToEmployeeGuid = null;
+                Debug.Log($"[TrailerLoad] Dock stocker battery died loading {truck.name} - {loadedPalletsByOrder.Values.Sum()} pallet(s) " +
+                          $"loaded, the rest stay staged; Load task released for another dock stocker.");
+                yield break;
             }
 
             // Mark every order this truck just finished loading Loaded (not shipped/billed yet —
@@ -471,6 +492,15 @@ namespace GameCore.Labor
             truck.ReleaseLoadClaim();
             workQueue?.CompleteTask(task.TaskId);
             Debug.Log($"[TrailerLoad] {truck.name} fully loaded — released dock stocker to patrol.");
+
+            // FULL TRAILER (2026-10-17 playtest): nothing more fits, and no second truck comes, so waiting for the lanes
+            // to empty deadlocked the door until both orders went late. The trailer ships with what's aboard; whatever
+            // didn't fit is not billed and goes back to stock (case picks are reverse-picked into their slots).
+            if (cargoFull && orderService != null)
+            {
+                orderService.ShipCargoFullTrailer(truck);
+                yield break;
+            }
 
             // Loaded orders ship and pay on their own (no Close Out click) -- but only once the
             // dock stocker is clear of the trailer, so the driver can't pull away mid-restore.
@@ -981,7 +1011,7 @@ namespace GameCore.Labor
                 Vector3 gd = pallet.position - grab; gd.y = 0f;
                 if (Vector3.Dot(gd, into) <= ForkRaiseStandoff) break;
 
-                ds.position += into * (DriveSpeed * Time.deltaTime);
+                ds.position += into * (DriveSpeed * EquipmentBattery.SpeedMultiplierFor(ds) * Time.deltaTime);
                 if ((ds.position - start).magnitude >= maxTravel)
                 {
                     Debug.LogWarning("[TrailerLoad] DriveInToGrab hit the travel cap on approach — lifting and seating anyway.");
@@ -1004,7 +1034,7 @@ namespace GameCore.Labor
                 Vector3 gd = pallet.position - grab; gd.y = 0f;
                 if (Vector3.Dot(gd, into) <= GrabThreshold) break;
 
-                ds.position += into * (DriveSpeed * Time.deltaTime);
+                ds.position += into * (DriveSpeed * EquipmentBattery.SpeedMultiplierFor(ds) * Time.deltaTime);
                 if ((ds.position - start).magnitude >= maxTravel)
                 {
                     Debug.LogWarning("[TrailerLoad] DriveInToGrab hit the travel cap before reaching the pallet — seating it anyway.");
@@ -1031,8 +1061,8 @@ namespace GameCore.Labor
                 if (to.magnitude <= ArriveThreshold) { t.position = flat; break; }
                 Vector3 travel = Flat(to);
                 Vector3 bodyFwd = forksLead ? BodyForwardForForks(travel) : travel;
-                t.rotation = Quaternion.RotateTowards(t.rotation, Quaternion.LookRotation(bodyFwd), TurnSpeed * Time.deltaTime);
-                t.position = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
+                t.rotation = Quaternion.RotateTowards(t.rotation, Quaternion.LookRotation(bodyFwd), TurnSpeed * EquipmentBattery.SpeedMultiplierFor(t) * Time.deltaTime);
+                t.position = Vector3.MoveTowards(t.position, flat, DriveSpeed * EquipmentBattery.SpeedMultiplierFor(t) * Time.deltaTime);
                 yield return null;
             }
         }
@@ -1043,7 +1073,7 @@ namespace GameCore.Labor
             Quaternion want = Quaternion.LookRotation(Flat(dir));
             while (Quaternion.Angle(t.rotation, want) > FaceThreshold)
             {
-                t.rotation = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * Time.deltaTime);
+                t.rotation = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * EquipmentBattery.SpeedMultiplierFor(t) * Time.deltaTime);
                 yield return null;
                 if (t == null) yield break; // destroyed mid-turn — see DriveInternal
             }

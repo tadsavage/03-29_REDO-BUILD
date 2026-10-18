@@ -25,12 +25,6 @@ namespace GameCore.Labor
         /// <summary>Resources path for the ghost (unreceived) material.</summary>
         private const string GhostMaterialPath = "Materials/GhostLoweredWall";
 
-        /// <summary>Resources path for the solid (received) material fallback.</summary>
-        private const string SolidMaterialPath = "AA_LowPolyCommon";
-
-        /// <summary>Editor-only path for the solid material (more reliable than Resources).</summary>
-        private const string SolidMaterialEditorPath = "Assets/_Project/Materials/AA_LowPolyCommon.mat";
-
         /// <summary>Resolves the SkuData for a dock pallet, checking linkedSku first, then
         /// PalletMasterLink → InventoryService, then PalletData → InventoryService.</summary>
         public static SkuData GetSkuForPallet(GameObject palletGO)
@@ -335,16 +329,7 @@ namespace GameCore.Labor
             return Resources.Load<Material>(GhostMaterialPath);
         }
 
-        private static Material LoadSolidMaterial()
-        {
-            Material mat = null;
-#if UNITY_EDITOR
-            mat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>(SolidMaterialEditorPath);
-#endif
-            if (mat == null)
-                mat = Resources.Load<Material>(SolidMaterialPath);
-            return mat;
-        }
+        private static Material LoadSolidMaterial() => SharedMaterials.SolidPalette;
 
         private static void ApplySolidMaterial(PalletBuilder builder, Material solidMat)
         {

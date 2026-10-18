@@ -1666,7 +1666,12 @@ namespace GameCore.Inventory
                     appt.LateFineAmount += order.LastFineAmount;
                 }
 
-                bool startedLoading = apptOrders.Any(o =>
+                // Status alone isn't enough: an order picked over several trips goes back to picking between them while
+                // its first pallets already sit in the trailer. Freight aboard = loading has started (2026-10-17).
+                var apptIds = new HashSet<string>(apptOrders.Select(o => o.OrderId));
+                bool freightAboard = Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
+                    .Any(p => p != null && apptIds.Contains(p.OrderId) && p.Lifecycle == PalletLifecycle.Shipped);
+                bool startedLoading = freightAboard || apptOrders.Any(o =>
                     o.Status == OrderData.OrderStatus.Loading ||
                     o.Status == OrderData.OrderStatus.Loaded ||
                     o.Status == OrderData.OrderStatus.Shipped);

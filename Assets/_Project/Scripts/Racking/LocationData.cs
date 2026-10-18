@@ -147,6 +147,13 @@ namespace GameCore.Inventory
         /// so it can never go negative. Fully draining the slot releases it back to Available —
         /// the same signal ReplenishmentService already scans for — instead of leaving a phantom
         /// Occupied slot with 0 qty and no pallet.</summary>
+        /// <summary>Puts cases BACK into this slot's current load (a return). Leaves the status alone - a slot can be
+        /// Reserved for a pending replenishment while it still holds stock.</summary>
+        public void AddCases(int amount)
+        {
+            if (amount > 0) _quantity += amount;
+        }
+
         public void Pick(int amount)
         {
             _quantity = Mathf.Max(0, _quantity - amount);

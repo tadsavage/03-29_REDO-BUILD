@@ -53,7 +53,11 @@ public class MHEOperatorSlot : MonoBehaviour
     {
         // Only a REAL placed vehicle still has its AiNavigation by now (the build-menu hover ghost is stripped of
         // it right after Instantiate), so only real vehicles get floor-snapping and a contact shadow.
-        if (GetComponent<AiNavigation>() != null) VehicleGrounding.Attach(gameObject);
+        if (GetComponent<AiNavigation>() != null)
+        {
+            VehicleGrounding.Attach(gameObject);
+            EquipmentBattery.Attach(gameObject);   // 8 h of use, 2 h on a charger (Tad, 2026-10-17)
+        }
     }
 
 
@@ -149,9 +153,53 @@ public class MHEOperatorSlot : MonoBehaviour
         }
     }
 
+    /// <summary>False while the battery is flat or the machine is on its way to / sitting on a charger
+    /// (EquipmentBattery.NeedsCharge). Operators don't climb aboard until it is full again.</summary>
+    public bool AcceptsOperator
+    {
+        get
+        {
+            var b = GetComponent<EquipmentBattery>();
+            return b == null || !b.NeedsCharge;
+        }
+    }
+
+    /// <summary>
+    /// Battery died: the rider climbs off and goes back to patrolling, but the MACHINE keeps running (Tad,
+    /// 2026-10-17: it finishes delivering what is on its forks, then drives itself to a charger). Same as
+    /// <see cref="VacateOperator"/> for the person, WITHOUT parking the vehicle's own navigation - GoIdle there
+    /// would freeze a reach truck or pallet jack mid-delivery.
+    /// </summary>
+    public EmployeeIdentity EjectRider()
+    {
+        EmployeeIdentity identity = CurrentOperator;
+        if (identity == null) return null;
+
+        SetDriveStyle(identity, 0);
+        identity.GetComponent<AgentAnimation>()?.SetRidingMHE(false);
+        var operatorIndicator = identity.GetComponent<NoWaypointIndicator>();
+        if (operatorIndicator != null) operatorIndicator.enabled = true;
+        var operatorBubble = identity.GetComponent<EmoteBubble>();
+        if (operatorBubble != null) operatorBubble.enabled = true;
+
+        identity.transform.SetParent(null, worldPositionStays: true);
+        // Step down beside the machine rather than inside it.
+        identity.transform.position += transform.right * 1.2f;
+
+        var operatorAgent = identity.GetComponent<NavMeshAgent>();
+        var operatorNav = identity.GetComponent<AiNavigation>();
+        if (operatorNav != null) operatorNav.enabled = true;
+        if (operatorAgent != null) { operatorAgent.enabled = true; if (operatorAgent.isOnNavMesh) operatorAgent.Warp(identity.transform.position); }
+
+        identity.AssignedSlot = null;
+        CurrentOperator = null;
+        return identity;
+    }
+
     public void AssignOperator(EmployeeIdentity identity)
     {
         if (identity == null || IsOccupied) return;
+        if (!AcceptsOperator) return;   // flat battery / charging: see EquipmentBattery
 
         Transform anchor = _operatorAnchor != null ? _operatorAnchor : transform;
         Transform t = identity.transform;

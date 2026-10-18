@@ -498,6 +498,110 @@ namespace GameCore.Inventory
             return Mathf.Max(0, line.QuantityRemaining - OutstandingPalletPickCases(order.OrderId, line.SkuId));
         }
 
+        // ── Several selectors on one order (2026-10-17) ──────────────────────────────────────────────
+        // A big order used to be worked by ONE selector at a time (~2.5 game-min per case), so it ran late
+        // while other selectors stood idle. Now an order big enough for more than one trip gets helper
+        // OrderSelect tasks, and each selector RESERVES the cases it is walking to, so two selectors never
+        // head for the same cases. One reservation per task (the current target), counted down per case.
+
+        /// <summary>Most selectors that may work one order at the same time.</summary>
+        public const int MaxSelectorsPerOrder = 3;
+
+        private readonly Dictionary<string, (string OrderId, string SkuId, int Qty)> _pickReservations
+            = new Dictionary<string, (string OrderId, string SkuId, int Qty)>();
+
+        /// <summary>This task is heading for <paramref name="qty"/> cases of a line (replaces its previous target).</summary>
+        public void ReservePick(string taskId, string orderId, string skuId, int qty)
+        {
+            if (string.IsNullOrEmpty(taskId)) return;
+            if (qty <= 0) { _pickReservations.Remove(taskId); return; }
+            _pickReservations[taskId] = (orderId, skuId, qty);
+        }
+
+        /// <summary>One reserved case landed on the selector's pallet (it now counts in QuantityPicked instead).</summary>
+        public void NotePickedCase(string taskId)
+        {
+            if (string.IsNullOrEmpty(taskId) || !_pickReservations.TryGetValue(taskId, out var r)) return;
+            if (r.Qty <= 1) _pickReservations.Remove(taskId);
+            else _pickReservations[taskId] = (r.OrderId, r.SkuId, r.Qty - 1);
+        }
+
+        public void ReleasePick(string taskId)
+        {
+            if (!string.IsNullOrEmpty(taskId)) _pickReservations.Remove(taskId);
+        }
+
+        /// <summary>Cases of a line other selectors are walking to right now. A reservation whose task is no
+        /// longer claimed (finished, cancelled, selector gone) is ignored, so a leak can't hide cases forever.</summary>
+        private int ReservedByOthers(string orderId, string skuId, string exceptTaskId)
+        {
+            if (_pickReservations.Count == 0) return 0;
+            int sum = 0;
+            foreach (var kv in _pickReservations)
+            {
+                if (kv.Key == exceptTaskId || kv.Value.OrderId != orderId || kv.Value.SkuId != skuId) continue;
+                var t = _workQueue?.Tasks.FirstOrDefault(x => x.TaskId == kv.Key);
+                if (t == null || t.Status != WorkTaskStatus.Assigned) continue;
+                sum += kv.Value.Qty;
+            }
+            return sum;
+        }
+
+        /// <summary><see cref="SelectableRemaining(OrderData, OrderLineItem)"/> minus what OTHER selectors on this
+        /// order are already walking to. What one selector may still go and get.</summary>
+        public int SelectableRemaining(OrderData order, OrderLineItem line, string forTaskId)
+        {
+            if (order == null || line == null) return 0;
+            return Mathf.Max(0, SelectableRemaining(order, line) - ReservedByOthers(order.OrderId, line.SkuId, forTaskId));
+        }
+
+        /// <summary>Selectors currently working this order, other than <paramref name="except"/>.</summary>
+        public int OtherSelectorsOnOrder(OrderData order, WorkTask except)
+            => order == null ? 0 : LiveTasksForOrder(order.OrderId).Count(t => t.Type == WorkTaskType.OrderSelect &&
+                                                                               t != except && t.Status == WorkTaskStatus.Assigned);
+
+        /// <summary>
+        /// Called when a selector claims an order's trip. If the loose cases still to pick need more trips than
+        /// the selectors already on it can carry, files ONE more OrderSelect task so an idle selector can join.
+        /// That helper files the next one when it claims, so help grows one selector at a time up to
+        /// <see cref="MaxSelectorsPerOrder"/>. Never stacks unclaimed helpers.
+        /// </summary>
+        public bool FileHelperSelectIfWorthwhile(OrderData order)
+        {
+            if (order == null || _workQueue == null || !order.ReleasedToFloor || string.IsNullOrEmpty(order.AssignedLane)) return false;
+            if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return false;
+
+            var selects = LiveTasksForOrder(order.OrderId).Where(t => t.Type == WorkTaskType.OrderSelect).ToList();
+            if (selects.Any(t => t.Status != WorkTaskStatus.Assigned)) return false;   // a trip is already waiting for someone
+            int working = selects.Count;
+            if (working >= MaxSelectorsPerOrder) return false;
+
+            // Pallets the remaining loose cases build into, as fractions of each SKU's full pallet.
+            float pallets = 0f;
+            int cases = 0;
+            foreach (var li in order.LineItems)
+            {
+                int want = SelectableRemaining(order, li);
+                if (want <= 0) continue;
+                cases += want;
+                int full = FullPalletCases(li.SkuId);
+                pallets += full > 0 ? want / (float)full : want / 48f;
+            }
+            if (cases <= 0 || pallets <= working * SelectorPalletsPerTrip) return false;
+
+            var st = _workQueue.CreateTask(
+                WorkTaskType.OrderSelect,
+                EmployeeRole.OrderSelector,
+                palletId: null,
+                description: $"Help select {order.CustomerName} ({cases} loose case(s) left)",
+                area: DominantArea(order),
+                orderId: order.OrderId);
+            if (st == null) return false;
+            st.Status = WorkTaskStatus.Available;
+            Debug.Log($"[OrderService] Order {order.OrderNumber}: ~{pallets:F1} pallet(s) of loose cases left for {working} selector(s) - filed a helper trip.");
+            return true;
+        }
+
         /// <summary>True when nothing is left for a case picker because every remaining case is owed
         /// by a PalletPick. Lets the selector finish its remainder and deliver normally instead of
         /// reporting a short pick, which is what it would otherwise conclude from finding no
@@ -1065,6 +1169,15 @@ namespace GameCore.Inventory
                 if (!pallet.IsOnFloor) continue;   // on forks / in a trailer
                 if (pallet.Stage != OutboundPalletBuilder.PalletStage.Staged) continue;
 
+                // A CASE-PICKED pallet left behind (didn't fit / never loaded): its order didn't pay for it (ShipOrder bills
+                // shipped pallets only), and the cases go back where they came from - a selector reverse-picks them into
+                // their pick slots on a pallet jack (Tad, 2026-10-17).
+                if (pallet.CaseCountsBySku.Count > 0)
+                {
+                    if (string.IsNullOrEmpty(pallet.ReturnId)) FileReturnTask(pallet);
+                    continue;
+                }
+
                 var data = pallet.GetComponent<PalletData>();
                 if (data == null || string.IsNullOrEmpty(data.ItemNumber) || data.CaseQuantity <= 0) continue;
                 if (ReturnLanePalletToStock(pallet, data.ItemNumber, data.CaseQuantity))
@@ -1329,6 +1442,31 @@ namespace GameCore.Inventory
 
         /// <summary>Puts a pallet that never made it onto the trailer back into stock: registers it in
         /// inventory at the lane slot it stands in, strips its outbound tag, and files a Putaway.</summary>
+        /// <summary>Files a Return task for a left-behind case-picked pallet: an Order Selector takes it on a pallet jack
+        /// and puts every case back into the pick slot it came from, in the reverse of the order it was picked.</summary>
+        private void FileReturnTask(OutboundPalletBuilder pallet)
+        {
+            if (_workQueue == null || pallet == null) return;
+            pallet.ReturnId = System.Guid.NewGuid().ToString();
+            string where = "";
+            var grid = Object.FindFirstObjectByType<PlacementGrid>();
+            if (grid != null && LaneNamingService.TryGetSlot(grid.WorldToCell(pallet.transform.position), out var slot))
+                where = $"{slot.DoorNumber}{slot.Lane}";
+            var order = _orderHistory.FirstOrDefault(o => o.OrderId == pallet.OrderId) ?? _activeOrders.FirstOrDefault(o => o.OrderId == pallet.OrderId);
+            string num = order?.OrderNumber ?? pallet.OrderId;
+            var task = _workQueue.CreateTask(
+                WorkTaskType.Return,
+                EmployeeRole.OrderSelector,
+                palletId: pallet.ReturnId,
+                description: $"Return {pallet.TotalCases} case(s) from order {num} to their pick slots",
+                fromLocation: string.IsNullOrEmpty(where) ? null : where,
+                orderId: null);
+            if (task != null) task.Status = WorkTaskStatus.Available;
+            string msg = $"Order {num}: a pallet of {pallet.TotalCases} case(s) was left behind - the customer was not charged for it, and a selector will put the cases back in their pick slots.";
+            Debug.LogWarning($"[OrderService] {msg}");
+            SystemsLogWindow.LogSystem(msg);
+        }
+
         private bool ReturnLanePalletToStock(OutboundPalletBuilder outbound, string skuId, int cases)
         {
             var grid = Object.FindFirstObjectByType<PlacementGrid>();
@@ -2008,6 +2146,38 @@ namespace GameCore.Inventory
         /// Each shipped order is announced in the Systems Log and with the big on-screen payout
         /// (ShippedFanfare). Returns how many orders were shipped.
         /// </summary>
+        /// <summary>
+        /// A trailer that can't take another pallet ships with what's aboard (2026-10-17 playtest - a full trailer used
+        /// to wait forever for lanes that could never empty). Every order with freight in it stops picking, is closed
+        /// out, and is billed for the pallets in the trailer only (ShipOrder bills SHIPPED pallets). Pallets that didn't
+        /// fit are archived with the order: ReclaimOrphanedFreight returns whole pallets to putaway and files a Return
+        /// for case-picked ones, so a selector puts the cases back in their pick slots.
+        /// </summary>
+        public int ShipCargoFullTrailer(TruckController truck)
+        {
+            if (truck == null) return 0;
+            var ids = truck.GetComponentsInChildren<OutboundPalletBuilder>(true)
+                .Where(p => p != null && !string.IsNullOrEmpty(p.OrderId)).Select(p => p.OrderId).Distinct().ToList();
+            int door = truck.DockedAt != null ? truck.DockedAt.DoorNumber : 0;
+            int billedTotal = 0;
+            foreach (var id in ids)
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
+                if (order == null) continue;
+                CancelLeftoverTasks(id);
+                int billed = ShipOrder(id);
+                billedTotal += billed;
+                string number = order.OrderNumber ?? id;
+                string msg = $"The trailer at door {door} was full - order {number} shipped with what fit (${billed:N0}); the pallets left behind were not billed and go back to stock.";
+                Debug.LogWarning($"[OrderService] {msg}");
+                SystemsLogWindow.Log(msg);
+                ShippedFanfare.Show(number, billed);
+            }
+            if (door > 0) TryReleaseDoorIfClear(door, billedTotal);
+            ReclaimOrphanedFreight();
+            return ids.Count;
+        }
+
         public int AutoCloseLoadedOrders()
         {
             // A LOADED order whose remaining pallet picks have no stock anywhere in the building can never get

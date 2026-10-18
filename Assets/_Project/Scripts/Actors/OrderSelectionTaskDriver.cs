@@ -124,6 +124,8 @@ namespace GameCore.Actors
 
             _taskInProgress = true;
             _nav.SetTaskBusy(true);
+            // A left-behind case-picked pallet going back to its pick slots (OrderSelectionTaskDriver.Returns.cs).
+            if (_currentTask.Type == WorkTaskType.Return) { StartReturnRun(); return; }
             // Pallet jack if one is free (see OrderSelectionTaskDriver.PalletJack.cs), otherwise by hand.
             if (TryStartJackRun()) return;
             AdvanceToNextPick();
@@ -137,12 +139,16 @@ namespace GameCore.Actors
         {
             if (_currentOrder.IsFullyPicked)
             {
+                if (HelperNotNeeded()) { EndUnneededHelperTrip(); return; }
                 CompleteCurrentOrder();
                 return;
             }
 
             if (!TryFindBestPickLocation(_currentOrder, out var location, out var lineItem, out int takeQty))
             {
+                // Everything left is being fetched by other selectors on this order.
+                if (HelperNotNeeded()) { EndUnneededHelperTrip(); return; }
+
                 // A bulk order's case picker is DONE the moment the only thing left is full pallets —
                 // that work belongs to the Reach Trucks. Without this the selector would read the
                 // pallet quantities as unreachable stock and report a short pick on a healthy order.
@@ -231,8 +237,9 @@ namespace GameCore.Actors
                 location.Pick(1);
 
                 lineItem.QuantityPicked++;
+                _orderService.NotePickedCase(_currentTask?.TaskId);
                 var activePallet = _pallets[_pallets.Count - 1];
-                activePallet.AddCase(lineItem.SkuId, sku.Prefab, caseDim, ti, hi);
+                activePallet.AddCase(lineItem.SkuId, sku.Prefab, caseDim, ti, hi, location.Address);
 
                 // Order-complete takes priority over the cubing cap if both land on the same case —
                 // the order data itself is the source of truth, not which condition we happened to
@@ -367,7 +374,7 @@ namespace GameCore.Actors
             int caseCount = _pallets.Sum(p => p != null ? p.TotalCases : 0);
             Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) stopped at {MaxPalletsPerOrder} cubed-out pallet(s) — {caseCount} case(s), {_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits} units picked. Selector's capacity is full; delivering to staging.");
 
-            _currentOrder.Status = OrderData.OrderStatus.PartiallyPicked;
+            MarkPartialUnlessLoading(_currentOrder);
             _cubingCapHit = true;
             FinishOrder();
         }
@@ -453,7 +460,7 @@ namespace GameCore.Actors
                     // where the goods physically are. TrailerLoadController (D1) finds pallets to
                     // load by scanning position, not by this status, but it's the signal a later
                     // pass (billing, UI) can use to know an order is truck-ready.
-                    order.Status = completionStatus;
+                    order.Status = TripEndStatus(order, completionStatus, task);
                     FinishOrderCleanup(task);
                 });
             }
@@ -566,6 +573,13 @@ namespace GameCore.Actors
             var task = _currentTask;
             var order = _currentOrder;
 
+            // Another selector is still working this order: un-releasing it would pull the lane out from under them.
+            if (_orderService.OtherSelectorsOnOrder(order, task) > 0 && _pallets.Sum(p => p != null ? p.TotalCases : 0) == 0)
+            {
+                EndUnneededHelperTrip();
+                return;
+            }
+
             // A continuation trip (see FinishOrderCleanup) on an order whose earlier trips already staged
             // freight: un-releasing it would wipe the lane those pallets sit in. Ship what's there instead.
             if (order.TotalUnitsPicked > 0)
@@ -574,7 +588,7 @@ namespace GameCore.Actors
                 _pallets.Clear();
                 Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderNumber} ({order.CustomerName}) has nothing left to pick " +
                                  $"on this trip; earlier trips staged {order.TotalUnitsPicked}/{order.TotalUnits} - it ships with that.");
-                order.Status = OrderData.OrderStatus.Staged;
+                order.Status = TripEndStatus(order, OrderData.OrderStatus.Staged, task);
                 FinishOrderCleanup(task);
                 return;
             }
@@ -605,6 +619,7 @@ namespace GameCore.Actors
 
         private void FinishOrderCleanup(WorkTask task)
         {
+            _orderService.ReleasePick(task?.TaskId);
             _workQueue.CompleteTask(task.TaskId);
 
             // MULTI-TRIP PICKING (2026-10-17 playtest): a selector carries at most MaxPalletsPerOrder pallets.
@@ -613,7 +628,13 @@ namespace GameCore.Actors
             // the order stays PartiallyPicked until the last trip stages, and AutoCloseLoadedOrders waits
             // while any OrderSelect task for it is live.
             if (_cubingCapHit && _currentOrder != null && _orderService.FileContinuationSelect(_currentOrder))
-                _currentOrder.Status = OrderData.OrderStatus.PartiallyPicked;
+            {
+                // Freight already in the trailer: the order is LOADING, not back to picking. Dropping it to PartiallyPicked
+                // made the dock schedule decide "nothing loaded" and close the appointment under a half-loaded trailer.
+                string id = _currentOrder.OrderId;
+                bool onTrailer = FindObjectsByType<OutboundPalletBuilder>().Any(p => p != null && p.OrderId == id && p.Lifecycle == PalletLifecycle.Shipped);
+                _currentOrder.Status = onTrailer ? OrderData.OrderStatus.Loading : OrderData.OrderStatus.PartiallyPicked;
+            }
             _cubingCapHit = false;
 
             _currentTask = null;
@@ -642,6 +663,8 @@ namespace GameCore.Actors
 
             // Lambdas can't close over an out/ref parameter of the enclosing method — copy to a
             // local first (task itself is unaffected, still the same claimed WorkTask).
+            if (task.Type == WorkTaskType.Return) return true;   // no order: see StartReturnRun
+
             string claimedOrderId = task.OrderId;
             order = _orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == claimedOrderId);
             if (order == null)
@@ -651,6 +674,8 @@ namespace GameCore.Actors
                 task = null;
                 return false;
             }
+            // Big order: offer another trip so an idle selector can join (OrderService.FileHelperSelectIfWorthwhile).
+            _orderService.FileHelperSelectIfWorthwhile(order);
             return true;
         }
 
@@ -662,32 +687,56 @@ namespace GameCore.Actors
         /// pulling from a second location if needed.</summary>
         private bool TryFindBestPickLocation(OrderData order, out LocationData location, out OrderLineItem lineItem, out int takeQty)
         {
-            location = null;
-            lineItem = null;
-            takeQty = 0;
+            // Next pick = the earliest remaining slot in the serpentine sequence (aisle 1 bays up, aisle 2 down, ...),
+            // across ALL line items - not line-item order, which zigzagged up and down the aisles (Tad, 2026-10-17).
+            // On a BULK order most of a line is owed by PalletPick tasks; SelectableRemaining is what's genuinely left
+            // for a case picker (for every other order it's just QuantityRemaining).
+            // Cases other selectors on this order are already walking to are left out, and this selector reserves
+            // its own target so they leave it alone (several selectors per order, 2026-10-17).
+            string taskId = _currentTask != null ? _currentTask.TaskId : null;
+            bool found = OrderPickPath.ChooseNext(order, li => _orderService.SelectableRemaining(order, li, taskId),
+                                                  out location, out lineItem, out takeQty);
+            _orderService.ReservePick(taskId, order != null ? order.OrderId : null,
+                                      found ? lineItem.SkuId : null, found ? takeQty : 0);
+            return found;
+        }
 
-            foreach (var li in order.LineItems)
-            {
-                if (li.IsFullyPicked) continue;
+        /// <summary>This trip has nothing on its pallets and another selector is still working the order: it
+        /// was a helper with nothing left to help with.</summary>
+        private bool HelperNotNeeded()
+            => _pallets.Sum(p => p != null ? p.TotalCases : 0) == 0 &&
+               _orderService.OtherSelectorsOnOrder(_currentOrder, _currentTask) > 0;
 
-                // On a BULK order most of this line is owed by outstanding PalletPick tasks, and a
-                // selector must not walk those off by hand — 620 cases means ten Reach Truck pallets
-                // and twenty cases here, not 620 case picks. SelectableRemaining is what's genuinely
-                // left for a case picker; for every other order it's just QuantityRemaining.
-                int want = _orderService.SelectableRemaining(order, li);
-                if (want <= 0) continue;
+        /// <summary>Ends a helper trip that found nothing to pick: no status change, no continuation.</summary>
+        private void EndUnneededHelperTrip()
+        {
+            Debug.Log($"[OrderSelectionTaskDriver] '{name}': nothing left to help with on order {_currentOrder?.OrderNumber} - other selectors have it.");
+            foreach (var p in _pallets) if (p != null) Destroy(p.gameObject);
+            _pallets.Clear();
+            _cubingCapHit = false;
+            FinishOrderCleanup(_currentTask);
+        }
 
-                // Slot choice lives in OrderPickPath so the Work Queue can preview an order's route
-                // using the identical rule — see that class for why it isn't duplicated here.
-                var best = OrderPickPath.ChooseSlot(li.SkuId, want, out int qty);
-                if (best == null) continue;
+        /// <summary>
+        /// The order status a finishing trip leaves behind. With several selectors on one order the FIRST to
+        /// finish must not call it Staged while others still carry cases, and a trailer that is already loading
+        /// stays Loading (more pallets just landed for it). Only the last selector out sets the real result.
+        /// </summary>
+        private OrderData.OrderStatus TripEndStatus(OrderData order, OrderData.OrderStatus wanted, WorkTask mine)
+        {
+            if (order == null) return wanted;
+            if (order.Status == OrderData.OrderStatus.Loading || order.Status == OrderData.OrderStatus.Loaded)
+                return OrderData.OrderStatus.Loading;
+            if (_orderService.OtherSelectorsOnOrder(order, mine) > 0) return OrderData.OrderStatus.PartiallyPicked;
+            return wanted;
+        }
 
-                location = best;
-                lineItem = li;
-                takeQty = qty;
-                return true;
-            }
-            return false;
+        /// <summary>Marks picking as partial without knocking a loading order back out of Loading.</summary>
+        private static void MarkPartialUnlessLoading(OrderData order)
+        {
+            if (order == null) return;
+            if (order.Status == OrderData.OrderStatus.Loading || order.Status == OrderData.OrderStatus.Loaded) return;
+            order.Status = OrderData.OrderStatus.PartiallyPicked;
         }
     }
 }

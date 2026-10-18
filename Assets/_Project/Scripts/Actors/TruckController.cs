@@ -802,12 +802,23 @@ private DockSlot        _dock;
         }
         else
         {
-            for (int i = 0; i < PalletSlotCount; i++)
+            // One pallet per full pallet actually ORDERED (2026-10-17 playtest). This used to fill all 12 slots by
+            // cycling the line items, so a 2-pallet PO arrived with 6+ pallets (free stock) and a short-shipped line
+            // still turned up. Dropped and already-received lines build nothing, exactly like the metadata path.
+            int slot = 0;
+            for (int i = 0; i < shipment.LineItems.Count; i++)
             {
-                var item = shipment.LineItems[i % shipment.LineItems.Count];
+                var item = shipment.LineItems[i];
+                if (item.Dropped || item.ReceivedQuantity >= item.Quantity) continue;
                 var sku = inventoryService?.GetSkuData(item.SkuId);
-                if (BuildOnePallet(loadParent, sku, item.SkuId, i, 0, i))
-                    built++;
+                int perPallet = sku != null ? Mathf.Max(1, sku.Ti * sku.Hi) : Mathf.Max(1, item.Quantity);
+                int pallets = Mathf.Max(1, Mathf.CeilToInt((item.Quantity - item.ReceivedQuantity) / (float)perPallet));
+                for (int p = 0; p < pallets && slot < PalletSlotCount * 2; p++, slot++)
+                {
+                    int floorSlot = slot % PalletSlotCount, tier = slot / PalletSlotCount;
+                    if (BuildOnePallet(loadParent, sku, item.SkuId, floorSlot, tier, slot))
+                        built++;
+                }
             }
         }
 
@@ -3564,6 +3575,26 @@ private DockSlot        _dock;
 
     private void BeginDeparture() => BeginDeparture(succeeded: true);
 
+    private bool _warnedUnbilledDeparture;
+
+    /// <summary>True if a pallet in this trailer belongs to an order that is still active (not shipped/archived).</summary>
+    private bool TryFindUnbilledCargo(out string orderNumber)
+    {
+        orderNumber = null;
+        var load = LoadContainer;
+        if (load == null || load.childCount == 0) return false;
+        if (!GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.OrderService orders) || orders == null) return false;
+        foreach (var p in load.GetComponentsInChildren<OutboundPalletBuilder>(true))
+        {
+            if (p == null || string.IsNullOrEmpty(p.OrderId)) continue;
+            var o = orders.ActiveOrders.FirstOrDefault(x => x.OrderId == p.OrderId);
+            if (o == null || o.Status == GameCore.Inventory.OrderData.OrderStatus.Shipped || o.Status == GameCore.Inventory.OrderData.OrderStatus.Cancelled) continue;
+            orderNumber = o.OrderNumber ?? o.OrderId;
+            return true;
+        }
+        return false;
+    }
+
     /// <summary><paramref name="succeeded"/> is false exactly once, for the door-wait give-up case
     /// (UpdateWaitingForDoor's timeout / BeginDoorWait's missing-waypoint fallback) — a truck that
     /// never got a door never delivered anything, so it must not be marked Departed (that reads as "PO
@@ -3573,6 +3604,23 @@ private DockSlot        _dock;
     /// near-duplicate exit routines drifting apart over time.</summary>
     private void BeginDeparture(bool succeeded)
     {
+        // NEVER DRIVE AWAY UNBILLED FREIGHT (2026-10-17 playtest): an outbound trailer left with 3 loaded pallets
+        // (157 cases) of an order that hadn't shipped - stock gone, nothing billed. Billing only happens at close-out,
+        // so while any pallet aboard belongs to a still-active order the truck stays at the door. The warning names
+        // the caller so the trigger can be found.
+        if (_isOutbound && _state == TruckState.Docked && TryFindUnbilledCargo(out string unbilledOrder))
+        {
+            if (!_warnedUnbilledDeparture)
+            {
+                _warnedUnbilledDeparture = true;
+                Debug.LogWarning($"[TruckController] {name} was told to depart with unbilled freight of order {unbilledOrder} aboard - " +
+                                 $"staying at the door until it is closed out.\n{System.Environment.StackTrace}");
+            }
+            _loadComplete = false;
+            return;
+        }
+        _warnedUnbilledDeparture = false;
+
         // Captured before anything below has a chance to reset _dockedAtSimMinute (the VENDORS-tab
         // dwell-hours block a little further down zeroes it back to -1) — ApplyOffloadStandardBonus
         // needs the same "docked to last pallet off" window that block measures, just compared

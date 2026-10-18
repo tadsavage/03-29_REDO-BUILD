@@ -13,14 +13,14 @@ public static class CreatePalletJackParking
 {
     const string PrefabPath = "Assets/_Project/Prefabs/MHE/PJ_Parking.prefab";
     const string SoPath = "Assets/_Project/ScriptableObjects/PrefabSOs/PJ_Parking.asset";
-    const string MatDir = "Assets/_Project/Materials/PJParking";
+    const string MatDir = "Assets/_Project/ScriptableObjects/Materials/PJParking";
     const string ChargerModelPath = "Assets/_Project/Models/MHE_Charger.fbx";
     const float Cell = 1.33f;
 
     [MenuItem("Tools/Pallet Jack/Create Parking Spot Placeable")]
     public static void Run()
     {
-        if (!AssetDatabase.IsValidFolder(MatDir)) AssetDatabase.CreateFolder("Assets/_Project/Materials", "PJParking");
+        if (!AssetDatabase.IsValidFolder(MatDir)) AssetDatabase.CreateFolder("Assets/_Project/ScriptableObjects/Materials", "PJParking");
         var root = new GameObject("PJ_Parking");
         try
         {

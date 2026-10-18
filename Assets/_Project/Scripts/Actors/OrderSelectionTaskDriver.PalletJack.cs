@@ -33,9 +33,42 @@ namespace GameCore.Actors
     public partial class OrderSelectionTaskDriver
     {
         // ── Tunables ────────────────────────────────────────────────────────────────────────────────
-        private const float JackDriveSpeed   = 1.8f;   // m/s, scripted forward legs
-        private const float JackReverseSpeed = 0.9f;   // m/s, backing into the lane
-        private const float JackTurnSpeed    = 110f;   // deg/s, turning in place
+        private const float BaseJackDriveSpeed   = 1.8f;   // m/s, scripted forward legs
+        private const float BaseJackReverseSpeed = 0.9f;   // m/s, backing into the lane
+        private const float BaseJackTurnSpeed    = 110f;   // deg/s, turning in place
+        // Doubled while the jack finishes delivering driverless after its battery died (EquipmentBattery).
+        private float JackSpeedMul => _jack != null ? EquipmentBattery.SpeedMultiplierFor(_jack) : 1f;
+        private float JackDriveSpeed   => BaseJackDriveSpeed * JackSpeedMul;
+        private float JackReverseSpeed => BaseJackReverseSpeed * JackSpeedMul;
+        private float JackTurnSpeed    => BaseJackTurnSpeed * JackSpeedMul;
+
+        /// <summary>A selector currently holds this jack (EquipmentBattery waits for this before driving it to a charger).</summary>
+        public static bool IsJackClaimed(MHEOperatorSlot jack)
+            => jack != null && s_jackClaims.TryGetValue(jack, out var owner) && owner != null;
+
+        /// <summary>The jack's battery went flat mid-run (EquipmentBattery.NeedsCharge).</summary>
+        private bool JackOutOfPower => _jack != null && _jack.GetComponent<EquipmentBattery>() is EquipmentBattery b && b.NeedsCharge;
+
+        /// <summary>This selector climbed off a flat jack: the jack finishes the delivery on its own, the selector patrols.</summary>
+        private bool _ejectedFromJack;
+
+        /// <summary>Flat battery (Tad, 2026-10-17): the selector climbs off and goes back to patrolling; the jack carries
+        /// on alone at double speed to stage what is on its forks, then EquipmentBattery takes it to a charger.</summary>
+        private void EjectFromJack()
+        {
+            if (_ejectedFromJack || _jack == null) return;
+            _ejectedFromJack = true;
+            DestroyHeldCase();
+            SetLean(0f);
+            SetAnimBool("CarryCase", false);
+            var identity = GetComponent<EmployeeIdentity>();
+            if (_jack.CurrentOperator == identity) _jack.EjectRider();
+            EndScriptedFoot();   // if they were off the jack walking by script, hand their body back to their own navigation
+            _jack.GetComponent<EquipmentBattery>()?.BeginDriverlessRun();
+            _nav.SetTaskBusy(false);
+            _nav.Patrol();
+            Debug.Log($"[OrderSelectionTaskDriver] '{name}': pallet jack battery died on order {_currentOrder?.OrderNumber} - climbed off; the jack stages what's aboard by itself.");
+        }
         private const float FootWalkSpeed    = 1.4f;   // matches the staff walk speed
         private const float FootTurnSpeed    = 480f;   // deg/s
         private const float GrabSeconds      = 0.35f;  // reaching into the slot
@@ -48,6 +81,7 @@ namespace GameCore.Actors
         private const float LaneEntryMargin  = 1.0f;   // LaneLineUp stops this far outside the lane's last slot edge before reversing in
         private const float MountWalkTimeout = 60f;
         private const float StagingCellPitch = 1.33f;
+        private const float ReverseMaxDistance = 8f;   // ~3 bays (a bay is two 1.33 m cells): shorter backward moves reverse instead of turning
 
         /// <summary>Pallet positions on the jack's double-length forks, local Z behind the operator anchor:
         /// first pallet at the fork TIPS (so it goes deepest into a lane), second next to the operator.
@@ -96,6 +130,7 @@ namespace GameCore.Actors
             }
 
             _jack = jack;
+            _ejectedFromJack = false;
             _jackNav = jack.GetComponent<AiNavigation>();
             _jackAgent = jack.GetComponent<NavMeshAgent>();
             s_jackClaims[jack] = this;
@@ -113,7 +148,11 @@ namespace GameCore.Actors
                 if (slot == null || !slot.isActiveAndEnabled || !slot.IsPalletJack || slot.IsOccupied) continue;
                 if (slot.GetComponent<AiNavigation>() == null || slot.GetComponent<PlacedObject>() == null) continue; // build-menu ghost
                 if (s_jackClaims.TryGetValue(slot, out var owner) && owner != null && owner != this) continue;
+                // Battery: a dead jack stays on its charger; a low one (under an hour left) only if nothing better is free.
+                var batt = slot.GetComponent<EquipmentBattery>();
+                if (batt != null && (batt.IsDead || batt.NeedsCharge)) continue;   // flat, or on its way to / sitting on a charger
                 float d = PlanarDist(slot.transform.position, transform.position);
+                if (batt != null && batt.HoursLeft <= EquipmentBattery.LowHours) d += 1000f;
                 if (d < bestD) { bestD = d; best = slot; }
             }
             return best;
@@ -155,6 +194,7 @@ namespace GameCore.Actors
             _footScripted = false;   // the MHE slot owns the body's navigation state while riding
             SetJackDrive(false, "selector mounted");
             EnsurePallet();
+            _offJack = false; _parkedBay = null; _parkedPalletIndex = -1;
             yield return MoveForks(ForkLift);
 
             // 2. Pick, slot by slot.
@@ -163,8 +203,19 @@ namespace GameCore.Actors
             {
                 if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
 
+                // Flat battery: climb off; the jack stages what it already has by itself, the rest of the order
+                // becomes another trip (FinishOrderCleanup files it) for a selector with a charged jack.
+                if (JackOutOfPower)
+                {
+                    EjectFromJack();
+                    if (!_currentOrder.IsFullyPicked) { MarkPartialUnlessLoading(_currentOrder); _cubingCapHit = true; }
+                    completion = OrderData.OrderStatus.Staged;
+                    break;
+                }
+
                 if (_currentOrder.IsFullyPicked)
                 {
+                    if (HelperNotNeeded()) break;   // nothing of ours aboard: JackStageRoutine just parks + finishes
                     Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) fully picked on the pallet jack — {TotalCasesOnPallets()} case(s). Driving to staging.");
                     _orderService.MarkOrderFulfilled(_currentOrder.OrderId);
                     break;
@@ -172,6 +223,8 @@ namespace GameCore.Actors
 
                 if (!TryFindBestPickLocation(_currentOrder, out var location, out var lineItem, out int takeQty))
                 {
+                    // Everything left is being fetched by other selectors on this order.
+                    if (HelperNotNeeded()) break;
                     // Same exits as AdvanceToNextPick, in the same order.
                     if (_orderService.RemainingIsAllPalletPick(_currentOrder))
                     {
@@ -196,41 +249,65 @@ namespace GameCore.Actors
                     yield break;
                 }
 
-                // Drive down the aisle and park alongside the slot, active pallet level with it.
                 int palletIndex = Mathf.Clamp(_pallets.Count - 1, 0, ForkPalletZ.Length - 1);
                 if (!TryGetPickGeometry(location, out Vector3 slotFlat, out Vector3 toAisle))
                 {
                     yield return AbandonJackOnFoot($"pick slot {location.Address} has no usable position");
                     yield break;
                 }
-                Vector3 heading = PickHeading(toAisle);
-                Vector3 park = slotFlat + toAisle * ParkOffset - heading * ForkPalletZ[palletIndex];
-                yield return DriveJackTo(park, heading, $"pick slot {location.Address}");
-                if (!_jackLegOk)
+
+                // BAY STOPS (Tad, 2026-10-17): the jack parks ONCE per bay, at the bay's first position, and the selector
+                // walks to every slot they need in that bay before the jack moves on. Same bay + same pallet = stay off.
+                string bayKey = BayKey(location.Address);
+                if (!(_offJack && bayKey == _parkedBay && palletIndex == _parkedPalletIndex))
                 {
-                    yield return AbandonJackOnFoot($"could not drive the jack to pick slot {location.Address}");
-                    yield break;
+                    if (_offJack)
+                    {
+                        yield return StepIn();
+                        if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
+                        _jack.StepOn();
+                        _offJack = false;
+                    }
+                    Vector3 bayFlat = BayFirstPositionFlat(location, slotFlat);
+                    Vector3 heading = PickHeading(toAisle, location);
+                    Vector3 park = bayFlat + toAisle * ParkOffset - heading * ForkPalletZ[palletIndex];
+                    yield return DriveJackTo(park, heading, $"bay {bayKey}");
+                    if (!_jackLegOk)
+                    {
+                        yield return AbandonJackOnFoot($"could not drive the jack to bay {bayKey}");
+                        yield break;
+                    }
+                    if (JackOutOfPower) continue;   // died on the way here: handled at the top of the loop
+                    // Off the jack on the rack side (via that side's mount point).
+                    yield return StepOut(slotFlat);
+                    _offJack = true;
+                    _parkedBay = bayKey;
+                    _parkedPalletIndex = palletIndex;
                 }
 
-                // Off the jack on the rack side (via that side's mount point), case by case.
-                yield return StepOut(slotFlat);
                 yield return PickCasesFromSlot(location, lineItem, takeQty, slotFlat, toAisle);
                 if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
-
-                // Back on: nearer mount point → turn → step in.
-                yield return StepIn();
-                if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
-                _jack.StepOn();
 
                 if (_capReached)
                 {
                     _capReached = false;
                     Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) — both pallets on the jack are full ({_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits}). Driving to staging.");
-                    _currentOrder.Status = OrderData.OrderStatus.PartiallyPicked;
+                    MarkPartialUnlessLoading(_currentOrder);
                     completion = OrderData.OrderStatus.Staged;
                     _cubingCapHit = true;
                     break;
                 }
+            }
+
+            // Back on the jack before driving to staging (picking leaves the selector off it, at the last bay).
+            // Not after a flat battery: the jack drives to staging alone.
+            if (_offJack && _jack != null && !_ejectedFromJack && JackOutOfPower) { EjectFromJack(); _offJack = false; }
+            if (_offJack && _jack != null && !_ejectedFromJack)
+            {
+                yield return StepIn();
+                if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
+                _jack.StepOn();
+                _offJack = false;
             }
 
             // 3. Stage.
@@ -238,6 +315,24 @@ namespace GameCore.Actors
         }
 
         private bool _capReached;
+        private bool _offJack;            // selector standing at a bay, jack parked
+        private string _parkedBay;        // "AA-BB" of the bay the jack is parked at
+        private int _parkedPalletIndex = -1;
+
+        /// <summary>"AA-BB" part of a slot address: every slot in one bay shares it.</summary>
+        private static string BayKey(string address) => !string.IsNullOrEmpty(address) && address.Length >= 5 ? address.Substring(0, 5) : address;
+
+        /// <summary>Where the bay starts in walking direction (position 0 in an odd aisle, position 1 in an even one, the
+        /// serpentine sequence's first slot of the bay), at the same level as the pick. Falls back to the pick slot.</summary>
+        private static Vector3 BayFirstPositionFlat(LocationData pick, Vector3 pickFlat)
+        {
+            var a = pick != null ? pick.Address : null;
+            if (string.IsNullOrEmpty(a) || a.Length < 7 || !int.TryParse(a.Substring(0, 2), out int aisle)) return pickFlat;
+            char firstPos = aisle % 2 == 1 ? '0' : '1';
+            string first = a.Substring(0, 7) + firstPos;
+            if (first == a || !LocationRegistry.TryGet(first, out var loc)) return pickFlat;
+            return TryGetPickGeometry(loc, out var f, out _) ? f : pickFlat;
+        }
 
         /// <summary>The round trips between the slot and the pallet. Stock and pick counts change at the moment
         /// each case lands on the pallet, so an interrupted trip never counts a case that isn't there.</summary>
@@ -290,7 +385,8 @@ namespace GameCore.Actors
                 SetAnimBool("CarryCase", false);
 
                 lineItem.QuantityPicked++;
-                activePallet.AddCase(lineItem.SkuId, sku.Prefab, caseDim, ti, hi);
+                _orderService.NotePickedCase(_currentTask?.TaskId);
+                activePallet.AddCase(lineItem.SkuId, sku.Prefab, caseDim, ti, hi, location.Address);
 
                 if (_currentOrder.IsFullyPicked) yield break;
 
@@ -318,8 +414,16 @@ namespace GameCore.Actors
             DestroyEmptyPallets();
             if (LivePalletCount() == 0)
             {
-                // Nothing physical to stage (the rest of the order is pallet picks): just finish.
-                order.Status = completion;
+                // Nothing physical to stage (the rest of the order is pallet picks, or this was a helper trip the
+                // other selectors finished first): park the jack and finish. A helper leaves the order's status alone.
+                if (_orderService.OtherSelectorsOnOrder(order, task) == 0)
+                    order.Status = TripEndStatus(order, completion, task);
+                if (!_ejectedFromJack) _cubingCapHit = false;   // a flat-battery stop still owes the rest of the order a trip
+                if (_jack != null && !_ejectedFromJack)
+                {
+                    yield return ParkJack();
+                    if (_jack != null) yield return StepOut(_jack.transform.position - _jack.transform.right);
+                }
                 ReleaseJack();
                 FinishOrderCleanup(task);
                 yield break;
@@ -401,7 +505,7 @@ namespace GameCore.Actors
             // Lower and leave them.
             yield return MoveForks(0f);
             PlacePalletsAtStagingSlot(order, door, resolvedLane, slotPos, axis);
-            order.Status = completion;
+            order.Status = TripEndStatus(order, completion, task);
             _pallets.Clear();
 
             // Drive back out to the line-up spot, release the lane, step off (via a mount point) and leave the jack.
@@ -410,9 +514,13 @@ namespace GameCore.Actors
 
             Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) staged in {door}{resolvedLane} by pallet jack.");
 
-            // Park it in a Pallet Jack Parking bay instead of leaving it across the lane mouth.
-            yield return ParkJack();
-            if (_jack != null) yield return StepOut(_jack.transform.position - _jack.transform.right);
+            // Park it in a Pallet Jack Parking bay instead of leaving it across the lane mouth. A flat jack running
+            // driverless skips this: once released, EquipmentBattery drives it to a charging station itself.
+            if (!_ejectedFromJack)
+            {
+                yield return ParkJack();
+                if (_jack != null) yield return StepOut(_jack.transform.position - _jack.transform.right);
+            }
             ReleaseJack();
             FinishOrderCleanup(task);
         }
@@ -823,17 +931,30 @@ namespace GameCore.Actors
             Transform jt = _jack.transform;
             target = Flat(target, jt.position.y);
 
+            // SHORT MOVE ALONG THE AISLE (Tad, 2026-10-17): no turning round to go back a bay or two. Face the aisle
+            // heading and drive straight there - forward, or in REVERSE when the target is behind. Only a longer
+            // trip (more than ~3 bays) goes through the normal drive-and-turn below.
+            Vector3 toT = target - jt.position; toT.y = 0f;
+            Vector3 headF = finalForward; headF.y = 0f;
+            if (headF.sqrMagnitude > 0.0001f && toT.magnitude <= ReverseMaxDistance &&
+                (toT.magnitude < 0.05f || Mathf.Abs(Vector3.Dot(toT.normalized, headF.normalized)) > 0.8f))
+            {
+                yield return JackFace(headF);
+                bool reversing = Vector3.Dot(toT, headF) < 0f;
+                yield return JackMoveStraight(target, reversing ? JackReverseSpeed : JackDriveSpeed);
+                _jackLegOk = _jack != null;
+                yield break;
+            }
+
             yield return JackNavLeg(target, phase);
             if (!_jackLegOk || _jack == null) yield break;
 
-            // Close the last metre exactly, then square up.
+            // Close the last metre exactly, then square up. Square up FIRST and slide the remainder (forward or back),
+            // so the jack never spins round on the spot just to cover a few centimetres.
             Vector3 to = target - jt.position; to.y = 0f;
-            if (to.magnitude > 0.05f)
-            {
-                yield return JackFace(to);
-                yield return JackMoveStraight(target, JackDriveSpeed);
-            }
             yield return JackFace(finalForward);
+            if (to.magnitude > 0.05f)
+                yield return JackMoveStraight(target, Vector3.Dot(to, finalForward) < 0f ? JackReverseSpeed : JackDriveSpeed);
             _jackLegOk = _jack != null;
         }
 
@@ -857,8 +978,16 @@ namespace GameCore.Actors
             if (_jack == null) yield break;
             Transform jt = _jack.transform;
             Vector3 flat = Flat(target, jt.position.y);
+            float yielded = 0f;
             while (_jack != null && PlanarDist(jt.position, flat) > 0.02f)
             {
+                // Another jack in the way: wait behind it (capped, so a head-on meeting can't freeze both).
+                if (yielded < JackYieldMaxSeconds && JackPathBlocked(flat - jt.position))
+                {
+                    yielded += Time.deltaTime;
+                    yield return null;
+                    continue;
+                }
                 jt.position = Vector3.MoveTowards(jt.position, Flat(flat, jt.position.y), speed * Time.deltaTime);
                 yield return null;
             }
@@ -936,12 +1065,22 @@ namespace GameCore.Actors
                 yield break;
             }
 
-            float elapsed = 0f, sinceRecheck = 0f;
+            float elapsed = 0f, sinceRecheck = 0f, navYielded = 0f;
             int reissues = 0;
             while (_jack != null && !arrived && _jackNav.IsSeekingTask && elapsed < 45f)
             {
                 elapsed += Time.deltaTime;
                 sinceRecheck += Time.deltaTime;
+
+                // Another jack in the way: hold the agent still behind it (capped, see JackYieldMaxSeconds).
+                if (_jackAgent.isActiveAndEnabled && _jackAgent.isOnNavMesh)
+                {
+                    Vector3 heading = _jackAgent.desiredVelocity.sqrMagnitude > 0.01f ? _jackAgent.desiredVelocity : jt.forward;
+                    bool hold = navYielded < JackYieldMaxSeconds && JackPathBlocked(heading);
+                    if (hold) navYielded += Time.deltaTime;
+                    if (_jackAgent.isStopped != hold) _jackAgent.isStopped = hold;
+                }
+
                 if (sinceRecheck >= 0.5f)
                 {
                     sinceRecheck = 0f;
@@ -986,12 +1125,78 @@ namespace GameCore.Actors
             return true;
         }
 
-        /// <summary>Aisle direction to park along: whichever way along the aisle is closer to the jack's heading now.</summary>
-        private Vector3 PickHeading(Vector3 toAisle)
+        /// <summary>Aisle direction to park along: the way the pick route travels through this aisle (bays going UP
+        /// in an odd aisle, DOWN in an even one), so the jack drives forward bay to bay and only reverses for a short
+        /// backtrack. It used to keep whatever heading it arrived with, so a jack that entered an aisle backwards
+        /// reversed the whole length of it (Tad, 2026-10-17). Falls back to the current heading.</summary>
+        private Vector3 PickHeading(Vector3 toAisle, LocationData pick)
         {
             Vector3 along = Vector3.Cross(Vector3.up, toAisle).normalized;
-            Vector3 fwd = _jack != null ? _jack.transform.forward : transform.forward;
+            Vector3 fwd = TryAisleTravelDir(pick, out var travel) ? travel
+                        : (_jack != null ? _jack.transform.forward : transform.forward);
             return Vector3.Dot(along, fwd) >= 0f ? along : -along;
+        }
+
+        /// <summary>World direction of travel through the pick's aisle: toward higher bay numbers in an odd aisle,
+        /// lower in an even one (the serpentine sequence, OrderPickPath.SequenceKey).</summary>
+        private static bool TryAisleTravelDir(LocationData pick, out Vector3 dir)
+        {
+            dir = Vector3.zero;
+            string a = pick != null ? pick.Address : null;
+            if (string.IsNullOrEmpty(a) || a.Length < 8 ||
+                !int.TryParse(a.Substring(0, 2), out int aisle) || !int.TryParse(a.Substring(3, 2), out int bay)) return false;
+            string prefix = a.Substring(0, 3), suffix = a.Substring(5);
+            for (int d = 1; d <= 4; d++)
+            {
+                foreach (int sign in new[] { 1, -1 })
+                {
+                    int other = bay + sign * d;
+                    if (other < 1 || other > 99) continue;
+                    if (!LocationRegistry.TryGet($"{prefix}{other:00}{suffix}", out var loc) || loc == null) continue;
+                    Vector3 v = loc.WorldPosition - pick.WorldPosition; v.y = 0f;
+                    if (v.sqrMagnitude < 0.01f) continue;
+                    dir = v.normalized * sign;                 // toward higher bay numbers
+                    if (aisle % 2 == 0) dir = -dir;            // even aisles walk back down
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // ── Keeping pallet jacks apart (Tad, 2026-10-17: two selectors on one order drove over each other) ──
+        private const float JackCentreBack = 1.0f;     // the forks trail behind the body: the jack's middle is ~1 m back
+        private const float JackClearAhead = 3.6f;     // centre-to-centre gap along the path that counts as "in the way"
+        private const float JackClearSide = 1.2f;      // ...and side to side
+        private const float JackYieldMaxSeconds = 6f;  // then go anyway, so a head-on meeting can't freeze both forever
+        private static readonly List<MHEOperatorSlot> s_allJacks = new List<MHEOperatorSlot>();
+        private static float s_allJacksAt = -10f;
+
+        private static Vector3 JackCentre(Transform t) => t.position - t.forward * JackCentreBack;
+
+        /// <summary>Another pallet jack (working or parked) sits in this jack's path for a move in <paramref name="moveDir"/>.</summary>
+        private bool JackPathBlocked(Vector3 moveDir)
+        {
+            if (_jack == null) return false;
+            moveDir.y = 0f;
+            if (moveDir.sqrMagnitude < 0.0001f) return false;
+            moveDir.Normalize();
+            if (Time.unscaledTime - s_allJacksAt > 1f)
+            {
+                s_allJacksAt = Time.unscaledTime;
+                s_allJacks.Clear();
+                foreach (var s in FindObjectsByType<MHEOperatorSlot>())
+                    if (s != null && s.isActiveAndEnabled && s.IsPalletJack && s.GetComponent<PlacedObject>() != null) s_allJacks.Add(s);
+            }
+            Vector3 me = JackCentre(_jack.transform);
+            foreach (var other in s_allJacks)
+            {
+                if (other == null || other == _jack) continue;
+                Vector3 rel = JackCentre(other.transform) - me; rel.y = 0f;
+                float ahead = Vector3.Dot(rel, moveDir);
+                if (ahead <= 0f || ahead > JackClearAhead) continue;
+                if ((rel - moveDir * ahead).magnitude < JackClearSide) return true;
+            }
+            return false;
         }
 
         /// <summary>Resolves the lane + slot this order stages into. Shared by both paths (same rules as FinishOrder).</summary>

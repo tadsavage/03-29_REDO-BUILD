@@ -33,11 +33,11 @@ public class DayNightCycle : MonoBehaviour
     [Tooltip("Compass heading the sun arc swings along (degrees).")]
     [SerializeField] private float sunYaw = 170f;
     [Tooltip("Game hour the sun crosses the horizon at dawn.")]
-    [Range(3f, 9f)] [SerializeField] private float sunriseHour = 6.5f;
+    [Range(1f, 9f)] [SerializeField] private float sunriseHour = 3.5f;   // Tad 2026-10-17: sunrise 03-04, night 23-03
     [Tooltip("Game hour the sun crosses the horizon at dusk.")]
-    [Range(15f, 21f)] [SerializeField] private float sunsetHour = 19f;
+    [Range(15f, 23.5f)] [SerializeField] private float sunsetHour = 22.5f; // dusk 22-23
     [Tooltip("Hours of dawn/dusk ramp on each side of sunrise/sunset.")]
-    [Range(0.25f, 3f)] [SerializeField] private float twilightHours = 1.25f;
+    [Range(0.25f, 3f)] [SerializeField] private float twilightHours = 0.5f;  // 1-hour dusk / sunrise ramps
 
     [Header("Sun Light")]
     [SerializeField] private float maxSunIntensity = 1.25f;

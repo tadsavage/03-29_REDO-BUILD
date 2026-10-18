@@ -1502,6 +1502,7 @@ MonoBehaviour:
     - {fileID: 0}
     - {fileID: 11400000, guid: 3b0e7f8e255c3914a919b8bb2f8bf703, type: 2}
     - {fileID: 11400000, guid: d71a88c405d1cc84380692be81a829f1, type: 2}
+    - {fileID: 11400000, guid: d71a88c405d1cc84380692be81a829f1, type: 2}
   - id: Floors
     displayName: Floors
     icon: {fileID: 2800000, guid: c5115ad79fe5fae4f9920426f82e6864, type: 3}
@@ -2090,7 +2091,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &131798222
 Transform:
   m_ObjectHideFlags: 0
@@ -8196,6 +8197,63 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &817833673
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -8.614581
+      objectReference: {fileID: 0}
+    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.00000069289035
+      objectReference: {fileID: 0}
+    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -63.967316
+      objectReference: {fileID: 0}
+    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 625753194718313646, guid: a128532101ae28b449d1986bab320081, type: 3}
+      propertyPath: m_Name
+      value: Light_Wall
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: a128532101ae28b449d1986bab320081, type: 3}
 --- !u!1 &819375246
 GameObject:
   m_ObjectHideFlags: 0
@@ -14247,9 +14305,9 @@ MonoBehaviour:
   moon: {fileID: 0}
   skyboxBlendMaterial: {fileID: 2100000, guid: 1cf6f4c6e6e0518419839d3f5448dd99, type: 2}
   sunYaw: 170
-  sunriseHour: 5
-  sunsetHour: 21
-  twilightHours: 1.25
+  sunriseHour: 3.5
+  sunsetHour: 22.5
+  twilightHours: 0.5
   maxSunIntensity: 1.25
   noonSunColor: {r: 1, g: 0.96, b: 0.88, a: 1}
   horizonSunColor: {r: 1, g: 0.74, b: 0.55, a: 1}
@@ -18294,3 +18352,4 @@ SceneRoots:
   - {fileID: 137735297}
   - {fileID: 1636985265}
   - {fileID: 1635529926}
+  - {fileID: 817833673}

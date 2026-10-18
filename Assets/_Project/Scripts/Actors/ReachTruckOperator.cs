@@ -22,8 +22,12 @@ namespace GameCore.Actors
     {
         // ── Constants ─────────────────────────────────────────────────────────────────────────────
 
-        private const float DriveSpeed          = 2.5f;
-        private const float TurnSpeed           = 120f;
+        private const float BaseDriveSpeed      = 2.5f;
+        private const float BaseTurnSpeed       = 120f;
+        // Doubled while the truck finishes a job driverless after its battery died (EquipmentBattery).
+        private float DriveSpeed => BaseDriveSpeed * (_battery != null ? _battery.SpeedMultiplier : 1f);
+        private float TurnSpeed  => BaseTurnSpeed  * (_battery != null ? _battery.SpeedMultiplier : 1f);
+        private EquipmentBattery _battery;
         private const float ArriveThreshold     = 0.15f;
 
         /// <summary>Tolerance for the final chassis alignment onto a rack location's approach anchor,
@@ -304,7 +308,17 @@ namespace GameCore.Actors
         /// aboard. Folded into the existing "!reached" abort branch at each site rather than a new
         /// one, so it reuses whatever cleanup (ReleaseCarriedPalletToOrigin, reservation release,
         /// AbortRoutine) that site already does on a failed leg.</summary>
-        private bool NoOperatorAboard() => _operatorSlot == null || !_operatorSlot.IsOccupied;
+        /// <summary>True when nobody is driving AND the truck isn't finishing a job on its own after a flat battery
+        /// (EquipmentBattery.DriverlessRun: the operator was ejected, the truck delivers what's on its forks anyway).</summary>
+        private bool NoOperatorAboard()
+        {
+            if (_battery == null) _battery = GetComponent<EquipmentBattery>();
+            if (_battery != null && _battery.DriverlessRun) return false;
+            return _operatorSlot == null || !_operatorSlot.IsOccupied;
+        }
+
+        /// <summary>Running a task right now (EquipmentBattery waits for this before driving to a charger).</summary>
+        public bool IsBusy => _busy;
 
         private void TryClaimAndStart()
         {
@@ -2204,7 +2218,9 @@ namespace GameCore.Actors
             ReleaseStagingReservation();
             ReleaseLaneLock();
             SetDriveMode(DriveMode.Ai, "task complete — resuming patrol");
-            _vehicleNav?.GoToRandomWaypoint();
+            // A flat battery: no patrol - EquipmentBattery drives it to a charger as soon as _busy clears.
+            if (_battery == null) _battery = GetComponent<EquipmentBattery>();
+            if (_battery == null || !_battery.NeedsCharge) _vehicleNav?.GoToRandomWaypoint();
             _busy = false;
             _activeTask = null;
             _activeReservedAddress = null;

@@ -46,7 +46,56 @@ public static class OrderPickPath
     }
 
     /// <summary>
-    /// The pick faces this order will be worked through, in line-item order — one entry per line item
+    /// SERPENTINE PICK SEQUENCE (Tad, 2026-10-17): a selector walks aisle 1 with the bays ascending, turns
+    /// around and walks aisle 2 with the bays descending, aisle 3 ascending again, and so on - never back and
+    /// forth inside an aisle. Within a bay the lower level comes first, then position (in walking direction).
+    /// Lower key = visited earlier. Addresses that don't parse (AA-BB-LP) sort last.
+    /// </summary>
+    public static long SequenceKey(string address)
+    {
+        if (string.IsNullOrEmpty(address)) return long.MaxValue;
+        var parts = address.Split('-');
+        if (parts.Length < 3 || !int.TryParse(parts[0], out int aisle) || !int.TryParse(parts[1], out int bay) || parts[2].Length < 1)
+            return long.MaxValue;
+        char lc = parts[2][0];
+        int level = char.IsDigit(lc) ? lc - '0' : 10 + char.ToUpperInvariant(lc) - 'A';
+        int pos = parts[2].Length > 1 && char.IsDigit(parts[2][1]) ? parts[2][1] - '0' : 0;
+        bool ascending = aisle % 2 == 1;
+        int bayKey = ascending ? bay : 999 - bay;
+        int posKey = ascending ? pos : 9 - pos;
+        return ((long)aisle * 1000 + bayKey) * 1000 + level * 10 + posKey;
+    }
+
+    /// <summary>
+    /// The next pick of an order: across every line item that still has cases to pick, the slot that comes
+    /// EARLIEST in the serpentine sequence. Picking always moves forward through the building this way instead
+    /// of following line-item order (which zigzagged up and down the aisles). <paramref name="wantFor"/> says how
+    /// many cases a line still needs from a case picker (0 = skip).
+    /// </summary>
+    public static bool ChooseNext(OrderData order, System.Func<OrderLineItem, int> wantFor,
+                                  out LocationData location, out OrderLineItem lineItem, out int takeQty)
+    {
+        location = null; lineItem = null; takeQty = 0;
+        if (order == null) return false;
+        long bestKey = long.MaxValue;
+        foreach (var li in order.LineItems)
+        {
+            if (li == null || li.IsFullyPicked) continue;
+            int want = wantFor != null ? wantFor(li) : li.QuantityRemaining;
+            if (want <= 0) continue;
+            var slot = ChooseSlot(li.SkuId, want, out int qty);
+            if (slot == null) continue;
+            long key = SequenceKey(slot.Address);
+            if (location == null || key < bestKey)
+            {
+                bestKey = key; location = slot; lineItem = li; takeQty = qty;
+            }
+        }
+        return location != null;
+    }
+
+    /// <summary>
+    /// The pick faces this order will be worked through, in serpentine walking order — one entry per line item
     /// that still needs cases and has stock somewhere. Empty if nothing on the order can be picked.
     ///
     /// A PROJECTION against stock as it stands right now, not a simulation: it doesn't decrement stock
@@ -66,6 +115,7 @@ public static class OrderPickPath
             var slot = ChooseSlot(li.SkuId, li.QuantityRemaining, out _);
             if (slot != null) path.Add(slot.Address);
         }
+        path.Sort((a, b) => SequenceKey(a).CompareTo(SequenceKey(b)));
         return path;
     }
 }

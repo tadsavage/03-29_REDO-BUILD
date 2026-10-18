@@ -105,20 +105,9 @@ namespace GameCore.Labor
                 _agentAnimation = GetComponent<AgentAnimation>();
 
             // This component is added dynamically at runtime (no dedicated Receiver prefab to hold
-            // an Inspector assignment), so _solidCaseMaterial can never be hand-set — load it here
-            // the same way TruckController loads _ghostMaterial. AA_LowPolyCommon.mat lives outside
-            // any Resources folder, so the Resources.Load fallback only works once/if it's copied
-            // into one for a built player — fine for Editor testing, a known gap otherwise.
+            // an Inspector assignment), so _solidCaseMaterial comes from the SharedMaterials asset.
             if (_solidCaseMaterial == null)
-            {
-                #if UNITY_EDITOR
-                _solidCaseMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/_Project/Materials/AA_LowPolyCommon.mat");
-                #endif
-                if (_solidCaseMaterial == null)
-                    _solidCaseMaterial = Resources.Load<Material>("AA_LowPolyCommon");
-                if (_solidCaseMaterial == null)
-                    Debug.LogWarning("[ReceiverReceivingWorkflow] Could not load AA_LowPolyCommon material — received pallets will stay ghosted.");
-            }
+                _solidCaseMaterial = SharedMaterials.SolidPalette;
 
             _eventManager = EventManager.Instance;
             ServiceLocator.TryGet<InventoryService>(out _inventoryService);

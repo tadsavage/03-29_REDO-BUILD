@@ -946,6 +946,10 @@ namespace GameCore.Inventory
                          && o.Status != OrderData.OrderStatus.Cancelled
                          && o.Status != OrderData.OrderStatus.Loading
                          && o.Status != OrderData.OrderStatus.Loaded
+                         // Booked once = booked. A LATE order's appointment has already elapsed and been cleared by the time
+                         // this runs, which read as "never booked a truck" and cost the account (2026-10-17 playtest: the
+                         // only starter customer was lost over one late order). Late orders still pay their late fee.
+                         && o.AssignedDoorNumber <= 0
                          && _dockSchedule.FindForOrder(o.OrderId) == null)
                 .ToList();
             if (missed.Count == 0) return;
@@ -1323,9 +1327,12 @@ namespace GameCore.Inventory
             }
 
             // One order = one trailer. Trim the lines until the whole order fits a single trailer, so a
-            // customer never asks for more than the dock can ship in one go.
-            var fittedLines = TrailerCapacity.TrimToFit(order.LineItems
-                .Select(li => (sku: _inventoryService.GetSkuData(li.SkuId), cases: li.QuantityNeeded)));
+            // customer never asks for more than the dock can ship in one go. Measured the way the order is
+            // really built (mixed case-picked pallets take a floor spot each), with room for the part-built
+            // last pallet of every selector that may work it (OrderService.MaxSelectorsPerOrder).
+            var fittedLines = TrailerCapacity.TrimOrderToFit(order.LineItems
+                .Select(li => (sku: _inventoryService.GetSkuData(li.SkuId), cases: li.QuantityNeeded)),
+                OrderService.MaxSelectorsPerOrder - 1);
             if (fittedLines.Count > 0)
             {
                 var keep = new Dictionary<string, int>();

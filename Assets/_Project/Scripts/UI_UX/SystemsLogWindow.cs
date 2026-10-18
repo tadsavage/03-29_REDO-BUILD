@@ -76,7 +76,7 @@ public class SystemsLogWindow : MonoBehaviour
     // Reader-adjustable multiplier over the base entry size (header A-/A+ buttons). Header text is untouched.
     private float _fontScale = 1f;
     private const float FontScaleStep = 0.1f, FontScaleMin = 0.6f, FontScaleMax = 2.0f;
-    private const float BodyAlpha = 0.15f; // log body is deliberately see-through; the header stays opaque
+    private const float BodyAlpha = 0.1f; // log body is nearly see-through (Tad, 2026-10-17); the header stays opaque
     private ScrollView _scroll;
     private DraggableWindow _dragger;
     private ResizableWindow _resizeWindow;

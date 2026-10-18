@@ -44,6 +44,13 @@ public class OutboundPalletBuilder : MonoBehaviour
     public IReadOnlyList<string> CaseSkus => _caseSkus;
     private readonly List<string> _caseSkus = new();
 
+    /// <summary>The pick slot each case came from (parallel to CaseSkus; "" if unknown). A return walks these in reverse.</summary>
+    public IReadOnlyList<string> CaseSources => _caseSources;
+    private readonly List<string> _caseSources = new();
+
+    /// <summary>Set when a return task is filed for this pallet: the task's PalletId, so the selector can find it.</summary>
+    public string ReturnId { get; set; }
+
     /// <summary>Lifecycle status (see PalletLifecycle) - derived, never stored.</summary>
     public PalletLifecycle Lifecycle => PalletLifecycleResolver.Resolve(gameObject);
 
@@ -121,7 +128,7 @@ public class OutboundPalletBuilder : MonoBehaviour
     /// ti/hi are the SKU's own cases-per-layer/layers-per-pallet (SkuData.Ti/Hi) — used only to
     /// accumulate FillFraction, not for layout on this mixed pallet.
     /// </summary>
-    public void AddCase(string skuId, GameObject casePrefab, Vector3 caseDim, int ti, int hi)
+    public void AddCase(string skuId, GameObject casePrefab, Vector3 caseDim, int ti, int hi, string sourceAddress = null)
     {
         if (casePrefab == null) return;
 
@@ -178,6 +185,31 @@ public class OutboundPalletBuilder : MonoBehaviour
         _caseCountBySku.TryGetValue(skuId, out int existing);
         _caseCountBySku[skuId] = existing + 1;
         _caseSkus.Add(skuId);
+        _caseSources.Add(sourceAddress ?? "");
+    }
+
+    /// <summary>Takes the most recently placed case off the pallet (a return puts cases back in reverse order).
+    /// Returns its SKU and source slot, or false when the pallet is empty.</summary>
+    public bool RemoveLastCase(out string skuId, out string sourceAddress)
+    {
+        skuId = null; sourceAddress = null;
+        if (_loadRoot == null) _loadRoot = transform.Find("PalletLoad");
+        int n = _caseSkus.Count;
+        if (n == 0) return false;
+        skuId = _caseSkus[n - 1];
+        sourceAddress = n - 1 < _caseSources.Count ? _caseSources[n - 1] : "";
+        _caseSkus.RemoveAt(n - 1);
+        if (n - 1 < _caseSources.Count) _caseSources.RemoveAt(n - 1);
+        if (_placed.Count > 0) _placed.RemoveAt(_placed.Count - 1);
+        if (_loadRoot != null && _loadRoot.childCount > 0)
+        {
+            var last = _loadRoot.GetChild(_loadRoot.childCount - 1);
+            last.SetParent(null);
+            Destroy(last.gameObject);
+        }
+        TotalCases = Mathf.Max(0, TotalCases - 1);
+        if (_caseCountBySku.TryGetValue(skuId ?? "", out int c)) { if (c <= 1) _caseCountBySku.Remove(skuId ?? ""); else _caseCountBySku[skuId ?? ""] = c - 1; }
+        return true;
     }
 
     /// <summary>
@@ -185,7 +217,7 @@ public class OutboundPalletBuilder : MonoBehaviour
     /// counts and fill so the pallet behaves as if it had been built case by case. Used by OutboundPalletPersistence
     /// and by restored outbound trailer cargo.
     /// </summary>
-    public void RestoreCase(string skuId, GameObject casePrefab, Vector3 caseDim, int ti, int hi, Vector3 localPos, Quaternion localRot)
+    public void RestoreCase(string skuId, GameObject casePrefab, Vector3 caseDim, int ti, int hi, Vector3 localPos, Quaternion localRot, string sourceAddress = null)
     {
         if (_loadRoot == null)
         {
@@ -219,6 +251,7 @@ public class OutboundPalletBuilder : MonoBehaviour
         _caseCountBySku.TryGetValue(skuId ?? "", out int existing);
         _caseCountBySku[skuId ?? ""] = existing + 1;
         _caseSkus.Add(skuId ?? "");
+        _caseSources.Add(sourceAddress ?? "");
     }
 
     /// <summary>Sale value of everything on this pallet: for each SKU present, its case count times

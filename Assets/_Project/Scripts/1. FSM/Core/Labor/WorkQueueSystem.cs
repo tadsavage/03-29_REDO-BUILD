@@ -12,7 +12,7 @@ namespace GameCore.Labor
     /// PalletPick moves ONE full pallet from a reserve slot straight to an outbound staging lane,
     /// for a bulk order that asked for full-pallet quantities. It's the outbound mirror of Putaway,
     /// and shares Replenish's reserve-extraction half.</summary>
-    public enum WorkTaskType { Receive, Putaway, Replenish, OrderSelect, Load, PalletPick }
+    public enum WorkTaskType { Receive, Putaway, Replenish, OrderSelect, Load, PalletPick, Return }   // append only: saved as int
 
     /// <summary>Open: exists but not yet claimable -- OrderSelect and PalletPick tasks start here,
     /// created "in limbo" until the player releases them to a staging lane via the Work Queue panel.
@@ -356,8 +356,12 @@ namespace GameCore.Labor
         /// queue's original behavior before priority became player-editable). Marks it Assigned.</summary>
         public bool TryClaimNextTask(EmployeeRole role, string employeeGuid, out WorkTask task)
         {
+            // At equal priority a Return (putting cases back on the shelf) waits behind work that
+            // earns money; selectors were walking returns while customer orders went late. The player
+            // can still raise a return's priority to send it first.
             task = _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available)
                          .OrderByDescending(t => t.Priority)
+                         .ThenBy(t => t.Type == WorkTaskType.Return ? 1 : 0)
                          .FirstOrDefault();
             if (task == null) return false;
             task.Status = WorkTaskStatus.Assigned;

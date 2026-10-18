@@ -42,6 +42,7 @@ namespace GameCore.Persistence
                                               || p.Stage == OutboundPalletBuilder.PalletStage.Moving,
                     worldPosition = p.transform.position,
                     worldRotation = p.transform.rotation,
+                    returnId = p.ReturnId ?? "",
                 };
 
                 var pd = p.GetComponent<PalletData>();
@@ -61,6 +62,7 @@ namespace GameCore.Persistence
                         snap.caseLocalPositions.Add(c.localPosition);
                         snap.caseLocalRotations.Add(c.localRotation);
                         snap.caseSkus.Add(p.CaseSkus.Count == n ? p.CaseSkus[i] : snap.wholeSkuId);
+                        snap.caseSources.Add(p.CaseSources.Count == n ? p.CaseSources[i] : "");
                     }
                 }
                 result.Add(snap);
@@ -110,6 +112,7 @@ namespace GameCore.Persistence
 
                 var outbound = go.AddComponent<OutboundPalletBuilder>();
                 outbound.OrderId = snap.orderId;
+                if (!string.IsNullOrEmpty(snap.returnId)) outbound.ReturnId = snap.returnId;
                 int count = Mathf.Min(snap.caseLocalPositions.Count, snap.caseLocalRotations.Count);
                 for (int i = 0; i < count; i++)
                 {
@@ -117,7 +120,8 @@ namespace GameCore.Persistence
                     var sku = inv?.GetSkuData(skuId);
                     Vector3 dim = sku != null ? new Vector3(sku.CaseWidth, sku.CaseHeight, sku.CaseLength) : new Vector3(0.4f, 0.3f, 0.3f);
                     outbound.RestoreCase(skuId, sku?.Prefab, dim, sku != null ? Mathf.Max(1, sku.Ti) : 1,
-                                         sku != null ? Mathf.Max(1, sku.Hi) : 1, snap.caseLocalPositions[i], snap.caseLocalRotations[i]);
+                                         sku != null ? Mathf.Max(1, sku.Hi) : 1, snap.caseLocalPositions[i], snap.caseLocalRotations[i],
+                                         i < snap.caseSources.Count ? snap.caseSources[i] : null);
                 }
 
                 // A whole pallet keeps a PalletData so ReclaimOrphanedFreight can return it to stock if its order is gone.

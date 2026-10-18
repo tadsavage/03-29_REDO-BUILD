@@ -21,9 +21,8 @@ public class AisleInitializer : MonoBehaviour
 
     [Header("Rack Configuration")]
     [SerializeField] private Material _realRackMaterial;
-    // Path used when _realRackMaterial isn't wired via the RackingSystemManager Inspector.
-    // Keeps commit working without an Editor round-trip.
-    private const string DEFAULT_LIVE_MATERIAL_PATH = "Assets/_Project/Materials/AA_LowPolyCommon.mat";
+    // When _realRackMaterial isn't wired via the RackingSystemManager Inspector, the
+    // SharedMaterials asset supplies it (see ResolveLiveMaterial).
 
     private ChevronSpawner _chevronSpawner;
     private ChevronController _selectedChevron;
@@ -589,9 +588,7 @@ public class AisleInitializer : MonoBehaviour
     private Material ResolveLiveMaterial()
     {
         if (_realRackMaterial != null) return _realRackMaterial;
-#if UNITY_EDITOR
-        _realRackMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>(DEFAULT_LIVE_MATERIAL_PATH);
-#endif
+        _realRackMaterial = SharedMaterials.SolidPalette;
         return _realRackMaterial;
     }
 

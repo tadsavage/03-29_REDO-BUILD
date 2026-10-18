@@ -199,6 +199,49 @@ namespace GameCore.Inventory
             return list;
         }
 
+        /// <summary>
+        /// Floor positions a CUSTOMER ORDER needs once it is picked, which is not the same as an inbound
+        /// basket. Whole pallets of a SKU are planned like inbound (shorts stack two high). The loose
+        /// remainder of every line is case-picked onto MIXED pallets, which selectors build to a full
+        /// pallet's worth (height included), so each takes a floor position of its own. Plus
+        /// <paramref name="slack"/> positions for the part-built last pallet of each selector's trip.
+        /// TrimToFit alone counted loose cases as stackable single-item pallets, so a "fits one trailer"
+        /// order could still fill the trailer and leave pallets behind (2026-10-17 week playtest).
+        /// </summary>
+        public static int OrderFloorSlots(IEnumerable<(SkuData sku, int cases)> lines, int slack)
+        {
+            var whole = new List<(SkuData sku, int cases)>();
+            float loose = 0f;
+            foreach (var (sku, cases) in lines)
+            {
+                if (sku == null || cases <= 0) continue;
+                int per = CasesPerPallet(sku);
+                int w = cases / per;
+                if (w > 0) whole.Add((sku, w * per));
+                loose += (cases % per) / (float)per;
+            }
+            int loosePallets = loose > 0.0001f ? Mathf.CeilToInt(loose - 0.0001f) : 0;
+            return Plan(whole).FloorSlotsUsed + loosePallets + (loosePallets > 0 ? slack : 0);
+        }
+
+        /// <summary>Trims a customer order until <see cref="OrderFloorSlots"/> fits one trailer: shaves the
+        /// biggest line by about a tenth each pass, dropping a line only when it empties and others remain.</summary>
+        public static List<(SkuData sku, int cases)> TrimOrderToFit(IEnumerable<(SkuData sku, int cases)> lines, int slack)
+        {
+            var list = lines.Where(l => l.sku != null && l.cases > 0).ToList();
+            for (int guard = 0; guard < 5000 && list.Count > 0 && OrderFloorSlots(list, slack) > FloorSlots; guard++)
+            {
+                int idx = 0;
+                for (int i = 1; i < list.Count; i++) if (list[i].cases > list[idx].cases) idx = i;
+                var (sku, cases) = list[idx];
+                int left = cases - Mathf.Max(1, Mathf.CeilToInt(cases * 0.1f));
+                if (left > 0) list[idx] = (sku, left);
+                else if (list.Count > 1) list.RemoveAt(idx);
+                else break;
+            }
+            return list;
+        }
+
         /// <summary>Convenience for the UI: would adding <paramref name="extraCases"/> of a SKU to an
         /// existing basket push it past a trailer? Plans the hypothetical basket rather than trying to
         /// reason about deltas — a short pallet can be free (pairing with an odd one) or cost a whole

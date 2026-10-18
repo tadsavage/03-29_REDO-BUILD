@@ -13,7 +13,7 @@ public static class MHESlotFinder
 
         foreach (var slot in Object.FindObjectsByType<MHEOperatorSlot>())
         {
-            if (slot.IsOccupied) continue;
+            if (slot.IsOccupied || !slot.AcceptsOperator) continue;   // flat / charging: see EquipmentBattery
             var vehicleObj = slot.GetComponent<PlacedObject>();
             if (vehicleObj == null || vehicleObj.data != targetData) continue;
             return slot;

@@ -463,7 +463,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
         foreach (var slot in allSlots)
         {
-            if (slot.IsOccupied) continue;
+            if (slot.IsOccupied || !slot.AcceptsOperator) continue;   // taken, or flat / charging
             if (slot == previousTarget) continue;  // Skip the one that just became occupied
 
             var vehicleObj = slot.GetComponent<PlacedObject>();
@@ -859,7 +859,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         if (_seekingEquipment && _targetEquipment != null)
         {
             // Check if target equipment became occupied
-            if (_targetEquipment.IsOccupied)
+            if (_targetEquipment.IsOccupied || !_targetEquipment.AcceptsOperator)
             {
                 // Target is now occupied — find the next available equipment of the same type.
                 // Capture the target BEFORE cancelling: CancelEquipmentSeeking() nulls

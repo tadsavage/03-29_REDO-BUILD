@@ -434,6 +434,8 @@ public class OutboundPalletSnapshot
     public Vector3 worldPosition;
     public Quaternion worldRotation;
     public List<string> caseSkus = new();
+    public List<string> caseSources = new();
+    public string returnId = "";              // set when a Return task was filed for this pallet (task PalletId)   // pick slot each case came from (returns reverse-pick through these)
     public List<Vector3> caseLocalPositions = new();
     public List<Quaternion> caseLocalRotations = new();
     /// <summary>Whole-pallet pick (one SKU, built by PalletBuilder): its SKU and case count, for PalletData.</summary>
