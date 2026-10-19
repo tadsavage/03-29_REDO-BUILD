@@ -31,6 +31,8 @@ public class EmployeeInfoUI : MonoBehaviour
     private const string ActionAskOvertime = "Ask to Work OT";
     private const string ActionSendHome    = "Send Home";
     private const string ActionPimpEmployee = "Pimp My Employee";
+    private const string ActionChangeBattery = "Change Battery";
+    private const string ActionSwitchMachines = "Switch Machines";
     private const string ActionTerminate   = "Terminate";
 
     // Stat bars
@@ -412,6 +414,10 @@ public class EmployeeInfoUI : MonoBehaviour
         var roleAssignment = _displayRole.RoleSpecificAssignment();
         if (roleAssignment.HasValue)
             choices.Add(roleAssignment.Value.DisplayName());
+        // Only while driving a machine (reach truck, dock stocker, or a selector riding a pallet jack).
+        var driven = EquipmentBatteryPanels.BatteryOf(_currentIdentity);
+        if (driven != null && driven.CanChangeBattery) choices.Add(ActionChangeBattery);
+        if (driven != null && driven.CanSwitchMachines) choices.Add(ActionSwitchMachines);
         choices.Add(ActionAskOvertime);
         choices.Add(ActionSendHome);
         choices.Add(ActionPimpEmployee);
@@ -452,6 +458,23 @@ public class EmployeeInfoUI : MonoBehaviour
         if (selected == ActionPatrol)
         {
             EmployeeAssignmentService.Assign(id, EmployeeAssignment.Patrol);
+            return;
+        }
+
+        if (selected == ActionChangeBattery)
+        {
+            var driven = EquipmentBatteryPanels.BatteryOf(id);
+            if (driven != null && driven.CanChangeBattery) driven.RequestChangeBattery();
+            else UIToast.Show("That battery can't be changed right now.");
+            RefreshActionsDropdown();
+            return;
+        }
+
+        if (selected == ActionSwitchMachines)
+        {
+            var driven = EquipmentBatteryPanels.BatteryOf(id);
+            if (driven != null && driven.CanSwitchMachines) driven.RequestSwitchMachines();   // no machine free -> a speech bubble says so
+            RefreshActionsDropdown();
             return;
         }
 

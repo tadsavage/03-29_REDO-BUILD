@@ -41,7 +41,8 @@ public class PlacementFinalizer : MonoBehaviour
         ObjDataSO data,
         float rotation,
         List<GameObject> disabledObjects,
-        bool silent)
+        bool silent,
+        Vector3? worldXZOverride = null)
     {
         if (data == null || data.prefab == null)
             return null;
@@ -81,6 +82,12 @@ public class PlacementFinalizer : MonoBehaviour
         }
 
         Vector3 pos = _grid.GetCellCenter(root);
+        // Wall-mounted fixtures sit on the wall face, not the cell centre.
+        if (worldXZOverride.HasValue)
+        {
+            pos.x = worldXZOverride.Value.x;
+            pos.z = worldXZOverride.Value.z;
+        }
         bool useWorldYOffset = false;
 
         // Determine base height - use the actual visual surface height (foundation/floor)

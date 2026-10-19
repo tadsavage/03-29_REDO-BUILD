@@ -245,8 +245,21 @@ public class PlacementGrid : MonoBehaviour
             // other ignorePlacementRules object's behavior is unchanged.
             if ((entry.data.ignorePlacementRules || entry.data.ClearsGridAfterPlacement) && !entry.data.isFloor && !isGround)
             {
+                // Only the ROOT cell drives a multi-cell object's position. This loop runs once per footprint
+                // cell (and again for every cell on each grid rebuild), and every pass used to snap the object to
+                // THAT cell's centre - so the cell visited last won: a 3-cell charging station crept one cell per
+                // rebuild (about four per load), ending up off the dock on bare ground at Y 0 (2026-10-18).
+                var rootBd = entry.instance.GetComponent<BuildingData>();
+                if (rootBd != null && rootBd.RootCell != cell) continue;
+
                 Vector3 p = GetCellCenter(cell);
                 p.y = PlacementFinalizer.GetFloorTopY(this, cell) + entry.data.worldYOffset;
+                // Wall-mounted fixtures sit on the wall face, not the cell centre: keep their X/Z.
+                if (entry.data.wallMounted)
+                {
+                    Vector3 cur = entry.instance.transform.position;
+                    p.x = cur.x; p.z = cur.z;
+                }
                 entry.instance.transform.position = p;
                 continue;
             }
@@ -465,7 +478,31 @@ public class PlacementGrid : MonoBehaviour
     // ---------------------------------------------------------
     // ADD / REMOVE OBJECTS
     // ---------------------------------------------------------
-public void AddStackObject(Vector2Int cell, GameObject obj, ObjDataSO data, bool isBuffer = false)
+/// <summary>
+    /// Where a floor goes in a cell's stack: after every ground, and after every other floor - EXCEPT
+    /// a combined foundation's own default tile (a real child of another PlacedObject), which always
+    /// goes directly above the ground, beneath any placed floor (shipping lane, pedestrian, MHE).
+    /// UpdateStackPositions never repositions a parented tile (the hierarchy owns its Y), so if a
+    /// lane sat BEFORE the tile in the list - which load order / RebuildFromRegistry decided
+    /// arbitrarily - the lane was given the tile's exact height and z-fought it: the lane tile
+    /// "disappeared" and only the plain tile drew.
+    /// </summary>
+    private int FloorInsertIndex(List<PlacedObject> list, GameObject obj)
+    {
+        bool isDefaultTile = obj != null && obj.transform.parent != null &&
+                             obj.transform.parent.GetComponent<global::PlacedObject>() != null;
+        int insertIdx = 0;
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (IsGround(list[i].data) || (!isDefaultTile && list[i].data.isFloor))
+                insertIdx = i + 1;
+            else if (!IsGround(list[i].data) && !list[i].data.isFloor)
+                break;
+        }
+        return insertIdx;
+    }
+
+    public void AddStackObject(Vector2Int cell, GameObject obj, ObjDataSO data, bool isBuffer = false)
     {
         if (!IsInsideGrid(cell))
             return;
@@ -480,15 +517,7 @@ public void AddStackObject(Vector2Int cell, GameObject obj, ObjDataSO data, bool
         else if (data.isFloor)
         {
             // Floors go after grounds but before everything else
-            int insertIdx = 0;
-            for (int i = 0; i < list.Count; i++)
-            {
-                if (IsGround(list[i].data) || list[i].data.isFloor)
-                    insertIdx = i + 1;
-                else
-                    break;
-            }
-            list.Insert(insertIdx, new PlacedObject { instance = obj, data = data, isBuffer = isBuffer });
+            list.Insert(FloorInsertIndex(list, obj), new PlacedObject { instance = obj, data = data, isBuffer = isBuffer });
         }
         else
         {
@@ -798,15 +827,7 @@ public void AddStackObject(Vector2Int cell, GameObject obj, ObjDataSO data, bool
                 }
                 else if (placed.data.isFloor)
                 {
-                    int insertIdx = 0;
-                    for (int j = 0; j < list.Count; j++)
-                    {
-                        if (IsGround(list[j].data) || list[j].data.isFloor)
-                            insertIdx = j + 1;
-                        else
-                            break;
-                    }
-                    list.Insert(insertIdx, new PlacedObject { instance = placed.gameObject, data = placed.data, isBuffer = isBufferCell });
+                    list.Insert(FloorInsertIndex(list, placed.gameObject), new PlacedObject { instance = placed.gameObject, data = placed.data, isBuffer = isBufferCell });
                 }
                 else
                 {

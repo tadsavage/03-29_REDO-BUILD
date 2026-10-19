@@ -23,6 +23,7 @@ public class EquipmentBatteryPanels : MonoBehaviour
     private const float MinScale = 0.45f;
     private const float FullLingerSeconds = 4f;
     private const float BoltSize = 70f;
+    private const float BoltBounceMeters = 0.35f;
 
     private static readonly Color ColGlass   = new Color(0.86f, 0.90f, 0.93f, 0.80f);
     private static readonly Color ColEdge    = new Color(1f, 1f, 1f, 0.90f);
@@ -35,7 +36,7 @@ public class EquipmentBatteryPanels : MonoBehaviour
     private static readonly Color ColCharge  = new Color(0.25f, 0.62f, 0.86f, 1f);
     private static readonly Color ColBolt    = new Color(0.90f, 0.13f, 0.12f, 1f);
 
-    private class Card
+    public class Card
     {
         public EquipmentBattery Battery;
         public VisualElement Root, Fill, HeadBolt;
@@ -72,9 +73,20 @@ public class EquipmentBatteryPanels : MonoBehaviour
     public void Toggle(EquipmentBattery b)
     {
         if (b == null) return;
+        // A machine with a driver shows its battery in the driver's world banner instead (EmployeeWorldBanners.RefreshBattery),
+        // so the floating card would just be a duplicate.
+        if (b.Slot != null && b.Slot.IsOccupied) return;
         if (_cards.TryGetValue(b, out var c) && c.Clicked) { c.Clicked = false; if (!WantsAutoCard(c)) Remove(b); }
         else { var card = GetOrCreate(b); if (card != null) card.Clicked = true; }
         AudioManager.Play("UIClick");
+    }
+
+    /// <summary>Opens the machine's card (used by the log hyperlink); never closes it.</summary>
+    public void Show(EquipmentBattery b)
+    {
+        if (b == null) return;
+        var card = GetOrCreate(b);
+        if (card != null) card.Clicked = true;
     }
 
     private void OnDestroy()
@@ -134,7 +146,7 @@ public class EquipmentBatteryPanels : MonoBehaviour
         _menu.Add(title);
 
         bool can = b.CanRequestCharge;
-        var btn = new Button(() => { b.RequestCharge(); AudioManager.Play("UIClick"); UIToast.Show($"{b.KindName.Substring(0, 1)}{b.KindName.Substring(1).ToLowerInvariant()} is driving to a charging station."); CloseMenu(); })
+        var btn = new Button(() => { AudioManager.Play("UIClick"); if (ChargeMheService.Request(b)) UIToast.Show("Charge job sent to the Work Queue (everyone)."); CloseMenu(); })
         { text = "Charge Battery" };
         ApplyLilita(btn, 15);
         btn.style.height = 32;
@@ -188,6 +200,8 @@ public class EquipmentBatteryPanels : MonoBehaviour
             var c = _cards[b];
             if (b == null || !b.isActiveAndEnabled) { Remove(b); continue; }
             if (!c.Clicked && !WantsAutoCard(c)) { Remove(b); continue; }
+            // Someone boarded: their info card carries the battery now.
+            if (b.Slot != null && b.Slot.IsOccupied && !b.IsCharging) { Remove(b); continue; }
             Refresh(c);
             Position(c.Root, Anchor(b), CardWidth, 150f);
         }
@@ -200,10 +214,42 @@ public class EquipmentBatteryPanels : MonoBehaviour
             if (b == null || !b.isActiveAndEnabled) { v?.RemoveFromHierarchy(); _bolts.Remove(b); continue; }
             // While the card is up the bolt shows in the card's header instead (above it, it went off-screen).
             if (_cards.ContainsKey(b)) { v.style.display = DisplayStyle.None; continue; }
-            Position(v, Anchor(b), BoltSize, BoltSize);
+            // Slow bounce to draw the eye (Tad, 2026-10-18).
+            float bob = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 4.2f + b.LinkId);
+            Position(v, Anchor(b) + Vector3.up * (bob * BoltBounceMeters), BoltSize, BoltSize);
             v.style.opacity = 0.7f + 0.3f * (0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f));   // pulse to catch the eye
         }
     }
+
+    // ── Battery section inside the employee's world banner (Tad, 2026-10-18) ─────
+    // The banner over a driver's head carries their machine's battery under the task line. EmployeeWorldBanners
+    // creates one of these per banner and refreshes it every frame; no machine -> no section.
+
+    /// <summary>The machine this employee is driving right now, or null.</summary>
+    public static EquipmentBattery BatteryOf(EmployeeIdentity id)
+    {
+        if (id == null) return null;
+        foreach (var b in EquipmentBattery.All)
+            if (b != null && b.Slot != null && b.Slot.CurrentOperator == id) return b;
+        return null;
+    }
+
+    /// <summary>A battery card for embedding inside another panel (not world-anchored). The caller adds
+    /// <see cref="Card.Root"/> to its own layout and calls <see cref="RefreshEmbedded"/> each frame.</summary>
+    public Card CreateEmbedded(EquipmentBattery b)
+    {
+        var c = new Card { Battery = b };
+        c.Root = BuildCard(c);
+        c.Root.style.position = UnityEngine.UIElements.Position.Relative;
+        c.Root.style.width = new StyleLength(StyleKeyword.Auto);
+        c.Root.style.flexShrink = 0;
+        c.Root.style.marginTop = 10;
+        c.Root.style.scale = new StyleScale(new Scale(Vector3.one));
+        Refresh(c);
+        return c;
+    }
+
+    public void RefreshEmbedded(Card c) { if (c != null && c.Battery != null) Refresh(c); }
 
     /// <summary>A charging card stays up while charging and for a few seconds after reaching full.</summary>
     private bool WantsAutoCard(Card c)
@@ -400,7 +446,8 @@ public class EquipmentBatteryPanels : MonoBehaviour
         c.Title.text = b.KindName;
         c.HeadBolt.style.display = b.IsLow || b.IsDead ? DisplayStyle.Flex : DisplayStyle.None;
         string letter = b.Station != null ? b.Station.GetComponent<MHEStationLetter>()?.Letter : null;
-        c.Station.text = b.Station != null ? (string.IsNullOrEmpty(letter) ? "ON CHARGER" : $"STATION {letter}") : "";
+        string loc = b.ParkedLocation;
+        c.Station.text = b.Station != null ? (string.IsNullOrEmpty(letter) ? "ON CHARGER" : $"STATION {letter}") : loc;
         c.Percent.text = $"{Mathf.FloorToInt(pct + 0.0001f)}%";
 
         int lit = Mathf.Clamp(Mathf.CeilToInt(b.Charge01 * 4f - 0.0001f), 0, 4);

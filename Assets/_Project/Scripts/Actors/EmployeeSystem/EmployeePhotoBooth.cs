@@ -257,7 +257,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         GameObject prefab = GetPrefabForRoleAndGender(record.role, record.gender, out _);
         if (prefab == null) prefab = _workerMalePrefab;
 
-        _liveModelInstance = Instantiate(prefab, transform);
+        _liveModelInstance = InstantiateInert(prefab);
         DisableWanderScripts(_liveModelInstance);
         _liveModelInstance.transform.localPosition = new Vector3(0f, GetModelVerticalOffset(record.role) + _avatarFrameShift, 0f);
         _liveModelInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
@@ -689,12 +689,28 @@ public class EmployeePhotoBooth : MonoBehaviour
         animator.Update(0f);
     }
 
+    /// <summary>Instantiates a worker prefab under the booth WITHOUT its NavMeshAgent ever coming alive. The booth sits off the map where
+    /// there is no NavMesh, and every plain Instantiate logged "Failed to create agent because it is not close enough to the NavMesh" -
+    /// about 3,000 console errors per few sessions (a portrait is re-shot for every employee and candidate at each game start). The clone is
+    /// created under an inactive holder (so nothing wakes up), its agents are switched off, and only then is it moved into the active booth.</summary>
+    private GameObject InstantiateInert(GameObject prefab)
+    {
+        var holder = new GameObject("__booth_spawn_holder");
+        holder.SetActive(false);
+        holder.transform.SetParent(transform, false);
+        var go = Instantiate(prefab, holder.transform);
+        foreach (var a in go.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true)) a.enabled = false;
+        go.transform.SetParent(transform, false);
+        Destroy(holder);
+        return go;
+    }
+
     private void CapturePortrait(EmployeeRecord record, GameObject prefab)
     {
         if (prefab == null) return;
 
         // 1. Instantiate temporary model at photo booth origin
-        GameObject modelInstance = Instantiate(prefab, transform);
+        GameObject modelInstance = InstantiateInert(prefab);
 
         // Remove NavMesh agent entirely — not needed in photobooth
         var agent = modelInstance.GetComponent<UnityEngine.AI.NavMeshAgent>();

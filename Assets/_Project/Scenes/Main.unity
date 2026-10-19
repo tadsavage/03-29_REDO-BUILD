@@ -1455,23 +1455,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BuildMenuUI
   saveLoadWindowController: {fileID: 1791913165}
   categories:
-  - id: Barriers
-    displayName: Barriers
-    icon: {fileID: 2800000, guid: 6170b02f5485ee440a98c80d23893cd9, type: 3}
-    items:
-    - {fileID: 11400000, guid: 2c66f8649b3019242b7eaa8a693f5a59, type: 2}
-    - {fileID: 11400000, guid: d11e3c0d66b394845a3db8908ce9ff3a, type: 2}
-    - {fileID: 11400000, guid: 56eea171a3b19654687c9af7d6874b5a, type: 2}
-    - {fileID: 11400000, guid: 4b20d02207a5fc04ab179abd7e36669c, type: 2}
-    - {fileID: 11400000, guid: e6fc91d368bc7f0459a48c99a1b36944, type: 2}
-    - {fileID: 11400000, guid: 647a4a4713d66c943b819d6f7fdae937, type: 2}
-    - {fileID: 11400000, guid: 4a222c5c9093070429cc19ba35c32c42, type: 2}
-    - {fileID: 11400000, guid: 3d9b937516d133146a7c0c3d7007dad7, type: 2}
-    - {fileID: 11400000, guid: 2623653517b5eae49a49897e116fabf4, type: 2}
   - id: Flavor
     displayName: Flavor
     icon: {fileID: 2800000, guid: 5739556e5ed62be498b34b0e631cd3ff, type: 3}
     items:
+    - {fileID: 11400000, guid: b7ad766c143133b4998e3fe37a48b195, type: 2}
+    - {fileID: 11400000, guid: 3b0e7f8e255c3914a919b8bb2f8bf703, type: 2}
     - {fileID: 11400000, guid: 71ebe5e6eacb84f46bd1e66a0e6b1c91, type: 2}
     - {fileID: 11400000, guid: 4e827e481f3ccae46a38d34f05351ebc, type: 2}
     - {fileID: 11400000, guid: 36de903a4ec591c4c856b1db6a9b97f1, type: 2}
@@ -1490,8 +1479,6 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 0c785cb030a17b74487e48846cd5cfcf, type: 2}
     - {fileID: 11400000, guid: 2c2f6da3fa963af47bb99418a1d3e731, type: 2}
     - {fileID: 11400000, guid: be1ea8777fd06ca44afcaa7c0e047a4d, type: 2}
-    - {fileID: 0}
-    - {fileID: 0}
     - {fileID: 11400000, guid: f9e8f1275abb2cd4491fecf4bd1d168d, type: 2}
     - {fileID: 11400000, guid: d525efb7cdbce21438a1ee4c9dbe4a48, type: 2}
     - {fileID: 11400000, guid: cf96088dedbaeb941b0e03a27ff17b7b, type: 2}
@@ -1499,10 +1486,19 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 3b82d0eda4ab9954f999b361834cc1e3, type: 2}
     - {fileID: 11400000, guid: e9cb0baa6949c8442a608bb29b60704b, type: 2}
     - {fileID: 11400000, guid: 1375a4aee6861794b90af74ee6407320, type: 2}
-    - {fileID: 0}
-    - {fileID: 11400000, guid: 3b0e7f8e255c3914a919b8bb2f8bf703, type: 2}
-    - {fileID: 11400000, guid: d71a88c405d1cc84380692be81a829f1, type: 2}
-    - {fileID: 11400000, guid: d71a88c405d1cc84380692be81a829f1, type: 2}
+  - id: Barriers
+    displayName: Barriers
+    icon: {fileID: 2800000, guid: 6170b02f5485ee440a98c80d23893cd9, type: 3}
+    items:
+    - {fileID: 11400000, guid: 2c66f8649b3019242b7eaa8a693f5a59, type: 2}
+    - {fileID: 11400000, guid: d11e3c0d66b394845a3db8908ce9ff3a, type: 2}
+    - {fileID: 11400000, guid: 56eea171a3b19654687c9af7d6874b5a, type: 2}
+    - {fileID: 11400000, guid: 4b20d02207a5fc04ab179abd7e36669c, type: 2}
+    - {fileID: 11400000, guid: e6fc91d368bc7f0459a48c99a1b36944, type: 2}
+    - {fileID: 11400000, guid: 647a4a4713d66c943b819d6f7fdae937, type: 2}
+    - {fileID: 11400000, guid: 4a222c5c9093070429cc19ba35c32c42, type: 2}
+    - {fileID: 11400000, guid: 3d9b937516d133146a7c0c3d7007dad7, type: 2}
+    - {fileID: 11400000, guid: 2623653517b5eae49a49897e116fabf4, type: 2}
   - id: Floors
     displayName: Floors
     icon: {fileID: 2800000, guid: c5115ad79fe5fae4f9920426f82e6864, type: 3}
@@ -8197,63 +8193,6 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!1001 &817833673
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -8.614581
-      objectReference: {fileID: 0}
-    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -0.00000069289035
-      objectReference: {fileID: 0}
-    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -63.967316
-      objectReference: {fileID: 0}
-    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 280577343627486740, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 625753194718313646, guid: a128532101ae28b449d1986bab320081, type: 3}
-      propertyPath: m_Name
-      value: Light_Wall
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: a128532101ae28b449d1986bab320081, type: 3}
 --- !u!1 &819375246
 GameObject:
   m_ObjectHideFlags: 0
@@ -8524,7 +8463,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &843570134
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14305,9 +14244,9 @@ MonoBehaviour:
   moon: {fileID: 0}
   skyboxBlendMaterial: {fileID: 2100000, guid: 1cf6f4c6e6e0518419839d3f5448dd99, type: 2}
   sunYaw: 170
-  sunriseHour: 3.5
-  sunsetHour: 22.5
-  twilightHours: 0.5
+  sunriseHour: 5
+  sunsetHour: 21
+  twilightHours: 1.25
   maxSunIntensity: 1.25
   noonSunColor: {r: 1, g: 0.96, b: 0.88, a: 1}
   horizonSunColor: {r: 1, g: 0.74, b: 0.55, a: 1}
@@ -18352,4 +18291,3 @@ SceneRoots:
   - {fileID: 137735297}
   - {fileID: 1636985265}
   - {fileID: 1635529926}
-  - {fileID: 817833673}

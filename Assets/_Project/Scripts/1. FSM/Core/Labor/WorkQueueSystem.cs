@@ -12,7 +12,7 @@ namespace GameCore.Labor
     /// PalletPick moves ONE full pallet from a reserve slot straight to an outbound staging lane,
     /// for a bulk order that asked for full-pallet quantities. It's the outbound mirror of Putaway,
     /// and shares Replenish's reserve-extraction half.</summary>
-    public enum WorkTaskType { Receive, Putaway, Replenish, OrderSelect, Load, PalletPick, Return }   // append only: saved as int
+    public enum WorkTaskType { Receive, Putaway, Replenish, OrderSelect, Load, PalletPick, Return, ChargeMHE }   // append only: saved as int
 
     /// <summary>Open: exists but not yet claimable -- OrderSelect and PalletPick tasks start here,
     /// created "in limbo" until the player releases them to a staging lane via the Work Queue panel.
@@ -30,8 +30,20 @@ namespace GameCore.Labor
         public string TaskId { get; }
         public WorkTaskType Type { get; }
         public EmployeeRole RequiredRole { get; }
+
+        /// <summary>Open to every employee, whatever their role (ChargeMHE jobs). RequiredRole is then just a placeholder.</summary>
+        public bool AnyRole { get; set; }
+        public string RoleLabel => AnyRole ? "ALL" : RequiredRole.DisplayName();
         public string PalletId { get; set; }
         public string Description { get; }
+
+        /// <summary>The Description prefix that marks a SCRATCHES pick list (see OrderService.FileScratchSelect). Carried in the
+        /// description, which is already saved, so it survives save/load without a new snapshot field.</summary>
+        public const string ScratchPrefix = "SCRATCHES";
+
+        /// <summary>A SCRATCHES task: the deficit left when a selector ran out of stock mid-order, picked as a brand new pick
+        /// list that must be done before the truck leaves (unless the player cancels the rest of the order).</summary>
+        public bool IsScratch => Type == WorkTaskType.OrderSelect && Description != null && Description.StartsWith(ScratchPrefix);
         public WorkTaskStatus Status { get; set; } = WorkTaskStatus.Available;
         public string AssignedToEmployeeGuid { get; set; }  // for persistence and tracking
 
@@ -207,6 +219,7 @@ namespace GameCore.Labor
         {
             ReleaseStaleAssignments();
             WarnAboutUnstaffedWork(newHour);
+            PruneOldFinishedTasks();
         }
 
         /// <summary>Roles already warned about today, so the player is told once rather than hourly.</summary>
@@ -239,7 +252,7 @@ namespace GameCore.Labor
                 _unstaffedWarned.Clear();
             }
 
-            foreach (var group in _tasks.Where(t => t.Status == WorkTaskStatus.Available)
+            foreach (var group in _tasks.Where(t => t.Status == WorkTaskStatus.Available && t.Type != WorkTaskType.ChargeMHE)
                                         .GroupBy(t => t.RequiredRole))
             {
                 var role = group.Key;
@@ -421,6 +434,33 @@ namespace GameCore.Labor
         public List<WorkTask> GetAllTasks()
         {
             return new List<WorkTask>(_tasks);
+        }
+
+        /// <summary>Finished rows (Cancelled / Complete) kept on the list for the player to read before they age out.</summary>
+        private const int KeepFinishedTasks = 30;
+
+        /// <summary>The player's "Clean Up": removes every Cancelled / Complete task from the queue. Live work is untouched.
+        /// Returns how many rows went.</summary>
+        public int ClearFinishedTasks()
+        {
+            return _tasks.RemoveAll(t => t != null && (t.Status == WorkTaskStatus.Cancelled || t.Status == WorkTaskStatus.Complete));
+        }
+
+        /// <summary>Hourly: keep only the newest <see cref="KeepFinishedTasks"/> finished rows so a long game doesn't bury the queue
+        /// in cancelled/complete history (tasks are appended, so the oldest are at the front).</summary>
+        private void PruneOldFinishedTasks()
+        {
+            int finished = 0;
+            foreach (var t in _tasks) if (t != null && (t.Status == WorkTaskStatus.Cancelled || t.Status == WorkTaskStatus.Complete)) finished++;
+            int drop = finished - KeepFinishedTasks;
+            if (drop <= 0) return;
+            _tasks.RemoveAll(t =>
+            {
+                if (drop <= 0 || t == null) return false;
+                if (t.Status != WorkTaskStatus.Cancelled && t.Status != WorkTaskStatus.Complete) return false;
+                drop--;
+                return true;
+            });
         }
 
         /// <summary>Clear all tasks (used before restoring from save).</summary>

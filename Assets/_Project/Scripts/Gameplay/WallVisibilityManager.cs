@@ -234,6 +234,11 @@ public class WallVisibilityManager : MonoBehaviour
             yield return null;
         }
 
+        // Colliders must follow the final transforms before the decor scans below read their bounds.
+        foreach (var wall in _trackedWalls)
+            if (wall.transform != null) wall.transform.position = endPositions[wall];
+        Physics.SyncTransforms();
+
         foreach (var wall in _trackedWalls)
         {
             if (wall.transform == null) continue;
@@ -300,7 +305,10 @@ public class WallVisibilityManager : MonoBehaviour
         Bounds b = wallCollider.bounds;
         Vector3 scanCenter = new Vector3(b.center.x, b.max.y + 2.5f, b.center.z);
         Vector3 scanHalfExtents = new Vector3(b.extents.x * 0.95f, 2.5f, b.extents.z * 0.95f);
-        Collider[] hits = Physics.OverlapBox(scanCenter, scanHalfExtents, wallCollider.transform.rotation, overlappingDecorLayers);
+        // Never scan other WALLS: every lowered wall is a decor candidate too, and a neighbour's
+        // collider bounds can still be stale (Physics hasn't synced the slide yet), which made one
+        // wall "hide" a corner's renderer and left a gap in the lowered wall line.
+        Collider[] hits = Physics.OverlapBox(scanCenter, scanHalfExtents, wallCollider.transform.rotation, overlappingDecorLayers & ~wallLayer.value);
 
         foreach (var hit in hits)
         {

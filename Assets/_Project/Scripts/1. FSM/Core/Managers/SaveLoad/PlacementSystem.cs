@@ -440,7 +440,7 @@ public class PlacementSystem : MonoBehaviour
             save.workQueue = new List<WorkTaskSnapshot>();
             foreach (var task in workQueueSystem.GetAllTasks())
             {
-                if (task == null) continue;
+                if (task == null || task.Type == WorkTaskType.ChargeMHE) continue;   // transient: tied to a live machine
                 save.workQueue.Add(new WorkTaskSnapshot
                 {
                     taskId = task.TaskId,
@@ -545,7 +545,7 @@ public class PlacementSystem : MonoBehaviour
 
             // Mobile objects (MHE/Vehicles): capture exact world position and rotation so they resume
             // exactly where they were instead of snapping back to their placement cell center.
-            if (entry.data.category == "MHE" || entry.GetComponent<UnityEngine.AI.NavMeshAgent>() != null)
+            if (entry.data.category == "MHE" || entry.data.wallMounted || entry.GetComponent<UnityEngine.AI.NavMeshAgent>() != null)
             {
                 obj.hasTransform = true;
                 obj.pos = entry.transform.position;
@@ -555,10 +555,10 @@ public class PlacementSystem : MonoBehaviour
             // Committed aisle racks carry their location metadata (aisle/bay/level/facing/travel) only
             // in memory on the PlacedObject — the save format persists customData, so encode that
             // metadata into it. Without this, loaded racks revert to their prefab default label.
-            if (entry.isRackLive && entry.data.category == "Racking")
-                obj.customData = RackSaveCodec.Encode(entry);
-            else
-                obj.customData = entry.customData;
+            // Encode also covers a rack that shows real addresses but never had its fields set (see
+            // RackSaveCodec.EncodeFromLabels); anything it can't encode keeps its own customData.
+            string rackData = entry.data.category == "Racking" ? RackSaveCodec.Encode(entry) : string.Empty;
+            obj.customData = !string.IsNullOrEmpty(rackData) ? rackData : entry.customData;
 
             save.placedObjects.Add(obj);
         }

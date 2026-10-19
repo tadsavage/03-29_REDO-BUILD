@@ -140,6 +140,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     private void OnEnable()
     {
         NavMeshManager.OnNavMeshReady += OnNavMeshBaked;
+        // A machine parked with its driver still aboard (GoIdleKeepOperator) is woken by the task controllers just setting
+        // `enabled = true`; without this it stayed "parked", Update returned at once, and every NavMesh leg timed out.
+        if (role == AgentRole.Forklift && _operatorIdentity != null) _parked = false;
     }
 
     private void OnDisable()
@@ -327,6 +330,15 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             agent.isStopped = false;
             GoToRandomWaypoint();
         }
+    }
+
+    /// <summary>Same as <see cref="GoIdle"/> but the driver stays aboard (a machine waiting for work): navigation is switched off and
+    /// the agent stopped, yet the operator is remembered so a task controller re-enabling this component wakes it properly.</summary>
+    public void GoIdleKeepOperator()
+    {
+        var keep = _operatorIdentity;
+        GoIdle();
+        _operatorIdentity = keep;
     }
 
     /// <summary>Transitions equipment to idle state (no operator). Stop cleanly first, THEN turn
@@ -859,7 +871,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         if (_seekingEquipment && _targetEquipment != null)
         {
             // Check if target equipment became occupied
-            if (_targetEquipment.IsOccupied || !_targetEquipment.AcceptsOperator)
+            if (_targetEquipment.IsOccupied || !_targetEquipment.AcceptsOperatorFrom(_operatorIdentity))
             {
                 // Target is now occupied — find the next available equipment of the same type.
                 // Capture the target BEFORE cancelling: CancelEquipmentSeeking() nulls

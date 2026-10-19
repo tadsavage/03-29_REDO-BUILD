@@ -45,6 +45,12 @@ public static class LogLinks
     public static string Door(int doorNumber, string truckKey = null, string display = null) =>
         Wrap($"door:{doorNumber}:{truckKey}", display ?? $"Door {doorNumber}");
 
+    /// <summary>A piece of equipment (EquipmentBattery.LinkId): focuses the camera on it and opens its battery read-out.</summary>
+    public static string Equipment(int linkId, string display) => Wrap($"equip:{linkId}", display);
+
+    /// <summary>An employee (record GUID): outlines them, follows them and opens their banner.</summary>
+    public static string Employee(string guid, string display) => Wrap($"emp:{guid}", display);
+
     private static string Wrap(string id, string text) => $"<link=\"{id}\"><b><u>{text}</u></b></link>";
 
     // ── Routing ──────────────────────────────────────────────────────────
@@ -62,6 +68,8 @@ public static class LogLinks
             case "order": OpenSchedulerOn(FindAppointmentForOrder(arg), $"Order {OrderLabel(arg)}"); break;
             case "appt":  OpenSchedulerOn(FindAppointment(arg), "That pickup"); break;
             case "door":  GoToDoor(arg); break;
+            case "equip": GoToEquipment(arg); break;
+            case "emp":   GoToEmployee(arg); break;
             default: Debug.LogWarning($"[LogLinks] Unknown link id '{linkId}'."); break;
         }
     }
@@ -88,6 +96,31 @@ public static class LogLinks
         }
 
         scheduler.FocusAppointment(appt);
+    }
+
+    private const float EquipShotPitch = 45f;
+    private const float EquipShotDistance = 14f;
+
+    private static void GoToEquipment(string arg)
+    {
+        int.TryParse(arg, out int id);
+        var b = EquipmentBattery.FindByLinkId(id);
+        if (b == null) { UIToast.Show("That machine is no longer here."); return; }
+        UIKeyBindingManager.Instance?.CloseAll();
+        var cam = Object.FindAnyObjectByType<FreeLookCamera>();
+        if (cam != null) cam.GlideTo(b.BodyCentre, cam.transform.eulerAngles.y, EquipShotPitch, EquipShotDistance, DoorShotGlideSeconds);
+        var rider = b.Slot != null ? b.Slot.CurrentOperator : null;
+        if (rider != null) EmployeeWorldBanners.Instance.Show(rider);
+        else EquipmentBatteryPanels.Instance.Show(b);
+    }
+
+    private static void GoToEmployee(string guid)
+    {
+        var id = EmployeeRegistry.Instance != null ? EmployeeRegistry.Instance.GetByGuid(guid) : null;
+        if (id == null) { UIToast.Show("That employee is no longer here."); return; }
+        UIKeyBindingManager.Instance?.CloseAll();
+        EmployeeHighlighter.Instance.FocusAndHighlight(id);
+        EmployeeWorldBanners.Instance.Show(id);
     }
 
     private static void GoToDoor(string arg)

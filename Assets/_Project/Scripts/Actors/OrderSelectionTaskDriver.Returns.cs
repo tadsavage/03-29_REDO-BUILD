@@ -117,7 +117,7 @@ namespace GameCore.Actors
                 }
 
                 // A return walks the pick route BACKWARDS, so it faces against the aisle's pick direction.
-                Vector3 heading = -PickHeading(toAisle, loc);
+                Vector3 heading = PickHeading(toAisle, loc);   // never turn around: a return walks the aisle backwards, so the jack reverses
                 Vector3 park = slotFlat + toAisle * ParkOffset - heading * ForkPalletZ[0];
                 yield return DriveJackTo(park, heading, $"return to {loc.Address}");
                 if (!_jackLegOk || _jack == null) break;
@@ -158,6 +158,7 @@ namespace GameCore.Actors
             }
             yield return MoveForks(0f);
             yield return ParkJack();
+            yield return StayAboardWhileCharging();
             if (_jack != null) yield return StepOut(_jack.transform.position - _jack.transform.right);
             ReleaseJack();
             FinishReturn(task);

@@ -63,6 +63,20 @@ public override bool IsPlacementState => true;
 
     private Vector2Int _lastHitCell;
 
+    // Wall-mounted fixtures (ObjDataSO.wallMounted) - see UpdateWallMounted.
+    private bool _wallFlip;          // R toggles: false = face toward the camera's side of the wall, true = the far side
+    private bool _wallTargetValid;
+    private Vector2Int _wallCell;
+    private Vector3 _wallPos;
+    private float _wallYaw;
+
+    // Measured on the standard Wall mesh: the flat face sits 0.34 m either side of its pivot (the
+    // flared base is wider but only reaches ~2 m up). A wall fixture's back plate sits 0.21 m in
+    // front of ITS pivot along local -Z (Light_Wall mesh bounds), so the pivot lands this far from
+    // the wall's centre line.
+    private const float WallHalfThickness = 0.34f;
+    private const float WallFixtureBackInset = 0.21f;
+
     public BuildState(
         PlacementActions actions,
         PreviewController preview,
@@ -114,6 +128,8 @@ public override bool IsPlacementState => true;
 
         _placeRequested = false;
         _rotateRequested = false;
+        _wallFlip = false;
+        _wallTargetValid = false;
 
         // Build mode requires ZERO-LAG instant snapping (see PreviewController.MoveTo's "BUILD
         // MODE" branch and its LateUpdate() enforcement, both gated on !_isMovePreviewMode). Without
@@ -190,6 +206,14 @@ public override bool IsPlacementState => true;
             _indicator.ClearAll();
             _preview.Hide();
             _costUI.Hide();
+            return;
+        }
+
+        // Wall-mounted fixtures have their own placement rules (must be over a wall, face into or out
+        // of the room, R flips 180) and place at an exact world position, so they skip the cell logic.
+        if (_currentData != null && _currentData.wallMounted)
+        {
+            UpdateWallMounted();
             return;
         }
 
@@ -456,6 +480,17 @@ public override bool IsPlacementState => true;
         if (_raycast.HitObject != null && _raycast.HitObject.GetComponent<ChevronController>() != null)
             return;
 
+        if (_currentData.wallMounted)
+        {
+            if (!_wallTargetValid)
+            {
+                AudioManager.Play("InvalidPlace");
+                return;
+            }
+            _placeRequested = true;
+            return;
+        }
+
         Vector2Int root = _raycast.HitCell;
         Vector2Int[] offsets = _currentData.GetFootprintOffsets(-_currentRotation);
 
@@ -653,6 +688,140 @@ public override bool IsPlacementState => true;
         _dragCells.Clear();
         _unaffordableCells.Clear();
         _costUI.Hide();
+    }
+
+    // ---------------------------------------------------------
+    // WALL-MOUNTED FIXTURES
+    // ---------------------------------------------------------
+    private void UpdateWallMounted()
+    {
+        _indicator.ClearAll();
+        ClearReplacementHighlights();
+
+        if (_rotateRequested)
+        {
+            _rotateRequested = false;
+            _wallFlip = !_wallFlip;
+        }
+
+        _wallTargetValid = TryFindWallMount(out _wallCell, out _wallPos, out _wallYaw);
+
+        if (!_wallTargetValid)
+        {
+            _preview.Hide();
+            _costUI.Hide();
+            if (_placeRequested)
+            {
+                _placeRequested = false;
+                AudioManager.Play("InvalidPlace");
+            }
+            return;
+        }
+
+        int cost = _currentData.cost;
+        bool canAfford = _money.CanAfford(cost);
+
+        _preview.PlaceGhostExact(_wallPos, _wallYaw);
+        if (canAfford) _preview.SetGhostValid(); else _preview.SetGhostInvalid();
+
+        topBarUI?.SetCell(_wallCell.x, _wallCell.y);
+        _costUI.ShowCost(cost, canAfford);
+        _costUI.SetScreenPosition(_raycast.RawHitPoint, Camera.main);
+
+        if (!_placeRequested)
+            return;
+
+        _placeRequested = false;
+
+        if (!canAfford)
+        {
+            AudioManager.Play("InvalidPlace");
+            return;
+        }
+
+        AudioManager.Play("ValidPlace");
+
+        _fsm.History.Push(
+            new PlaceCommand(
+                _grid,
+                _finalizer,
+                _wallCell,
+                _currentData.GetFootprintOffsets(0f),
+                _currentData,
+                _wallYaw,
+                _money,
+                new Vector3(_wallPos.x, 0f, _wallPos.z))
+        );
+    }
+
+    /// <summary>
+    /// The cursor must be over a straight wall (the first placed object the ray meets). The fixture
+    /// goes on whichever face the camera sees (R flips it to the other face) and always faces
+    /// straight out of that face - into or out of the warehouse, never along the wall.
+    /// </summary>
+    private bool TryFindWallMount(out Vector2Int cell, out Vector3 pos, out float yaw)
+    {
+        cell = default;
+        pos = default;
+        yaw = 0f;
+
+        Ray ray = _raycast.CurrentRay;
+        var hits = Physics.RaycastAll(ray, 500f, _raycast.CurrentObjectMask, QueryTriggerInteraction.Collide);
+        if (hits == null || hits.Length == 0)
+            return false;
+
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+        // The nearest placed object decides; a rack or pallet in front of the wall blocks it just as
+        // it would visually.
+        BuildingData wall = null;
+        foreach (var h in hits)
+        {
+            var bd = h.collider.GetComponentInParent<BuildingData>();
+            if (bd == null || bd.Data == null) continue;
+            wall = bd;
+            break;
+        }
+
+        if (wall == null || wall.Data.category != "Walls" || wall.Data.replacesWalls || !wall.Data.canBeReplacedByDoor)
+            return false;
+
+        // The wall's thickness runs along its local Z; snap to the nearest world axis.
+        Vector3 axis = wall.transform.forward;
+        axis.y = 0f;
+        axis = Mathf.Abs(axis.x) >= Mathf.Abs(axis.z)
+            ? new Vector3(Mathf.Sign(axis.x), 0f, 0f)
+            : new Vector3(0f, 0f, Mathf.Sign(axis.z));
+
+        Vector3 wallPos = wall.transform.position;
+        float side = Vector3.Dot(ray.origin - wallPos, axis) >= 0f ? 1f : -1f;
+        if (_wallFlip) side = -side;
+        Vector3 n = axis * side;
+
+        cell = wall.RootCell;
+
+        // A second fixture can't go on the same face of the same wall cell.
+        var inCell = _grid.GetObjectsInCell(cell);
+        if (inCell != null)
+        {
+            foreach (var entry in inCell)
+            {
+                if (entry.instance == null || !entry.instance.activeSelf || entry.data == null) continue;
+                if (!entry.data.wallMounted) continue;
+                if (Vector3.Dot(entry.instance.transform.rotation * Vector3.back, n) > 0.9f)
+                    return false;
+            }
+        }
+
+        Vector3 p = wallPos + n * (WallHalfThickness - WallFixtureBackInset);
+        p.y = PlacementFinalizer.GetFloorTopY(_grid, cell) + _currentData.worldYOffset;
+        pos = p;
+
+        // The prefab's front points along local -Z; yaw so that -Z lands on n.
+        yaw = Mathf.Atan2(-n.x, -n.z) * Mathf.Rad2Deg;
+        if (yaw < 0f) yaw += 360f;
+        yaw = Mathf.Round(yaw / 90f) * 90f % 360f;
+        return true;
     }
 
     // ---------------------------------------------------------

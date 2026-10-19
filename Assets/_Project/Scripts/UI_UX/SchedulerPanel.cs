@@ -665,7 +665,7 @@ public class SchedulerPanel : IUIPanel
         titleBar.Add(backToPurchasing);
 
         _scaleBtn = new Button { text = string.Empty };
-        RuntimeTooltip.Attach(_scaleBtn, "Resize window (normal / large / fill screen)");
+        RuntimeTooltip.Attach(_scaleBtn, "Resize window (normal / large / fill screen)", ignoreGlobalToggle: true);
         StyleSquareButton(_scaleBtn);
         _scaleBtn.style.width = titleBtnSize;
         _scaleBtn.style.height = titleBtnSize;
@@ -4596,8 +4596,9 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     private void ShowNewSchedulerTooltip(DockAppointment appt, VisualElement cell)
     {
         if (_newSchedulerTooltip == null) return;
-        // F1 off, or a tile in hand: no cards. HideNewSchedulerTooltip also clears one that was already up.
-        if (TooltipSettings.Blocked) { HideNewSchedulerTooltip(); return; }
+        // Scheduler tooltips ignore the F1 switch (always on); only a tile in hand holds them back.
+        // HideNewSchedulerTooltip also clears one that was already up.
+        if (TooltipSettings.BlockedIgnoringToggle) { HideNewSchedulerTooltip(); return; }
         CancelPendingTooltipHide();
         _hoveredTooltipAppt = appt;
         _newSchedulerTooltipScroll.Clear();
@@ -4697,7 +4698,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     {
         if (_newSchedulerTooltip == null || _hoveredTooltipAppt == null) return;
         if (_newSchedulerTooltip.style.display != DisplayStyle.Flex) return;
-        if (TooltipSettings.Blocked) { HideNewSchedulerTooltip(); return; }
+        if (TooltipSettings.BlockedIgnoringToggle) { HideNewSchedulerTooltip(); return; }
 
         _newSchedulerTooltipScroll.Clear();
         VisualElement content = IsInboundPo(_hoveredTooltipAppt) ? BuildInboundTooltipContent(_hoveredTooltipAppt)

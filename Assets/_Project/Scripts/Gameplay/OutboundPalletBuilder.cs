@@ -40,6 +40,12 @@ public class OutboundPalletBuilder : MonoBehaviour
     /// <summary>Cases on this pallet per SKU. Empty for an adopted whole pallet (its SKU lives on PalletData).</summary>
     public IReadOnlyDictionary<string, int> CaseCountsBySku => _caseCountBySku;
 
+    /// <summary>This pallet's PLANNED picklist (SKU, cases) in pick order, worked out when the pallet was started so the
+    /// tooltip can show the whole list from the start. Null for pallets with no plan (loaded from a save, whole pallets).
+    /// A forecast: what is actually on the pallet is CaseCountsBySku.</summary>
+    public IReadOnlyList<KeyValuePair<string, int>> PlannedPicklist { get; private set; }
+    public void SetPlannedPicklist(List<KeyValuePair<string, int>> plan) { PlannedPicklist = plan != null && plan.Count > 0 ? plan : null; }
+
     /// <summary>The SKU of every case under PalletLoad, in child order. Saved so a mixed pallet restores case-for-case.</summary>
     public IReadOnlyList<string> CaseSkus => _caseSkus;
     private readonly List<string> _caseSkus = new();

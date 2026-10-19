@@ -31,10 +31,10 @@ public static class RuntimeTooltip
     /// <summary>Wires a floating hover card onto <paramref name="target"/>. Safe to call during panel
     /// construction, before the element is ever added to a document — nothing here touches
     /// <c>target.panel</c> until the pointer actually enters it.</summary>
-    public static void Attach(VisualElement target, string text)
+    public static void Attach(VisualElement target, string text, bool ignoreGlobalToggle = false)
     {
         if (target == null || string.IsNullOrEmpty(text)) return;
-        target.RegisterCallback<PointerEnterEvent>(evt => Show(target, () => BuildPlainText(text), (Vector2)evt.position));
+        target.RegisterCallback<PointerEnterEvent>(evt => Show(target, () => BuildPlainText(text), (Vector2)evt.position, ignoreGlobalToggle));
         target.RegisterCallback<PointerLeaveEvent>(_ => Hide(target));
         // A target that vanishes mid-hover (a panel rebuild while the tooltip is up) gets no
         // PointerLeaveEvent — without this the card would be stuck on screen forever.
@@ -99,9 +99,10 @@ public static class RuntimeTooltip
         return host;
     }
 
-    private static void Show(VisualElement target, Func<VisualElement> buildContent, Vector2 pointerPos)
+    private static void Show(VisualElement target, Func<VisualElement> buildContent, Vector2 pointerPos, bool ignoreGlobalToggle = false)
     {
-        if (TooltipSettings.Blocked) return;
+        // ignoreGlobalToggle: the panel's tooltips are exempt from F1 (the Scheduler's are always on).
+        if (ignoreGlobalToggle ? TooltipSettings.BlockedIgnoringToggle : TooltipSettings.Blocked) return;
         IPanel panel = target.panel;
         if (panel == null) return;
         _activeTarget = target;

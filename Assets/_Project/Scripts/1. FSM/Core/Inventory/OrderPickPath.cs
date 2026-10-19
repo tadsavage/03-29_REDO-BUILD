@@ -18,7 +18,7 @@ public static class OrderPickPath
     /// to satisfy it outright, else whichever assigned slot holds the most (the selector tops up from
     /// a second location on its next pass). Null if no assigned slot has any stock at all.
     /// </summary>
-    public static LocationData ChooseSlot(string skuId, int remaining, out int takeQty)
+    public static LocationData ChooseSlot(string skuId, int remaining, out int takeQty, long minKey = long.MinValue)
     {
         LocationData best = null;
         int bestQty = 0;
@@ -27,6 +27,9 @@ public static class OrderPickPath
         {
             if (!LocationRegistry.TryGet(address, out var candidate)) continue;
             if (candidate.Quantity <= 0) continue;
+            // ASCENDING ONLY (Tad, 2026-10-18): a selector never picks going the wrong way down the aisle, so a slot
+            // earlier in the sequence than where this trip has already been is not a candidate.
+            if (SequenceKey(candidate.Address) < minKey) continue;
 
             if (candidate.Quantity >= remaining)
             {
@@ -60,10 +63,10 @@ public static class OrderPickPath
         char lc = parts[2][0];
         int level = char.IsDigit(lc) ? lc - '0' : 10 + char.ToUpperInvariant(lc) - 'A';
         int pos = parts[2].Length > 1 && char.IsDigit(parts[2][1]) ? parts[2][1] - '0' : 0;
-        bool ascending = aisle % 2 == 1;
-        int bayKey = ascending ? bay : 999 - bay;
-        int posKey = ascending ? pos : 9 - pos;
-        return ((long)aisle * 1000 + bayKey) * 1000 + level * 10 + posKey;
+        // EVERY aisle ascends (Tad, 2026-10-18): the jack always points the way the bays count up and never turns around
+        // inside an aisle; after the last bay it goes round to the low end of the next aisle. (It used to alternate
+        // direction by aisle, which made the jack U-turn at the end of every second aisle.)
+        return ((long)aisle * 1000 + bay) * 1000 + level * 10 + pos;
     }
 
     /// <summary>
@@ -73,7 +76,8 @@ public static class OrderPickPath
     /// many cases a line still needs from a case picker (0 = skip).
     /// </summary>
     public static bool ChooseNext(OrderData order, System.Func<OrderLineItem, int> wantFor,
-                                  out LocationData location, out OrderLineItem lineItem, out int takeQty)
+                                  out LocationData location, out OrderLineItem lineItem, out int takeQty,
+                                  long minKey = long.MinValue)
     {
         location = null; lineItem = null; takeQty = 0;
         if (order == null) return false;
@@ -83,7 +87,7 @@ public static class OrderPickPath
             if (li == null || li.IsFullyPicked) continue;
             int want = wantFor != null ? wantFor(li) : li.QuantityRemaining;
             if (want <= 0) continue;
-            var slot = ChooseSlot(li.SkuId, want, out int qty);
+            var slot = ChooseSlot(li.SkuId, want, out int qty, minKey);
             if (slot == null) continue;
             long key = SequenceKey(slot.Address);
             if (location == null || key < bestKey)
@@ -92,6 +96,55 @@ public static class OrderPickPath
             }
         }
         return location != null;
+    }
+
+    /// <summary>
+    /// PICKLIST for the pallet a selector is about to start (Tad, 2026-10-18): the items and case counts that will
+    /// go on it, in walking order, until it CUBES OUT (about one reference pallet, ~70 cu ft - the same
+    /// 1/(Ti*Hi)-per-case proxy OutboundPalletBuilder.FillFraction uses). Call it when the pallet starts: the
+    /// cases already on earlier pallets of this trip are picked by then, so <paramref name="wantFor"/> (what is
+    /// still owed to this selector) already excludes them. Each line is capped by the stock actually sitting in its
+    /// assigned pick faces. Same ordering as ChooseNext, so the plan and the real route agree; it is a forecast, so
+    /// a shortage or another selector's reservation can still change what actually goes on.
+    /// </summary>
+    public static List<KeyValuePair<string, int>> PlanPallet(OrderData order, System.Func<OrderLineItem, int> wantFor,
+                                                             System.Func<string, SkuData> getSku, long minKey = long.MinValue)
+    {
+        var plan = new List<KeyValuePair<string, int>>();
+        if (order == null) return plan;
+
+        var candidates = new List<(long key, string sku, int want, float cost)>();
+        foreach (var li in order.LineItems)
+        {
+            if (li == null || li.IsFullyPicked) continue;
+            int want = wantFor != null ? wantFor(li) : li.QuantityRemaining;
+            if (want <= 0) continue;
+            var slot = ChooseSlot(li.SkuId, want, out _, minKey);
+            if (slot == null) continue;
+
+            int stock = 0;
+            foreach (var address in SlotAssignmentService.GetSlotsForSku(li.SkuId))
+                if (SequenceKey(address) >= minKey && LocationRegistry.TryGet(address, out var s)) stock += Mathf.Max(0, s.Quantity);
+            want = Mathf.Min(want, stock);
+            if (want <= 0) continue;
+
+            var sku = getSku != null ? getSku(li.SkuId) : null;
+            int perPallet = sku != null ? Mathf.Max(1, sku.Ti * sku.Hi) : 1;
+            candidates.Add((SequenceKey(slot.Address), li.SkuId, want, 1f / perPallet));
+        }
+        candidates.Sort((a, b) => a.key.CompareTo(b.key));
+
+        float fill = 0f;
+        foreach (var c in candidates)
+        {
+            // The case that carries the pallet to 1.0 still goes on it (the driver checks IsCubedOut AFTER adding).
+            int room = Mathf.Max(1, Mathf.CeilToInt((1f - fill) / c.cost - 0.0001f));
+            int take = Mathf.Min(c.want, room);
+            plan.Add(new KeyValuePair<string, int>(c.sku, take));
+            fill += take * c.cost;
+            if (fill >= 1f - 0.0001f) break;
+        }
+        return plan;
     }
 
     /// <summary>

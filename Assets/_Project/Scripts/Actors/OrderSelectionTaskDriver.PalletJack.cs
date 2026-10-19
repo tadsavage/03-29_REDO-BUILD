@@ -52,6 +52,10 @@ namespace GameCore.Actors
         /// <summary>This selector climbed off a flat jack: the jack finishes the delivery on its own, the selector patrols.</summary>
         private bool _ejectedFromJack;
 
+        /// <summary>The battery went flat (or Change Battery was chosen) mid-run: the selector STAYS aboard, stops picking, stages what
+        /// is on the pallet, then parks the jack in a charging bay and steps off (Tad, 2026-10-18). Still owes the order a trip.</summary>
+        private bool _flatBatteryStop;
+
         /// <summary>Flat battery (Tad, 2026-10-17): the selector climbs off and goes back to patrolling; the jack carries
         /// on alone at double speed to stage what is on its forks, then EquipmentBattery takes it to a charger.</summary>
         private void EjectFromJack()
@@ -131,6 +135,7 @@ namespace GameCore.Actors
 
             _jack = jack;
             _ejectedFromJack = false;
+            _flatBatteryStop = false;
             _jackNav = jack.GetComponent<AiNavigation>();
             _jackAgent = jack.GetComponent<NavMeshAgent>();
             s_jackClaims[jack] = this;
@@ -207,7 +212,7 @@ namespace GameCore.Actors
                 // becomes another trip (FinishOrderCleanup files it) for a selector with a charged jack.
                 if (JackOutOfPower)
                 {
-                    EjectFromJack();
+                    _flatBatteryStop = true;   // stay aboard: stage, park in a charging bay, step off
                     if (!_currentOrder.IsFullyPicked) { MarkPartialUnlessLoading(_currentOrder); _cubingCapHit = true; }
                     completion = OrderData.OrderStatus.Staged;
                     break;
@@ -271,7 +276,14 @@ namespace GameCore.Actors
                     Vector3 bayFlat = BayFirstPositionFlat(location, slotFlat);
                     Vector3 heading = PickHeading(toAisle, location);
                     Vector3 park = bayFlat + toAisle * ParkOffset - heading * ForkPalletZ[palletIndex];
-                    yield return DriveJackTo(park, heading, $"bay {bayKey}");
+
+                    // End of the aisle: the jack would be left nose-first into the wall. Turn it ~45 degrees out toward the open
+                    // aisle instead (Tad, 2026-10-18: "turning towards the direction of travel, not driving into the wall").
+                    Vector3 parkHeading = heading;
+                    if (UnityEngine.AI.NavMesh.Raycast(park + Vector3.up * 0.05f, park + heading * 2.5f, out _, UnityEngine.AI.NavMesh.AllAreas))
+                        parkHeading = (heading + toAisle).normalized;
+                    park = KeepJackBodyOffWalls(park, parkHeading);
+                    yield return DriveJackTo(park, parkHeading, $"bay {bayKey}");
                     if (!_jackLegOk)
                     {
                         yield return AbandonJackOnFoot($"could not drive the jack to bay {bayKey}");
@@ -301,7 +313,6 @@ namespace GameCore.Actors
 
             // Back on the jack before driving to staging (picking leaves the selector off it, at the last bay).
             // Not after a flat battery: the jack drives to staging alone.
-            if (_offJack && _jack != null && !_ejectedFromJack && JackOutOfPower) { EjectFromJack(); _offJack = false; }
             if (_offJack && _jack != null && !_ejectedFromJack)
             {
                 yield return StepIn();
@@ -314,13 +325,48 @@ namespace GameCore.Actors
             yield return JackStageRoutine(completion);
         }
 
+        /// <summary>The NavMeshAgent only plans the open-floor legs and stops short of the target; the last metres of a
+        /// bay stop are scripted straight onto the park pose, and the agent's radius covers its centre, not the 2.5 m of
+        /// body + forks. So a pick at the end of an aisle drove the jack's body through the wall. Pull the park pose
+        /// away from any navmesh edge that the body's rear / sides would touch.</summary>
+        private static Vector3 KeepJackBodyOffWalls(Vector3 park, Vector3 heading)
+        {
+            const float Margin = 0.5f;
+            Vector3 right = Vector3.Cross(Vector3.up, heading).normalized;
+            for (int pass = 0; pass < 4; pass++)
+            {
+                Vector3 push = Vector3.zero;
+                foreach (Vector3 probe in new[] { park - heading * 1.4f, park - heading * 0.7f, park - heading * 1.0f + right * 0.45f, park - heading * 1.0f - right * 0.45f })
+                {
+                    if (!UnityEngine.AI.NavMesh.SamplePosition(probe, out var onMesh, 1.5f, UnityEngine.AI.NavMesh.AllAreas)) continue;
+                    if (UnityEngine.AI.NavMesh.FindClosestEdge(onMesh.position, out var edge, UnityEngine.AI.NavMesh.AllAreas))
+                    {
+                        float off = Vector3.Distance(probe, onMesh.position);   // probe already outside the mesh
+                        float need = Margin - edge.distance + off;
+                        if (need > 0.02f) { Vector3 n = edge.normal; n.y = 0f; push += n.normalized * need; }
+                    }
+                }
+                if (push.sqrMagnitude < 0.0004f) break;
+                park += push * 0.6f;
+            }
+            return park;
+        }
+
         private bool _capReached;
         private bool _offJack;            // selector standing at a bay, jack parked
         private string _parkedBay;        // "AA-BB" of the bay the jack is parked at
         private int _parkedPalletIndex = -1;
 
         /// <summary>"AA-BB" part of a slot address: every slot in one bay shares it.</summary>
-        private static string BayKey(string address) => !string.IsNullOrEmpty(address) && address.Length >= 5 ? address.Substring(0, 5) : address;
+        /// <summary>Where the jack stops (Tad, 2026-10-18): one stop per PAIR of bays facing each other across the aisle
+        /// (01 and 02, 03 and 04...). The selector picks every needed slot of both bays on foot, stepping across the
+        /// aisle, then the jack pulls FORWARD to the next pair that has a needed slot. Odd bays are one side, even bays the other.</summary>
+        private static string BayKey(string address)
+        {
+            if (string.IsNullOrEmpty(address) || address.Length < 5) return address;
+            if (!int.TryParse(address.Substring(0, 2), out int aisle) || !int.TryParse(address.Substring(3, 2), out int bay)) return address.Substring(0, 5);
+            return $"{aisle:00}-{(bay + 1) / 2:00}";
+        }
 
         /// <summary>Where the bay starts in walking direction (position 0 in an odd aisle, position 1 in an even one, the
         /// serpentine sequence's first slot of the bay), at the same level as the pick. Falls back to the pick slot.</summary>
@@ -328,7 +374,7 @@ namespace GameCore.Actors
         {
             var a = pick != null ? pick.Address : null;
             if (string.IsNullOrEmpty(a) || a.Length < 7 || !int.TryParse(a.Substring(0, 2), out int aisle)) return pickFlat;
-            char firstPos = aisle % 2 == 1 ? '0' : '1';
+            char firstPos = '0';   // every aisle ascends: the bay's first slot in walking direction is always position 0
             string first = a.Substring(0, 7) + firstPos;
             if (first == a || !LocationRegistry.TryGet(first, out var loc)) return pickFlat;
             return TryGetPickGeometry(loc, out var f, out _) ? f : pickFlat;
@@ -418,10 +464,11 @@ namespace GameCore.Actors
                 // other selectors finished first): park the jack and finish. A helper leaves the order's status alone.
                 if (_orderService.OtherSelectorsOnOrder(order, task) == 0)
                     order.Status = TripEndStatus(order, completion, task);
-                if (!_ejectedFromJack) _cubingCapHit = false;   // a flat-battery stop still owes the rest of the order a trip
+                if (!_ejectedFromJack && !_flatBatteryStop) _cubingCapHit = false;   // a flat-battery stop still owes the rest of the order a trip
                 if (_jack != null && !_ejectedFromJack)
                 {
                     yield return ParkJack();
+                    yield return StayAboardWhileCharging();
                     if (_jack != null) yield return StepOut(_jack.transform.position - _jack.transform.right);
                 }
                 ReleaseJack();
@@ -519,6 +566,7 @@ namespace GameCore.Actors
             if (!_ejectedFromJack)
             {
                 yield return ParkJack();
+                yield return StayAboardWhileCharging();
                 if (_jack != null) yield return StepOut(_jack.transform.position - _jack.transform.right);
             }
             ReleaseJack();
@@ -526,6 +574,22 @@ namespace GameCore.Actors
         }
 
         private static bool s_warnedNoParking;
+
+        /// <summary>Parked on a charger and charging: the selector stays on the jack until it is full (Tad, 2026-10-18), then steps off.
+        /// Gives up after 90 real seconds so a stuck charge can never hold the selector forever.</summary>
+        private IEnumerator StayAboardWhileCharging()
+        {
+            if (_jack == null) yield break;
+            var b = _jack.GetComponent<EquipmentBattery>();
+            if (b == null) yield break;
+            yield return null;   // let the battery notice it is on the pad
+            float waited = 0f;
+            while (_jack != null && b != null && b.IsCharging && !b.IsFull && waited < 90f)
+            {
+                waited += Time.unscaledDeltaTime;
+                yield return null;
+            }
+        }
 
         /// <summary>Drives the (empty) jack to the nearest free Pallet Jack Parking bay. With no bay placed it stays
         /// at the lane's line-up spot and the player is told once.</summary>
@@ -939,9 +1003,15 @@ namespace GameCore.Actors
             if (headF.sqrMagnitude > 0.0001f && toT.magnitude <= ReverseMaxDistance &&
                 (toT.magnitude < 0.05f || Mathf.Abs(Vector3.Dot(toT.normalized, headF.normalized)) > 0.8f))
             {
+                // NEVER BACK UP (Tad, 2026-10-18): a stop behind the jack is not driven to - the selector just walks there
+                // on foot. The jack only ever moves forward through an aisle.
+                if (Vector3.Dot(toT, headF) < 0f && toT.magnitude > 0.3f)
+                {
+                    _jackLegOk = _jack != null;
+                    yield break;
+                }
                 yield return JackFace(headF);
-                bool reversing = Vector3.Dot(toT, headF) < 0f;
-                yield return JackMoveStraight(target, reversing ? JackReverseSpeed : JackDriveSpeed);
+                yield return JackMoveStraight(target, JackDriveSpeed);
                 _jackLegOk = _jack != null;
                 yield break;
             }
@@ -953,8 +1023,8 @@ namespace GameCore.Actors
             // so the jack never spins round on the spot just to cover a few centimetres.
             Vector3 to = target - jt.position; to.y = 0f;
             yield return JackFace(finalForward);
-            if (to.magnitude > 0.05f)
-                yield return JackMoveStraight(target, Vector3.Dot(to, finalForward) < 0f ? JackReverseSpeed : JackDriveSpeed);
+            if (to.magnitude > 0.05f && Vector3.Dot(to, finalForward) >= 0f)   // forward only: never reverse the last bit
+                yield return JackMoveStraight(target, JackDriveSpeed);
             _jackLegOk = _jack != null;
         }
 
@@ -1155,8 +1225,7 @@ namespace GameCore.Actors
                     if (!LocationRegistry.TryGet($"{prefix}{other:00}{suffix}", out var loc) || loc == null) continue;
                     Vector3 v = loc.WorldPosition - pick.WorldPosition; v.y = 0f;
                     if (v.sqrMagnitude < 0.01f) continue;
-                    dir = v.normalized * sign;                 // toward higher bay numbers
-                    if (aisle % 2 == 0) dir = -dir;            // even aisles walk back down
+                    dir = v.normalized * sign;                 // toward higher bay numbers, in EVERY aisle
                     return true;
                 }
             }

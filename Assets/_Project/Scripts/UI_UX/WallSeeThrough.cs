@@ -235,6 +235,10 @@ public class WallSeeThrough : MonoBehaviour
     {
         Bounds b = wall.bounds;
 
+        // Only a PERIMETER wall seen from OUTSIDE the building ever dissolves (Tad, 2026-10-18): not one the camera is merely
+        // near, not an interior partition, and not a perimeter wall seen from inside.
+        if (!CameraIsOutsideOfPerimeterWall(b, cameraPos)) return true;
+
         // Well above the top of it — from up here you already see over the wall, so dissolving it just
         // deletes detail without revealing anything.
         if (cameraPos.y - b.max.y >= solidWhenCameraAboveTop) return true;
@@ -249,6 +253,32 @@ public class WallSeeThrough : MonoBehaviour
         if (offsetX >= solidWhenCameraFartherThan || offsetZ >= solidWhenCameraFartherThan) return true;
 
         return false;
+    }
+
+    /// <summary>
+    /// True when this wall is a building-PERIMETER wall (foundation on exactly one side of it) and the camera is on the
+    /// side that has none - i.e. looking at the wall from outside the building.
+    ///
+    /// The wall's normal is its thin horizontal axis (walls are grid-aligned slabs). The cell one step to either side of
+    /// the wall is tested for a foundation: both sides built = an interior partition, neither = not part of the building,
+    /// so both stay solid. Then it is simply which side the camera is on.
+    /// </summary>
+    private bool CameraIsOutsideOfPerimeterWall(Bounds b, Vector3 cameraPos)
+    {
+        var grid = Grid();
+        if (grid == null) return false;
+
+        // Thin axis of the wall = its normal.
+        Vector3 normal = b.size.x < b.size.z ? Vector3.right : Vector3.forward;
+        float step = Mathf.Max(grid.CellSize, Mathf.Min(b.size.x, b.size.z) * 0.5f + grid.CellSize * 0.5f);
+
+        Vector3 c = b.center;
+        bool builtPlus  = HasFoundation(grid, c + normal * step);
+        bool builtMinus = HasFoundation(grid, c - normal * step);
+        if (builtPlus == builtMinus) return false;             // interior partition, or not on the building at all
+
+        Vector3 outward = builtPlus ? -normal : normal;         // the side with no foundation
+        return Vector3.Dot(cameraPos - c, outward) > 0f;
     }
 
     private void Apply(HashSet<Renderer> target)

@@ -393,6 +393,14 @@ private void HandleIdleHover(bool tickRaycast = true)
                 var go = _hoverHitsBuffer[i].collider.gameObject;
                 Vector3 hitPoint = _hoverHitsBuffer[i].point;
 
+                // Click an outbound pallet (or a case on it) to open the order-progress card that follows it.
+                var outboundPallet = go.GetComponentInParent<OutboundPalletBuilder>();
+                if (outboundPallet != null && !string.IsNullOrEmpty(outboundPallet.OrderId) && !_raycast.IsPointerOverUI)
+                {
+                    if (Mouse.current.leftButton.wasPressedThisFrame) OrderPalletCard.Toggle(outboundPallet);   // pin
+                    else if (TooltipSettings.Enabled && _hoverUI.IsEnabled) OrderPalletCard.Hover(outboundPallet);   // F1 tooltips
+                }
+
                 var palletData = go.GetComponentInParent<GameCore.Inventory.PalletData>();
                 if (palletData != null)
                 {

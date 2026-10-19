@@ -123,6 +123,7 @@ namespace GameCore.Actors
                 return;
 
             _taskInProgress = true;
+            _pickFloorKey = long.MinValue;   // a new trip starts at the beginning of the sequence
             _nav.SetTaskBusy(true);
             // A left-behind case-picked pallet going back to its pick slots (OrderSelectionTaskDriver.Returns.cs).
             if (_currentTask.Type == WorkTaskType.Return) { StartReturnRun(); return; }
@@ -308,6 +309,12 @@ namespace GameCore.Actors
 
             var builder = go.AddComponent<OutboundPalletBuilder>();
             builder.OrderId = _currentOrder.OrderId;
+            // Plan this pallet's whole picklist now (what will go on it until it cubes out) so the tooltip can show it
+            // from the start. Cases already on this trip's earlier pallets are picked, so they're excluded already.
+            string planTaskId = _currentTask != null ? _currentTask.TaskId : null;
+            builder.SetPlannedPicklist(OrderPickPath.PlanPallet(_currentOrder,
+                li => _orderService.SelectableRemaining(_currentOrder, li, planTaskId),
+                id => _inventoryService.GetSkuData(id), _pickFloorKey));
             _pallets.Add(builder);
             if (onJack) SeatPalletOnJack(builder, index);
 
@@ -627,7 +634,15 @@ namespace GameCore.Actors
             // and cost reputation each day). Now the rest goes back on the queue as another OrderSelect trip;
             // the order stays PartiallyPicked until the last trip stages, and AutoCloseLoadedOrders waits
             // while any OrderSelect task for it is live.
-            if (_cubingCapHit && _currentOrder != null && _orderService.FileContinuationSelect(_currentOrder))
+            //
+            // SCRATCHES (Tad, 2026-10-18): a trip that ended with loose cases still owed because no pick face had any left
+            // (the selector already took every last case from every reachable slot, down to zero) stages what it picked as
+            // usual; the deficit becomes a brand new SCRATCHES pick list that must be picked before the truck departs,
+            // unless the player cancels the rest of the order.
+            bool moreToPick = _currentOrder != null &&
+                              ((_cubingCapHit && _orderService.FileContinuationSelect(_currentOrder)) ||
+                               _orderService.FileScratchSelect(_currentOrder));
+            if (moreToPick)
             {
                 // Freight already in the trailer: the order is LOADING, not back to picking. Dropping it to PartiallyPicked
                 // made the dock schedule decide "nothing loaded" and close the appointment under a half-loaded trailer.
@@ -685,6 +700,9 @@ namespace GameCore.Actors
         /// spec); if none has enough alone, falls back to the slot with the most stock so the order
         /// can still make progress — AdvanceToNextPick naturally revisits the remainder afterward,
         /// pulling from a second location if needed.</summary>
+        /// <summary>The furthest point of the serpentine sequence this trip has reached; picks only go forward from here.</summary>
+        private long _pickFloorKey = long.MinValue;
+
         private bool TryFindBestPickLocation(OrderData order, out LocationData location, out OrderLineItem lineItem, out int takeQty)
         {
             // Next pick = the earliest remaining slot in the serpentine sequence (aisle 1 bays up, aisle 2 down, ...),
@@ -695,7 +713,10 @@ namespace GameCore.Actors
             // its own target so they leave it alone (several selectors per order, 2026-10-17).
             string taskId = _currentTask != null ? _currentTask.TaskId : null;
             bool found = OrderPickPath.ChooseNext(order, li => _orderService.SelectableRemaining(order, li, taskId),
-                                                  out location, out lineItem, out takeQty);
+                                                  out location, out lineItem, out takeQty, _pickFloorKey);
+            // ASCENDING ONLY (Tad, 2026-10-18): this trip never goes back up the sequence. Anything behind is left for the
+            // next trip (a SCRATCHES list if nothing else picks it).
+            if (found) _pickFloorKey = OrderPickPath.SequenceKey(location.Address);
             _orderService.ReservePick(taskId, order != null ? order.OrderId : null,
                                       found ? lineItem.SkuId : null, found ? takeQty : 0);
             return found;

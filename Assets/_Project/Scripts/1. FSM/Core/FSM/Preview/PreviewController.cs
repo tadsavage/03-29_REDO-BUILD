@@ -280,6 +280,25 @@ public class PreviewController : MonoBehaviour
         return pos;
     }
 
+    /// <summary>
+    /// Puts the single ghost at an exact world position/yaw, bypassing the cell/stack-height maths in
+    /// CalculateTargetPos (which adds the full height of whatever is stacked in the cell - for a
+    /// wall-mounted fixture that is the 9 m wall, so the ghost used to float far above the camera).
+    /// </summary>
+    public void PlaceGhostExact(Vector3 pos, float yaw)
+    {
+        _targetPos = pos;
+        CurrentRotation = yaw;
+        _hasTarget = false;
+        _velocity = Vector3.zero;
+        _velocityY = 0f;
+
+        if (_singleGhost != null)
+        {
+            _singleGhost.transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, yaw, 0f));
+        }
+    }
+
     public void Rotate(float angle)
     {
         CurrentRotation = angle;

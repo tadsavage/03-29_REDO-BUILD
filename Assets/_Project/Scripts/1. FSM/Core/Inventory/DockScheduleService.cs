@@ -1501,7 +1501,25 @@ namespace GameCore.Inventory
         private void OnDayChanged(string eventId, int newDay)
         {
             int cutoff = newDay - KeepPastDays;
-            _appointments.RemoveAll(a => a.Day < cutoff);
+
+            // Yesterday's booking is only history once its work is done. Purging it at midnight stranded trailers still
+            // docked or being loaded (their card read "Outbound Trailer / 0%", the dwell clock and the fine sweep lost
+            // the appointment) and orders that were mid-pick (2026-10-18). Keep an outbound appointment for ONE extra day
+            // while a truck on site holds its id or any of its orders is still unshipped.
+            var onSite = new HashSet<string>();
+            foreach (var t in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+                if (t != null && t.IsOutbound && !t.IsLeaving && !string.IsNullOrEmpty(t.OutboundAppointmentId))
+                    onSite.Add(t.OutboundAppointmentId);
+            ServiceLocator.TryGet(out OrderService liveOrders);
+            _appointments.RemoveAll(a =>
+            {
+                if (a.Day >= cutoff) return false;
+                if (a.Kind == AppointmentKind.Inbound || a.Day < newDay - 1) return true;   // inbound history / older than a day of grace
+                if (onSite.Contains(a.Id)) return false;
+                if (liveOrders != null && a.OrderIds != null &&
+                    liveOrders.ActiveOrders.Any(o => a.OrderIds.Contains(o.OrderId))) return false;
+                return true;
+            });
 
             // NOTE: no re-booking sweep here any more. The purge does strand orders that outlived
             // their appointment, but re-booking them automatically is exactly the behaviour that made

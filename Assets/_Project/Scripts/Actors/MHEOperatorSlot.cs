@@ -155,6 +155,22 @@ public class MHEOperatorSlot : MonoBehaviour
 
     /// <summary>False while the battery is flat or the machine is on its way to / sitting on a charger
     /// (EquipmentBattery.NeedsCharge). Operators don't climb aboard until it is full again.</summary>
+    /// <summary>The battery is flat or the machine is going to charge (EquipmentBattery.NeedsCharge): an operator aboard
+    /// takes it to the charger instead of working.</summary>
+    public bool BatteryFlat
+    {
+        get { var b = GetComponent<EquipmentBattery>(); return b != null && (b.NeedsCharge || b.VacatingBay); }
+    }
+
+    /// <summary>Like <see cref="AcceptsOperator"/>, but also true for the employee EquipmentBattery sent to take THIS machine
+    /// to (or off) a charger: a machine that needs charging is boarded only by its designated helper.</summary>
+    public bool AcceptsOperatorFrom(EmployeeIdentity who)
+    {
+        if (AcceptsOperator) return true;
+        var b = GetComponent<EquipmentBattery>();
+        return b != null && b.IsDesignatedHelper(who);
+    }
+
     public bool AcceptsOperator
     {
         get
@@ -199,7 +215,7 @@ public class MHEOperatorSlot : MonoBehaviour
     public void AssignOperator(EmployeeIdentity identity)
     {
         if (identity == null || IsOccupied) return;
-        if (!AcceptsOperator) return;   // flat battery / charging: see EquipmentBattery
+        if (!AcceptsOperatorFrom(identity)) return;   // flat battery / charging: see EquipmentBattery
 
         Transform anchor = _operatorAnchor != null ? _operatorAnchor : transform;
         Transform t = identity.transform;

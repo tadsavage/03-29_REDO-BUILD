@@ -411,14 +411,77 @@ namespace GameCore.Inventory
             return true;
         }
 
+        // ── SCRATCHES: the deficit pick list ───────────────────────────────────────────────────────
+
+        /// <summary>The order's live SCRATCHES task, if any.</summary>
+        public WorkTask LiveScratchTask(string orderId) => LiveTasksForOrder(orderId).FirstOrDefault(t => t.IsScratch);
+
+        /// <summary>
+        /// A selector finished its trip with loose cases still owed (a pick face ran out and nothing else was reachable): the
+        /// deficit becomes a SCRATCHES pick list (Tad, 2026-10-18). It is treated like a brand new pick list: the same
+        /// OrderSelect work, claimed and picked by a selector, and the order cannot close out / ship while it is live. It is
+        /// filed Available when some of the deficit can be picked right now, otherwise Open (waiting for replenishment to
+        /// put stock in a pick face - PromoteScratches checks). The player can still cancel the rest of the order.
+        /// Returns true when a scratch task exists afterwards.
+        /// </summary>
+        public bool FileScratchSelect(OrderData order)
+        {
+            if (order == null || _workQueue == null) return false;
+            if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return false;
+            if (LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect)) return LiveScratchTask(order.OrderId) != null;
+
+            int deficit = 0;
+            foreach (var li in order.LineItems) deficit += SelectableRemaining(order, li);
+            if (deficit <= 0) return false;
+
+            var st = _workQueue.CreateTask(
+                WorkTaskType.OrderSelect,
+                EmployeeRole.OrderSelector,
+                palletId: null,
+                description: $"{WorkTask.ScratchPrefix}: {deficit} short case(s) for {order.CustomerName}",
+                area: DominantArea(order),
+                orderId: order.OrderId);
+            if (st == null) return false;
+            st.Status = ScratchCanBePicked(order) ? WorkTaskStatus.Available : WorkTaskStatus.Open;
+            string msg = $"Order {order.OrderNumber}: {deficit} case(s) short - filed a SCRATCHES pick list" +
+                         (st.Status == WorkTaskStatus.Open ? " (waiting for stock in a pick slot)." : ".");
+            Debug.LogWarning($"[OrderService] {msg}");
+            SystemsLogWindow.LogWarning(msg);
+            return true;
+        }
+
+        /// <summary>True when some line of the order still owed to a case picker has stock in an assigned pick face right now.</summary>
+        private bool ScratchCanBePicked(OrderData order)
+        {
+            foreach (var li in order.LineItems)
+            {
+                int want = SelectableRemaining(order, li);
+                if (want > 0 && OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Open SCRATCHES lists become Available once replenishment has put stock where a selector can reach it.</summary>
+        private void PromoteScratches()
+        {
+            if (_workQueue == null) return;
+            foreach (var t in _workQueue.Tasks.Where(t => t.IsScratch && t.Status == WorkTaskStatus.Open).ToList())
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == t.OrderId);
+                if (order == null) { t.Status = WorkTaskStatus.Cancelled; continue; }
+                if (ScratchCanBePicked(order)) t.Status = WorkTaskStatus.Available;
+            }
+        }
+
         // ── Held work: released tasks that are waiting for lane room ──────────────────────────────
 
         /// <summary>The PalletPick / OrderSelect tasks of a released order that are still Open: filed, but
-        /// not claimable because no staging lane had room for them yet.</summary>
+        /// not claimable because no staging lane had room for them yet. (A SCRATCHES list is Open for a different
+        /// reason - no stock - so it is never "held work" and lane room does not release it.)</summary>
         private IEnumerable<WorkTask> HeldTasks(OrderData order)
         {
             if (order == null || !order.ReleasedToFloor) return Enumerable.Empty<WorkTask>();
-            return LiveTasksForOrder(order.OrderId).Where(t => t.Status == WorkTaskStatus.Open &&
+            return LiveTasksForOrder(order.OrderId).Where(t => t.Status == WorkTaskStatus.Open && !t.IsScratch &&
                 (t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.OrderSelect));
         }
 
@@ -1085,13 +1148,44 @@ namespace GameCore.Inventory
         }
 
         private int _waitingLaneTick;
+        private readonly Dictionary<string, int> _phantomStagedTicks = new();
+
+        /// <summary>A STAGED order with no pallet of its own anywhere (floor, forks, trailer) and no live task can never
+        /// load or finish: the Work Queue kept showing "Staged" for a lane with nothing in it (2026-10-18, OG2120). The
+        /// load-time reconcile only ran on a save load; run it for such orders at runtime too, after a short grace
+        /// (a few ticks) so a pallet in the middle of being swapped between carriers isn't mistaken for missing.</summary>
+        private void HealPhantomStagedOrders()
+        {
+            var havePallets = new HashSet<string>();
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (p != null && !string.IsNullOrEmpty(p.OrderId)) havePallets.Add(p.OrderId);
+
+            var phantom = new List<string>();
+            var seen = new HashSet<string>();
+            foreach (var o in _activeOrders)
+            {
+                if (o == null || o.Status != OrderData.OrderStatus.Staged) continue;
+                seen.Add(o.OrderId);
+                if (havePallets.Contains(o.OrderId) || LiveTasksForOrder(o.OrderId).Any()) { _phantomStagedTicks.Remove(o.OrderId); continue; }
+                _phantomStagedTicks.TryGetValue(o.OrderId, out int n);
+                _phantomStagedTicks[o.OrderId] = ++n;
+                if (n >= 3) phantom.Add(o.OrderId);
+            }
+            foreach (var k in _phantomStagedTicks.Keys.Where(k => !seen.Contains(k)).ToList()) _phantomStagedTicks.Remove(k);
+
+            if (phantom.Count == 0) return;
+            foreach (var id in phantom) _phantomStagedTicks.Remove(id);
+            ReconcileStagedOrdersAgainstScene(phantom);
+        }
 
         // Every few in-game minutes; AssignWaitingLanes is a no-op (one LINQ pass) when nothing waits.
         private void OnMinuteForLanes(string eventId, GameCore.Events.Payloads.SimulationTimeData _)
         {
             if (++_waitingLaneTick % 3 != 0) return;
             AssignWaitingLanes();
+            PromoteScratches();
             ReclaimOrphanedFreight();
+            HealPhantomStagedOrders();
             // Loaders call this when a pass ends, but an order can become closable later (its last pallet pick
             // lands, or turns out to be unfillable) with no loader pass left to notice. Re-check on the tick.
             AutoCloseLoadedOrders();
@@ -1523,6 +1617,13 @@ namespace GameCore.Inventory
                                          || order.TotalUnitsPicked > 0;
                 if (somethingReleased) heldCases = CasesOwedByHeldWork(order, out impact.TasksCancelled);
             }
+            // A SCRATCHES list nobody has started is cut the same way: its short cases are what the customer won't get.
+            var scratchTask = LiveScratchTask(order.OrderId);
+            if (scratchTask != null && scratchTask.Status != WorkTaskStatus.Assigned)
+            {
+                foreach (var li in order.LineItems) heldCases += SelectableRemaining(order, li);
+                impact.TasksCancelled++;
+            }
 
             var leftOnDock = CuttableLanePallets(order, out int caseBuiltLeft);
             bool loadingOrLoaded = order.Status == OrderData.OrderStatus.Loading || order.Status == OrderData.OrderStatus.Loaded;
@@ -1656,6 +1757,8 @@ namespace GameCore.Inventory
             if (!impact.Allowed) return false;
 
             var heldNow = HeldTasks(order).ToList();
+            var scratchNow = LiveScratchTask(order.OrderId);
+            if (scratchNow != null && scratchNow.Status != WorkTaskStatus.Assigned) heldNow.Add(scratchNow);
             var unliftedHeld = heldNow.Where(t => t.Status != WorkTaskStatus.Assigned).ToList();   // captured BEFORE the statuses change
             foreach (var task in heldNow)
             {
@@ -2042,6 +2145,13 @@ namespace GameCore.Inventory
         {
             whyNot = null;
             if (order == null) { whyNot = "no longer exists"; return false; }
+
+            // A SCRATCHES list (the deficit from a short pick) must be picked first - or the rest of the order cancelled.
+            if (LiveScratchTask(order.OrderId) != null)
+            {
+                whyNot = "SCRATCHES still need picking - pick them, or cancel the rest of the order";
+                return false;
+            }
 
             if (order.Status == OrderData.OrderStatus.Loaded)
             {
@@ -2707,7 +2817,7 @@ namespace GameCore.Inventory
         /// didn't persist, but they represent finished work awaiting billing, and voiding that revenue
         /// isn't a decision to make silently on a load.
         /// </summary>
-        public int ReconcileStagedOrdersAgainstScene()
+        public int ReconcileStagedOrdersAgainstScene(ICollection<string> onlyOrderIds = null)
         {
             var livePalletOrderIds = new HashSet<string>();
             foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
@@ -2721,6 +2831,7 @@ namespace GameCore.Inventory
             foreach (var order in _activeOrders)
             {
                 if (order == null) continue;
+                if (onlyOrderIds != null && !onlyOrderIds.Contains(order.OrderId)) continue;
                 if (livePalletOrderIds.Contains(order.OrderId)) continue;
 
                 if (order.Status == OrderData.OrderStatus.Loaded)

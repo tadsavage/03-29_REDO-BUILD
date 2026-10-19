@@ -303,7 +303,17 @@ namespace GameCore.Labor
             {
                 foreach (var order in orderService.ActiveOrders)
                 {
-                    if (order.Status != OrderData.OrderStatus.Loaded) continue;
+                    // Loading counts too: an order can sit in Loading with pallets still standing in its lane and NO Load task
+                    // (the task was cancelled or released when a dock stocker's battery died mid-pass, or a save restored it that way).
+                    // Nothing re-files a task for a Loading order, so it could never be loaded or closed out (found live 2026-10-18,
+                    // door 2: "pallets still standing in its staging lane" with nobody coming). Only when a trailer is waiting at its dock.
+                    bool loading = order.Status == OrderData.OrderStatus.Loading;
+                    if (order.Status != OrderData.OrderStatus.Loaded && !loading) continue;
+                    if (loading)
+                    {
+                        var dockTruck = FindDockedOutboundTruck(order.AssignedDoorNumber);
+                        if (dockTruck == null || !dockTruck.AwaitingLoad) continue;
+                    }
                     if (!HasStagedPalletForOrder(order.OrderId)) continue;
                     var addresses = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
                     bool loadPending = reopenQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
@@ -311,7 +321,7 @@ namespace GameCore.Labor
                         addresses.Contains(t.FromLocation));
                     if (loadPending) continue;
                     order.Status = OrderData.OrderStatus.Staged;
-                    Debug.Log($"[TrailerLoad] Order {order.OrderNumber} has staged pallets again after its load pass — reopened for loading.");
+                    Debug.Log($"[TrailerLoad] Order {order.OrderNumber} has staged pallets again after its load pass (no Load task pending) — reopened for loading.");
                 }
             }
 
@@ -366,7 +376,7 @@ namespace GameCore.Labor
                 // file's FindAvailableDockStocker for why AiNavigation.enabled isn't usable as an
                 // "in use" signal (it's already disabled from the moment an operator boards, whether
                 // idle or actively driven).
-                if (!slot.IsOccupied || DockEquipmentCommandeerRegistry.IsCommandeered(slot)) continue;
+                if (!slot.IsOccupied || slot.BatteryFlat || DockEquipmentCommandeerRegistry.IsCommandeered(slot)) continue;
                 var op = slot.CurrentOperator;
                 if (op == null || op.Record == null) continue;
                 if (op.Record.role != EmployeeRole.DockStockerOperator) continue;
@@ -481,7 +491,7 @@ namespace GameCore.Labor
             if (nav != null)
             {
                 nav.enabled = navWas;
-                nav.GoToRandomWaypoint();
+                nav.GetComponent<EquipmentBattery>()?.NoteJobFinished();   // no patrol: park or charge (EquipmentBattery.IdleRoutine)
             }
 
             DockEquipmentCommandeerRegistry.Release(slot);

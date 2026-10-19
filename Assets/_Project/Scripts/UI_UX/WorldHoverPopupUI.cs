@@ -970,6 +970,8 @@ private void ShowLocation(LocationData location)
 
         popup.RegisterCallback<PointerDownEvent>(evt =>
         {
+            // Right-click anywhere on the pinned card closes it (Tad, 2026-10-18).
+            if (evt.button == 1) { UnpinTruck(); evt.StopPropagation(); return; }
             dragging = true;
             pointerStart = evt.position;
             elementStart = new Vector2(popup.resolvedStyle.left, popup.resolvedStyle.top);
@@ -1496,6 +1498,8 @@ private void ShowLocation(LocationData location)
         int doorNumber = 0;
         float progress = 0f;
         int totalPalletCount = 0;
+        int loadedPalletCount = -1;                                   // outbound only: pallets already aboard
+        var loadedCasesBySku = new Dictionary<string, int>();        // outbound only: cases aboard per SKU
         var items = new List<(string desc, int qty, int pallets, int criticalCases, int casesPerPallet, string skuId)>();
 
         if (!truck.IsOutbound)
@@ -1601,18 +1605,68 @@ private void ShowLocation(LocationData location)
             // in or parked in the side lot showed "Outbound Trailer / No items on record".
             DockAppointment appt = TruckOrderColors.ResolveOutboundAppointment(truck);
 
-            if (appt != null)
+            // No appointment on file (a trailer dispatched by the STAGED trigger, or the booking was lost): fall back to the
+            // orders that are actually at this door, so the card still says what the trailer is carrying instead of
+            // "Outbound Trailer / 0% / No items on record".
+            List<string> fallbackOrderIds = null;
+            string fallbackCustomer = null;
+
+            // The orders a trailer carries are remembered the moment its appointment resolves and kept until the truck is gone,
+            // so the card stays right even after the booking is purged or the order archives (Tad, 2026-10-18: keep the order
+            // data until the truck is fully loaded).
+            if (appt != null && appt.OrderIds != null && appt.OrderIds.Count > 0)
+                s_truckManifests[truck] = (appt.CustomerName, new List<string>(appt.OrderIds));
+            else if (appt == null && s_truckManifests.TryGetValue(truck, out var remembered))
             {
-                vendor = appt.CustomerName;
-                apptInfo = $"Appt: {appt.TimeLabel}";
-                apptDayInfo = appt.Day == dockSchedule.CurrentDay ? "Today" : $"Day {appt.Day}";
-                borderColor = (appt.Kind == AppointmentKind.Bulk || appt.Kind == AppointmentKind.Wholesale)
-                    ? TruckBulkColor : TruckRecurringColor;
+                fallbackOrderIds = remembered.orderIds;
+                fallbackCustomer = remembered.customer;
+            }
+
+            if (appt == null && fallbackOrderIds == null && doorNumber > 0 && ServiceLocator.TryGet<OrderService>(out var fbOrders) && fbOrders != null)
+            {
+                var atDoor = fbOrders.ActiveOrders.Where(o => o.AssignedDoorNumber == doorNumber &&
+                    (o.Status == OrderData.OrderStatus.Staged || o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded ||
+                     o.Status == OrderData.OrderStatus.FullyPicked || o.Status == OrderData.OrderStatus.PartiallyPicked)).ToList();
+                // Only orders whose goods are actually aboard, when anything is: the door alone can match the wrong order.
+                var aboardSkus = new HashSet<string>();
+                if (truck.LoadContainer != null)
+                    foreach (var ob in truck.LoadContainer.GetComponentsInChildren<OutboundPalletBuilder>(true))
+                    {
+                        foreach (var kv in ob.CaseCountsBySku) aboardSkus.Add(kv.Key);
+                        var pdA = ob.GetComponent<PalletData>();
+                        if (pdA != null && !string.IsNullOrEmpty(pdA.ItemNumber)) aboardSkus.Add(pdA.ItemNumber);
+                    }
+                if (aboardSkus.Count > 0)
+                {
+                    var matching = atDoor.Where(o => o.LineItems.Any(li => aboardSkus.Contains(li.SkuId))).ToList();
+                    if (matching.Count > 0) atDoor = matching;
+                }
+                if (atDoor.Count > 0)
+                {
+                    fallbackOrderIds = atDoor.Select(o => o.OrderId).ToList();
+                    fallbackCustomer = atDoor[0].CustomerName;
+                }
+            }
+
+            if (appt != null || fallbackOrderIds != null)
+            {
+                vendor = appt != null ? appt.CustomerName : fallbackCustomer;
+                if (appt != null)
+                {
+                    apptInfo = $"Appt: {appt.TimeLabel}";
+                    apptDayInfo = appt.Day == dockSchedule.CurrentDay ? "Today" : $"Day {appt.Day}";
+                    borderColor = (appt.Kind == AppointmentKind.Bulk || appt.Kind == AppointmentKind.Wholesale)
+                        ? TruckBulkColor : TruckRecurringColor;
+                }
+                else
+                {
+                    apptInfo = "No appointment on file";
+                }
 
                 ServiceLocator.TryGet<OrderService>(out var orderService);
                 int totalPallets = 0;
                 var orderNumbers = new List<string>();
-                foreach (var orderId in appt.OrderIds)
+                foreach (var orderId in appt != null ? appt.OrderIds : fallbackOrderIds)
                 {
                     // History too — a shipped/cancelled order archives out of ActiveOrders the moment
                     // it closes, but the trailer carrying it is still in the yard.
@@ -1649,6 +1703,25 @@ private void ShowLocation(LocationData location)
                     : $"Order {orderNumbers[0]} +{orderNumbers.Count - 1} more";
 
                 int loadedPallets = truck.LoadContainer != null ? truck.LoadContainer.childCount : 0;
+                loadedPalletCount = loadedPallets;
+                if (truck.LoadContainer != null)
+                {
+                    foreach (var ob in truck.LoadContainer.GetComponentsInChildren<OutboundPalletBuilder>(true))
+                    {
+                        if (ob.CaseCountsBySku.Count > 0)
+                        {
+                            foreach (var kv in ob.CaseCountsBySku)
+                                if (!string.IsNullOrEmpty(kv.Key) && kv.Value > 0)
+                                    loadedCasesBySku[kv.Key] = (loadedCasesBySku.TryGetValue(kv.Key, out var have) ? have : 0) + kv.Value;
+                        }
+                        else
+                        {
+                            var pd = ob.GetComponent<PalletData>();
+                            if (pd != null && !string.IsNullOrEmpty(pd.ItemNumber) && pd.CaseQuantity > 0)
+                                loadedCasesBySku[pd.ItemNumber] = (loadedCasesBySku.TryGetValue(pd.ItemNumber, out var have2) ? have2 : 0) + pd.CaseQuantity;
+                        }
+                    }
+                }
                 progress = totalPallets > 0 ? Mathf.Clamp01(loadedPallets / (float)totalPallets) : 0f;
                 totalPalletCount = totalPallets;
             }
@@ -1723,7 +1796,8 @@ private void ShowLocation(LocationData location)
         ui.LoadFill.style.width = new Length(progress * 100f, LengthUnit.Percent);
         ui.LoadPercentLabel.text = $"{Mathf.RoundToInt(progress * 100f)}%";
 
-        ui.TotalPalletsLabel.text = $"TOTAL PALLETS: {totalPalletCount}";
+        ui.TotalPalletsLabel.text = loadedPalletCount >= 0 ? $"TOTAL PALLETS: {loadedPalletCount} out of {totalPalletCount}" : $"TOTAL PALLETS: {totalPalletCount}";
+        ui.Popup.style.width = loadedPalletCount >= 0 ? 480 : 300;   // outbound cards carry a per-item progress bar
 
         ui.ItemsList.Clear();
         if (items.Count == 0)
@@ -1742,6 +1816,26 @@ private void ShowLocation(LocationData location)
             // manifest. A critical line's shortfall now prints on its OWN row below the item, naming
             // which order it's covering and when that order's own trailer goes — "8 cases needed for
             // Order X @ Today @ 08:00–10:00" — instead of being tacked onto the item line itself.
+            if (loadedPalletCount >= 0)
+            {
+                // Column header for the bars below (outbound cards only), right-aligned under TOTAL PALLETS.
+                var head = new VisualElement { pickingMode = PickingMode.Ignore };
+                head.style.flexDirection = FlexDirection.Row;
+                head.style.justifyContent = Justify.FlexEnd;
+                head.style.paddingBottom = 3;
+                head.style.marginBottom = 6;
+                head.style.borderBottomWidth = 1;
+                head.style.borderBottomColor = new Color(0.36f, 0.61f, 0.77f, 0.55f);
+                var headLbl = new Label("REMAINING CASES TO LOAD") { pickingMode = PickingMode.Ignore };
+                headLbl.style.fontSize = 12;
+                headLbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+                headLbl.style.letterSpacing = 1f;
+                headLbl.style.color = new Color(0.55f, 0.78f, 0.95f, 1f);
+                headLbl.style.marginLeft = headLbl.style.marginRight = headLbl.style.marginTop = headLbl.style.marginBottom = 0;
+                head.Add(headLbl);
+                ui.ItemsList.Add(head);
+            }
+
             foreach (var (desc, qty, pallets, criticalCases, casesPerPallet, skuId) in items)
             {
                 string text = $"{desc} x{casesPerPallet}: {qty}cs.   {pallets}plts.";
@@ -1752,7 +1846,60 @@ private void ShowLocation(LocationData location)
                     ? new Color(1f, 0.55f, 0.4f, 1f)
                     : new Color(0.85f, 0.9f, 0.95f, 1f);
                 row.style.marginBottom = criticalCases > 0 ? 0 : 2;
-                ui.ItemsList.Add(row);
+
+                if (loadedPalletCount >= 0)
+                {
+                    // Outbound: a progress bar on the LEFT of each item (cases aboard / cases ordered), then the text,
+                    // so what is still missing is visible at a glance.
+                    int aboard = loadedCasesBySku.TryGetValue(skuId ?? "", out var ab) ? Mathf.Min(ab, qty) : 0;
+                    float frac = qty > 0 ? Mathf.Clamp01(aboard / (float)qty) : 0f;
+                    bool done = aboard >= qty && qty > 0;
+
+                    var line = new VisualElement { pickingMode = PickingMode.Ignore };
+                    line.style.flexDirection = FlexDirection.Row;
+                    line.style.alignItems = Align.Center;
+                    line.style.marginBottom = 4;
+
+                    var track = new VisualElement { pickingMode = PickingMode.Ignore };
+                    track.style.width = 120; track.style.height = 22; track.style.flexShrink = 0;
+                    track.style.marginRight = 10;
+                    track.style.borderTopLeftRadius = track.style.borderTopRightRadius = track.style.borderBottomLeftRadius = track.style.borderBottomRightRadius = 4;
+                    track.style.overflow = Overflow.Hidden;
+                    track.style.backgroundColor = new Color(0.04f, 0.06f, 0.10f, 1f);
+                    track.style.borderTopWidth = track.style.borderBottomWidth = track.style.borderLeftWidth = track.style.borderRightWidth = 1;
+                    track.style.borderTopColor = track.style.borderBottomColor = track.style.borderLeftColor = track.style.borderRightColor = new Color(0.36f, 0.61f, 0.77f, 1f);
+                    var fill = new VisualElement { pickingMode = PickingMode.Ignore };
+                    fill.style.height = Length.Percent(100);
+                    fill.style.width = new Length(frac * 100f, LengthUnit.Percent);
+                    fill.style.backgroundColor = done ? new Color(0.30f, 0.78f, 0.42f, 1f) : new Color(0.36f, 0.61f, 0.77f, 1f);
+                    track.Add(fill);
+
+                    // Text inside the bar = what is STILL TO LOAD for this item (not the order total).
+                    int remainCases = Mathf.Max(0, qty - aboard);
+                    int remainPlts = remainCases > 0 ? Mathf.Max(1, Mathf.CeilToInt(remainCases / (float)Mathf.Max(1, casesPerPallet))) : 0;
+                    var inBar = new Label(done ? "Loaded" : $"{remainCases}cs / {remainPlts}plt") { pickingMode = PickingMode.Ignore };
+                    inBar.style.position = Position.Absolute;
+                    inBar.style.left = 0; inBar.style.right = 0; inBar.style.top = 0; inBar.style.bottom = 0;
+                    inBar.style.unityTextAlign = TextAnchor.MiddleCenter;
+                    inBar.style.fontSize = 13;
+                    inBar.style.unityFontStyleAndWeight = FontStyle.Bold;
+                    inBar.style.color = Color.white;
+                    inBar.style.marginLeft = inBar.style.marginRight = inBar.style.marginTop = inBar.style.marginBottom = 0;
+                    track.Add(inBar);
+
+                    row.style.marginBottom = 0;
+                    row.style.flexGrow = 1; row.style.flexShrink = 1;
+                    row.text = $"{desc} x{casesPerPallet}";
+                    row.style.color = done ? new Color(0.55f, 0.9f, 0.62f, 1f) : row.style.color;
+
+                    line.Add(track);
+                    line.Add(row);
+                    ui.ItemsList.Add(line);
+                }
+                else
+                {
+                    ui.ItemsList.Add(row);
+                }
 
                 if (criticalCases > 0)
                 {
@@ -1784,6 +1931,9 @@ private void ShowLocation(LocationData location)
         popup.style.display = DisplayStyle.Flex;
         popup.AddToClassList("show");
     }
+
+    // truck -> (customer, order ids) it was dispatched for. Static, pruned of destroyed trucks when it grows.
+    private static readonly Dictionary<TruckController, (string customer, List<string> orderIds)> s_truckManifests = new();
 
     // Legacy entry point kept for any code that still calls it
     public void SetWorldPosition(Vector3 worldPos, Camera cam) => FollowCursor();

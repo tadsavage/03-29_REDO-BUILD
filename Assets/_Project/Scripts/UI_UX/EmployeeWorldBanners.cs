@@ -52,6 +52,7 @@ public class EmployeeWorldBanners : MonoBehaviour
         public float NextRendererRefresh;
         public float NextTaskRefresh;
         public string LastStatus;
+        public EquipmentBatteryPanels.Card Battery;   // driver's machine battery, appended under the task line
     }
 
     private static EmployeeWorldBanners _instance;
@@ -153,6 +154,7 @@ public class EmployeeWorldBanners : MonoBehaviour
 
             if (Time.unscaledTime >= b.NextRendererRefresh) RefreshRenderers(b);
             RefreshTask(b, force: false);
+            RefreshBattery(b);
             PositionBanner(b);
         }
     }
@@ -221,6 +223,24 @@ public class EmployeeWorldBanners : MonoBehaviour
             if (r.name == "__EmployeeOutlineClone" || r.name.StartsWith("ContactShadow")) continue;
             b.Renderers.Add(r);
         }
+    }
+
+    /// <summary>Appends the battery read-out of the machine this employee is driving (Tad, 2026-10-18); removes it when they are not on one.</summary>
+    private void RefreshBattery(Banner b)
+    {
+        var bat = EquipmentBatteryPanels.BatteryOf(b.Identity);
+        if (bat == null)
+        {
+            if (b.Battery != null) { b.Battery.Root?.RemoveFromHierarchy(); b.Battery = null; }
+            return;
+        }
+        if (b.Battery == null || b.Battery.Battery != bat)
+        {
+            b.Battery?.Root?.RemoveFromHierarchy();
+            b.Battery = EquipmentBatteryPanels.Instance.CreateEmbedded(bat);
+            b.Root.Add(b.Battery.Root);
+        }
+        EquipmentBatteryPanels.Instance.RefreshEmbedded(b.Battery);
     }
 
     private void RefreshTask(Banner b, bool force)
@@ -371,6 +391,11 @@ public static class EmployeeTaskText
                     return Describe(t);
         }
 
+        // A driver with nothing to do who is out for a lap.
+        var lapSlot = id.AssignedSlot;
+        var lapBattery = lapSlot != null ? lapSlot.GetComponent<EquipmentBattery>() : null;
+        if (lapBattery != null && lapBattery.IsDoingLap) return "I'm bored... doing a lap";
+
         // No queue task is assigned to them, so they are NOT actively working - the standing assignment only says what they do when
         // work exists (an Order Selector with nothing to pick is just walking the patrol route).
         return rec.currentAssignment switch
@@ -392,6 +417,7 @@ public static class EmployeeTaskText
             case WorkTaskType.OrderSelect: return "Picking order" + order;
             case WorkTaskType.Load:       return "Loading" + (string.IsNullOrEmpty(order) ? " trailer" : order);
             case WorkTaskType.PalletPick: return "Pulling pallet" + order;
+            case WorkTaskType.ChargeMHE:  return "Taking equipment to charge";
             case WorkTaskType.Receive:    return "Receiving pallet";
             default:                      return string.IsNullOrEmpty(t.Description) ? t.Type.ToString() : t.Description;
         }

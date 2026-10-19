@@ -452,6 +452,21 @@ public class WorkQueuePanel : IUIPanel
         _cancelRemainingButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
         titleBar.Add(_cancelRemainingButton);
 
+        // Clean Up - removes the finished (Cancelled / Complete) rows so old history doesn't pile up in the queue.
+        var cleanUpButton = StyleButton(new Button(() =>
+        {
+            if (!ServiceLocator.TryGet<WorkQueueSystem>(out var q) || q == null) return;
+            int n = q.ClearFinishedTasks();
+            UIToast.Show(n > 0 ? $"Cleared {n} finished task(s) from the Work Queue." : "Nothing to clean up.");
+        }) { text = "Clean Up" }, ColOrange, ColOrangeEdge, Color.white, ColOrangeHover);
+        cleanUpButton.style.width = CancelSelectedWidth - 30f;
+        cleanUpButton.style.flexShrink = 0;
+        cleanUpButton.style.marginLeft = 8;
+        cleanUpButton.style.paddingLeft = 0;
+        cleanUpButton.style.paddingRight = 0;
+        cleanUpButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+        titleBar.Add(cleanUpButton);
+
         // Centered on the title bar's full width via absolute positioning rather than a flexGrow
         // spacer -- the left button cluster (Select All/Cancel Selected) and the right-side
         // scale/close buttons are very unequal widths, so a flexGrow box centers the text in
@@ -1330,7 +1345,7 @@ public class WorkQueuePanel : IUIPanel
             SortColumn.ItemNumber => tasks.OrderBy(GetTaskItemNumber),
             SortColumn.Area => tasks.OrderBy(t => AreaLabel(t.Area)),
             SortColumn.Priority => tasks.OrderBy(t => t.Priority),
-            SortColumn.Role => tasks.OrderBy(t => t.RequiredRole.DisplayName()),
+            SortColumn.Role => tasks.OrderBy(t => t.RoleLabel),
             SortColumn.Task => tasks.OrderBy(t => t.Type.ToString()),
             SortColumn.Status => tasks.OrderBy(t => t.Status.ToString()),
             SortColumn.From => tasks.OrderBy(t => t.FromLocation),
@@ -1347,7 +1362,7 @@ public class WorkQueuePanel : IUIPanel
         {
             SortColumn.Area => rows.OrderBy(r => GetOrderAreaLabel(r.order)),
             SortColumn.Priority => rows.OrderBy(r => r.task?.Priority ?? 0),
-            SortColumn.Role => rows.OrderBy(r => r.task?.RequiredRole.DisplayName()
+            SortColumn.Role => rows.OrderBy(r => r.task?.RoleLabel
                 ?? (r.phase == RowPhase.Staged ? EmployeeRole.DockStockerOperator.DisplayName() : "")),
             SortColumn.Task => rows.OrderBy(r => r.task?.Type.ToString() ?? "OrderSelect"),
             SortColumn.Status => rows.OrderBy(r => PhaseLabel(r.phase)),
@@ -1505,7 +1520,7 @@ public class WorkQueuePanel : IUIPanel
         AddRowCell(row, task.Priority.ToString(), PriorityWidth, ColTitleText, align: TextAnchor.MiddleRight, paddingRight: 6f);
         row.Add(BuildPriorityStepper(() => AdjustTaskPriority(task, PriorityStep),
                                       () => AdjustTaskPriority(task, -PriorityStep)));
-        AddRowCell(row, task.RequiredRole.DisplayName(), RoleWidth, ColSubtleText);
+        AddRowCell(row, task.RoleLabel, RoleWidth, ColSubtleText);
         AddRowCell(row, WorkTaskTypeDisplayName(task.Type), TaskWidth - TaskIndent, ColTitleText, marginLeft: RoleTaskGap + TaskIndent);
         AddRowCell(row, task.Status.ToString(), StatusWidth, ColStatusColor(task.Status), bold: true, marginLeft: TaskStatusGap);
         AddRowCell(row, task.FromLocation ?? "—", LocationWidth, ColSubtleText, marginLeft: StatusFromGap);
@@ -1557,7 +1572,7 @@ public class WorkQueuePanel : IUIPanel
         // Load task exists until the player releases it to a door) — but the ROLE that will pick it
         // up next is not actually unknown, it's always Dock Stocker. Showing "—" there read as missing data
         // rather than "waiting on you to release it," which Priority (still "—" here) already conveys.
-        string role = task != null ? task.RequiredRole.DisplayName()
+        string role = task != null ? task.RoleLabel
             : phase == RowPhase.Staged ? EmployeeRole.DockStockerOperator.DisplayName() : "—";
         string taskName = TaskTypeLabel(order, phase, task);
         string from = OrderFromLocation(order, task, phase);
@@ -1661,6 +1676,7 @@ public class WorkQueuePanel : IUIPanel
     /// PalletPick reads "Pallet Pick" and the leftover-case task reads CasePickGro/Per/Frz.</summary>
     private static string TaskTypeLabel(OrderData order, RowPhase phase, WorkTask task)
     {
+        if (task != null && task.IsScratch) return "SCRATCHES";
         if (phase == RowPhase.Open) return $"{OrderAreaCode(order)}Sel";
         if (task == null) return "—";
         return task.Type switch
@@ -2161,7 +2177,7 @@ public class WorkQueuePanel : IUIPanel
             SortColumn.ItemNumber => GetTaskItemNumber(task),
             SortColumn.Area => AreaLabel(task.Area),
             SortColumn.Priority => task.Priority.ToString(),
-            SortColumn.Role => task.RequiredRole.DisplayName(),
+            SortColumn.Role => task.RoleLabel,
             SortColumn.Task => task.Type.ToString(),
             SortColumn.Status => task.Status.ToString(),
             SortColumn.From => task.FromLocation ?? "\u2014",
@@ -2181,7 +2197,7 @@ public class WorkQueuePanel : IUIPanel
             SortColumn.ItemNumber => GetOrderItemNumber(order),
             SortColumn.Area => GetOrderAreaLabel(order),
             SortColumn.Priority => task != null ? task.Priority.ToString() : "\u2014",
-            SortColumn.Role => task != null ? task.RequiredRole.DisplayName()
+            SortColumn.Role => task != null ? task.RoleLabel
                 : phase == RowPhase.Staged ? EmployeeRole.DockStockerOperator.DisplayName() : "\u2014",
             SortColumn.Task => task != null ? task.Type.ToString() : "\u2014",
             SortColumn.Status => PhaseLabel(phase),

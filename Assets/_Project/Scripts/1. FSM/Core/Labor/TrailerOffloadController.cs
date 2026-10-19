@@ -156,7 +156,7 @@ namespace GameCore.Labor
                 // or actively driven, so it can't be used as an "in use" signal; IsOccupied likewise
                 // stays true the whole time they're boarded. The registry is the only signal that
                 // actually distinguishes "boarded and idle" from "a controller is driving them right now".
-                if (!slot.IsOccupied || DockEquipmentCommandeerRegistry.IsCommandeered(slot)) continue;
+                if (!slot.IsOccupied || slot.BatteryFlat || DockEquipmentCommandeerRegistry.IsCommandeered(slot)) continue;
                 var op = slot.CurrentOperator;
                 if (op == null || op.Record == null) continue;
                 if (op.Record.role != EmployeeRole.DockStockerOperator) continue;
@@ -258,10 +258,18 @@ namespace GameCore.Labor
             if (nav != null)
             {
                 nav.enabled = navWas;
-                nav.GoToRandomWaypoint();
+                nav.GetComponent<EquipmentBattery>()?.NoteJobFinished();   // no patrol: park or charge (EquipmentBattery.IdleRoutine)
             }
 
             DockEquipmentCommandeerRegistry.Release(slot);
+
+            // The trailer can be destroyed under us (it departed, the save was reloaded): Unity's fake-null means
+            // `truck.name` throws MissingReferenceException, which skipped everything below.
+            if (truck == null)
+            {
+                Debug.LogWarning("[TrailerOffload] The truck was destroyed mid-offload - nothing left to release.");
+                yield break;
+            }
 
             if (completedAllPallets)
             {

@@ -25,8 +25,9 @@ public static class RackSaveCodec
     /// <summary>Encodes a live rack's metadata. Returns empty for non-live/non-rack objects.</summary>
     public static string Encode(PlacedObject po)
     {
-        if (po == null || !po.isRackLive) return string.Empty;
-        if (po.rackAisle < 0 || po.rackBay < 0 || po.rackLevelIndex < 0) return string.Empty;
+        if (po == null) return string.Empty;
+        if (!po.isRackLive || po.rackAisle < 0 || po.rackBay < 0 || po.rackLevelIndex < 0)
+            return EncodeFromLabels(po);
 
         string levelChar = ResolveLevelChar(po);
         Vector3 face = po.rackAisleFacing;
@@ -43,6 +44,62 @@ public static class RackSaveCodec
             levelChar,
             face.x.ToString("R", c), face.z.ToString("R", c),
             travel.x.ToString("R", c), travel.z.ToString("R", c));
+    }
+
+    private static readonly System.Collections.Generic.HashSet<PlacedObject> s_warnedFromLabels = new();
+
+    /// <summary>
+    /// SAFEGUARD. SlotRegistry builds slots from the rack's active label TEXT, but the save only wrote the
+    /// PlacedObject fields (isRackLive/aisle/bay/level). When the two disagree - a rack that shows real
+    /// addresses but whose fields were never set - the save dropped the aisle data and the next load
+    /// came back with default "A-01-01" labels and no storage slots (putaway then had nowhere to go).
+    /// So: a rack with active "AA-BB-LP" labels but no stored data is encoded from those labels, and the
+    /// in-memory fields are repaired to match. Logged once per rack. The level INDEX can't be read from
+    /// a letter, so a lettered level is assumed to follow the default scheme (2 pick levels, then A, B...).
+    /// </summary>
+    private static string EncodeFromLabels(PlacedObject po)
+    {
+        if (po.data == null || po.data.category != "Racking") return string.Empty;
+
+        int aisle = -1, bay = -1;
+        string levelChar = null;
+        Vector3 offsetSum = Vector3.zero;
+        int active = 0;
+        foreach (var tmp in po.GetComponentsInChildren<TextMeshPro>(false)) // active only
+        {
+            var seg = (tmp.text ?? string.Empty).Split('-');
+            if (seg.Length != 3 || seg[0].Length != 2 || seg[1].Length != 2 || seg[2].Length < 2) continue;
+            if (!int.TryParse(seg[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int a)) continue;
+            if (!int.TryParse(seg[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int b)) continue;
+            aisle = a; bay = b; levelChar = seg[2].Substring(0, seg[2].Length - 1);
+            offsetSum += tmp.transform.position - po.transform.position;
+            active++;
+        }
+        if (active == 0 || aisle < 0 || bay < 0 || string.IsNullOrEmpty(levelChar)) return string.Empty;
+
+        int level = char.IsDigit(levelChar[0])
+            ? int.Parse(levelChar, CultureInfo.InvariantCulture)
+            : 2 + (char.ToUpperInvariant(levelChar[0]) - 'A');
+
+        Vector3 fwd = po.transform.forward; fwd.y = 0f;
+        fwd = fwd.sqrMagnitude > 0.0001f ? fwd.normalized : Vector3.forward;
+        Vector3 face = Vector3.Dot(offsetSum, fwd) >= 0f ? fwd : -fwd;
+        Vector3 travel = TravelFromLabels(po.gameObject);
+
+        var c = CultureInfo.InvariantCulture;
+        string encoded = string.Join("|", PREFIX,
+            aisle.ToString(c), bay.ToString(c), level.ToString(c), levelChar,
+            face.x.ToString("R", c), face.z.ToString("R", c),
+            travel.x.ToString("R", c), travel.z.ToString("R", c));
+
+        if (s_warnedFromLabels.Add(po))
+            Debug.LogWarning($"[RackSaveCodec] Rack '{po.name}' shows address {aisle:00}-{bay:00}-{levelChar}* but had no stored aisle data " +
+                             "(it would have been lost on save). Encoded from its labels and repaired - " +
+                             (char.IsDigit(levelChar[0]) ? "" : "level index assumed from the default Pick/Reserve scheme. ") +
+                             "Something set this rack's labels without committing it through the aisle setup.");
+
+        RestoreOnto(po, encoded);   // make memory match what is being saved
+        return encoded;
     }
 
     /// <summary>Parses encoded rack metadata. Returns false for anything that isn't RACK data.</summary>

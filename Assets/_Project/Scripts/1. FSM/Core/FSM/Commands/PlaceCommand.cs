@@ -12,6 +12,7 @@ public class PlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
 
     private readonly Vector2Int _root;
     private readonly Vector2Int[] _offsets;
+    private readonly Vector3? _worldXZOverride;
 
     // Not readonly: RelocateWallInstance() below updates these if WallConnectivityManager
     // auto-swaps this command's own instance for a different wall shape (e.g. Wall -> Corner)
@@ -50,9 +51,10 @@ public class PlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
 
     public PlaceCommand(PlacementGrid grid, PlacementFinalizer finalizer,
         Vector2Int root, Vector2Int[] offsets, ObjDataSO data,
-        float rotation, MoneyService money)
+        float rotation, MoneyService money, Vector3? worldXZOverride = null)
         : base($"Place {data?.objName ?? "Object"}")
     {
+        _worldXZOverride = worldXZOverride;
         _grid = grid;
         _finalizer = finalizer;
         _root = root;
@@ -66,7 +68,7 @@ public class PlaceCommand : PlacementCommandBase, IWallInstanceRelocatable
     {
         if (_instance == null)
         {
-            _instance = _finalizer.FinalizePlacement(_root, _offsets, _data, _rotation, _disabledFloors);
+            _instance = _finalizer.FinalizePlacement(_root, _offsets, _data, _rotation, _disabledFloors, false, _worldXZOverride);
         }
 
         if (_instance == null) return;

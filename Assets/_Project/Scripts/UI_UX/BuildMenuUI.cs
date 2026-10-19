@@ -582,6 +582,8 @@ public class BuildMenuUI : MonoBehaviour
         SetHidden(_staffBar, !staff);
         SetHidden(_reportsBar, !reports);
 
+        DockMiniTimeline();
+
         SetTabActive(_tabBuild, build);
         SetTabActive(_tabPlay, play);
         SetTabActive(_tabStaff, staff);
@@ -594,6 +596,21 @@ public class BuildMenuUI : MonoBehaviour
         else _reportsController?.CloseAll();
 
         OnActiveBarChanged?.Invoke(ActiveBar);
+    }
+
+    /// <summary>The small dock schedule follows the mode switch so it shows on EVERY tab, not just Orders: an element has one
+    /// parent, so it is moved into whichever bar is visible, just in front of that bar's utility row when it has one (the bars
+    /// are space-between, so it sits between the buttons and the utility row as it always did on Orders).</summary>
+    private void DockMiniTimeline()
+    {
+        var el = _miniTimeline != null ? _miniTimeline.Root : null;
+        var bar = ActiveBar;
+        if (el == null || bar == null || el.parent == bar) return;
+
+        el.RemoveFromHierarchy();
+        int index = bar.childCount;
+        if (bar.childCount > 0 && bar[bar.childCount - 1].ClassListContains("buildmenu-utility-row")) index = bar.childCount - 1;
+        bar.Insert(index, el);
     }
 
     // EnableInClassList rather than Add/RemoveFromClassList: the classes are also set in the UXML, and

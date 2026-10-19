@@ -16,6 +16,10 @@ public static class TooltipSettings
 
     public static bool Blocked => !Enabled || (CarryingTile != null && CarryingTile());
 
+    /// <summary>Same as <see cref="Blocked"/> but ignores the F1 switch: the Scheduler's tooltips are
+    /// exempt from F1 and are always on. They are still held back while a tile is in hand.</summary>
+    public static bool BlockedIgnoringToggle => CarryingTile != null && CarryingTile();
+
     // The project runs without a domain reload on entering Play, so statics survive between sessions: start each
     // one with tooltips on and no stale carry predicate from the last session's panel.
     [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]

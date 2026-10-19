@@ -231,6 +231,8 @@ namespace GameCore.Actors
             }
         }
 
+        private float _lastNavFightLog = -10f;
+
         private void Update()
         {
             _diagTimer -= Time.deltaTime;
@@ -240,8 +242,20 @@ namespace GameCore.Actors
                 LogDiagnostics();
             }
 
-            if (_busy) { CheckStuckTask(); return; }
-            if (!_operatorSlot.IsOccupied) return;
+            if (_busy)
+            {
+                // Precision (Manual) phases write the transform directly. If anything re-enabled the vehicle's NavMeshAgent /
+                // AiNavigation behind our back (battery idle code, boarding, rebake handler...), AiNavigation.LateUpdate drags the
+                // truck away mid-grab: the forks then "miss" by metres and the truck wanders ("driving around forks first").
+                if (_mode == DriveMode.Manual && ((_vehicleNav != null && _vehicleNav.enabled) || (_vehicleAgent != null && _vehicleAgent.enabled)))
+                {
+                    if (Time.time - _lastNavFightLog > 2f) { _lastNavFightLog = Time.time; Debug.LogWarning($"[ReachTruckOperator] '{name}' navigation was re-enabled during a Manual phase - forcing it off."); }
+                    SetDriveMode(DriveMode.Manual, "manual-enforce");
+                }
+                CheckStuckTask();
+                return;
+            }
+            if (!_operatorSlot.IsOccupied || _operatorSlot.BatteryFlat) return;   // flat / changing battery: no new jobs
 
             var op = _operatorSlot.CurrentOperator;
             if (op?.Record == null || op.Record.role != EmployeeRole.ReachTruckOperator) return;
@@ -906,8 +920,15 @@ namespace GameCore.Actors
                 yield return DriveToPoint(transform, exitAnchor.position);
 
                 // 2. Square up: forks point straight into the lane, down the pallet's centre line.
-                Debug.Log($"[ReachTruckOperator] Facing forks toward: {-outward}");
-                yield return FaceForks(transform, -outward);
+                // Aim at the pallet from where the truck REALLY stopped. -outward assumes the chassis parked on the exit side;
+                // when the chosen anchor is on the far side (or the arrival ran long) it pointed the forks away from the pallet
+                // and they extended 5 m the wrong way ("driving around forks first").
+                Vector3 toPallet = Flat(pallet.position - transform.position);
+                Vector3 forkDir = toPallet.sqrMagnitude > 0.25f ? toPallet.normalized : -outward;
+                if (Vector3.Dot(forkDir, -outward) < 0.5f)
+                    Debug.LogWarning($"[ReachTruckOperator] Fork heading corrected for {palletId}: lane axis said {-outward}, pallet is actually toward {forkDir}.");
+                Debug.Log($"[ReachTruckOperator] Facing forks toward: {forkDir}");
+                yield return FaceForks(transform, forkDir);
 
                 // 3. Lift to the pallet's fork-pocket height (correct even for a top-of-stack pallet).
                 if (_forks != null)
@@ -2220,7 +2241,8 @@ namespace GameCore.Actors
             SetDriveMode(DriveMode.Ai, "task complete — resuming patrol");
             // A flat battery: no patrol - EquipmentBattery drives it to a charger as soon as _busy clears.
             if (_battery == null) _battery = GetComponent<EquipmentBattery>();
-            if (_battery == null || !_battery.NeedsCharge) _vehicleNav?.GoToRandomWaypoint();
+            // No patrol either (it drains the battery): EquipmentBattery.IdleRoutine plugs it in or parks it out of the way.
+            _battery?.NoteJobFinished();
             _busy = false;
             _activeTask = null;
             _activeReservedAddress = null;
@@ -2571,6 +2593,8 @@ namespace GameCore.Actors
             float extended = 0f;
             float initialDist = Vector3.Distance(pallet.position, _palletAnchor.position);
             Debug.Log($"[InsertToGrab] Starting grab: initial distance = {initialDist:F3}m, threshold = {ForkGrabProximity:F3}m, pallet={pallet.name}, forkAnchor={_palletAnchor.name}");
+            Vector3 dbgStartAnchor = _palletAnchor.position;
+            Debug.LogWarning($"[InsertToGrab-DIAG] truck={transform.position} fwd={transform.forward} anchor0={dbgStartAnchor} pallet={pallet.position} palletYaw={pallet.eulerAngles.y:F0} palletParent={(pallet.parent != null ? pallet.parent.name : "null")} sign={_forkAxisSign}");
 
             while (extended < MaxForkExtend)
             {
@@ -2592,6 +2616,8 @@ namespace GameCore.Actors
 
             if (!got)
                 Debug.LogWarning($"[InsertToGrab] Grab failed - reached max extend {MaxForkExtend}m without achieving proximity. Final distance: {Vector3.Distance(pallet.position, _palletAnchor.position):F3}m");
+            if (!got)
+                Debug.LogWarning($"[InsertToGrab-DIAG] FAIL anchorStart={dbgStartAnchor} anchorEnd={_palletAnchor.position} pallet={pallet.position} truck={transform.position} fwd={transform.forward}");
 
             // Miss -- retract so a retry (or the reverse-and-backoff caller) doesn't drag the
             // forks around still extended.

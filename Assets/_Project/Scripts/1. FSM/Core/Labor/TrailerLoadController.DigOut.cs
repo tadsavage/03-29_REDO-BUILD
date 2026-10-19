@@ -417,7 +417,7 @@ namespace GameCore.Labor
             if (nav != null)
             {
                 nav.enabled = navWas;
-                nav.GoToRandomWaypoint();
+                nav.GetComponent<EquipmentBattery>()?.NoteJobFinished();   // no patrol: park or charge (EquipmentBattery.IdleRoutine)
             }
             DockEquipmentCommandeerRegistry.Release(slot);
             if (truck != null) truck.ReleaseLoadClaim();

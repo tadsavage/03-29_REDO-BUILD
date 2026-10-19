@@ -26,6 +26,16 @@ public class PalletJackParkingSpot : MonoBehaviour
 
     private MHEOperatorSlot _reservedFor;
 
+    public static IReadOnlyList<PalletJackParkingSpot> All => s_all;
+
+    /// <summary>A real station whose centre is within <paramref name="radius"/> of <paramref name="point"/> (flat), or null.</summary>
+    public static PalletJackParkingSpot StationWithin(Vector3 point, float radius)
+    {
+        foreach (var s in s_all)
+            if (s != null && s.IsReal && Flat(point - s.Center).magnitude < radius) return s;
+        return null;
+    }
+
     private void OnEnable() { if (!s_all.Contains(this)) s_all.Add(this); }
     private void OnDisable() => s_all.Remove(this);
 

@@ -7,8 +7,8 @@ using GameCore.Inventory;
 using GameCore.Services;
 
 /// <summary>
-/// A deliberately tiny, read-only picture of the dock schedule, docked into the bottom bar while the
-/// Orders tab is open: a window of VisibleHours (half behind the yellow line, half ahead) that scrolls
+/// A deliberately tiny, read-only picture of the dock schedule, docked into the bottom bar on every tab
+/// (BuildMenuUI.DockMiniTimeline moves it into whichever bar is showing): a window of VisibleHours (half behind the yellow line, half ahead) that scrolls
 /// right-to-left as the clock runs, with door numbers down the left and one coloured square per trailer
 /// (recurring / bulk / inbound). The yellow "now" line stays fixed in the middle.
 ///

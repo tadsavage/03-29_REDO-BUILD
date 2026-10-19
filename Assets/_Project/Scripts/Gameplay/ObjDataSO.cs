@@ -79,6 +79,12 @@ public class ObjDataSO : ScriptableObject
              "places it at). Ignored entirely unless ignorePlacementRules is also true.")]
     public bool blockedByTallObstructions = false;
 
+    [Tooltip("Wall-mounted fixture (e.g. a wall light): can ONLY be placed while the cursor is over a " +
+             "straight wall, snaps to that wall's face, and only faces into or out of the room " +
+             "(never along the wall). R flips it 180 degrees to the wall's other face. The prefab's " +
+             "front must point along local -Z. Ignores the normal cell/footprint rules.")]
+    public bool wallMounted = false;
+
     [Header("Auto-Floor")]
     [Tooltip("For Foundation objects: floor tile automatically placed on top when this foundation is placed. Leave null for non-foundation objects.")]
     public ObjDataSO defaultFloorTile;
