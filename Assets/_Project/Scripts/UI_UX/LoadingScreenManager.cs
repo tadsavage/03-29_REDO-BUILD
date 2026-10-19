@@ -421,7 +421,9 @@ public class LoadingScreenManager : MonoBehaviour
         if (tex != null) return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
         return null;
 #else
-        return Resources.Load<Sprite>("ForkSprite");
+        // The PNG imports as a plain texture (not a Sprite), exactly like the editor branch above builds one from.
+        var tex = Resources.Load<Texture2D>("ForkSprite");
+        return tex != null ? Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f)) : null;
 #endif
     }
 

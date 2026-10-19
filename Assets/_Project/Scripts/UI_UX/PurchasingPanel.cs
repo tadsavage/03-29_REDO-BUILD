@@ -477,10 +477,11 @@ public class PurchasingPanel : IUIPanel
         titleBar.Add(leftSpacer);
 
         // At-a-glance total of everything that could be scratched off an order for lack of balance.
-        _scratchTotalLabel = MakeText("", 15, ColDanger, bold: true);
+        _scratchTotalLabel = MakeText("", 22, ColDanger, bold: true);
         _scratchTotalLabel.style.whiteSpace = WhiteSpace.NoWrap;
         _scratchTotalLabel.style.position = Position.Absolute;
         _scratchTotalLabel.style.left = 0;
+        _scratchTotalLabel.style.top = -8;
         _scratchTotalLabel.pickingMode = PickingMode.Ignore;
         titleBar.Add(_scratchTotalLabel);
         titleBar.schedule.Execute(RefreshScratchTotal).Every(1000);
@@ -2965,7 +2966,7 @@ public class PurchasingPanel : IUIPanel
             }
         }
         _scratchTotalLabel.text = $"POTENTIAL SCRATCHES: {items} item(s) · {cases:N0} case(s)";
-        _scratchTotalLabel.style.color = new StyleColor(items > 0 ? ColDanger : ColSubtleText);
+        _scratchTotalLabel.style.color = new StyleColor(new Color(1f, 0.85f, 0.2f, 1f));
     }
 
     private int TotalCriticalShortfall(string vendorId)

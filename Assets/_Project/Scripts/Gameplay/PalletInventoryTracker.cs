@@ -114,8 +114,15 @@ public class PalletInventoryTracker : MonoBehaviour
             if (!IsPallet(kv.Key)) _stale.Add(kv.Key);
         foreach (var po in _stale)
         {
-            inv.DestroyPallet(_linked[po]);
+            string staleId = _linked[po];
             _linked.Remove(po);
+            // An in-session load (F9 / load slot) destroys the old pallet objects but RESTORES records under the
+            // very same ids, so this link's id now belongs to the freshly restored pallet. Destroying the record
+            // here wiped the restored stock and every task pointing at it (6 of 6 records lost in the 2026-10-19
+            // round-trip test; a cold boot was unaffected because this map starts empty). Only retire the record
+            // when no live pallet object still carries it.
+            if (HeldByAnotherObject(staleId, po != null ? po.gameObject : null)) continue;
+            inv.DestroyPallet(staleId);
         }
 
         // 2. Add/refresh links for every placed pallet currently in the world.

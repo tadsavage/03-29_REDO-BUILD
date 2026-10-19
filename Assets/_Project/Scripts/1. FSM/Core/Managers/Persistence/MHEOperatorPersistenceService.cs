@@ -340,6 +340,19 @@ namespace GameCore.Persistence
                     go.transform.SetParent(null, worldPositionStays: true);
                     Vector3 worldPos = grid.GetCellCenter(record.CurrentLocation);
                     worldPos.y = record.WorldHeightY > 0f ? record.WorldHeightY : worldPos.y;
+                    // A pallet saved on the forks recorded its CARRY height (up to ~3.6 m), which hung it in
+                    // the air above whatever already stood in the lane slot. For a staging-lane pallet, drop
+                    // it onto the real stack instead.
+                    if (!string.IsNullOrEmpty(record.StagingLaneId) &&
+                        LaneNamingService.TryParseLaneAddress(record.StagingLaneId + "-0", out int laneDoor, out string laneLetter, out _))
+                    {
+                        if (LaneNamingService.TryGetSlotWorldPos(record.CurrentLocation, out var slotPos))
+                        {
+                            worldPos.x = slotPos.x;
+                            worldPos.z = slotPos.z;
+                        }
+                        worldPos.y = TrailerOffloadController.StagingDropBaseY(laneDoor, laneLetter, record.CurrentLocation, go);
+                    }
                     go.transform.position = worldPos;
                     if (obstacle != null) obstacle.enabled = true;
                     if (po != null)
