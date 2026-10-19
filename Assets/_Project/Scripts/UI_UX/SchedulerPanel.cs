@@ -3525,7 +3525,7 @@ private static void ApplyLilitaFont(VisualElement el)
 
         var (cases, pallets, critical) = SummarizeOrderLines(lines);
 
-        var statsLabel = MakeText($"{cases:N0} case(s) · {pallets:N0} pallet(s) · [{critical}] critical items",
+        var statsLabel = MakeText($"{cases:N0} case(s) · {pallets:N0} pallet(s) · [{critical}] potential scratches",
                                   14, ColSubtleText);
         statsLabel.style.whiteSpace = WhiteSpace.NoWrap;
         textCol.Add(statsLabel);

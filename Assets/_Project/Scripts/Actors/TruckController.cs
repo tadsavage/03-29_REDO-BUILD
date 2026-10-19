@@ -3327,7 +3327,7 @@ private DockSlot        _dock;
                 AssignedShipment.LineItems.Select(li => li.SkuId));
             SystemsLogWindow.LogGuard(
                 $"Another angry driver in the side lot — {LogLinks.Po(AssignedShipment.PONumber)}. " +
-                $"One hour to receive {critical} critical item(s).");
+                $"One hour to receive {critical} potential scratch(es).");
         }
     }
 

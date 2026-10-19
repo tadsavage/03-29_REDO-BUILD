@@ -300,7 +300,7 @@ public class TruckYardManager : MonoBehaviour
                 int critical = GameCore.Inventory.CriticalStockCheck.CountCriticalLines(
                     shipment.LineItems.Select(li => li.SkuId));
                 string criticalPhrase = critical > 0
-                    ? $"There are {critical} critical item(s) on this load."
+                    ? $"There are {critical} potential scratch(es) on this load."
                     : "Looks like replenishment stock, nothing critical.";
                 SystemsLogWindow.LogGuard(
                     $"{LogLinks.Po(shipment.PONumber)} inbound to {LogLinks.Door(dock.DoorNumber, shipment.PONumber)} — " +

@@ -176,7 +176,7 @@ public class PurchasingPanel : IUIPanel
     /// <summary>Whether the filter dropdown's popout panel is currently open.</summary>
     private bool _multiVendorFilterOpen = false;
 
-    private enum MultiVendorSortMode { NameAZ, PartnershipHighToLow, PartnershipLowToHigh }
+    private enum MultiVendorSortMode { NameAZ, PartnershipHighToLow, PartnershipLowToHigh, ScratchesHighToLow, ScratchesLowToHigh }
 
     /// <summary>Sort order for the vendor groups on Inbound Order Creation. Defaults to alphabetical
     /// so the list reads the same way it always has until the player deliberately asks for a
@@ -230,6 +230,7 @@ public class PurchasingPanel : IUIPanel
     /// cleared and rebuilt every Rebuild() rather than built once and cached — its content changes
     /// with every qty-stepper press.</summary>
     private ScrollView _multiVendorPane;
+    private Label _scratchTotalLabel;
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -475,6 +476,15 @@ public class PurchasingPanel : IUIPanel
         leftSpacer.style.flexShrink = 0;
         titleBar.Add(leftSpacer);
 
+        // At-a-glance total of everything that could be scratched off an order for lack of balance.
+        _scratchTotalLabel = MakeText("", 15, ColDanger, bold: true);
+        _scratchTotalLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        _scratchTotalLabel.style.position = Position.Absolute;
+        _scratchTotalLabel.style.left = 0;
+        _scratchTotalLabel.pickingMode = PickingMode.Ignore;
+        titleBar.Add(_scratchTotalLabel);
+        titleBar.schedule.Execute(RefreshScratchTotal).Every(1000);
+
         _titleLabel = MakeText("PURCHASING", 39, ColTitleText, bold: true);
         _titleLabel.style.flexGrow = 1;
         _titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -694,6 +704,7 @@ public class PurchasingPanel : IUIPanel
         _content.Clear();
         _footerMessage.text = string.Empty;
         _titleLabel.text = TitleFor(_tab);
+        RefreshScratchTotal();
 
         var shipments = Shipments();
         int live = shipments?.PendingShipments.Count(s => s != null) ?? 0;
@@ -1826,6 +1837,12 @@ public class PurchasingPanel : IUIPanel
             MultiVendorSortMode.PartnershipLowToHigh => vendors.Where(v => v != null)
                 .OrderBy(v => Economy()?.GetState(v.VendorId)?.PartnershipLevel ?? 0)
                 .ThenBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
+            MultiVendorSortMode.ScratchesHighToLow => vendors.Where(v => v != null)
+                .OrderByDescending(v => VendorScratchCases(v.VendorId))
+                .ThenBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
+            MultiVendorSortMode.ScratchesLowToHigh => vendors.Where(v => v != null)
+                .OrderBy(v => VendorScratchCases(v.VendorId))
+                .ThenBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
             _ => vendors.Where(v => v != null)
                 .OrderBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
         };
@@ -2050,6 +2067,8 @@ public class PurchasingPanel : IUIPanel
         AddSortOption("Name (A–Z)", MultiVendorSortMode.NameAZ);
         AddSortOption("Partnership: High to Low", MultiVendorSortMode.PartnershipHighToLow);
         AddSortOption("Partnership: Low to High", MultiVendorSortMode.PartnershipLowToHigh);
+        AddSortOption("Potential Scratches: High to Low", MultiVendorSortMode.ScratchesHighToLow);
+        AddSortOption("Potential Scratches: Low to High", MultiVendorSortMode.ScratchesLowToHigh);
 
         sortBtn.clicked += () =>
         {
@@ -2119,7 +2138,7 @@ public class PurchasingPanel : IUIPanel
         // (same Toggle widget, same styling, same _multiVendorFilterCriticalOnly flag; only its
         // location changed). Sits above "All Items"/the SKU list exactly like it sat above the vendor
         // checkbox list before the move.
-        var criticalToggle = new Toggle("Critical Items") { value = _multiVendorFilterCriticalOnly };
+        var criticalToggle = new Toggle("Potential Scratches") { value = _multiVendorFilterCriticalOnly };
         criticalToggle.style.marginBottom = 4;
         criticalToggle.style.color = new StyleColor(ColDanger);
         ApplyFont(criticalToggle, bold: true, size: 13);
@@ -2216,7 +2235,7 @@ public class PurchasingPanel : IUIPanel
     private string ItemFilterSummaryText()
     {
         var parts = new List<string>();
-        if (_multiVendorFilterCriticalOnly) parts.Add("Critical Items");
+        if (_multiVendorFilterCriticalOnly) parts.Add("Potential Scratches");
         if (!string.IsNullOrEmpty(_multiVendorItemFilterSkuId))
         {
             var name = AllCataloguedItems().FirstOrDefault(i => i.skuId == _multiVendorItemFilterSkuId).displayName;
@@ -2255,6 +2274,8 @@ public class PurchasingPanel : IUIPanel
     {
         MultiVendorSortMode.PartnershipHighToLow => "Sort: Partnership High to Low ▾",
         MultiVendorSortMode.PartnershipLowToHigh => "Sort: Partnership Low to High ▾",
+        MultiVendorSortMode.ScratchesHighToLow => "Sort: Scratches High to Low ▾",
+        MultiVendorSortMode.ScratchesLowToHigh => "Sort: Scratches Low to High ▾",
         _ => "Sort: Name (A–Z) ▾",
     };
 
@@ -2544,7 +2565,7 @@ public class PurchasingPanel : IUIPanel
             int cases = lines.Sum(l => l.cases);
             float cost = lines.Sum(l => l.cases * UnitPriceForVendor(vendorId, l.sku));
             int critical = TotalCriticalShortfall(vendorId);
-            statCritical.text = $"[{critical}] critical items";
+            statCritical.text = $"[{critical}] potential scratches";
             statCases.text = $"{cases:N0} case(s)";
             statPallets.text = $"{plan.Pallets.Count:N0} pallet(s)";
             costLabel.text = Money(cost);
@@ -2625,14 +2646,20 @@ public class PurchasingPanel : IUIPanel
         RefreshDealButton();
         header.schedule.Execute(RefreshDealButton).Every(100);
 
-        var detail = new ScrollView(ScrollViewMode.Vertical);
-        detail.style.maxHeight = 340;
+        // Plain container, no inner scroll: expanding a vendor grows to show ALL its items, and the
+        // outer vendor list is the only thing that scrolls.
+        var detail = new VisualElement();
+        detail.style.flexShrink = 0;
         detail.style.paddingTop = 6; detail.style.paddingBottom = 6;
         detail.style.paddingLeft = 8; detail.style.paddingRight = 8;
         detail.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
 
         var catalogue = Economy()?.GetAvailableCatalogue(vendorId) ?? new List<VendorCatalogueEntry>();
         int shown = 0;
+        if (_multiVendorSortMode == MultiVendorSortMode.ScratchesHighToLow)
+            catalogue = catalogue.Where(e => e?.Sku != null).OrderByDescending(e => ScratchCases(e.Sku.SkuId)).ToList();
+        else if (_multiVendorSortMode == MultiVendorSortMode.ScratchesLowToHigh)
+            catalogue = catalogue.Where(e => e?.Sku != null).OrderBy(e => ScratchCases(e.Sku.SkuId)).ToList();
         foreach (var entry in catalogue)
         {
             if (entry?.Sku == null) continue;
@@ -2733,7 +2760,7 @@ public class PurchasingPanel : IUIPanel
 
         row.Add(MultiVendorStatCell("ON HAND", onHand.ToString("N0"), ColSubtleText));
         row.Add(MultiVendorStatCell("ON ORDER", onOrder.ToString("N0"), ColSubtleText));
-        var inDemandCell = MultiVendorStatCell("TOTAL SHORTFALL", inDemand.ToString("N0"),
+        var inDemandCell = MultiVendorStatCell("POTENTIAL SCRATCHES", inDemand.ToString("N0"),
                                                 inDemand > 0 ? ColDanger : ColSubtleText, out var inDemandLabel);
         row.Add(inDemandCell);
         row.Add(MultiVendorStatCell("BUY", Money(buy), ColBuyPrice));
@@ -2904,6 +2931,43 @@ public class PurchasingPanel : IUIPanel
     /// how many different ITEMS are short, not how many cases across them are short — a vendor short
     /// 1 case each on 5 SKUs reads as "5 critical items", not "5 critical items" worth of cases summed
     /// into one misleading case-count. Drives the vendor header's summary line.</summary>
+    /// <summary>Cases of this SKU still uncovered after on-hand, on-order and in-progress baskets.</summary>
+    private int ScratchCases(string skuId)
+    {
+        int gross = Economy()?.GetTotalInDemand(skuId) ?? 0;
+        int onHand = Inventory()?.TotalOnHand(skuId) ?? 0;
+        int onOrder = Economy()?.GetTotalOnOrder(skuId) ?? 0;
+        return Mathf.Max(0, gross - onHand - onOrder - TotalInProgressCases(skuId));
+    }
+
+    private int VendorScratchCases(string vendorId)
+    {
+        int total = 0;
+        foreach (var e in Economy()?.GetAvailableCatalogue(vendorId) ?? new List<VendorCatalogueEntry>())
+            if (e?.Sku != null) total += ScratchCases(e.Sku.SkuId);
+        return total;
+    }
+
+    /// <summary>Building-wide totals for the header; each SKU counts once however many vendors carry it.</summary>
+    private void RefreshScratchTotal()
+    {
+        if (_scratchTotalLabel == null) return;
+        var seen = new HashSet<string>();
+        int items = 0, cases = 0;
+        foreach (var v in VendorRegistry.Load()?.AllVendors ?? new List<VendorData>())
+        {
+            if (v == null) continue;
+            foreach (var e in Economy()?.GetAvailableCatalogue(v.VendorId) ?? new List<VendorCatalogueEntry>())
+            {
+                if (e?.Sku == null || !seen.Add(e.Sku.SkuId)) continue;
+                int c = ScratchCases(e.Sku.SkuId);
+                if (c > 0) { items++; cases += c; }
+            }
+        }
+        _scratchTotalLabel.text = $"POTENTIAL SCRATCHES: {items} item(s) · {cases:N0} case(s)";
+        _scratchTotalLabel.style.color = new StyleColor(items > 0 ? ColDanger : ColSubtleText);
+    }
+
     private int TotalCriticalShortfall(string vendorId)
     {
         var catalogue = Economy()?.GetAvailableCatalogue(vendorId) ?? new List<VendorCatalogueEntry>();

@@ -323,7 +323,7 @@ public void Open(Tab tab)
 
             var distinctSkuIds = productPallets.Select(p => p.SkuId).Distinct();
             int criticalLines = CriticalStockCheck.CountCriticalLines(distinctSkuIds);
-            AddStatRow(parent, "Critical Stock Lines", criticalLines.ToString(), 0);
+            AddStatRow(parent, "Potential Scratch Lines", criticalLines.ToString(), 0);
         }
         else
         {
