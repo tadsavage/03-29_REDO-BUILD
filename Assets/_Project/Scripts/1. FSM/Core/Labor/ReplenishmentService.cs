@@ -172,6 +172,21 @@ namespace GameCore.Labor
 
         /// <summary>FIFO scan shared by both lookups above, so reserve and pick faces can't end up
         /// rotating stock by different rules.</summary>
+        // Pallets a reach truck repeatedly failed to pull out of a rack (the pallet isn't where its slot says, or the forks can't
+        // reach it). Without this the scanner immediately filed a fresh replenishment for the SAME pallet and the trucks retried
+        // it forever, ahead of every putaway.
+        private static readonly System.Collections.Generic.Dictionary<string, float> _unextractable =
+            new System.Collections.Generic.Dictionary<string, float>();
+
+        public static void MarkUnextractable(string palletId, float seconds)
+        {
+            if (string.IsNullOrEmpty(palletId)) return;
+            _unextractable[palletId] = Time.time + seconds;
+        }
+
+        public static bool IsUnextractable(string palletId)
+            => !string.IsNullOrEmpty(palletId) && _unextractable.TryGetValue(palletId, out float until) && Time.time < until;
+
         private static bool TryFindOldest(InventoryService inventory, string skuId,
                                           System.Collections.Generic.IEnumerable<LocationData> locations, out LocationData best)
         {
@@ -193,6 +208,7 @@ namespace GameCore.Labor
                 // pallets are not saved — and a task filed against a ghost can never be done: the truck drives out, finds nothing
                 // and aborts, and the replenishment gets filed again.
                 if (PalletMasterLink.Find(location.PalletId) == null) continue;
+                if (IsUnextractable(location.PalletId)) continue;
 
                 // RESERVED is exclusive (Tad, 2026-10-17): a pallet a live replenishment or pallet pick already claimed
                 // can't be handed to a second task, even if its slot's status was reset (phantom-occupancy repair, reload).

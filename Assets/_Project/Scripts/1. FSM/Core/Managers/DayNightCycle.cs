@@ -167,8 +167,22 @@ public class DayNightCycle : MonoBehaviour
 
         // ── Ambient ──────────────────────────────────────────────────────────
         if (controlAmbient)
-            RenderSettings.ambientLight = Color.Lerp(nightAmbient, _dayAmbientTarget * globalBrightness, dayStrength);
+        {
+            UltraAmbient = Color.Lerp(nightAmbient, _dayAmbientTarget * globalBrightness, dayStrength);
+            HasUltraAmbient = true;
+            RenderSettings.ambientLight = Color.Lerp(nightAmbient, _dayAmbientTarget * globalBrightness * PresetAmbientMultiplier, dayStrength);
+        }
     }
+
+    /// <summary>The ambient this frame WITHOUT the graphics-preset boost. The photo booth renders portraits with it so
+    /// they look the same on every profile (ambient is global, so the Good/Toaster boost would otherwise lighten them).</summary>
+    public static Color UltraAmbient;
+    public static bool HasUltraAmbient;
+
+    /// <summary>Daytime ambient multiplier set by the graphics preset. Good turns off the backdrop fill lights that
+    /// Ultra relies on (BackdropDepthLighting) and averaged ~37% darker; GraphicsPresetManager sets 1.4 there so the
+    /// two read alike. 1 = no change. Static so it survives the manager being re-applied.</summary>
+    public static float PresetAmbientMultiplier = 1f;
 
     private float SunPitch(float hour)
     {

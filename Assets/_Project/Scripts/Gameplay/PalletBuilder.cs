@@ -432,6 +432,9 @@ public class PalletBuilder : MonoBehaviour
             }
         }
 
+        if (Application.isPlaying && loadObj.GetComponent<PalletLoadBatcher>() == null)
+            loadObj.AddComponent<PalletLoadBatcher>();
+
         SaveBuildState();
 
         // Self-correct: useTiHiOverride can request more cases than physically fit — PackLayer's

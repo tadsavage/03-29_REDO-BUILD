@@ -475,6 +475,26 @@ public class EquipmentBattery : MonoBehaviour
     /// charges, and carries on when it is full. Available any time they are on a machine that isn't already going to charge.</summary>
     public bool CanChangeBattery => Slot != null && Slot.IsOccupied && !NeedsCharge && _trip == null && _vacate == null && !IsFull;
 
+    /// <summary>True when this machine should go and charge NOW, between jobs: its battery is low (<see cref="LowHours"/>), a
+    /// charger is free, and at least one other operated machine of the same kind still has charge to carry on. Staggers
+    /// charging so a whole fleet doesn't run flat together and leave the queue unworked. The last healthy machine keeps
+    /// working until it must stop.</summary>
+    private const float CoverHours = 0.75f;   // the machine covering for us must have at least this much battery left
+
+    public bool ShouldChargeBetweenJobs()
+    {
+        if (!CanChangeBattery || IsBusy || NeedsCharge || HoursLeft > LowHours) return false;
+        if (PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) == null) return false;   // every charger is taken
+        foreach (var other in All)
+        {
+            if (other == null || other == this || other.KindLower != KindLower) continue;
+            if (other.Slot == null || !other.Slot.IsOccupied) continue;
+            if (other.NeedsCharge || other.IsCharging || other.HoursLeft <= CoverHours) continue;
+            return true;   // someone else of this kind can keep working for a while yet
+        }
+        return false;
+    }
+
     public void RequestChangeBattery()
     {
         if (!CanChangeBattery) return;

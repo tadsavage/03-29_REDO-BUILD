@@ -50,6 +50,26 @@ public class GraphicsPresetManager : MonoBehaviour
     [SerializeField] private Volume globalVolume;
 
     public static GraphicsPresetManager Instance { get; private set; }
+
+    /// <summary>Runs <paramref name="render"/> with the ULTRA pipeline asset active, then puts the player's asset back.
+    /// The photo booth uses this so a portrait looks identical on every graphics profile: Good/Toaster differ in HDR,
+    /// colour-grading mode, upscaling and renderer features, which made their portraits grey and gritty. Changing
+    /// QualitySettings.renderPipeline takes effect immediately for a manual Camera.Render(), so no frame is waited.</summary>
+    public static void RenderWithUltraPipeline(System.Action render)
+    {
+        var gp = Instance;
+        if (gp == null || gp.urpUltra == null || gp.CurrentPreset == Preset.Ultra) { render(); return; }
+        var prev = QualitySettings.renderPipeline;
+        var prevAmbient = RenderSettings.ambientLight;
+        QualitySettings.renderPipeline = gp.urpUltra;
+        if (DayNightCycle.HasUltraAmbient) RenderSettings.ambientLight = DayNightCycle.UltraAmbient;   // no Good/Toaster boost
+        try { render(); }
+        finally
+        {
+            QualitySettings.renderPipeline = prev;
+            RenderSettings.ambientLight = prevAmbient;
+        }
+    }
     public Preset CurrentPreset { get; private set; } = Preset.Ultra;
 
     private void Awake()
@@ -95,6 +115,7 @@ public class GraphicsPresetManager : MonoBehaviour
     private void ApplyUltra()
     {
         FXPool.DisabledKeys.Remove("dust");
+        DayNightCycle.PresetAmbientMultiplier = 1f;
         SetPipeline(urpUltra);
         SetVolume(profileUltra);
         SetSceneBlurVolumes(true);
@@ -111,6 +132,9 @@ public class GraphicsPresetManager : MonoBehaviour
     private void ApplyGood()
     {
         FXPool.DisabledKeys.Remove("dust");
+        // Measured 2026-10-20: Good averaged 0.28 against Ultra's 0.45 (no backdrop fill lights). 1.4x only reached
+        // 0.40 in a verification pass, so 1.55x is what actually matches.
+        DayNightCycle.PresetAmbientMultiplier = 1.55f;
         SetPipeline(urpGood);
         SetVolume(profileGood);
         SetSceneBlurVolumes(true);
@@ -127,6 +151,8 @@ public class GraphicsPresetManager : MonoBehaviour
     private void ApplyToaster()
     {
         FXPool.DisabledKeys.Add("dust");
+        // Same story as Good (no backdrop fill lights): Toaster measured ~0.27 against Ultra's 0.45.
+        DayNightCycle.PresetAmbientMultiplier = 1.5f;
         SetPipeline(urpToaster);
         SetVolume(profileToaster);
         SetSceneBlurVolumes(false);   // no depth-of-field blur anywhere on Toaster

@@ -42,9 +42,9 @@ public class EmployeePhotoBooth : MonoBehaviour
     // 2026-10-01: portraits read too dark against the new female body — every booth light is brightened
     // by this factor on top of the serialized intensity (+50%). Applied in code, not by editing the
     // scene value, so the Inspector number stays the "base" and this is one place to retune.
-    private const float StudioLightBoost = 3.0f;
+    private const float StudioLightBoost = 4.8f;   // 3.0 -> 4.8 (2026-10-20): a little more highlight on the face
     // 2026-10-12: a soft, shadowless fill from the other side lifts the shadowed half of the face to a normal lit-room look; the hard key keeps the low-poly edges.
-    private const float FillLightIntensity = 2.4f;
+    private const float FillLightIntensity = 2.9f;
 
     private void AddFillLight(Transform keyLight)
     {
@@ -143,6 +143,20 @@ public class EmployeePhotoBooth : MonoBehaviour
         data.volumeLayerMask = LayerMask.GetMask("PhotoBoothFX");
     }
 
+    // On Good/Toaster the Info-card feed is ONE frame rendered with the Ultra pipeline and then frozen (stationary), so
+    // it matches the Ultra look; a continuously rendering camera would use the player's own (different) pipeline.
+    private bool _liveFrozen;
+
+    private System.Collections.IEnumerator FreezeLiveFeedOnUltraFrame(Camera cam)
+    {
+        yield return new WaitForSecondsRealtime(0.2f);   // let the pose settle
+        if (cam == null || cam != _liveCamera) yield break;
+        GraphicsPresetManager.RenderWithUltraPipeline(() => cam.Render());
+        cam.enabled = false;
+        _liveFrozen = true;
+        if (_liveAnimator != null) _liveAnimator.enabled = false;
+    }
+
     private void Start()
     {
         // Subscribe to hire event in Start to guarantee all Awake methods have run
@@ -203,7 +217,7 @@ public class EmployeePhotoBooth : MonoBehaviour
 
     private void Update()
     {
-        if (!_isLiveFeedActive || _liveCamera == null || _liveModelInstance == null) return;
+        if (!_isLiveFeedActive || _liveFrozen || _liveCamera == null || _liveModelInstance == null) return;
 
         // 1. Rotate camera slowly from -45 to 45 degrees
         float timeSinceStart = Time.time - _liveStartTime;
@@ -343,6 +357,13 @@ public class EmployeePhotoBooth : MonoBehaviour
         _isGesturing = false;
         _nextGestureTime = Time.time + UnityEngine.Random.Range(_waveIntervalMin, _waveIntervalMax);
         _isLiveFeedActive = true;
+
+        _liveFrozen = false;
+        if (GraphicsPresetManager.Instance != null && GraphicsPresetManager.Instance.CurrentPreset != GraphicsPresetManager.Preset.Ultra)
+        {
+            _liveCamera.enabled = false;
+            StartCoroutine(FreezeLiveFeedOnUltraFrame(_liveCamera));
+        }
     }
 
     private EmployeeRecord _liveRecord;
@@ -860,8 +881,12 @@ public class EmployeePhotoBooth : MonoBehaviour
         // The first capture of the session can come back wrong (shader / post-volume /
         // skinning warm-up) — that's why candidate #0's portrait looked off. Prime the
         // pipeline with a throwaway render the first time, then render for real.
-        if (!_warmedUp) { cam.Render(); _warmedUp = true; }
-        cam.Render();
+        // Always rendered with the Ultra pipeline so the portrait is identical on every graphics profile.
+        GraphicsPresetManager.RenderWithUltraPipeline(() =>
+        {
+            if (!_warmedUp) { cam.Render(); _warmedUp = true; }
+            cam.Render();
+        });
 
         // 4. Read back pixels to Texture2D
         RenderTexture prevActive = RenderTexture.active;

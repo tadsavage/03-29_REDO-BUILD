@@ -128,6 +128,13 @@ namespace GameCore.Actors
 
         private static string TaskBlockKey(WorkTask t) => t == null ? null : "task:" + t.TaskId;
 
+        /// <summary>How far the forks may move this frame while extending toward a pallet or rack slot. The grab / place tests are
+        /// "within 0.15 m" / "within 0.05 m" checks made once per frame, so a long frame (the Editor, game speed 3x, a hitch) used to
+        /// carry the fork tip clean past the target between two checks: every grab then "missed" by the whole travel and the task
+        /// was aborted and retried forever. Capping the step at a fraction of the test window makes detection independent of frame
+        /// rate — at the cost of the extension taking more frames when frames are slow.</summary>
+        private float ForkStep(float dt, float maxStep) => Mathf.Min(_forkExtendSpeed * dt, maxStep);
+
         private void BeginActiveTask(WorkTask t)
         {
             _activeTask = t;
@@ -135,13 +142,38 @@ namespace GameCore.Actors
             _activeReservedAddress = null;
         }
 
+        // How many times each task has failed. A task that can never succeed (a pallet that isn't where its slot says) must not be
+        // retried every minute forever: it is FIFO-older than the whole putaway backlog, so it kept winning the claim and the
+        // trucks spent every minute on it (34 putaways sat unassigned behind 3 such replenishments).
+        private static readonly Dictionary<string, int> _taskFailCount = new Dictionary<string, int>();
+        private const int ReplenishGiveUpAfter = 3;
+        private const float UnextractableSeconds = 1800f;
+        private const float MaxBackoffSeconds = 900f;
+
         private void ReleaseTaskWithBackoff(WorkTask task)
         {
             if (task == null) return;
-            task.Status = WorkTaskStatus.Available;
+            if (_taskFailCount.Count > 500) _taskFailCount.Clear();
+            _taskFailCount.TryGetValue(task.TaskId, out int fails);
+            fails++;
+            _taskFailCount[task.TaskId] = fails;
+
+            // Exponential: 60s, 120s, 240s, 480s, then 900s.
+            float backoff = Mathf.Min(MaxBackoffSeconds, TaskFailBackoff * Mathf.Pow(2f, Mathf.Min(fails, 5) - 1));
+
             task.AssignedToEmployeeGuid = null;
-            _blockedUntil[TaskBlockKey(task)] = Time.time + TaskFailBackoff;
-            if (!string.IsNullOrEmpty(task.PalletId)) _blockedUntil[task.PalletId] = Time.time + TaskFailBackoff;
+            if (task.Type == WorkTaskType.Replenish && fails >= ReplenishGiveUpAfter)
+            {
+                // The caller has already put both rack slots back. Give the task up and stop the scanner re-filing the same pallet.
+                task.Status = WorkTaskStatus.Cancelled;
+                ReplenishmentService.MarkUnextractable(task.PalletId, UnextractableSeconds);
+                Debug.LogWarning($"[ReachTruckOperator] Replenish {task.TaskId} failed {fails} times (pallet {task.PalletId} from {task.FromLocation}) — cancelled; that pallet is skipped for {UnextractableSeconds / 60f:0} min.");
+                return;
+            }
+
+            task.Status = WorkTaskStatus.Available;
+            _blockedUntil[TaskBlockKey(task)] = Time.time + backoff;
+            if (!string.IsNullOrEmpty(task.PalletId)) _blockedUntil[task.PalletId] = Time.time + backoff;
         }
 
         /// <summary>Watchdog: called every frame while busy. If the current task has run past StuckTaskSeconds and nothing is on the
@@ -355,6 +387,17 @@ namespace GameCore.Actors
                 return;
             }
             _strayPalletWarned = false;
+            _exitCache.Clear();
+
+            // Fleet-aware charging: between jobs, a truck that is low on battery goes to a free charger while another truck of
+            // its kind still has charge to carry the queue. Without this every truck ran to 0% at the same moment, all of them
+            // then queued at the chargers, and a 34-pallet putaway backlog sat unassigned for the whole charge.
+            if (_battery == null) _battery = GetComponent<EquipmentBattery>();
+            if (_battery != null && _battery.ShouldChargeBetweenJobs())
+            {
+                _battery.RequestChangeBattery();
+                return;
+            }
 
             // Self-healing: release any task stuck in Assigned whose claiming operator/coroutine
             // died mid-task without completing or aborting it — otherwise it's permanently
@@ -375,7 +418,7 @@ namespace GameCore.Actors
 
             if (alreadyAssigned != null && IsPalletBlocked(alreadyAssigned.PalletId))
             {
-                Debug.LogWarning($"[ReachTruckOperator] '{name}' assigned task {alreadyAssigned.TaskId} " +
+                WarnThrottled("backoff|" + alreadyAssigned.TaskId, $"[ReachTruckOperator] '{name}' assigned task {alreadyAssigned.TaskId} " +
                     $"(pallet {alreadyAssigned.PalletId}) is backed off — no other tasks will be claimed until it clears.");
                 return; // this operator's assigned pallet has no rack space yet — wait out the backoff
             }
@@ -399,7 +442,7 @@ namespace GameCore.Actors
             var pending = _workQueue.GetPendingTasksForRole(EmployeeRole.ReachTruckOperator);
             if (pending.Count == 0)
             {
-                Debug.LogWarning($"[ReachTruckOperator] '{name}' found no Available Putaway/Replenish tasks this poll.");
+                WarnThrottled("notasks|" + name, $"[ReachTruckOperator] '{name}' found no Available Putaway/Replenish tasks this poll.");
                 return;
             }
 
@@ -482,27 +525,25 @@ namespace GameCore.Actors
                     if (string.IsNullOrEmpty(t.FromLocation) || t.FromLocation == "STG" ||
                         t.FromLocation.Contains("(") || t.FromLocation.Contains(")"))
                     {
-                        Debug.LogWarning($"[ReachTruckOperator] Task {t.TaskId} has invalid FromLocation '{t.FromLocation}'. Skipping.");
+                        WarnThrottled("badfrom|" + t.TaskId, $"[ReachTruckOperator] Task {t.TaskId} has invalid FromLocation '{t.FromLocation}'. Skipping.");
                         continue;
                     }
 
                     if (!TryParseLaneName(t.FromLocation, out int d, out string l))
                     {
-                        Debug.LogWarning($"[ReachTruckOperator] Task {t.TaskId} FromLocation '{t.FromLocation}' failed to parse as a lane name. Skipping.");
+                        WarnThrottled("noparse|" + t.TaskId, $"[ReachTruckOperator] Task {t.TaskId} FromLocation '{t.FromLocation}' failed to parse as a lane name. Skipping.");
                         continue;
                     }
                     if (!LaneNamingService.TryGetLaneGeometry(d, l, out _))
                     {
-                        Debug.LogWarning($"[ReachTruckOperator] Task {t.TaskId} lane {d}{l} has no resolved geometry yet. Skipping this poll.");
+                        WarnThrottled("nogeo|" + d + l, $"[ReachTruckOperator] Task {t.TaskId} lane {d}{l} has no resolved geometry yet. Skipping this poll.");
                         continue;
                     }
 
                     // RULE: Only claim tasks for pallets that are currently accessible (topmost and received).
-                    if (!IsPalletAccessible(t.PalletId, d, l))
-                    {
-                        Debug.LogWarning($"[ReachTruckOperator] Task {t.TaskId} pallet {t.PalletId} is not the exit-most accessible pallet in lane {d}{l} (buried or not yet received). Skipping.");
-                        continue;
-                    }
+                    // Normal while a lane is stacked: only the exit-most pallet can be taken. Not a warning (it used to be one,
+                    // per task per truck per poll).
+                    if (!IsPalletAccessible(t.PalletId, d, l)) continue;
                 }
                 // Replenish tasks already know both endpoints (rack addresses resolved and reserved
                 // by ReplenishmentService at creation) — no lane/accessibility check needed here.
@@ -747,7 +788,7 @@ namespace GameCore.Actors
         /// pallet is buried behind other products isn't claimed and aborted every poll.</summary>
         private bool LanePalletPickReachable(WorkTask task, int door, string lane)
         {
-            FindExitAccessiblePallet(door, lane, out string exitId);
+            string exitId = ExitIdCached(door, lane);
             if (exitId == null) return false;
             return exitId == task.PalletId || IsSameSku(exitId, PalletPickSku(task));
         }
@@ -766,8 +807,36 @@ namespace GameCore.Actors
         /// in the lane — i.e. this task can be claimed AND physically executed right now.</summary>
         private bool IsPalletAccessible(string targetPalletId, int door, string lane)
         {
-            FindExitAccessiblePallet(door, lane, out string exitId);
+            string exitId = ExitIdCached(door, lane);
             return exitId != null && exitId == targetPalletId;
+        }
+
+        // The exit-most pallet of a lane is the same answer for every task in that lane, so it is worked out ONCE per
+        // claim poll instead of once per task (34 queued putaways meant ~34 full lane scans, each with a physics-free but
+        // still heavy GetComponentsInChildren pass, per truck, every second — the stalls behind the "janky" trucks).
+        private readonly Dictionary<(int, string), string> _exitCache = new Dictionary<(int, string), string>();
+
+        private string ExitIdCached(int door, string lane)
+        {
+            var key = (door, lane);
+            if (_exitCache.TryGetValue(key, out var id)) return id;
+            FindExitAccessiblePallet(door, lane, out id);
+            _exitCache[key] = id;
+            return id;
+        }
+
+        // Claim polling runs every second for every truck. A condition that merely persists ("buried", "no tasks", "backed off")
+        // must not write a warning (with a stack trace) per task per poll: in the Editor that alone cost 0.2-0.5 s per poll
+        // with a large putaway queue. Each distinct message is written once, then again only after it has been quiet.
+        private static readonly Dictionary<string, float> _warnedAt = new Dictionary<string, float>();
+        private const float WarnRepeatSeconds = 120f;
+
+        private static void WarnThrottled(string key, string message)
+        {
+            if (_warnedAt.TryGetValue(key, out float last) && Time.time - last < WarnRepeatSeconds) return;
+            if (_warnedAt.Count > 2000) _warnedAt.Clear();
+            _warnedAt[key] = Time.time;
+            Debug.LogWarning(message);
         }
 
         private IEnumerator PutawayRoutine(WorkTask task)
@@ -1137,13 +1206,14 @@ namespace GameCore.Actors
             float extended   = 0f;
             while (extended < MaxForkExtend)
             {
+                float step = ForkStep(Time.deltaTime, 0.03f);   // this test window is only 0.05 m wide
                 if (_forks != null)
                 {
                     Vector3 lp = _forks.localPosition;
-                    lp.z += _forkAxisSign * _forkExtendSpeed * Time.deltaTime;
+                    lp.z += _forkAxisSign * step;
                     _forks.localPosition = lp;
                 }
-                extended += _forkExtendSpeed * Time.deltaTime;
+                extended += step;
 
                 float xzDist = new Vector2(pallet.position.x - locationTr.position.x, pallet.position.z - locationTr.position.z).magnitude;
                 // Tighten the drop variance to 0.05m to minimize visual "snapping" when the pallet is released.
@@ -1913,9 +1983,10 @@ namespace GameCore.Actors
                 if (dist <= ForkGrabProximity) { got = true; break; }
 
                 Vector3 lp = _forks.localPosition;
-                lp.z += _forkAxisSign * _forkExtendSpeed * Time.deltaTime;
+                float step = ForkStep(Time.deltaTime, ForkGrabProximity * 0.6f);
+                lp.z += _forkAxisSign * step;
                 _forks.localPosition = lp;
-                extended += _forkExtendSpeed * Time.deltaTime;
+                extended += step;
                 yield return null;
             }
 
@@ -2594,7 +2665,7 @@ namespace GameCore.Actors
             float initialDist = Vector3.Distance(pallet.position, _palletAnchor.position);
             Debug.Log($"[InsertToGrab] Starting grab: initial distance = {initialDist:F3}m, threshold = {ForkGrabProximity:F3}m, pallet={pallet.name}, forkAnchor={_palletAnchor.name}");
             Vector3 dbgStartAnchor = _palletAnchor.position;
-            Debug.LogWarning($"[InsertToGrab-DIAG] truck={transform.position} fwd={transform.forward} anchor0={dbgStartAnchor} pallet={pallet.position} palletYaw={pallet.eulerAngles.y:F0} palletParent={(pallet.parent != null ? pallet.parent.name : "null")} sign={_forkAxisSign}");
+            Debug.Log($"[InsertToGrab-DIAG] truck={transform.position} fwd={transform.forward} anchor0={dbgStartAnchor} pallet={pallet.position} palletYaw={pallet.eulerAngles.y:F0} palletParent={(pallet.parent != null ? pallet.parent.name : "null")} sign={_forkAxisSign}");
 
             while (extended < MaxForkExtend)
             {
@@ -2608,9 +2679,10 @@ namespace GameCore.Actors
                 }
 
                 Vector3 lp = _forks.localPosition;
-                lp.z += _forkAxisSign * _forkExtendSpeed * Time.deltaTime;
+                float step = ForkStep(Time.deltaTime, ForkGrabProximity * 0.6f);
+                lp.z += _forkAxisSign * step;
                 _forks.localPosition = lp;
-                extended += _forkExtendSpeed * Time.deltaTime;
+                extended += step;
                 yield return null;
             }
 
