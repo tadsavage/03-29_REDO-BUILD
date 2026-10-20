@@ -86,6 +86,21 @@ namespace GameCore.Labor
         private static TrailerOffloadController _instance;
         private static readonly Dictionary<Vector2Int, int> _pendingDrops = new();
 
+        /// <summary>Per-load state shared by every pallet of one offload run.</summary>
+        private sealed class OffloadRunState
+        {
+            /// <summary>The "no openings at this door, using another" notice has already been shown for this load.</summary>
+            public bool CrossDoorNoticeShown;
+            /// <summary>A pallet found no lane anywhere and was put back on the trailer — the run must stop.</summary>
+            public bool AbortNoRoom;
+        }
+
+        // No lane space anywhere: wait this long before a dock stocker tries this (or another) truck again,
+        // and only show the "no room" notice once until room is found again.
+        private const float NoRoomBackoffSeconds = 20f;
+        private static float _noRoomUntil;
+        private static bool  _noRoomNoticeShown;
+
         /// <summary>True if any slot in this lane currently has a dock-stocker drop reserved but not
         /// yet physically landed (see <see cref="TryFindLaneTarget"/>). Lets outbound-staging
         /// selectability (<see cref="GameCore.Inventory.StagingLaneAssignmentService"/>) exclude a
@@ -119,7 +134,7 @@ namespace GameCore.Labor
         // _pendingDrops is static and outlives a Play session (domain reload is disabled). Exiting Play
         // mid-offload left its reservations behind, so those lanes read as "pending inbound" forever in
         // the next session. A new instance means a new session — start clean.
-        private void Awake() => _pendingDrops.Clear();
+        private void Awake() { _pendingDrops.Clear(); _noRoomUntil = 0f; _noRoomNoticeShown = false; }
 
         private void OnDestroy()
         {
@@ -130,6 +145,7 @@ namespace GameCore.Labor
         {
             if (Time.unscaledTime < _nextScan) return;
             _nextScan = Time.unscaledTime + 0.5f;
+            if (Time.unscaledTime < _noRoomUntil) return; // lanes were full a moment ago — don't thrash the trailer
 
             if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();
             if (_grid == null) return;
@@ -223,6 +239,7 @@ namespace GameCore.Labor
 
             Debug.Log($"[TrailerOffload] Offloading {pallets.Count} pallets from {truck.name} (door {doorNumber}) with dock stocker {ds.name}.");
 
+            var run = new OffloadRunState();
             bool completedAllPallets = true;
             int stoppedAtIndex = pallets.Count;
             for (int i = 0; i < pallets.Count; i++)
@@ -245,7 +262,14 @@ namespace GameCore.Labor
                     stoppedAtIndex = i;
                     break;
                 }
-                yield return OffloadOnePallet(ds, nav, agent, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, queue, i);
+                yield return OffloadOnePallet(ds, nav, agent, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, queue, i, run);
+                if (run.AbortNoRoom)
+                {
+                    // The pallet went back on the trailer; stop here rather than hauling the rest to nowhere.
+                    completedAllPallets = false;
+                    stoppedAtIndex = i;
+                    break;
+                }
             }
 
             // ── Restore the DS to patrol ──
@@ -304,8 +328,13 @@ namespace GameCore.Labor
         private IEnumerator OffloadOnePallet(Transform ds, AiNavigation nav, NavMeshAgent agent, Transform forks, float forkRestY,
                                              TruckController truck, Transform pallet, Vector3 into,
                                              float openingLong, int doorNumber, Vector3 doorPos,
-                                             InventoryService inv, WorkQueueSystem queue, int palletIndex = 0)
+                                             InventoryService inv, WorkQueueSystem queue, int palletIndex, OffloadRunState run)
         {
+            // Where this pallet sits on the trailer, so it can be put back if there is nowhere to stage it.
+            Transform  origParent     = pallet.parent;
+            Vector3    origLocalPos   = pallet.localPosition;
+            Quaternion origLocalRot   = pallet.localRotation;
+            Vector3    origLocalScale = pallet.localScale;
             Vector3 P = pallet.position;
             Vector3 palletWorldScale = pallet.lossyScale; // preserve visual size across the reparenting
 
@@ -380,61 +409,72 @@ namespace GameCore.Labor
             if (!TryFindLaneTarget(inv, queue, doorNumber, doorPos, out int door, out string laneLetter, out var cell, out int tier))
             {
                 // No room at this door — widen the search to every lane in the building (any door, any
-                // standalone Zone) before giving up. Preview only (reserve:false): nothing is claimed
-                // yet, since the player still has to say yes.
-                if (TryFindLaneTargetAnywhere(inv, queue, doorPos, out int farDoor, out string farLane, out var farCell, out int farTier, reserve: false))
+                // standalone Zone). The slot is reserved immediately (no yield between find and reserve),
+                // so nothing can take it while the notice below is on screen.
+                if (TryFindLaneTargetAnywhere(inv, queue, doorPos, out int farDoor, out string farLane, out var farCell, out int farTier, reserve: true))
                 {
                     string farName = ZoneRegistry.DisplayPrefix(farDoor) + farLane;
-                    bool decided = false, approved = false;
-                    ConfirmationModal.Show(
-                        $"No more room for this PO in Door {doorNumber} to offload to — should the dock stocker use Staging Lane {farName} instead?",
-                        onYes: () => { approved = true; decided = true; },
-                        onNo:  () => { decided = true; });
-                    while (!decided) yield return null;
 
-                    if (approved)
+                    // Tell the player ONCE per load — not per pallet — and it is a plain notice, not a
+                    // question: the redirect is simply happening. Later pallets of this load go quietly.
+                    if (!run.CrossDoorNoticeShown)
                     {
-                        // Re-resolve AND reserve atomically (no yield between them) — the preview above
-                        // yielded across the confirmation wait, so another dock stocker could have taken
-                        // the slot in the meantime. If it's gone now, fall through to drop-on-floor below
-                        // rather than driving to a target that no longer exists.
-                        if (TryFindLaneTargetAnywhere(inv, queue, doorPos, out farDoor, out farLane, out farCell, out farTier, reserve: true))
-                        {
-                            LaneEntryGeometry(LaneNamingService.GetLane(farDoor, farLane), doorPos, out Vector3 farEntryW, out Vector3 farDownLane);
-                            Vector3 farEntryPivot = new Vector3(farEntryW.x, ds.position.y, farEntryW.z) - farDownLane * PivotFrontDistance;
+                        run.CrossDoorNoticeShown = true;
+                        string fromName = ZoneRegistry.IsZone(doorNumber) ? ZoneRegistry.DisplayPrefix(doorNumber) : $"Door {doorNumber}";
+                        string toName   = ZoneRegistry.IsZone(farDoor)    ? ZoneRegistry.DisplayPrefix(farDoor)    : $"Door {farDoor}";
+                        bool acknowledged = false;
+                        ConfirmationModal.ShowNotice(
+                            $"There are no more openings in {fromName}'s lanes. We will be using {toName} instead.",
+                            () => acknowledged = true);
+                        while (!acknowledged) yield return null;
+                    }
 
-                            bool arrived = false;
-                            yield return SeekViaNavMesh(ds, nav, agent, farEntryPivot, $"cross-door offload → {farName}", r => arrived = r);
+                    LaneEntryGeometry(LaneNamingService.GetLane(farDoor, farLane), doorPos, out Vector3 farEntryW, out Vector3 farDownLane);
+                    Vector3 farEntryPivot = new Vector3(farEntryW.x, ds.position.y, farEntryW.z) - farDownLane * PivotFrontDistance;
 
-                            if (arrived)
-                            {
-                                door = farDoor; laneLetter = farLane; cell = farCell; tier = farTier;
-                                crossDoorLeg = true;
-                            }
-                            else
-                            {
-                                // Couldn't actually get there — release the reservation we just took so
-                                // it doesn't sit dead, then fall through to drop-on-floor below.
-                                _pendingDrops.TryGetValue(farCell, out int p);
-                                if (p > 0) { _pendingDrops[farCell] = p - 1; if (_pendingDrops[farCell] <= 0) _pendingDrops.Remove(farCell); }
-                                Debug.LogWarning($"[TrailerOffload] Approved cross-door move to {farName} but the dock stocker couldn't path there — dropping pallet where it stands instead.");
-                            }
-                        }
+                    bool arrived = false;
+                    yield return SeekViaNavMesh(ds, nav, agent, farEntryPivot, $"cross-door offload → {farName}", r => arrived = r);
+
+                    if (arrived)
+                    {
+                        door = farDoor; laneLetter = farLane; cell = farCell; tier = farTier;
+                        crossDoorLeg = true;
+                    }
+                    else
+                    {
+                        // Couldn't actually get there — release the reservation we just took so it
+                        // doesn't sit dead, then fall through to the no-room handling below.
+                        _pendingDrops.TryGetValue(farCell, out int p);
+                        if (p > 0) { _pendingDrops[farCell] = p - 1; if (_pendingDrops[farCell] <= 0) _pendingDrops.Remove(farCell); }
+                        Debug.LogWarning($"[TrailerOffload] The dock stocker couldn't path to {farName} for the cross-door offload.");
                     }
                 }
 
                 if (!crossDoorLeg && string.IsNullOrEmpty(laneLetter))
                 {
-                    Debug.LogWarning($"[TrailerOffload] No free Inbound/Both staging-lane slot anywhere in the building — dropping pallet where the DS stands.");
-                    DropPallet(pallet, ds.position, LaneSurfaceY, palletWorldScale, ds.rotation);
-
-                    // CRITICAL: Even if it's not in a lane, it must be registered to the inventory service
-                    // so the Receiver can find it, and it must have a CurrentLocation (even if it's (0,0) or stand-still).
-                    // We use (0,0) as the "no slot" fallback.
-                    RegisterAndQueue(inv, truck, Vector2Int.zero, pallet, ds.rotation, palletIndex);
+                    // Nowhere to put it. Dropping the pallet where the DS stands is what used to leave a
+                    // stray, half-registered pallet in the middle of the dock door, so instead put it back
+                    // on the trailer exactly where it was, pause the offload, and tell the player.
+                    Debug.LogWarning("[TrailerOffload] No reachable Inbound/Both staging-lane slot anywhere in the building — returning the pallet to the trailer and pausing the offload.");
+                    if (pallet != null)
+                    {
+                        pallet.SetParent(origParent, worldPositionStays: false);
+                        pallet.localPosition = origLocalPos;
+                        pallet.localRotation = origLocalRot;
+                        pallet.localScale    = origLocalScale;
+                    }
+                    if (forks != null) yield return LiftForks(forks, forkRestY);
+                    run.AbortNoRoom = true;
+                    _noRoomUntil = Time.unscaledTime + NoRoomBackoffSeconds;
+                    if (!_noRoomNoticeShown)
+                    {
+                        _noRoomNoticeShown = true;
+                        ConfirmationModal.ShowNotice("There is no room in any staging lane. Offloading is paused until space opens up.");
+                    }
                     yield break;
                 }
             }
+            _noRoomNoticeShown = false; // found room again: the next "no room" is news worth showing
 
             // Lane geometry: the ENTRY is the lane end nearest the dock DOOR (dock-stocker side); the
             // run direction (downLane) points from there toward the far EXIT end (reach-truck side). The

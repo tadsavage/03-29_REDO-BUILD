@@ -160,6 +160,38 @@ namespace GameCore.Persistence
             return result;
         }
 
+        private static int ClearExistingPalletVisuals(PlacementGrid grid)
+        {
+            var builders = Object.FindObjectsByType<PalletBuilder>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var roots = new HashSet<GameObject>();
+
+            foreach (var builder in builders)
+            {
+                if (builder == null || builder.GetComponentInParent<MHEOperatorSlot>() != null ||
+                    builder.GetComponentInParent<TruckController>() != null)
+                    continue;
+
+                roots.Add(builder.gameObject);
+            }
+
+            foreach (var root in roots)
+            {
+                if (root == null) continue;
+
+                var placed = root.GetComponent<PlacedObject>();
+                if (placed != null)
+                {
+                    if (grid != null && placed.data != null)
+                        grid.RemoveStackObject(new Vector2Int(placed.gridX, placed.gridY), root, placed.data);
+                    PlacedObjectRegistry.Unregister(placed);
+                }
+
+                Object.Destroy(root);
+            }
+
+            return roots.Count;
+        }
+
         /// <summary>
         /// Instantiates every captured pallet at its exact saved world transform, rebuilds its
         /// cases at their exact saved local transforms, and re-links it to InventoryService if it
@@ -169,7 +201,11 @@ namespace GameCore.Persistence
         /// </summary>
         public static void RestoreAll(List<DockPalletSnapshot> snapshots, PlacementGrid grid)
         {
-            if (snapshots == null || snapshots.Count == 0) return;
+            if (snapshots == null || snapshots.Count == 0)
+            {
+                ClearExistingPalletVisuals(grid);
+                return;
+            }
 
             var registry = FindRegistry();
             if (registry == null)
@@ -177,6 +213,10 @@ namespace GameCore.Persistence
                 Debug.LogError("[PalletPersistenceService] No ObjDataRegistry found in scene — cannot restore dock pallets.");
                 return;
             }
+
+            int removedExisting = ClearExistingPalletVisuals(grid);
+            if (removedExisting > 0)
+                Debug.Log($"[PalletPersistenceService] Removed {removedExisting} stale pallet visual(s) before restore.");
 
             Transform container = GameObject.Find("PlacedObjectsContainer")?.transform;
             ServiceLocator.TryGet<InventoryService>(out var inv);

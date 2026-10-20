@@ -790,6 +790,11 @@ namespace GameCore.Inventory
         /// <summary>Clear all pallets (used before restoring from save).</summary>
         public void ClearAllPallets()
         {
+            // Fire the destruction event for every record before wiping the registry so task and
+            // reservation systems can clean up the same stale references the player just cleared.
+            foreach (var pallet in _palletsByID.Values.ToList())
+                OnPalletDestroyed?.Invoke(pallet);
+
             _palletsByID.Clear();
             _palletsByLocation.Clear();
         }
@@ -836,10 +841,21 @@ namespace GameCore.Inventory
         {
             if (pallet == null) return;
 
+            // A load restore should never reinsert a pallet that the registry already knows about.
+            // This guards the exact duplicate-state issue behind the ghost recordings and stale queue rows.
+            if (_palletsByID.ContainsKey(pallet.PalletId))
+            {
+                Debug.LogWarning($"[InventoryService] Skipping duplicate pallet registration for {pallet.PalletId} ({pallet.SkuId}) at {pallet.CurrentLocation}.");
+                return;
+            }
+
+            // Track idempotently so reloading a save does not create multiple entries for the same
+            // pallet and stutter the same pallet into multiple stacks or tasks.
             _palletsByID[pallet.PalletId] = pallet;
             if (!_palletsByLocation.ContainsKey(pallet.CurrentLocation))
                 _palletsByLocation[pallet.CurrentLocation] = new List<string>();
-            _palletsByLocation[pallet.CurrentLocation].Add(pallet.PalletId);
+            if (!_palletsByLocation[pallet.CurrentLocation].Contains(pallet.PalletId))
+                _palletsByLocation[pallet.CurrentLocation].Add(pallet.PalletId);
         }
 
         /// <summary>

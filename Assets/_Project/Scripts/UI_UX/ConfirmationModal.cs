@@ -28,6 +28,8 @@ public class ConfirmationModal : MonoBehaviour
     private VisualElement _modal;
     private Label _message;
     private Toggle _dontShowAgainToggle;
+    private VisualElement _yesNoRow;
+    private Button _okButton;
     private string _dontShowAgainKey;
     private Action _onYes;
     private Action _onNo;
@@ -95,6 +97,29 @@ public class ConfirmationModal : MonoBehaviour
         _instance._dontShowAgainKey = dontShowAgainKey;
         _instance._dontShowAgainToggle.SetValueWithoutNotify(false);
         _instance._dontShowAgainToggle.style.display = dontShowAgainKey != null ? DisplayStyle.Flex : DisplayStyle.None;
+        _instance._yesNoRow.style.display = DisplayStyle.Flex;
+        _instance._okButton.style.display = DisplayStyle.None;
+        _instance._modal.style.display = DisplayStyle.Flex;
+    }
+
+    /// <summary>Shows an information-only notice: the message and a single OK button, no choice.
+    /// <paramref name="onOk"/> fires when it is dismissed.</summary>
+    public static void ShowNotice(string message, Action onOk = null)
+    {
+        if (_instance == null) Bootstrap();
+        if (_instance == null || _instance._modal == null) { onOk?.Invoke(); return; }
+
+        if (IsOpen)
+            Debug.LogWarning($"[ConfirmationModal] ShowNotice() called while already open — replacing the pending prompt ('{_instance._message.text}') with '{message}'.");
+
+        _instance._onYes = onOk;
+        _instance._onNo = null;
+        _instance._message.text = message;
+        _instance._dontShowAgainKey = null;
+        _instance._dontShowAgainToggle.SetValueWithoutNotify(false);
+        _instance._dontShowAgainToggle.style.display = DisplayStyle.None;
+        _instance._yesNoRow.style.display = DisplayStyle.None;
+        _instance._okButton.style.display = DisplayStyle.Flex;
         _instance._modal.style.display = DisplayStyle.Flex;
     }
 
@@ -155,6 +180,18 @@ public class ConfirmationModal : MonoBehaviour
         buttons.style.flexDirection = FlexDirection.Row;
         buttons.style.justifyContent = Justify.SpaceBetween;
         panel.Add(buttons);
+        _yesNoRow = buttons;
+
+        // Single OK button for ShowNotice(); hidden whenever the Yes/No row is in use.
+        _okButton = new Button(() =>
+        {
+            var callback = _onYes;
+            Hide();
+            callback?.Invoke();
+        }) { text = "OK" };
+        _okButton.style.display = DisplayStyle.None;
+        StyleButton(_okButton, ColOrange, ColOrangeEdge);
+        panel.Add(_okButton);
 
         // Callback captured into a local BEFORE Hide() — Hide() nulls out _onNo/_onYes so the modal
         // can't fire a stale callback the next time it opens for something else, but reading the field

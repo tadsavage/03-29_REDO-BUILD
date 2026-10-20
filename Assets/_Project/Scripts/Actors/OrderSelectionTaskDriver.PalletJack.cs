@@ -1010,8 +1010,11 @@ namespace GameCore.Actors
                     _jackLegOk = _jack != null;
                     yield break;
                 }
-                yield return JackFace(headF);
+                // Face the actual travel vector before moving; otherwise an offset target makes
+                // the jack translate diagonally relative to its local Z axis.
+                yield return JackFace(toT);
                 yield return JackMoveStraight(target, JackDriveSpeed);
+                yield return JackFace(headF);
                 _jackLegOk = _jack != null;
                 yield break;
             }
@@ -1019,12 +1022,14 @@ namespace GameCore.Actors
             yield return JackNavLeg(target, phase);
             if (!_jackLegOk || _jack == null) yield break;
 
-            // Close the last metre exactly, then square up. Square up FIRST and slide the remainder (forward or back),
-            // so the jack never spins round on the spot just to cover a few centimetres.
+            // Close the last metre along the jack's local Z, then square up to the requested final heading.
             Vector3 to = target - jt.position; to.y = 0f;
-            yield return JackFace(finalForward);
             if (to.magnitude > 0.05f && Vector3.Dot(to, finalForward) >= 0f)   // forward only: never reverse the last bit
+            {
+                yield return JackFace(to);
                 yield return JackMoveStraight(target, JackDriveSpeed);
+            }
+            yield return JackFace(finalForward);
             _jackLegOk = _jack != null;
         }
 

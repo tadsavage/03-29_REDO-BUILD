@@ -452,21 +452,6 @@ public class WorkQueuePanel : IUIPanel
         _cancelRemainingButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
         titleBar.Add(_cancelRemainingButton);
 
-        // Clean Up - removes the finished (Cancelled / Complete) rows so old history doesn't pile up in the queue.
-        var cleanUpButton = StyleButton(new Button(() =>
-        {
-            if (!ServiceLocator.TryGet<WorkQueueSystem>(out var q) || q == null) return;
-            int n = q.ClearFinishedTasks();
-            UIToast.Show(n > 0 ? $"Cleared {n} finished task(s) from the Work Queue." : "Nothing to clean up.");
-        }) { text = "Clean Up" }, ColOrange, ColOrangeEdge, Color.white, ColOrangeHover);
-        cleanUpButton.style.width = CancelSelectedWidth - 30f;
-        cleanUpButton.style.flexShrink = 0;
-        cleanUpButton.style.marginLeft = 8;
-        cleanUpButton.style.paddingLeft = 0;
-        cleanUpButton.style.paddingRight = 0;
-        cleanUpButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
-        titleBar.Add(cleanUpButton);
-
         // Centered on the title bar's full width via absolute positioning rather than a flexGrow
         // spacer -- the left button cluster (Select All/Cancel Selected) and the right-side
         // scale/close buttons are very unequal widths, so a flexGrow box centers the text in

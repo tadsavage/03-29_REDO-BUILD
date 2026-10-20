@@ -472,8 +472,31 @@ namespace GameCore.Labor
         /// <summary>Register a task restored from save.</summary>
         public void RegisterRestoredTask(WorkTask task)
         {
-            if (task != null)
-                _tasks.Add(task);
+            if (task == null) return;
+
+            // Save/load can hand the same task back more than once during a multi-stage restore; a duplicate
+            // id in the queue is the same bug class as a duplicate pallet record: the same work becomes
+            // claimable twice under two different identities. Keep one canonical copy.
+            if (_tasks.Any(existing => existing != null && existing.TaskId == task.TaskId))
+            {
+                Debug.LogWarning($"[WorkQueueSystem] Ignoring duplicate restored task {task.TaskId} ({task.Description}).");
+                return;
+            }
+
+            // A saved task that points at a pallet which is no longer present in inventory can never be
+            // completed. Mark it cancelled immediately so it doesn't resurrect as "live" work after load.
+            if (!string.IsNullOrEmpty(task.PalletId) &&
+                task.Type != WorkTaskType.OrderSelect &&
+                task.Type != WorkTaskType.Load &&
+                ServiceLocator.TryGet<InventoryService>(out var inventory) &&
+                inventory.GetPallet(task.PalletId) == null)
+            {
+                task.Status = WorkTaskStatus.Cancelled;
+                task.AssignedToEmployeeGuid = null;
+                Debug.LogWarning($"[WorkQueueSystem] Restored task {task.TaskId} references missing pallet {task.PalletId}; cancelling it on load.");
+            }
+
+            _tasks.Add(task);
         }
     }
 }

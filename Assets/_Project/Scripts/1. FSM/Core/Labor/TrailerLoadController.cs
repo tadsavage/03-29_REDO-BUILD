@@ -55,6 +55,8 @@ namespace GameCore.Labor
         private const float FaceThreshold = 3f;
         private const string ForkChildName = "Forks";
         private const float ForkLiftHeight = 1.0f;
+        /// <summary>Gap between the underside of a carried pallet and the pallet it is about to be set on.</summary>
+        private const float StackApproachClearance = 0.10f;
         private const float ForkLiftSpeed = 0.6f;
         private const float ForkPickupMatchY = 0f;
         private const float ForkLowerDistance = 1.0f;
@@ -251,26 +253,22 @@ namespace GameCore.Labor
             float roof = TrailerCapacity.SafeInteriorHeight / scaleY;
             float stackable = TrailerCapacity.StackableHeight / scaleY;
 
-            // 1. A short pallet tops up a lone short pallet first.
-            if (need <= stackable)
-            {
-                for (int seq = 0; seq < slots; seq++)
-                {
-                    int s = CargoSlotForSequence(seq);
-                    if (counts[s] == 1 && bottomHeight[s] <= stackable &&
-                        tops[s] + TrailerCapacity.StackGap + need <= roof)
-                    {
-                        slotIndex = s; stackBaseY = tops[s] + TrailerCapacity.StackGap;
-                        return true;
-                    }
-                }
-            }
-
-            // 2. Otherwise the next empty floor position.
+            // Walk the positions nose → doors and take the FIRST one that can accept this pallet:
+            //   • an empty floor position, or
+            //   • a position holding one lone short pallet this one can go on top of.
+            // So every position is built two-high BEFORE the loader moves back to the next one, however
+            // many pallets there are. Filling the whole floor first and coming back to stack (the old
+            // order) sent the stocker driving over the pallets already down to reach the nose.
             for (int seq = 0; seq < slots; seq++)
             {
                 int s = CargoSlotForSequence(seq);
                 if (counts[s] == 0) { slotIndex = s; stackBaseY = 0f; return true; }
+                if (need <= stackable && counts[s] == 1 && bottomHeight[s] <= stackable &&
+                    tops[s] + TrailerCapacity.StackGap + need <= roof)
+                {
+                    slotIndex = s; stackBaseY = tops[s] + TrailerCapacity.StackGap;
+                    return true;
+                }
             }
             return false;
         }
@@ -794,15 +792,27 @@ namespace GameCore.Labor
             // 7b. Stacking on a pallet already in the slot: raise the forks by that stack's height BEFORE
             //     driving in so the carried pallet clears the one below (step 9 lowers by exactly
             //     PalletLiftClearance, leaving it resting on top).
-            if (stackBaseY > 0.01f && forks != null)
-                yield return LiftForks(forks, forks.localPosition.y + stackBaseY * Mathf.Max(0.01f, truck.LoadContainer.lossyScale.y));
+            //     Raise only as far as needed: the carried pallet's base ends StackApproachClearance above
+            //     the surface it is about to land on (measured from where it actually is now), not a fixed
+            //     jump on top of whatever height it was already carried at — that overshoot is what sent
+            //     the forks up several pallets high.
+            bool stacking = stackBaseY > 0.01f && forks != null;
+            if (stacking)
+            {
+                float raise = (targetWorld.y + StackApproachClearance) - palletT.position.y;
+                if (raise > 0.001f) yield return LiftForks(forks, forks.localPosition.y + raise);
+            }
             // 8. Drive straight in until the carried pallet's XZ lines up over its cargo slot.
             Vector3 palletOffset = palletT.position - ds.position; palletOffset.y = 0f;
             Vector3 targetXZ = new Vector3(targetWorld.x, driveY, targetWorld.z);
             yield return DriveForksFirst(ds, targetXZ - palletOffset);
-            // 9. Lower by exactly the PalletLiftClearance it was raised, so the pallet settles onto
-            //    the trailer deck rather than being dropped from carry height.
-            if (forks != null) yield return LiftForks(forks, forks.localPosition.y - PalletLiftClearance);
+            // 9. Lower so the pallet settles onto what it is landing on rather than being dropped.
+            //    Stacking: down to the exact surface height. Floor: the usual PalletLiftClearance.
+            if (forks != null)
+            {
+                float lower = stacking ? Mathf.Max(0f, palletT.position.y - targetWorld.y) : PalletLiftClearance;
+                yield return LiftForks(forks, forks.localPosition.y - lower);
+            }
             // 10. Unparent off the forks into the trailer's cargo container.
             Vector3 facingOnForks = palletT.forward; // world facing while still carried
             palletT.SetParent(truck.LoadContainer, worldPositionStays: false);

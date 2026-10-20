@@ -1,5 +1,28 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8784275253418381044
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f898d4639d023d4aadf65070a782eaa, type: 3}
+  m_Name: CavitoonCavityRendererFeature
+  m_EditorClassIdentifier: Assembly-CSharp::Cavitoon.CavitoonCavityRendererFeature
+  m_Active: 1
+  m_Settings:
+    worldRadius: 0.075
+    worldRidge: 1
+    worldValley: 4
+    worldAttenuation: 0.25
+    worldSampleCount: 16
+    maxWorldPixelRadius: 24
+    injectionPoint: 550
+    showInSceneView: 1
+  m_Shader: {fileID: 4800000, guid: 75efcb75f5431d5449529819182f4261, type: 3}
 --- !u!114 &-4094645875684971040
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -12,7 +35,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b3d386ba5cd94485973aee1479b272e, type: 3}
   m_Name: AvatarsOverSSAO
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.RenderObjects
-  m_Active: 1
+  m_Active: 0
   settings:
     passTag: AvatarsOverSSAO
     Event: 500
@@ -55,7 +78,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
   m_Name: FullScreenPassRendererFeature
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.FullScreenPassRendererFeature
-  m_Active: 1
+  m_Active: 0
   injectionPoint: 550
   fetchColorBuffer: 1
   requirements: 1
@@ -92,7 +115,8 @@ MonoBehaviour:
   - {fileID: -2314371528058666335}
   - {fileID: 4180208522477649148}
   - {fileID: -4094645875684971040}
-  m_RendererFeatureMap: ad6b866f10d7b46ca102c9775bb3e1dffc3c57e58015033ae06dc73a45e52cc7l
+  - {fileID: -8784275253418381044}
+  m_RendererFeatureMap: ad6b866f10d7b46ca102c9775bb3e1dffc3c57e58015033ae06dc73a45e52cc70c31beb632fc1786l
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 3
@@ -133,7 +157,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
   m_Name: BackdropBlur
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.FullScreenPassRendererFeature
-  m_Active: 1
+  m_Active: 0
   injectionPoint: 600
   fetchColorBuffer: 1
   requirements: 1

@@ -732,41 +732,46 @@ public class PlacementSystem : MonoBehaviour
         }
 
         // ── RESTORE WORK QUEUE STATE ─────────────────────────────────────────
-        // Restore all pending work tasks so employees can continue assigned work
-        if (ServiceLocator.TryGet(out WorkQueueSystem workQueueSystem) && save.workQueue != null && save.workQueue.Count > 0)
+        // Restore all pending work tasks so employees can continue assigned work. Clear the queue
+        // first even when the save contains no task list, because a truly empty list is different from
+        // a stale in-memory queue that survived the load path.
+        if (ServiceLocator.TryGet(out WorkQueueSystem workQueueSystem))
         {
             workQueueSystem.ClearAllTasks();
-            foreach (var snapshot in save.workQueue)
+            if (save.workQueue != null)
             {
-                if (snapshot == null) continue;
-
-                // Reconstruct WorkTask from snapshot
-                var task = new GameCore.Labor.WorkTask(
-                    (GameCore.Labor.WorkTaskType)snapshot.type,
-                    ((EmployeeRole)snapshot.requiredRole).Normalize(), // old saves may hold the retired Loader (3)
-                    snapshot.palletId,
-                    snapshot.description,
-                    snapshot.fromLocation,
-                    snapshot.toLocation,
-                    (GameCore.Inventory.PalletData.AreaCategory)snapshot.area,
-                    snapshot.priority
-                );
-
-                // Restore the task's original TaskId and status via reflection
-                var taskIdField = task.GetType().GetProperty("TaskId");
-                if (taskIdField != null && taskIdField.CanWrite)
+                foreach (var snapshot in save.workQueue)
                 {
-                    // If the property is read-only, we'll need a different approach
-                    // For now, just register the task with its new ID
+                    if (snapshot == null) continue;
+
+                    // Reconstruct WorkTask from snapshot
+                    var task = new GameCore.Labor.WorkTask(
+                        (GameCore.Labor.WorkTaskType)snapshot.type,
+                        ((EmployeeRole)snapshot.requiredRole).Normalize(), // old saves may hold the retired Loader (3)
+                        snapshot.palletId,
+                        snapshot.description,
+                        snapshot.fromLocation,
+                        snapshot.toLocation,
+                        (GameCore.Inventory.PalletData.AreaCategory)snapshot.area,
+                        snapshot.priority
+                    );
+
+                    // Restore the task's original TaskId and status via reflection
+                    var taskIdField = task.GetType().GetProperty("TaskId");
+                    if (taskIdField != null && taskIdField.CanWrite)
+                    {
+                        // If the property is read-only, we'll need a different approach
+                        // For now, just register the task with its new ID
+                    }
+
+                    // Set status and assignment
+                    task.Status = (GameCore.Labor.WorkTaskStatus)snapshot.status;
+                    task.AssignedToEmployeeGuid = snapshot.assignedToEmployeeGuid;
+                    task.OrderId = snapshot.orderId;
+                    task.SkuId = snapshot.skuId;
+
+                    workQueueSystem.RegisterRestoredTask(task);
                 }
-
-                // Set status and assignment
-                task.Status = (GameCore.Labor.WorkTaskStatus)snapshot.status;
-                task.AssignedToEmployeeGuid = snapshot.assignedToEmployeeGuid;
-                task.OrderId = snapshot.orderId;
-                task.SkuId = snapshot.skuId;
-
-                workQueueSystem.RegisterRestoredTask(task);
             }
         }
 
