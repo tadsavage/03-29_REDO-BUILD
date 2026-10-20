@@ -13,11 +13,33 @@ public static class ShaderWarmup
 {
     public const string ResourcePath = "Resource_Shaders/WarehouseShaderVariants";
 
+    private const string CrashGuardKey = "ShaderWarmup.InProgress";
+
     private static ShaderVariantCollection _collection;
     private static bool _loggedMissing;
 
     public static void Run(string reason)
     {
+#if UNITY_EDITOR
+        // The Editor compiles shaders on demand, so the warm-up buys nothing here, and WarmUp() has
+        // hard-crashed the D3D11 driver on Play (native crash in GfxDeviceWorker -> ApplyGpuProgram,
+        // right after "multisampled texture bound to a non-multisampled sampler"). Player builds only.
+        return;
+#pragma warning disable CS0162
+#endif
+        // Self-healing crash guard: the flag is written to disk BEFORE the risky call and cleared after.
+        // If a previous run died inside WarmUp the flag is still set, so we skip it from then on.
+        if (PlayerPrefs.GetInt(CrashGuardKey, 0) == 1)
+        {
+            if (!_loggedMissing)
+            {
+                _loggedMissing = true;
+                Debug.LogWarning("[ShaderWarmup] The last warm-up crashed the game - skipping it. " +
+                                 "Recapture the collection, then PlayerPrefs.DeleteKey(\"" + CrashGuardKey + "\").");
+            }
+            return;
+        }
+
         if (_collection == null)
             _collection = Resources.Load<ShaderVariantCollection>(ResourcePath);
 
@@ -35,7 +57,10 @@ public static class ShaderWarmup
         if (_collection.isWarmedUp) return;
 
         float start = Time.realtimeSinceStartup;
+        PlayerPrefs.SetInt(CrashGuardKey, 1);
+        PlayerPrefs.Save();
         _collection.WarmUp();
+        PlayerPrefs.DeleteKey(CrashGuardKey);
         Debug.Log($"[ShaderWarmup] {reason}: warmed {_collection.shaderCount} shaders / " +
                   $"{_collection.variantCount} variants in {(Time.realtimeSinceStartup - start) * 1000f:0} ms");
     }
