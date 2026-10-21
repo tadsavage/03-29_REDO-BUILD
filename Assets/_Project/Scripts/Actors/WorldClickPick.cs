@@ -15,13 +15,22 @@ public static class WorldClickPick
     public static bool Raycast(Ray ray, out RaycastHit best)
     {
         if (_groundLayer == -2) _groundLayer = LayerMask.NameToLayer("Ground");
+        // RaycastNonAlloc does NOT keep the nearest hits when the buffer fills: it drops arbitrary ones, so a ray through
+        // a loaded rack (hundreds of case/pallet colliders) lost the employee/machine at random - the "only sometimes
+        // opens" bug. If the buffer is full, fall back to RaycastAll, which returns everything.
+        RaycastHit[] hits = Buffer;
         int n = Physics.RaycastNonAlloc(ray, Buffer, 500f, ~0, QueryTriggerInteraction.Ignore);
+        if (n >= Buffer.Length)
+        {
+            hits = Physics.RaycastAll(ray, 500f, ~0, QueryTriggerInteraction.Ignore);
+            n = hits.Length;
+        }
         best = default;
         float bestDist = float.MaxValue;
         bool found = false;
         for (int i = 0; i < n; i++)
         {
-            var h = Buffer[i];
+            var h = hits[i];
             var c = h.collider;
             if (c == null) continue;
             if (_groundLayer >= 0 && c.gameObject.layer == _groundLayer) continue;

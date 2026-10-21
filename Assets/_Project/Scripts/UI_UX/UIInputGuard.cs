@@ -8,6 +8,9 @@ public static class UIInputGuard
     private static List<UIDocument> _cachedDocs = new List<UIDocument>();
     private static float _lastRefresh;
 
+    /// <summary>The UI element that most recently made IsPointerOverUIToolkit return true (read it via execute_code when a world click "does nothing").</summary>
+    public static string LastBlocker;
+
     private static void RefreshDocs()
     {
         if (Time.realtimeSinceStartup - _lastRefresh < 2.0f && _cachedDocs.Count > 0) return;
@@ -36,6 +39,7 @@ public static class UIInputGuard
             if (picked == doc.rootVisualElement) continue;
             if (picked.pickingMode == PickingMode.Ignore) continue;
             if (picked.GetType().Name.Contains("TemplateContainer")) continue;
+            LastBlocker = $"{doc.name}/{picked.name}({picked.GetType().Name})";   // diagnostics: what swallowed a world click
             return true;
         }
         return false;

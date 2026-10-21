@@ -78,6 +78,7 @@ namespace GameCore.Actors
         private const float GrabSeconds      = 0.35f;  // reaching into the slot
         private const float PlaceSeconds     = 0.30f;  // setting the case down on the pallet
         private const float ParkOffset       = 2.1f;   // jack centreline distance from the pick face (into the aisle)
+        private const float MaxPickReach = 5f;         // a case is never carried from a slot further than this from its pallet
         private const float PickFaceStandOff = 0.65f;  // selector stops this far out from the slot pivot (≈ the pallet's front edge + a step) so they don't walk into the cases
         private const float PalletSideOff    = 1.20f;  // where the selector stands to load the pallet
         private const float ForkLift         = 0.25f;  // pallet raised this high while it rides the jack (Tad, 2026-10-16)
@@ -264,7 +265,13 @@ namespace GameCore.Actors
                 // BAY STOPS (Tad, 2026-10-17): the jack parks ONCE per bay, at the bay's first position, and the selector
                 // walks to every slot they need in that bay before the jack moves on. Same bay + same pallet = stay off.
                 string bayKey = BayKey(location.Address);
-                if (!(_offJack && bayKey == _parkedBay && palletIndex == _parkedPalletIndex))
+                // Never pick from a slot more than MaxPickReach from the pallet: if the parked jack is too far away, re-park
+                // right in front of THIS slot instead of walking the cases across the warehouse (Tad, 2026-10-21).
+                bool slotTooFar = _offJack && palletIndex < _pallets.Count && _pallets[palletIndex] != null &&
+                                  PlanarDist(_pallets[palletIndex].transform.position, slotFlat) > MaxPickReach;
+                if (slotTooFar)
+                    Debug.Log($"[OrderSelectionTaskDriver] '{name}': {location.Address} is more than {MaxPickReach:0}m from the parked jack - re-parking in front of it.");
+                if (slotTooFar || !(_offJack && bayKey == _parkedBay && palletIndex == _parkedPalletIndex))
                 {
                     if (_offJack)
                     {
@@ -273,7 +280,7 @@ namespace GameCore.Actors
                         _jack.StepOn();
                         _offJack = false;
                     }
-                    Vector3 bayFlat = BayFirstPositionFlat(location, slotFlat);
+                    Vector3 bayFlat = slotTooFar ? slotFlat : BayFirstPositionFlat(location, slotFlat);
                     Vector3 heading = PickHeading(toAisle, location);
                     Vector3 park = bayFlat + toAisle * ParkOffset - heading * ForkPalletZ[palletIndex];
 

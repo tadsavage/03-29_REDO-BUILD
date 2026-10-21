@@ -51,6 +51,8 @@ public class EmployeeClickHandler : MonoBehaviour
             return;
         }
 
+        if (_mainCamera == null || !_mainCamera.isActiveAndEnabled) _mainCamera = Camera.main;
+        if (_mainCamera == null) return;
         Ray ray = _mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
         if (WorldClickPick.Hits(ray, transform))
             OnClicked();

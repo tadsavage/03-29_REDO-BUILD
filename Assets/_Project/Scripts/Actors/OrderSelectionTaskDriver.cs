@@ -205,8 +205,29 @@ namespace GameCore.Actors
 
             // SeekPosition silently no-ops if a stale seek is already flagged — see the matching fix
             // in ReceivingTaskDriver/ReachTruckOperator/TrailerOffloadController for the same landmine.
+            SeekPickSlot(location, lineItem, takeQty, 0);
+        }
+
+        private const float OnFootMaxPickReach = 5f;   // never take cases from a slot further than this from the selector
+
+        /// <summary>Walks to the slot and only starts picking once the selector is actually close to it; a seek that
+        /// ends short (partial path, grace-timeout) is retried, and after 3 misses the slot is skipped (Tad, 2026-10-21).</summary>
+        private void SeekPickSlot(LocationData location, OrderLineItem lineItem, int takeQty, int attempt)
+        {
             _nav.CancelSeekPosition();
-            _nav.SeekPosition(location.WorldPosition, () => StartCoroutine(PickRoutine(location, lineItem, takeQty)));
+            _nav.SeekPosition(location.WorldPosition, () =>
+            {
+                Vector3 a = transform.position, b = location.WorldPosition;
+                a.y = 0f; b.y = 0f;
+                if (Vector3.Distance(a, b) <= OnFootMaxPickReach)
+                {
+                    StartCoroutine(PickRoutine(location, lineItem, takeQty));
+                    return;
+                }
+                if (attempt < 3) { SeekPickSlot(location, lineItem, takeQty, attempt + 1); return; }
+                Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' could not get within {OnFootMaxPickReach:0}m of {location.Address} - skipping that pick.");
+                AdvanceToNextPick();
+            });
         }
 
         /// <summary>Grabs `takeQty` cases one at a time (a short pause per case for pacing), updating
