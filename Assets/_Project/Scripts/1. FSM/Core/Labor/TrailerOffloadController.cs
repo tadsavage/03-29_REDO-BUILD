@@ -376,6 +376,8 @@ namespace GameCore.Labor
             // 3. Drive straight in, forks low; raise to the pallet's own Y within ForkRaiseDistance,
             //    and stop when the fork carry point reaches the pallet.
             yield return DriveInToGrab(ds, forks, forkRestY, pallet, into);
+            // Rig or pallet destroyed while driving in: nothing left to pick up, and every line below would throw.
+            if (ds == null || pallet == null) yield break;
             // 4. Seat the pallet on the forks, then lift just enough to take its weight off the deck.
             Transform carrier = forks != null ? forks : ds;
             // Captured BEFORE parenting: once it's a child its world rotation is already the
@@ -699,6 +701,10 @@ namespace GameCore.Labor
         // A travel cap keeps it from driving through the trailer if the pallet is somehow unreachable.
         private IEnumerator DriveInToGrab(Transform ds, Transform forks, float forkRestY, Transform pallet, Vector3 into)
         {
+            // The dock stocker or the pallet can already be gone when this step starts (a save load or a delete tears
+            // the world down while the offload coroutine is still running). The loops below guard themselves; this
+            // first read did not and threw MissingReferenceException.
+            if (ds == null || pallet == null) yield break;
             Vector3 start = ds.position;
             const float maxTravel = 8f;
 
