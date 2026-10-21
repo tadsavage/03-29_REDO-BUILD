@@ -7,15 +7,20 @@ using UnityEngine;
 ///   • YELLOW - charging.
 ///   • GREEN  - fully charged.
 ///   • all off - nothing on the charger.
-/// A lamp is switched off by blacking out its glow with a MaterialPropertyBlock (the mesh stays, so the post
-/// never shows a hole); switching it on clears the block and the authored emissive material shows again.
+/// A lamp is switched off by swapping its authored glowing material for one shared dark "off" material (the mesh
+/// stays, so the post never shows a hole) and switched on by putting the authored material back. (It used to black
+/// out the glow with a MaterialPropertyBlock, but the base colour of that block was not applied reliably, so the
+/// three off lamps came out three different shades.)
 /// </summary>
 [DisallowMultipleComponent]
 public class MHEStationLights : MonoBehaviour
 {
+    private const string OffMaterialPath = "Resource_SOs/MHE_LampOff";
+
     private Renderer _red, _yellow, _green;
     private PalletJackParkingSpot _spot;
-    private MaterialPropertyBlock _off;
+    private Material _offMat;
+    private readonly System.Collections.Generic.Dictionary<Renderer, Material> _onMat = new System.Collections.Generic.Dictionary<Renderer, Material>();
     private int _state = -1;   // 0 off, 1 red, 2 yellow, 3 green
     private float _nextCheck;
 
@@ -25,10 +30,21 @@ public class MHEStationLights : MonoBehaviour
         _red = Find("DeadBattery");
         _yellow = Find("Charging");
         _green = Find("FullCharge");
-        _off = new MaterialPropertyBlock();
-        _off.SetColor("_EmissionColor", Color.black);
-        _off.SetColor("_BaseColor", new Color(0.12f, 0.12f, 0.12f, 1f));
-        _off.SetColor("_Color", new Color(0.12f, 0.12f, 0.12f, 1f));
+
+        // Remember each lamp's authored (glowing) material before anything swaps it.
+        foreach (var r in new[] { _red, _yellow, _green })
+            if (r != null) _onMat[r] = r.sharedMaterial;
+
+        _offMat = Resources.Load<Material>(OffMaterialPath);
+        if (_offMat == null && _red != null && _red.sharedMaterial != null)
+        {
+            // Asset missing: build a plain dark material from the lamps' own shader so "off" still reads as off.
+            _offMat = new Material(_red.sharedMaterial.shader) { name = "MHE_LampOff (runtime)" };
+            var dark = new Color(0.10f, 0.10f, 0.11f, 1f);
+            if (_offMat.HasProperty("_BaseColor")) _offMat.SetColor("_BaseColor", dark);
+            if (_offMat.HasProperty("_Color")) _offMat.SetColor("_Color", dark);
+            _offMat.DisableKeyword("_EMISSION");
+        }
     }
 
     private Renderer Find(string child)
@@ -61,6 +77,8 @@ public class MHEStationLights : MonoBehaviour
     private void Set(Renderer r, bool on)
     {
         if (r == null) return;
-        r.SetPropertyBlock(on ? null : _off);
+        r.SetPropertyBlock(null);   // clear any block left by the old approach
+        if (on) { if (_onMat.TryGetValue(r, out var lit) && lit != null) r.sharedMaterial = lit; }
+        else if (_offMat != null) r.sharedMaterial = _offMat;
     }
 }
