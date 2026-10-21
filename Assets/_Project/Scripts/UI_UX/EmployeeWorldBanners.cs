@@ -173,7 +173,7 @@ public class EmployeeWorldBanners : MonoBehaviour
         if (_cam == null) return;
         var ray = _cam.ScreenPointToRay(Mouse.current.position.ReadValue());
         bool onPlayer = false;
-        if (Physics.Raycast(ray, out var hit))
+        if (WorldClickPick.Raycast(ray, out var hit))
             onPlayer = hit.collider.GetComponentInParent<EmployeeIdentity>() != null || hit.collider.GetComponentInParent<MHEOperatorSlot>() != null;
         if (!onPlayer) EmployeeHighlighter.Instance.Clear();
     }

@@ -1037,11 +1037,30 @@ public class WorkQueuePanel : IUIPanel
 
     /// <summary>Cancels every checked order that can be cancelled, leaving any other checked row
     /// (a selector is mid-pick on it, or its goods are already staged) untouched.</summary>
+    /// <summary>Checked orders with a SCRATCHES run (Open or Available) that can be cut: cancelling those must not wait for the
+    /// order itself to be cancellable (it is usually part-staged or loaded).</summary>
+    private List<string> ScratchCancellableCheckedOrderIds()
+    {
+        var ids = new List<string>();
+        if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null) return ids;
+        foreach (var id in _checkedOrderIds)
+        {
+            var order = orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == id);
+            if (order == null) continue;
+            if (!orderService.LiveScratchTasks(id).Any(t => t.Status != WorkTaskStatus.Assigned)) continue;
+            if (orderService.PreviewCancelRemaining(order).Allowed) ids.Add(id);
+        }
+        return ids;
+    }
+
     private void CancelSelected()
     {
         if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null) return;
 
-        var ids = CancellableCheckedOrderIds();
+        var scratchIds = ScratchCancellableCheckedOrderIds();
+        var ids = CancellableCheckedOrderIds().Where(i => !scratchIds.Contains(i)).ToList();
+        // Selected rows that carry scratch runs: cancel just the scratches (the order ships short, then can be closed out).
+        if (ids.Count == 0 && scratchIds.Count > 0) { CancelRemainingSelected(); return; }
         if (ids.Count == 0) return;
 
         // Say what it costs BEFORE doing it.
@@ -1099,7 +1118,8 @@ public class WorkQueuePanel : IUIPanel
     private void UpdateCancelSelectedButton()
     {
         if (_cancelSelectedButton == null) return;
-        int n = CancellableCheckedOrderIds().Count;
+        var scratchIds = ScratchCancellableCheckedOrderIds();
+        int n = CancellableCheckedOrderIds().Count(i => !scratchIds.Contains(i)) + scratchIds.Count;
         _cancelSelectedButton.SetEnabled(n > 0);
         _cancelSelectedButton.text = n > 0 ? $"Cancel Selected ({n})" : "Cancel Selected";
         _cancelSelectedButton.style.opacity = n > 0 ? 1f : 0.5f;

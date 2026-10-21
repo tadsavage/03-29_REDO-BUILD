@@ -119,7 +119,7 @@ public class EquipmentBatteryPanels : MonoBehaviour
         if (UIInputGuard.IsPointerOverUIToolkit()) return;
         if (_cam == null) _cam = Camera.main;
         if (_cam == null) return;
-        if (!Physics.Raycast(_cam.ScreenPointToRay(mouse.position.ReadValue()), out var hit)) { CloseMenu(); return; }
+        if (!WorldClickPick.Raycast(_cam.ScreenPointToRay(mouse.position.ReadValue()), out var hit)) { CloseMenu(); return; }
         var b = hit.collider.GetComponentInParent<EquipmentBattery>();
         if (b == null) { CloseMenu(); return; }
         OpenMenu(b, mouse.position.ReadValue());

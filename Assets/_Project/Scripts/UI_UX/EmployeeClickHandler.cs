@@ -52,13 +52,8 @@ public class EmployeeClickHandler : MonoBehaviour
         }
 
         Ray ray = _mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (Physics.Raycast(ray, out RaycastHit hit))
-        {
-            if (hit.collider.gameObject == gameObject)
-            {
-                OnClicked();
-            }
-        }
+        if (WorldClickPick.Hits(ray, transform))
+            OnClicked();
     }
 
     private void OnClicked()

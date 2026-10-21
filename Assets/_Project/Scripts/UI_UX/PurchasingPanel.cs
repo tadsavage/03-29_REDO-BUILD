@@ -1959,6 +1959,28 @@ public class PurchasingPanel : IUIPanel
         // vendors. _multiVendorFilterCriticalOnly still gates this vendor list below; only the widget
         // that sets it moved.
         var vendors = VendorRegistry.Load()?.AllVendors ?? new List<VendorData>();
+
+        // Select All: ticks every vendor at once, and unticks them all when everything is already ticked.
+        var allVendorIds = vendors.Where(v => v != null).Select(v => v.VendorId).ToList();
+        var selectAll = new Toggle("Select All")
+        {
+            value = allVendorIds.Count > 0 && allVendorIds.All(id => _multiVendorFilterVendorIds.Contains(id))
+        };
+        ApplyFont(selectAll, bold: true, size: 13);
+        selectAll.style.color = new StyleColor(ColTitleText);
+        selectAll.style.marginBottom = 4;
+        selectAll.style.borderBottomWidth = 1;
+        selectAll.style.borderBottomColor = new StyleColor(ColBlueEdge);
+        selectAll.RegisterValueChangedCallback(evt =>
+        {
+            if (evt.newValue) foreach (var id in allVendorIds) _multiVendorFilterVendorIds.Add(id);
+            else _multiVendorFilterVendorIds.Clear();
+            dropdownBtn.text = FilterSummaryText();
+            Rebuild();
+            _multiVendorPane.scrollOffset = Vector2.zero;
+        });
+        scroll.Add(selectAll);
+
         foreach (var vendor in vendors.Where(v => v != null)
                                        .OrderBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase))
         {
@@ -3249,11 +3271,20 @@ public class PurchasingPanel : IUIPanel
                     $"\n\n{deal.Pallets} pallet(s) · {cases} case(s). Add it to this vendor's order?",
                     () =>
                     {
-                        MultiSetQty(vendorId, sku.SkuId, newQty);
+                        // Add on top of whatever is already in this vendor's order (qty was read BEFORE the
+                        // dialog; re-read now so edits made while it was open aren't overwritten).
+                        MultiSetQty(vendorId, sku.SkuId, MultiQty(vendorId, sku.SkuId) + cases);
                         _multiDealDiscountByKey[DealKey(vendorId, sku.SkuId)] = deal.DiscountPercent;
                         Deals()?.ClaimDeal(vendorId);
                         UIToast.Show($"Deal added to {vendor.DisplayName}'s order.");
+
+                        // Closing the dialog should leave the player exactly where they were: same vendor
+                        // open, same scroll position (a full Rebuild() resets the scroll to the top, which
+                        // read as the order having vanished).
+                        _expandedMultiVendors.Add(vendorId);
+                        var keepScroll = _multiVendorPane.scrollOffset;
                         Rebuild();
+                        _multiVendorPane.schedule.Execute(() => _multiVendorPane.scrollOffset = keepScroll).ExecuteLater(1);
                     });
     }
 

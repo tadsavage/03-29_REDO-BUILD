@@ -1570,10 +1570,10 @@ public class SchedulerPanel : IUIPanel
     // it: the `scale` USS transform grows a box visually without changing its layout/worldBound (the
     // transform is purely a render-time effect), so a tooltip anchored off the box's un-grown
     // worldBound.yMax would land partway up the now-larger box instead of just below it.
-    private const float CellHoverGrowScale = 1.5f;
+    private const float CellHoverGrowScale = 1.17f;   // was 1.5: growth cut by 66% (Tad, 2026-10-20)
     // Open drop slots swell half as much as a booked tile (+25% instead of +50%) so moving a tile around the grid
     // doesn't make the neighbouring slots jump about.
-    private const float EmptySlotHoverGrowScale = 1.25f;
+    private const float EmptySlotHoverGrowScale = 1.08f;   // was 1.25: same 66% cut
 
     /// <summary>
     /// The bordered strip under the day switcher, split into two hemispheres by a vertical rule:

@@ -57,6 +57,8 @@ public class SystemsLogWindow : MonoBehaviour
     private static readonly Color SystemColor    = new Color(0.55f, 0.90f, 0.55f, 1f); // light green
     private static readonly Color GuardColor     = new Color(0.35f, 0.60f, 0.95f, 1f); // dark blue
     private static readonly Color WarningColor   = new Color(0.75f, 0.05f, 0.05f, 1f); // blood red
+    private static readonly Color RevenueColor   = new Color(0.15f, 1f, 0.25f, 1f);   // bright green
+    private const float RevenueFontMultiplier = 1.35f;
     private static readonly Color CelebrationColor = new Color(0.95f, 0.76f, 0.20f, 1f); // gold
 
     private static SystemsLogWindow _instance;
@@ -123,6 +125,9 @@ public class SystemsLogWindow : MonoBehaviour
 
     /// <summary>System text — welcome/status messages (e.g. the Message of the Day). Light green.</summary>
     public static void LogSystem(string message) => Log(message, SystemColor);
+
+    /// <summary>Money coming in (a shipped order paid out). Big, bold, bright green.</summary>
+    public static void LogRevenue(string message) => Log(message, RevenueColor);
 
     /// <summary>Guard shack announcements — inbound PO/door assignments, side lot, driver departures.
     /// Dark blue.</summary>
@@ -583,7 +588,7 @@ public class SystemsLogWindow : MonoBehaviour
         {
             foreach (var child in row.Children())
             {
-                if (child is Label l) l.style.fontSize = fontSize;
+                if (child is Label l) l.style.fontSize = fontSize * (l.userData is float m ? m : 1f);
             }
         }
     }
@@ -614,6 +619,12 @@ public class SystemsLogWindow : MonoBehaviour
         var msgLabel = new Label(message);
         msgLabel.style.color = messageColor;
         msgLabel.style.fontSize = fontSize;
+        if (messageColor == RevenueColor)
+        {
+            msgLabel.userData = RevenueFontMultiplier;
+            msgLabel.style.fontSize = fontSize * RevenueFontMultiplier;
+            msgLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+        }
         msgLabel.style.whiteSpace = WhiteSpace.Normal;
         msgLabel.style.flexShrink = 1;
         msgLabel.style.flexGrow = 1;

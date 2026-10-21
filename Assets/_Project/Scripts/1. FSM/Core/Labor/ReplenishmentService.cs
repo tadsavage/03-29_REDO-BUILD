@@ -21,7 +21,7 @@ namespace GameCore.Labor
 
         /// <summary>Replenish tasks start at the same priority as every other task (100) so a replenishment that cannot be done
         /// never starves putaways; the player raises priority in the Work Queue when a pick face needs filling first.</summary>
-        public const int ReplenishPriority = 100;   // 2026-10-12: every task type starts equal; the player raises priorities in the Work Queue
+        public const int ReplenishPriority = 200;   // 2026-10-20: Putaway 100 / Replenish 200 / PalletPick 300; the player adjusts in the Work Queue
 
         private static ReplenishmentService _instance;
 

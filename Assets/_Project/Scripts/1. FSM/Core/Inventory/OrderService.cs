@@ -61,7 +61,7 @@ namespace GameCore.Inventory
         /// Replenish task once the pick is Available. Below ReplenishmentService.ReplenishPriority
         /// (250)? No — deliberately ABOVE it: an empty pick face blocks a customer's trailer, which
         /// outranks keeping a pick face topped up for a picker who isn't there yet.</summary>
-        private const int PalletPickPriority = 100;   // 2026-10-12: all task types start equal
+        private const int PalletPickPriority = 300;   // 2026-10-20: Putaway 100 / Replenish 200 / PalletPick 300 (player adjusts in the Work Queue)
 
 
         public void Initialize()
@@ -245,18 +245,21 @@ namespace GameCore.Inventory
                                          $"Reach Truck resolves a source once one claims it.");
                     }
 
+                    // No pallet anywhere to fill it: this pallet pick is a SCRATCH run (Tad, 2026-10-20). It is filed
+                    // Open - nobody can claim it - and only becomes Available once stock of that SKU exists (PromoteScratches).
+                    bool isScratchPick = sourcePalletId == null;
                     var pt = _workQueue?.CreateTask(
                         WorkTaskType.PalletPick,
                         EmployeeRole.ReachTruckOperator,
                         palletId: sourcePalletId,
-                        description: $"Pallet pick — {fullPallet} cs of {li.SkuId} for {order.CustomerName}",
+                        description: $"{(isScratchPick ? WorkTask.ScratchPrefix + ": " : "")}Pallet pick — {fullPallet} cs of {li.SkuId} for {order.CustomerName}",
                         fromLocation: sourceAddress,
                         toLocation: toLocation,
                         area: area,
                         priority: PalletPickPriority,
                         orderId: order.OrderId,
                         skuId: li.SkuId);
-                    if (pt != null) pt.Status = hasLane ? WorkTaskStatus.Available : WorkTaskStatus.Open;   // no lane yet = HELD (Open): unclaimable, and AssignWaitingLanes / the Work Queue can release it
+                    if (pt != null) pt.Status = hasLane && !isScratchPick ? WorkTaskStatus.Available : WorkTaskStatus.Open;   // no lane yet = HELD (Open): unclaimable, and AssignWaitingLanes / the Work Queue can release it
                     palletTasks++;
                 }
             }
@@ -416,6 +419,9 @@ namespace GameCore.Inventory
         /// <summary>The order's live SCRATCHES task, if any.</summary>
         public WorkTask LiveScratchTask(string orderId) => LiveTasksForOrder(orderId).FirstOrDefault(t => t.IsScratch);
 
+        /// <summary>Every live SCRATCHES task of the order: the case-pick deficit list and/or pallet picks nobody had stock for.</summary>
+        public List<WorkTask> LiveScratchTasks(string orderId) => LiveTasksForOrder(orderId).Where(t => t.IsScratch).ToList();
+
         /// <summary>
         /// A selector finished its trip with loose cases still owed (a pick face ran out and nothing else was reachable): the
         /// deficit becomes a SCRATCHES pick list (Tad, 2026-10-18). It is treated like a brand new pick list: the same
@@ -461,6 +467,49 @@ namespace GameCore.Inventory
             return false;
         }
 
+        /// <summary>
+        /// A scratch pallet pick with no staging lane yet gets one automatically (Tad, 2026-10-20): the order's own lanes
+        /// first (at its door), then the nearest lane with room - the same search a normal release uses. The scratch stays
+        /// Open (it waits for stock, not for a lane); this only gives it its destination so it can go out the moment a
+        /// pallet exists. With no lane anywhere it is left as is and retried on the next tick.
+        /// </summary>
+        private void AssignLanesToScratchPicks()
+        {
+            if (_workQueue == null) return;
+            var pending = _workQueue.Tasks.Where(t => t.IsScratch && t.Type == WorkTaskType.PalletPick &&
+                                                     t.Status == WorkTaskStatus.Open && string.IsNullOrEmpty(t.ToLocation)).ToList();
+            if (pending.Count == 0) return;
+            ServiceLocator.TryGet<InventoryService>(out var inv);
+
+            foreach (var t in pending)
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == t.OrderId);
+                if (order == null || !order.ReleasedToFloor) continue;
+
+                (int door, string lane) chosen = default;
+                bool found = false;
+                foreach (var l in order.AllStagingLanes())
+                    if (FreeRoom(l.door, l.lane) > 0) { chosen = l; found = true; break; }
+                if (!found && StagingLaneAssignmentService.TryFindLanesForOrder(this, inv, order.AssignedDoorNumber,
+                        order.CustomerId, 1, null, null, out var fresh) && fresh != null && fresh.Count > 0)
+                {
+                    chosen = fresh[0];
+                    found = true;
+                }
+                if (!found) continue;
+
+                t.AssignToLocation($"{chosen.door}{chosen.lane}");
+                if (string.IsNullOrEmpty(order.AssignedLane))
+                {
+                    order.StagingDoorNumber = chosen.door;
+                    order.AssignedLane = chosen.lane;
+                    if (order.AssignedDoorNumber <= 0) order.AssignedDoorNumber = chosen.door;
+                }
+                else if (!(order.EffectiveStagingDoor == chosen.door && order.AssignedLane == chosen.lane))
+                    order.AddOverflowLane(chosen.door, chosen.lane);
+            }
+        }
+
         /// <summary>Open SCRATCHES lists become Available once replenishment has put stock where a selector can reach it.</summary>
         private void PromoteScratches()
         {
@@ -469,6 +518,16 @@ namespace GameCore.Inventory
             {
                 var order = _activeOrders.FirstOrDefault(o => o.OrderId == t.OrderId);
                 if (order == null) { t.Status = WorkTaskStatus.Cancelled; continue; }
+                if (t.Type == WorkTaskType.PalletPick)
+                {
+                    // A pallet-pick scratch waits for ANY pallet of its SKU (reserve, pick face or a staged inbound pallet)
+                    // and for a lane to put it in. The reach truck binds the actual source when it claims it.
+                    if (string.IsNullOrEmpty(t.ToLocation) || _inventoryService == null) continue;
+                    if (ReplenishmentService.TryFindStagedPalletAwaitingPutaway(_workQueue, _inventoryService, t.SkuId, out _, out _)
+                        || ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, t.SkuId, out _))
+                        t.Status = WorkTaskStatus.Available;
+                    continue;
+                }
                 if (ScratchCanBePicked(order)) t.Status = WorkTaskStatus.Available;
             }
         }
@@ -1142,7 +1201,7 @@ namespace GameCore.Inventory
                     // mid-flight toward the old lane and keeps its destination.
                     if (t.Status != WorkTaskStatus.Open && t.Status != WorkTaskStatus.Available) continue;
                     if (t.Type == WorkTaskType.PalletPick) t.AssignToLocation($"{stagingDoor}{lane}");
-                    if (t.Status == WorkTaskStatus.Open) t.Status = WorkTaskStatus.Available;
+                    if (t.Status == WorkTaskStatus.Open && !t.IsScratch) t.Status = WorkTaskStatus.Available;   // a scratch waits for stock, not a lane
                 }
             }
         }
@@ -1183,6 +1242,7 @@ namespace GameCore.Inventory
         {
             if (++_waitingLaneTick % 3 != 0) return;
             AssignWaitingLanes();
+            AssignLanesToScratchPicks();
             PromoteScratches();
             ReclaimOrphanedFreight();
             HealPhantomStagedOrders();
@@ -1618,12 +1678,13 @@ namespace GameCore.Inventory
                 if (somethingReleased) heldCases = CasesOwedByHeldWork(order, out impact.TasksCancelled);
             }
             // A SCRATCHES list nobody has started is cut the same way: its short cases are what the customer won't get.
-            var scratchTask = LiveScratchTask(order.OrderId);
-            if (scratchTask != null && scratchTask.Status != WorkTaskStatus.Assigned)
-            {
+            // Open or Available scratches can be cancelled (an Assigned one is already on its way and will count itself down).
+            var scratchTasks = LiveScratchTasks(order.OrderId).Where(t => t.Status != WorkTaskStatus.Assigned).ToList();
+            if (scratchTasks.Any(t => t.Type == WorkTaskType.OrderSelect))
                 foreach (var li in order.LineItems) heldCases += SelectableRemaining(order, li);
-                impact.TasksCancelled++;
-            }
+            foreach (var t in scratchTasks.Where(t => t.Type == WorkTaskType.PalletPick))
+                heldCases += FullPalletCases(t.SkuId);
+            impact.TasksCancelled += scratchTasks.Count;
 
             var leftOnDock = CuttableLanePallets(order, out int caseBuiltLeft);
             bool loadingOrLoaded = order.Status == OrderData.OrderStatus.Loading || order.Status == OrderData.OrderStatus.Loaded;
@@ -1757,8 +1818,8 @@ namespace GameCore.Inventory
             if (!impact.Allowed) return false;
 
             var heldNow = HeldTasks(order).ToList();
-            var scratchNow = LiveScratchTask(order.OrderId);
-            if (scratchNow != null && scratchNow.Status != WorkTaskStatus.Assigned) heldNow.Add(scratchNow);
+            foreach (var sc in LiveScratchTasks(order.OrderId))
+                if (sc.Status != WorkTaskStatus.Assigned && !heldNow.Contains(sc)) heldNow.Add(sc);
             var unliftedHeld = heldNow.Where(t => t.Status != WorkTaskStatus.Assigned).ToList();   // captured BEFORE the statuses change
             foreach (var task in heldNow)
             {
@@ -2288,25 +2349,10 @@ namespace GameCore.Inventory
             return ids.Count;
         }
 
+        private readonly HashSet<string> _readyForCloseNotified = new HashSet<string>();
+
         public int AutoCloseLoadedOrders()
         {
-            // A LOADED order whose remaining pallet picks have no stock anywhere in the building can never get
-            // them: those picks sat Available forever, so the order never auto-closed and its trailer waited at
-            // the door indefinitely (2026-10-17 soak test, OG5169). It ships short, exactly like a case pick
-            // with no stock does; QuantityPicked already bills only what went on the trailer.
-            if (_workQueue != null && _inventoryService != null)
-                foreach (var o in _activeOrders.Where(o => o.Status == OrderData.OrderStatus.Loaded).ToList())
-                    foreach (var t in LiveTasksForOrder(o.OrderId).Where(t => t.Type == WorkTaskType.PalletPick &&
-                                                                              t.Status != WorkTaskStatus.Assigned).ToList())
-                    {
-                        if (!string.IsNullOrEmpty(t.FromLocation)) continue;   // a source is bound: it can still come
-                        if (GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, t.SkuId, out _)) continue;
-                        if (GameCore.Labor.ReplenishmentService.TryFindStagedPalletAwaitingPutaway(_workQueue, _inventoryService, t.SkuId, out _, out _)) continue;
-                        t.Status = WorkTaskStatus.Cancelled;
-                        t.AssignedToEmployeeGuid = null;
-                        Debug.LogWarning($"[OrderService] Order {o.OrderNumber} is loaded but no pallet of {t.SkuId} exists to fill its pallet pick — shipping short without it.");
-                    }
-
             var ready = _activeOrders
                 .Where(o => o.Status == OrderData.OrderStatus.Loaded
                             && CanCloseOut(o, out _)
@@ -2322,6 +2368,21 @@ namespace GameCore.Inventory
                 string number = order.OrderNumber ?? order.OrderId;
                 int door = order.AssignedDoorNumber;
 
+                // An order the player cut short (Cancel Remaining / scratches) waits for the player's green light:
+                // everything loadable is on the truck, the driver stands by until Close Out is pressed. Buzz once.
+                if (order.CancelledCases > 0)
+                {
+                    if (_readyForCloseNotified.Add(order.OrderId))
+                    {
+                        string msg = $"All of the quantities for order {number} have been filled. You can close the order out in Door {door}.";
+                        SystemsLogWindow.LogWarning(msg);
+                        UIToast.Show(msg, 4f);
+                        AudioManager.Play("NegotiationFail");
+                        AudioManager.Play("NegotiationFail");
+                    }
+                    continue;
+                }
+
                 if (!CloseOutOrders(new List<string> { order.OrderId }, out int billed)) continue;
                 shipped++;
 
@@ -2330,7 +2391,7 @@ namespace GameCore.Inventory
                 bool driverDeparting = !_activeOrders.Any(o => o.AssignedDoorNumber == door &&
                     (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded));
 
-                SystemsLogWindow.Log(driverDeparting
+                SystemsLogWindow.LogRevenue(driverDeparting
                     ? $"Order {number} has finished loading and the driver has departed — shipped, ${billed:N0} received."
                     : $"Order {number} has finished loading — shipped, ${billed:N0} received. Driver is waiting on the rest of the load.");
                 ShippedFanfare.Show(number, billed);

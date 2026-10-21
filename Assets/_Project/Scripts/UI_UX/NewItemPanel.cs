@@ -76,10 +76,25 @@ public class NewItemPanel : IUIPanel
     private readonly DropdownField _positionDropdown;
     private readonly Button _assignButton;
     private readonly Button _goToPickButton;
-    private readonly Button _autoSlotButton;
+    private readonly Button _batchSlotButton;
     private readonly Button _assignExtraSlotBtn;
     private readonly Button _autoAssignExtraSlotBtn;
     private readonly Button _moveSlotBtn;
+
+    // ── Auto-slot animation + batch state ────────────────────────────────────
+    // Timings are real milliseconds (UI Toolkit scheduler), so they hold while the game is paused.
+    private const float SlotBulgeMs    = 170f;   // card swells
+    private const float SlotVanishMs   = 260f;   // then shrinks and fades
+    private const float SlotCollapseMs = 190f;   // then the gap closes
+    private const float SlotPeakScale  = 1.07f;
+    private const long  BatchLeadInMs  = 120;    // pause before each card in a batch starts
+    private const long  BatchGapMs     = 380;    // pause between one card finishing and the next starting
+    private readonly Dictionary<string, VisualElement> _cardBySku = new();
+    private readonly Queue<string> _batchQueue = new();
+    private bool _batchRunning;
+    private int _slotAnimations;                 // cards currently animating (blocks the periodic list refresh)
+    private int _batchTotal, _batchDone, _batchFailed;
+    private SlotTerminalFx _batchTerminal;
 
     private bool _visible;
     private bool _onNewItemTab = true;
@@ -100,7 +115,7 @@ public class NewItemPanel : IUIPanel
             out _newItemTabContent, out _slotterTabContent,
             out _itemsScroll, out _slottedItemsScroll,
             out _aisleDropdown, out _bayDropdown, out _positionDropdown,
-            out _assignButton, out _goToPickButton, out _autoSlotButton,
+            out _assignButton, out _goToPickButton, out _batchSlotButton,
             out _assignExtraSlotBtn, out _autoAssignExtraSlotBtn, out _moveSlotBtn);
         root.Add(_overlay);
         Hide();
@@ -147,8 +162,10 @@ public class NewItemPanel : IUIPanel
     {
         if (!_visible) return;
 
-        // Periodically refresh to catch new items arriving at the dock
+        // Periodically refresh to catch new items arriving at the dock. Not while a slotting animation is playing:
+        // the refresh rebuilds every card, which would pull the animating one out from under its own tween.
         float now = Time.time;
+        if (_batchRunning || _slotAnimations > 0) return;
         if (now - _lastRefreshTime >= RefreshInterval)
         {
             _lastRefreshTime = now;
@@ -283,6 +300,7 @@ public class NewItemPanel : IUIPanel
     private void RebuildItemsList()
     {
         _itemsScroll.Clear();
+        _cardBySku.Clear();
 
         if (_itemsNeedingSlots.Count == 0)
         {
@@ -290,6 +308,7 @@ public class NewItemPanel : IUIPanel
             ApplyFont(empty, size: 13);
             empty.style.color = new StyleColor(ColSubtleText);
             _itemsScroll.Add(empty);
+            UpdateBatchButtonState();
             return;
         }
 
@@ -298,6 +317,7 @@ public class NewItemPanel : IUIPanel
             var pallet = _itemsNeedingSlots[i];
             _itemsScroll.Add(BuildItemButton(pallet, i));
         }
+        UpdateBatchButtonState();
     }
 
     private void RebuildSlottedItemsList()
@@ -451,6 +471,25 @@ public class NewItemPanel : IUIPanel
 
         button.Add(pickSlotRow);
 
+        // Auto Slot: centred in the lower part of the card. Slots THIS item into the first pick slot it fits.
+        var autoSlotRow = new VisualElement();
+        autoSlotRow.style.flexDirection = FlexDirection.Row;
+        autoSlotRow.style.justifyContent = Justify.Center;
+        autoSlotRow.style.marginBottom = 10;
+
+        var autoSlotBtn = StyleOrangeButton(new Button { text = "Auto Slot" });
+        autoSlotBtn.style.minWidth = 220;
+        autoSlotBtn.style.minHeight = 36;
+        autoSlotBtn.SetEnabled(!_batchRunning);
+        string cardSku = pallet.SkuId;
+        autoSlotBtn.RegisterCallback<ClickEvent>(evt =>
+        {
+            evt.StopPropagation();   // don't also fire the row's own "select this item" click
+            AutoSlotOne(cardSku);
+        });
+        autoSlotRow.Add(autoSlotBtn);
+        button.Add(autoSlotRow);
+
         // Details row at bottom
         var detailsRow = new VisualElement();
         detailsRow.style.flexDirection = FlexDirection.Row;
@@ -489,6 +528,11 @@ public class NewItemPanel : IUIPanel
         // Restore it explicitly after the sweep.
         button.Query<VisualElement>().ForEach(child => child.pickingMode = PickingMode.Ignore);
         button.pickingMode = PickingMode.Position;
+        autoSlotBtn.pickingMode = PickingMode.Position;   // the one child that must stay clickable
+
+        // The animation needs the card itself, and the "Pick Slot:" value to show the address that was just assigned.
+        _cardBySku[pallet.SkuId] = button;
+        button.userData = pickSlotValue;
 
         // ClickEvent (not PointerDownEvent) -- it only fires after Unity's own press+release
         // click gesture completes and releases this button's pointer capture. PointerDownEvent
@@ -791,7 +835,7 @@ public class NewItemPanel : IUIPanel
 
         _assignButton.SetEnabled(allSelected);
         _goToPickButton.SetEnabled(allSelected);
-        _autoSlotButton.SetEnabled(_selectedItem != null);
+        UpdateBatchButtonState();
 
         // Slotter tab: enable action buttons when a slotted item is selected
         bool slottedItemSelected = _selectedSlottedItem != null;
@@ -904,32 +948,204 @@ public class NewItemPanel : IUIPanel
         UIToast.Show("⚠ Move Slot not yet implemented");
     }
 
-    private void OnAutoSlotClicked()
+    // ── Auto slot (per card + batch) ─────────────────────────────────────────
+
+    /// <summary>First unassigned pick slot whose rack is tall enough for this SKU's pallet; assigns it.</summary>
+    private bool TryAutoSlot(string skuId, out string address, out float requiredHeight)
     {
-        if (_selectedItem == null) return;
+        address = null; requiredHeight = 0f;
+        var sku = _skuChoices.FirstOrDefault(s => s.SkuId == skuId);
+        if (sku == null) return false;
 
-        var sku = _skuChoices.FirstOrDefault(s => s.SkuId == _selectedItem.SkuId);
-        if (sku == null) return;
-
-        // Find the first available pick slot that's large enough
-        var requiredHeight = sku.PltHeight;
-        var availableSlot = SlotRegistry.PickSlots
+        requiredHeight = sku.PltHeight;
+        float need = requiredHeight;
+        var slot = SlotRegistry.PickSlots
             .Where(s => s.Rack != null && SlotAssignmentService.GetSku(s.Address) == null)
-            .FirstOrDefault(s => s.Rack.data.objHeight >= requiredHeight);
+            .FirstOrDefault(s => s.Rack.data.objHeight >= need);
+        if (slot.Rack == null) return false;
 
-        if (availableSlot.Rack == null)
+        SlotAssignmentService.Assign(slot.Address, skuId);
+        address = slot.Address;
+        return true;
+    }
+
+    /// <summary>The Auto Slot button on a single card.</summary>
+    private void AutoSlotOne(string skuId)
+    {
+        if (_batchRunning) return;
+        _cardBySku.TryGetValue(skuId, out var card);
+
+        if (!TryAutoSlot(skuId, out var address, out var height))
         {
-            UIToast.Show($"⚠ No Available Slots of {requiredHeight:F2}m size");
+            UIToast.Show($"⚠ No Available Slots of {height:F2}m size");
+            if (card != null) FlashFail(card);
             return;
         }
 
-        // Auto-assign to this slot
-        SlotAssignmentService.Assign(availableSlot.Address, _selectedItem.SkuId);
-        UIToast.Show($"✓ Auto-slotted: {availableSlot.Address}");
+        UIToast.Show($"✓ Auto-slotted: {address}");
+        if (_selectedItem != null && _selectedItem.SkuId == skuId) _selectedItem = null;
 
-        // Reset and rebuild
+        if (card == null) { Rebuild(); return; }
+        if (card.userData is Label pickValue) pickValue.text = address;
+        AnimateSlotted(card, () =>
+        {
+            if (_slotAnimations == 0 && !_batchRunning) Rebuild();
+        });
+    }
+
+    private void OnBatchAutoSlotClicked()
+    {
+        if (_batchRunning || _itemsNeedingSlots.Count == 0) return;
+
+        _batchQueue.Clear();
+        foreach (var p in _itemsNeedingSlots)
+            if (!_batchQueue.Contains(p.SkuId)) _batchQueue.Enqueue(p.SkuId);
+
+        _batchTotal = _batchQueue.Count;
+        _batchDone = _batchFailed = 0;
+        _batchRunning = true;
+        var modalEl = _overlay.Q<VisualElement>("new-item-modal");
+        _batchTerminal = modalEl != null ? SlotTerminalFx.Open(_overlay, modalEl) : null;
+        RebuildItemsList();   // re-enable state on the per-card buttons
+        UpdateBatchButtonState();
+        _overlay.schedule.Execute(BatchStep).StartingIn(BatchLeadInMs);
+    }
+
+    private void BatchStep()
+    {
+        if (!_batchRunning) return;
+        if (_batchQueue.Count == 0) { FinishBatch(); return; }
+
+        string skuId = _batchQueue.Dequeue();
+        _cardBySku.TryGetValue(skuId, out var card);
+        if (card != null) _itemsScroll.ScrollTo(card);
+
+        if (TryAutoSlot(skuId, out var address, out _))
+        {
+            _batchDone++;
+            string itemName = _skuChoices.FirstOrDefault(k => k.SkuId == skuId)?.ItemDescription ?? skuId;
+            _batchTerminal?.Announce($"{itemName} slotted in {address}");
+            if (card != null && card.userData is Label pickValue) pickValue.text = address;
+            UpdateBatchButtonState();
+            if (card != null)
+                AnimateSlotted(card, () => _overlay.schedule.Execute(BatchStep).StartingIn(BatchGapMs));
+            else
+                _overlay.schedule.Execute(BatchStep).StartingIn(BatchGapMs);
+        }
+        else
+        {
+            _batchFailed++;
+            UpdateBatchButtonState();
+            if (card != null) FlashFail(card);
+            _overlay.schedule.Execute(BatchStep).StartingIn(BatchGapMs);
+        }
+    }
+
+    private void FinishBatch()
+    {
         _selectedItem = null;
-        Rebuild();
+        string summary = _batchFailed == 0
+            ? $"✓ Batch auto slot: {_batchDone} item(s) slotted"
+            : $"⚠ Batch auto slot: {_batchDone} slotted, {_batchFailed} had no slot big enough";
+
+        void Done()
+        {
+            _batchRunning = false;
+            _batchTerminal = null;
+            UIToast.Show(summary);
+            Rebuild();
+        }
+
+        if (_batchTerminal != null && _batchFailed == 0 && _batchDone > 0)
+            _batchTerminal.Finish("All items slotted successfully!", Done);
+        else
+        {
+            _batchTerminal?.Close();
+            Done();
+        }
+    }
+
+    private void UpdateBatchButtonState()
+    {
+        if (_batchSlotButton == null) return;
+        if (_batchRunning)
+        {
+            _batchSlotButton.text = $"Slotting... {_batchDone + _batchFailed} / {_batchTotal}";
+            _batchSlotButton.SetEnabled(false);
+            return;
+        }
+        _batchSlotButton.text = "Batch Auto Slot";
+        _batchSlotButton.SetEnabled(_itemsNeedingSlots.Count > 0);
+    }
+
+    /// <summary>Quick swell with a green tint, then shrink + fade, then the gap closes and the card is removed.</summary>
+    private void AnimateSlotted(VisualElement card, System.Action onDone)
+    {
+        _slotAnimations++;
+        card.pickingMode = PickingMode.Ignore;
+
+        float h = card.resolvedStyle.height;
+        if (float.IsNaN(h) || h < 1f) h = 100f;
+        card.style.minHeight = h;
+        card.style.height = h;
+        card.style.overflow = Overflow.Hidden;
+        card.style.flexShrink = 0;
+        var baseColor = card.resolvedStyle.backgroundColor;
+        var tint = new Color(0.30f, 0.62f, 0.38f, 1f);
+
+        float start = Time.realtimeSinceStartup;
+        float total = (SlotBulgeMs + SlotVanishMs + SlotCollapseMs) / 1000f;
+        float mBottom = card.resolvedStyle.marginBottom, mTop = card.resolvedStyle.marginTop;
+        float pTop = card.resolvedStyle.paddingTop, pBottom = card.resolvedStyle.paddingBottom;
+
+        IVisualElementScheduledItem item = null;
+        item = card.schedule.Execute(() =>
+        {
+            float t = (Time.realtimeSinceStartup - start) * 1000f;
+            if (t < SlotBulgeMs)
+            {
+                float k = t / SlotBulgeMs;
+                float e = Mathf.Sin(k * Mathf.PI * 0.5f);
+                float s = Mathf.Lerp(1f, SlotPeakScale, e);
+                card.style.scale = new Scale(new Vector3(s, s, 1f));
+                card.style.backgroundColor = new StyleColor(Color.Lerp(baseColor, tint, e));
+            }
+            else if (t < SlotBulgeMs + SlotVanishMs)
+            {
+                float k = (t - SlotBulgeMs) / SlotVanishMs;
+                float s = Mathf.Lerp(SlotPeakScale, 0.8f, k);
+                card.style.scale = new Scale(new Vector3(s, s, 1f));
+                card.style.opacity = 1f - k;
+                card.style.backgroundColor = new StyleColor(tint);
+            }
+            else if (t < total * 1000f)
+            {
+                float k = (t - SlotBulgeMs - SlotVanishMs) / SlotCollapseMs;
+                float rest = 1f - k;
+                card.style.opacity = 0f;
+                card.style.height = h * rest;
+                card.style.minHeight = 0;
+                card.style.marginTop = mTop * rest;
+                card.style.marginBottom = mBottom * rest;
+                card.style.paddingTop = pTop * rest;
+                card.style.paddingBottom = pBottom * rest;
+            }
+            else
+            {
+                item.Pause();
+                card.RemoveFromHierarchy();
+                _slotAnimations--;
+                onDone?.Invoke();
+            }
+        }).Every(16);
+    }
+
+    /// <summary>Brief red flash on a card that found no slot big enough.</summary>
+    private void FlashFail(VisualElement card)
+    {
+        var baseColor = card.resolvedStyle.backgroundColor;
+        card.style.backgroundColor = new StyleColor(new Color(0.65f, 0.22f, 0.20f, 1f));
+        card.schedule.Execute(() => card.style.backgroundColor = new StyleColor(baseColor)).StartingIn(350);
     }
 
     private void OnAssignClicked()
@@ -971,7 +1187,7 @@ public class NewItemPanel : IUIPanel
         out VisualElement newItemTabContent, out VisualElement slotterTabContent,
         out ScrollView itemsScroll, out ScrollView slottedItemsScroll,
         out DropdownField aisleDropdown, out DropdownField bayDropdown, out DropdownField positionDropdown,
-        out Button assignButton, out Button goToPickButton, out Button autoSlotButton,
+        out Button assignButton, out Button goToPickButton, out Button batchSlotButton,
         out Button assignExtraSlotBtn, out Button autoAssignExtraSlotBtn, out Button moveSlotBtn)
     {
         var overlay = new VisualElement { name = "new-item-overlay" };
@@ -997,7 +1213,7 @@ public class NewItemPanel : IUIPanel
             modal.style.borderBottomLeftRadius = modal.style.borderBottomRightRadius = 16;
         modal.style.paddingTop = 0; modal.style.paddingBottom = 14;
         modal.style.paddingLeft = 16; modal.style.paddingRight = 16;
-        modal.style.height = 760;
+        modal.style.height = 820;
         modal.style.minHeight = 700;
         modal.style.maxHeight = StyleKeyword.None;
         modal.style.flexDirection = FlexDirection.Column;
@@ -1194,14 +1410,6 @@ public class NewItemPanel : IUIPanel
         assignButton.style.minHeight = 48;
         buttonRow.Add(assignButton);
 
-        autoSlotButton = new Button(OnAutoSlotClicked) { text = "Auto-Slot Selected Item" };
-        autoSlotButton.style.flexGrow = 1;
-        autoSlotButton.style.marginRight = 8;
-        autoSlotButton.SetEnabled(false);
-        autoSlotButton.style.minHeight = 48;
-        StyleGrayBlueButton(autoSlotButton);
-        buttonRow.Add(autoSlotButton);
-
         goToPickButton = StyleBlueButton(new Button(OnGoToPickClicked) { text = "Go to Pick" });
         goToPickButton.style.flexGrow = 1;
         goToPickButton.SetEnabled(false);
@@ -1209,6 +1417,15 @@ public class NewItemPanel : IUIPanel
         buttonRow.Add(goToPickButton);
 
         newItemTabContent.Add(buttonRow);
+
+        // Batch Auto Slot: slots every item on the list, one card at a time.
+        batchSlotButton = new Button(OnBatchAutoSlotClicked) { text = "Batch Auto Slot" };
+        batchSlotButton.style.flexShrink = 0;
+        batchSlotButton.style.minHeight = 52;
+        batchSlotButton.style.marginTop = 8;
+        batchSlotButton.SetEnabled(false);
+        StyleGrayBlueButton(batchSlotButton);
+        newItemTabContent.Add(batchSlotButton);
 
         modal.Add(newItemTabContent);
 

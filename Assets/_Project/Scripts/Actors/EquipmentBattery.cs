@@ -1166,7 +1166,7 @@ public class EquipmentBattery : MonoBehaviour
         if (_cam == null) _cam = Camera.main;
         if (_cam == null) return;
         var ray = _cam.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (!Physics.Raycast(ray, out var hit)) return;
+        if (!WorldClickPick.Raycast(ray, out var hit)) return;
         if (hit.collider.GetComponentInParent<EquipmentBattery>() != this) return;
         EquipmentBatteryPanels.Instance.Toggle(this);
     }

@@ -80,7 +80,7 @@ public class MHEOperatorSlot : MonoBehaviour
         if (_mainCamera == null) return;
 
         Ray ray = _mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (!Physics.Raycast(ray, out RaycastHit hit) || hit.collider.gameObject != gameObject) return;
+        if (!WorldClickPick.Hits(ray, transform)) return;
 
         if (_employeeUI == null) _employeeUI = FindAnyObjectByType<EmployeeInfoUI>();
         if (_employeeUI == null || CurrentOperator.Record == null) return;

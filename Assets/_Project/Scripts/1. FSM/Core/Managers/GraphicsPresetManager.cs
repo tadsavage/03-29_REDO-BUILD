@@ -119,6 +119,7 @@ public class GraphicsPresetManager : MonoBehaviour
         SetPipeline(urpUltra);
         SetVolume(profileUltra);
         SetSceneBlurVolumes(true);
+        RenderSettings.fog = true;
 
         QualitySettings.lodBias                  = 2.0f;
         QualitySettings.anisotropicFiltering     = AnisotropicFiltering.ForceEnable;
@@ -138,6 +139,7 @@ public class GraphicsPresetManager : MonoBehaviour
         SetPipeline(urpGood);
         SetVolume(profileGood);
         SetSceneBlurVolumes(true);
+        RenderSettings.fog = true;
 
         QualitySettings.lodBias                  = 1.5f;
         QualitySettings.anisotropicFiltering     = AnisotropicFiltering.Enable;
@@ -156,6 +158,7 @@ public class GraphicsPresetManager : MonoBehaviour
         SetPipeline(urpToaster);
         SetVolume(profileToaster);
         SetSceneBlurVolumes(false);   // no depth-of-field blur anywhere on Toaster
+        RenderSettings.fog = false;   // no distance haze on Toaster (Tad, 2026-10-20)
 
         QualitySettings.lodBias                  = 0.7f;
         // Anisotropic filtering is nearly free on any modern GPU; disabling it

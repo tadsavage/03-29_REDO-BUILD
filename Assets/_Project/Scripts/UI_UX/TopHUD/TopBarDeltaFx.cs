@@ -62,7 +62,8 @@ public class TopBarDeltaFx
     /// Use <paramref name="money"/> true for dollar amounts, false for plain numbers (reputation).</summary>
     public void Notify(VisualElement anchor, float delta, bool money)
     {
-        if (anchor == null || Mathf.Approximately(delta, 0f)) return;
+        // Only gains are shown (green). Red/negative pop-ups were clutter - costs trickle out every minute.
+        if (anchor == null || delta <= 0f) return;
 
         if (!_pending.TryGetValue(anchor, out var p))
         {

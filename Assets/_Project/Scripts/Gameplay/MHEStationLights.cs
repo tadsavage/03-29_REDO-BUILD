@@ -2,10 +2,10 @@ using UnityEngine;
 
 /// <summary>
 /// The three lamps on an MHE charging station (MHE_Station's child meshes DeadBattery / Charging / FullCharge),
-/// lit by the battery of whatever machine is parked on it (Tad, 2026-10-17):
-///   • RED    - the machine is (nearly) dead: within one game hour of a flat battery.
-///   • YELLOW - charging.
-///   • GREEN  - fully charged.
+/// lit by the charge level of whatever machine is parked on it (Tad, 2026-10-20):
+///   • RED    - under 50% charge.
+///   • YELLOW - 50% or more, still charging.
+///   • GREEN  - 100%, fully charged.
 ///   • all off - nothing on the charger.
 /// A lamp is switched off by swapping its authored glowing material for one shared dark "off" material (the mesh
 /// stays, so the post never shows a hole) and switched on by putting the authored material back. (It used to black
@@ -16,6 +16,8 @@ using UnityEngine;
 public class MHEStationLights : MonoBehaviour
 {
     private const string OffMaterialPath = "Resource_SOs/MHE_LampOff";
+    /// <summary>Charge fraction below which the lamp is red (0.5 = 50%).</summary>
+    private const float RedBelow = 0.5f;
 
     private Renderer _red, _yellow, _green;
     private PalletJackParkingSpot _spot;
@@ -63,9 +65,10 @@ public class MHEStationLights : MonoBehaviour
         foreach (var b in EquipmentBattery.All)
             if (b != null && _spot != null && b.Station == _spot) { docked = b; break; }
 
+        // By the parked machine's charge level (Tad, 2026-10-20): under 50% red, 50% or more yellow, full green.
         int state = docked == null ? 0
                   : docked.IsFull ? 3
-                  : docked.HoursLeft <= EquipmentBattery.LowHours ? 1
+                  : docked.Charge01 < RedBelow ? 1
                   : 2;
         if (state == _state) return;
         _state = state;

@@ -191,14 +191,16 @@ public class UIToast : MonoBehaviour
         if (_toast == null || _toast.panel == null) return;
 
         // Convert screen center pixels → panel coordinate space (handles DPI / scale)
-        var panelCenter = RuntimePanelUtils.ScreenToPanel(
+        // Horizontally centred; vertically parked just above the bottom HUD (tabs + bar) so it stays out of the
+        // way of the play area (Tad, 2026-10-20).
+        var panelBottomCentre = RuntimePanelUtils.ScreenToPanel(
             _toast.panel,
-            new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
+            new Vector2(Screen.width * 0.5f, 0f));   // Screen y 0 is the bottom edge
 
         float w = _toast.resolvedStyle.width;
         float h = _toast.resolvedStyle.height;
 
-        _toast.style.left = panelCenter.x - w * 0.5f;
-        _toast.style.top  = panelCenter.y - h * 0.5f;
+        _toast.style.left = panelBottomCentre.x - w * 0.5f;
+        _toast.style.top  = panelBottomCentre.y - BuildMenuUI.BottomHudReservedHeight - h - 12f;
     }
 }

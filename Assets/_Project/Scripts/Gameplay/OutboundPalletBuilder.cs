@@ -26,6 +26,9 @@ public class OutboundPalletBuilder : MonoBehaviour
     private const float CrookedCaseDegrees = 5f;
     private const float PositionJitterMeters = 0.015f;
 
+    // TEMP-DIAG-PALLETSPAWN
+    private void Awake() { Debug.LogWarning($"[PALLETSPAWN] {name} at {transform.position} {System.Environment.StackTrace.Replace('\n', '|')}"); }
+
     private Transform _loadRoot;
     private string _currentSkuId;
     private List<(Vector3 pos, float rot)> _currentPattern;

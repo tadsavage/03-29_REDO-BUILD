@@ -43,7 +43,7 @@ namespace GameCore.Labor
 
         /// <summary>A SCRATCHES task: the deficit left when a selector ran out of stock mid-order, picked as a brand new pick
         /// list that must be done before the truck leaves (unless the player cancels the rest of the order).</summary>
-        public bool IsScratch => Type == WorkTaskType.OrderSelect && Description != null && Description.StartsWith(ScratchPrefix);
+        public bool IsScratch => (Type == WorkTaskType.OrderSelect || Type == WorkTaskType.PalletPick) && Description != null && Description.StartsWith(ScratchPrefix);
         public WorkTaskStatus Status { get; set; } = WorkTaskStatus.Available;
         public string AssignedToEmployeeGuid { get; set; }  // for persistence and tracking
 

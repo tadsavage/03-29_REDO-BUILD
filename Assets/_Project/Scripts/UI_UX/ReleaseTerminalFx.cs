@@ -17,7 +17,7 @@ public static class ReleaseTerminalFx
     private const int SpewMs = 3000;
     private const int TickMs = 35;
     private const int GrowMs = 350;
-    private const int HoldMs = 3000;
+    private const int HoldMs = 1500;
     private const int VisibleLines = 11;
 
     private static readonly Color Yellow = new Color(1f, 0.92f, 0.20f);
@@ -150,7 +150,7 @@ public static class ReleaseTerminalFx
         }).ExecuteLater(SpewMs);
     }
 
-    private static string MakeJibber(System.Random r)
+    internal static string MakeJibber(System.Random r)
     {
         string s = Jibber[r.Next(Jibber.Length)];
         var sb = new StringBuilder(s);
