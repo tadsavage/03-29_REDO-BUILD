@@ -43,7 +43,7 @@ MonoBehaviour:
   m_ProbeVolumeSHBands: 1
   m_MainLightRenderingMode: 1
   m_MainLightShadowsSupported: 1
-  m_MainLightShadowmapResolution: 512
+  m_MainLightShadowmapResolution: 1024
   m_AdditionalLightsRenderingMode: 1
   m_AdditionalLightsPerObjectLimit: 2
   m_AdditionalLightShadowsSupported: 0
@@ -54,8 +54,8 @@ MonoBehaviour:
   m_ReflectionProbeBlending: 0
   m_ReflectionProbeBoxProjection: 0
   m_ReflectionProbeAtlas: 0
-  m_ShadowDistance: 28
-  m_ShadowCascadeCount: 1
+  m_ShadowDistance: 45
+  m_ShadowCascadeCount: 2
   m_Cascade2Split: 0.42857143
   m_Cascade3Split: {x: 0.14285715, y: 0.2857143}
   m_Cascade4Split: {x: 0.12299999, y: 0.2926, z: 0.53599995}
@@ -92,7 +92,7 @@ MonoBehaviour:
   m_MaxPixelLights: 0
   m_ShadowAtlasResolution: 1024
   m_VolumeFrameworkUpdateMode: 0
-  m_VolumeProfile: {fileID: 11400000, guid: 10fc4df2da32a41aaa32d77bc913491c, type: 2}
+  m_VolumeProfile: {fileID: 11400000, guid: 693744102bc51624a938cec736f6f4db, type: 2}
   apvScenesData:
     obsoleteSceneBounds:
       m_Keys: []

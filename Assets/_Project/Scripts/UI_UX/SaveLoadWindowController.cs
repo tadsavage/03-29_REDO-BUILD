@@ -37,6 +37,7 @@ namespace SaveLoadSystem
         private Dictionary<int, Texture2D> loadedThumbnails = new();
 
         private bool eventsRegistered = false;
+        private SaveManager _subscribedManager;
 
         public bool IsOpen => isOpen;
 
@@ -96,10 +97,29 @@ namespace SaveLoadSystem
             confirmYesButton.RegisterCallback<ClickEvent>(OnConfirmYesClicked);
             confirmNoButton.RegisterCallback<ClickEvent>(OnConfirmNoClicked);
 
-            if (SaveManager.Instance != null)
+            SubscribeToSaveManager();
+        }
+
+        /// <summary>
+        /// Hooks the SaveManager's save/delete events. Safe to call repeatedly: it re-binds if the manager
+        /// instance changed. OnEnable can run BEFORE SaveManager.Awake, so a one-shot subscription there
+        /// silently never happened and a deleted slot stayed on screen until the window was reopened.
+        /// </summary>
+        private void SubscribeToSaveManager()
+        {
+            var current = SaveManager.Instance;
+            if (current == _subscribedManager) return;
+
+            if (_subscribedManager != null)
             {
-                SaveManager.Instance.OnSaveCompleted += OnSaveEvent;
-                SaveManager.Instance.OnSlotDeleted += OnSaveEvent;
+                _subscribedManager.OnSaveCompleted -= OnSaveEvent;
+                _subscribedManager.OnSlotDeleted -= OnSaveEvent;
+            }
+            _subscribedManager = current;
+            if (current != null)
+            {
+                current.OnSaveCompleted += OnSaveEvent;
+                current.OnSlotDeleted += OnSaveEvent;
             }
         }
 
@@ -113,10 +133,11 @@ namespace SaveLoadSystem
             confirmYesButton.UnregisterCallback<ClickEvent>(OnConfirmYesClicked);
             confirmNoButton.UnregisterCallback<ClickEvent>(OnConfirmNoClicked);
 
-            if (SaveManager.Instance != null)
+            if (_subscribedManager != null)
             {
-                SaveManager.Instance.OnSaveCompleted -= OnSaveEvent;
-                SaveManager.Instance.OnSlotDeleted -= OnSaveEvent;
+                _subscribedManager.OnSaveCompleted -= OnSaveEvent;
+                _subscribedManager.OnSlotDeleted -= OnSaveEvent;
+                _subscribedManager = null;
             }
         }
         // ========== ROOT-LEVEL POINTER HANDLER ==========
@@ -211,6 +232,7 @@ namespace SaveLoadSystem
             isOpen = true;
             pendingActionSlot = -1;
             pendingOverwriteName = null;
+            SubscribeToSaveManager();
 
             // Claim keyboard input for the dialog, the same way RackSetupUI/LaneSetupUI already do.
             // This window never registered, so typing a save name made up of bound keys ("322", or
@@ -610,6 +632,9 @@ namespace SaveLoadSystem
             else
             {
                 SaveManager.Instance.DeleteSlot(pendingActionSlot);
+                // Redraw now rather than relying on the OnSlotDeleted event alone, so the row is gone
+                // the moment the player confirms.
+                RefreshSlotsSafe();
             }
 
             SetConfirmVisible(false);

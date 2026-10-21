@@ -1,5 +1,28 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-7957054933949458869
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f898d4639d023d4aadf65070a782eaa, type: 3}
+  m_Name: CavitoonCavityRendererFeature
+  m_EditorClassIdentifier: Assembly-CSharp::Cavitoon.CavitoonCavityRendererFeature
+  m_Active: 1
+  m_Settings:
+    worldRadius: 0.06
+    worldRidge: 1
+    worldValley: 5
+    worldAttenuation: 0.3
+    worldSampleCount: 8
+    maxWorldPixelRadius: 24
+    injectionPoint: 550
+    showInSceneView: 1
+  m_Shader: {fileID: 4800000, guid: 75efcb75f5431d5449529819182f4261, type: 3}
 --- !u!114 &-6538071992695117395
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -55,7 +78,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
   m_Name: FullScreenPassRendererFeature
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.FullScreenPassRendererFeature
-  m_Active: 1
+  m_Active: 0
   injectionPoint: 550
   fetchColorBuffer: 1
   requirements: 1
@@ -91,7 +114,8 @@ MonoBehaviour:
   - {fileID: 7833122117494664109}
   - {fileID: -2314371528058666335}
   - {fileID: -6538071992695117395}
-  m_RendererFeatureMap: ad6b866f10d7b46ca102c9775bb3e1dfad297aaf291a44a5l
+  - {fileID: -7957054933949458869}
+  m_RendererFeatureMap: ad6b866f10d7b46ca102c9775bb3e1dfad297aaf291a44a54b56ac23b2dc9291l
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 3
