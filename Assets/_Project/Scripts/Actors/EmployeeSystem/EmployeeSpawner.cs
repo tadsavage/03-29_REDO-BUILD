@@ -316,6 +316,15 @@ public class EmployeeSpawner : MonoBehaviour
             // will correctly trigger the assignment logic (Equip gun/clipboard, add TaskDriver).
             EmployeeAssignmentService.Assign(identity, record.currentAssignment);
         }
+        else if (record.hasSavedPosition && record.currentAssignment == EmployeeAssignment.Patrol
+                 && (record.role == EmployeeRole.OrderSelector || record.role == EmployeeRole.Receiver))
+        {
+            // A save-loaded selector/receiver left on Patrol (older save, or never assigned) would wander forever
+            // while their queue fills. Job roles default to their job on load (Tad, 2026-10-20).
+            var roleAssignment = record.role.RoleSpecificAssignment();
+            if (roleAssignment.HasValue)
+                EmployeeAssignmentService.Assign(identity, roleAssignment.Value);
+        }
 
         // Fresh ReachTruckOperator/DockStockerOperator attempt to board an existing MHE.
         // Equipment must be placed manually via the build menu first — this system no longer auto-creates

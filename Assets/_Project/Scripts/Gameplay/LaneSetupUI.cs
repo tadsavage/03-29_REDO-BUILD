@@ -257,11 +257,7 @@ public class LaneSetupUI : MonoBehaviour
         _ => LaneUsage.Both,
     };
 
-    private static PanelSettings FindPanelSettings()
-    {
-        var existing = FindAnyObjectByType<UIDocument>();
-        return existing != null ? existing.panelSettings : null;
-    }
+    private static PanelSettings FindPanelSettings() => SharedPanelSettings.Find();
 
     // ── little styling helpers ───────────────────────────────────────────────
     private static void SetBorder(VisualElement e, Color c, float w, float r)

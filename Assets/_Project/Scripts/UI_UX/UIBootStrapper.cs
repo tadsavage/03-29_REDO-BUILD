@@ -53,9 +53,23 @@ public class UIBootstrapper : MonoBehaviour
 
     public void InitializeAll()
     {
-        InitializeHUD();
-        InitializeBuildMenu();
+        // Each step is isolated: an exception in one (a missing reference that only shows up in a
+        // build, say) used to abort the rest, leaving the placement FSM disabled and every hotkey panel
+        // unbuilt, so the world rendered but nothing could be clicked or opened.
+        Run("HUD", InitializeHUD);
+        Run("BuildMenu", InitializeBuildMenu);
         if (_fsm != null) _fsm.enabled = true;
+        else Debug.LogError("[UIBootstrapper] No PlacementStateMachine assigned; world clicks will not work.");
+    }
+
+    private static void Run(string step, System.Action action)
+    {
+        try { action(); }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[UIBootstrapper] {step} initialization failed; continuing with the rest.");
+            Debug.LogException(e);
+        }
     }
 
     private void InitializeHUD()
@@ -96,13 +110,13 @@ public class UIBootstrapper : MonoBehaviour
         _hudDocument.sortingOrder = UILayers.Hud;
 
         // Preview cost UI
-        if (_costUI != null) _costUI.Init(_hudDocument);
+        if (_costUI != null) Run("PreviewCostUI", () => _costUI.Init(_hudDocument));
 
-        // Top bar UI
-        if (_topBarUI != null) _topBarUI.Init(_hudDocument, _context.MoneyService, _context.TimeService, _saveLoadController);
+        // Top bar UI (owns the hotkey panels: Scheduler, Purchasing, Work Queue, Contracts...)
+        if (_topBarUI != null) Run("TopBarUI", () => _topBarUI.Init(_hudDocument, _context.MoneyService, _context.TimeService, _saveLoadController));
 
         // Employee info UI
-        if (_employeeInfoUI != null) _employeeInfoUI.Init(_hudDocument);
+        if (_employeeInfoUI != null) Run("EmployeeInfoUI", () => _employeeInfoUI.Init(_hudDocument));
     }
 
     private void InitializeBuildMenu()

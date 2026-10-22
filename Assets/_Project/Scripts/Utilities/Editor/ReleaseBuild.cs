@@ -20,6 +20,15 @@ namespace GameCore.Utilities.Editor
         public const string OutputFolder = @"C:\dev\BUILD";
         public const string ExeName = "Warehouse.exe";
 
+        /// <summary>Applies the release settings without building, so File > Build Profiles > Build
+        /// produces the same player as the menu item below.</summary>
+        [MenuItem("Tools/Build/Apply Release Settings")]
+        public static void ApplyReleaseSettingsMenu()
+        {
+            ApplyReleaseSettings();
+            Debug.Log("[ReleaseBuild] Release player settings applied.");
+        }
+
         [MenuItem("Tools/Build/Release Windows Build")]
         public static void BuildRelease()
         {
@@ -95,7 +104,24 @@ namespace GameCore.Utilities.Editor
             PlayerSettings.resizableWindow = true;
             PlayerSettings.forceSingleInstance = false;
 
+            // Borderless fullscreen at the monitor's own resolution: alt-tab friendly, and no forced
+            // 2560x1440 on a 1080p screen (defaultScreenWidth/Height are only used for windowed mode).
+            PlayerSettings.fullScreenMode = FullScreenMode.FullScreenWindow;
+            PlayerSettings.defaultIsNativeResolution = true;
+
+            // App UI (com.unity.dt.app-ui) is a dependency of the editor AI tools; the game never uses it,
+            // but without this define its runtime assemblies ship in the player and create a per-frame
+            // updater object at startup. APP_UI_EDITOR_ONLY is the package's own switch to exclude them.
+            AddDefine(target, "APP_UI_EDITOR_ONLY");
+
             AssetDatabase.SaveAssets();
+        }
+
+        private static void AddDefine(NamedBuildTarget target, string define)
+        {
+            PlayerSettings.GetScriptingDefineSymbols(target, out string[] defines);
+            if (defines.Contains(define)) return;
+            PlayerSettings.SetScriptingDefineSymbols(target, defines.Append(define).ToArray());
         }
     }
 }

@@ -72,8 +72,7 @@ public class RackingSystemManager : MonoBehaviour
         if (_rackSetupPanelSettings == null)
         {
             // Reuse any existing UIDocument's PanelSettings so scaling / DPI matches.
-            var existingDoc = FindAnyObjectByType<UIDocument>();
-            if (existingDoc != null) _rackSetupPanelSettings = existingDoc.panelSettings;
+            _rackSetupPanelSettings = SharedPanelSettings.Find();
         }
 
         if (_rackSetupUxml == null || _rackSetupPanelSettings == null)

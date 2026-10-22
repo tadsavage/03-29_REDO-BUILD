@@ -13,7 +13,26 @@ public static class UIModalGuard
     private static readonly HashSet<object> _open = new();
 
     /// <summary>True while any registered text-entry modal is open.</summary>
-    public static bool IsCapturing => _open.Count > 0;
+    public static bool IsCapturing
+    {
+        get
+        {
+            if (_open.Count == 0) return false;
+            // A destroyed MonoBehaviour that never popped (scene change, teardown) would otherwise keep
+            // every guarded hotkey AND world click dead for the rest of the run. Unity's == null is true
+            // for destroyed objects, so sweep those out before answering.
+            _open.RemoveWhere(o => o is UnityEngine.Object uo && uo == null);
+            return _open.Count > 0;
+        }
+    }
+
+    /// <summary>Names of the modals currently holding input, for diagnostics.</summary>
+    public static string Describe()
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var o in _open) sb.Append(o == null ? "null" : o.GetType().Name).Append(' ');
+        return sb.ToString().Trim();
+    }
 
     public static void Push(object modal) { if (modal != null) _open.Add(modal); }
     public static void Pop(object modal)  { if (modal != null) _open.Remove(modal); }
@@ -23,5 +42,17 @@ public static class UIModalGuard
     // leave a permanent entry here and kill every guarded hotkey for the rest of the session. Clear
     // the set on each play-mode start so a stale entry can never outlive the run that created it.
     [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void ResetOnPlay() => _open.Clear();
+    private static void ResetOnPlay()
+    {
+        _open.Clear();
+        // A build plays MainMenu -> Main in one process; nothing open in the previous scene can still
+        // be open in the next one, so start every scene with a clean slate.
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private static void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        if (mode == UnityEngine.SceneManagement.LoadSceneMode.Single) _open.Clear();
+    }
 }

@@ -87,6 +87,7 @@ public class ConfirmationModal : MonoBehaviour
 
         if (_instance == null) Bootstrap();
         if (_instance == null || _instance._modal == null) { onYes?.Invoke(); return; }
+        _instance.EnsurePanelSettings();
 
         if (IsOpen)
             Debug.LogWarning($"[ConfirmationModal] Show() called while already open — replacing the pending prompt ('{_instance._message.text}') with '{message}'.");
@@ -108,6 +109,7 @@ public class ConfirmationModal : MonoBehaviour
     {
         if (_instance == null) Bootstrap();
         if (_instance == null || _instance._modal == null) { onOk?.Invoke(); return; }
+        _instance.EnsurePanelSettings();
 
         if (IsOpen)
             Debug.LogWarning($"[ConfirmationModal] ShowNotice() called while already open — replacing the pending prompt ('{_instance._message.text}') with '{message}'.");
@@ -233,11 +235,19 @@ public class ConfirmationModal : MonoBehaviour
         _instance._onNo = null;
     }
 
-    private static PanelSettings FindPanelSettings()
+    // In a build the game starts in MainMenu, so Bootstrap runs there, where no UIDocument with
+    // PanelSettings exists yet. The modal then had null PanelSettings, never rendered, and every
+    // action waiting on its Yes silently did nothing. The Editor never showed this because Play starts
+    // straight in Main. Re-resolve the settings each time the modal is shown.
+    private void EnsurePanelSettings()
     {
-        var existing = FindAnyObjectByType<UIDocument>();
-        return existing != null ? existing.panelSettings : null;
+        if (_doc == null || _doc.panelSettings != null) return;
+        var ps = FindPanelSettings();
+        if (ps != null) _doc.panelSettings = ps;
+        else Debug.LogWarning("[ConfirmationModal] No PanelSettings available; the prompt cannot be drawn.");
     }
+
+    private static PanelSettings FindPanelSettings() => SharedPanelSettings.Find();
 
     private static void SetBorder(VisualElement e, Color c, float w, float r)
     {
