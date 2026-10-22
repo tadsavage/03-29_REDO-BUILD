@@ -699,6 +699,12 @@ namespace GameCore.Labor
         //   3. only then close the remaining gap, stopping the instant the carry point (where the
         //      pallet will seat) reaches the pallet's XZ (within GrabThreshold).
         // A travel cap keeps it from driving through the trailer if the pallet is somehow unreachable.
+        /// <summary>One frame's straight-in move, never past the point <paramref name="stopAt"/> metres short of the pallet.
+        /// At a low frame rate or high game speed a whole frame's travel is bigger than the grab window, so the forks used to
+        /// jump past the pallet and roll on to the 8 m travel cap (30 "hit the travel cap" grabs in the 2026-10-22 soak).</summary>
+        private static float StepToward(float step, Vector3 toPallet, Vector3 into, float stopAt)
+            => Mathf.Min(step, Mathf.Max(0.005f, Vector3.Dot(toPallet, into.normalized) - stopAt));
+
         private IEnumerator DriveInToGrab(Transform ds, Transform forks, float forkRestY, Transform pallet, Vector3 into)
         {
             // The dock stocker or the pallet can already be gone when this step starts (a save load or a delete tears
@@ -733,7 +739,7 @@ namespace GameCore.Labor
 
                 // Straight in only — NO steering. The DS was squared up at the pivot before entering
                 // (FaceForks at the call site), and rotating inside the trailer looked wrong.
-                ds.position += into * (DriveSpeed * EquipmentBattery.SpeedMultiplierFor(ds) * Time.deltaTime);
+                ds.position += into * StepToward(DriveSpeed * EquipmentBattery.SpeedMultiplierFor(ds) * Time.deltaTime, gd, into, ForkRaiseStandoff * 0.9f);
 
                 if ((ds.position - start).magnitude >= maxTravel)
                 {
@@ -758,7 +764,7 @@ namespace GameCore.Labor
                 Vector3 gd = pallet.position - grab; gd.y = 0f;
                 if (gd.magnitude <= GrabThreshold) break;
 
-                ds.position += into * (DriveSpeed * EquipmentBattery.SpeedMultiplierFor(ds) * Time.deltaTime);
+                ds.position += into * StepToward(DriveSpeed * EquipmentBattery.SpeedMultiplierFor(ds) * Time.deltaTime, gd, into, GrabThreshold * 0.5f);
 
                 if ((ds.position - start).magnitude >= maxTravel)
                 {

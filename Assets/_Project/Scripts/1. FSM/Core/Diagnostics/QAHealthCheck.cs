@@ -74,6 +74,65 @@ namespace GameCore.Diagnostics
             g.GetComponentInParent<MHEOperatorSlot>() != null || g.GetComponentInParent<TruckController>() != null ||
             g.GetComponentInParent<GameCore.Actors.OrderSelectionTaskDriver>() != null || g.GetComponentInParent<EmployeeIdentity>() != null;
 
+        /// <summary>Deterministic, line-per-fact summary of the persistent game state. Take one before a save and one after
+        /// the load and diff them: any line that differs is something save/load lost or changed (2026-10-22).</summary>
+        public static string Snapshot()
+        {
+            if (!ServiceLocator.TryGet<InventoryService>(out var inv) || !ServiceLocator.TryGet<WorkQueueSystem>(out var wq) ||
+                !ServiceLocator.TryGet<OrderService>(out var orders))
+                return "services not ready";
+            ServiceLocator.TryGet<MoneyService>(out var money);
+            ServiceLocator.TryGet<ReputationService>(out var rep);
+            var lines = new List<string>
+            {
+                $"money {money?.CurrentCapital}",
+                $"rep {rep?.Score}",
+                $"slotAssignments {SlotAssignmentService.AllAssignments.Count}",
+            };
+            foreach (var g in LocationStatusRegistry.Export().GroupBy(e => (LocationStatus)e.status))
+                lines.Add($"locStatus {g.Key} {g.Count()}");
+            foreach (var o in orders.ActiveOrders)
+                lines.Add($"order {o.OrderNumber} {o.Status} picked={o.TotalUnitsPicked}/{o.TotalUnits} door={o.AssignedDoorNumber} lane={o.EffectiveStagingDoor}{o.AssignedLane} rel={o.ReleasedToFloor} ret={o.ReturnsMode}");
+            foreach (var g in wq.Tasks.Where(t => t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled)
+                                      .GroupBy(t => $"{t.Type} {t.Status}"))
+                lines.Add($"tasks {g.Key} {g.Count()}");
+            var recs = inv.AllPallets.Values.ToList();
+            lines.Add($"records {recs.Count} cases={recs.Sum(r => r.Quantity)}");
+            foreach (var g in recs.GroupBy(r => r.SkuId)) lines.Add($"stock {g.Key} pallets={g.Count()} cases={g.Sum(r => r.Quantity)}");
+            int linked = recs.Count(r => PalletMasterLink.Find(r.PalletId) != null);
+            lines.Add($"recordsWithObject {linked}");
+            foreach (var g in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
+                                    .Where(p => p != null && !string.IsNullOrEmpty(p.OrderId))
+                                    .GroupBy(p => $"{p.OrderId.Substring(0, 6)} {p.Stage}"))
+                lines.Add($"outbound {g.Key} pallets={g.Count()} cases={g.Sum(p => p.TotalCases)}");
+            foreach (var t in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None).OrderBy(t => t.name))
+                lines.Add($"truck {(t.IsOutbound ? "OUT" : "IN")} {t.CurrentState} door={(t.DockedAt != null ? t.DockedAt.DoorNumber : 0)} pallets={t.GetComponentsInChildren<PalletData>(true).Length}");
+            lines.Add($"mheOccupied {Object.FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None).Count(s => s.IsOccupied)}");
+            lines.Sort(System.StringComparer.Ordinal);
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>Rack slots whose LocationData names a pallet that is not physically standing there, and records with
+        /// no pallet object anywhere. These are the "ghost pallet" cases a reach truck keeps failing to grab.</summary>
+        public static string Ghosts()
+        {
+            if (!ServiceLocator.TryGet<InventoryService>(out var inv)) return "services not ready";
+            var sb = new StringBuilder();
+            foreach (var loc in Object.FindObjectsByType<LocationData>(FindObjectsSortMode.None))
+            {
+                if (loc == null || string.IsNullOrEmpty(loc.PalletId)) continue;
+                var link = PalletMasterLink.Find(loc.PalletId);
+                if (link == null) { sb.Append($"SLOT {loc.Address} names {loc.PalletId.Substring(0, 8)} - no object\n"); continue; }
+                Vector3 a = link.transform.position, b = loc.WorldPosition; a.y = b.y = 0f;
+                float d = Vector3.Distance(a, b);
+                if (d > 0.9f) sb.Append($"SLOT {loc.Address} names {loc.PalletId.Substring(0, 8)} - object is {d:F1} m away at {link.transform.position} (parent {link.transform.parent?.name})\n");
+            }
+            foreach (var r in inv.AllPallets.Values)
+                if (PalletMasterLink.Find(r.PalletId) == null)
+                    sb.Append($"RECORD {r.PalletId.Substring(0, 8)} {r.SkuId} x{r.Quantity} cell={r.CurrentLocation} lane={r.StagingLaneId} - no object\n");
+            return sb.Length == 0 ? "no ghosts" : sb.ToString();
+        }
+
         public static string Run()
         {
             Hook();

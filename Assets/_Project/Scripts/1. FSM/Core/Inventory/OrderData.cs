@@ -95,6 +95,13 @@ namespace GameCore.Inventory
         /// cancel) -> ReputationService falls back to its flat default.</summary>
         public int CancelReputationCost { get; set; }
 
+        /// <summary>RETURNS (Tad, 2026-10-22): the player closed the route while a selector was mid-pick. The selector puts
+        /// every case back in reverse pick order, then the order is archived without a cancel penalty. Persisted.</summary>
+        public bool ReturnsMode { get; set; }
+
+        /// <summary>True when this order is closed for a reason that should not cost reputation (route closed by the player).</summary>
+        public bool NoCancelPenalty { get; set; }
+
         /// <summary>Released, still live, and no lane yet — the state AssignWaitingLanes works on.
         /// Derived entirely from persisted fields, so it survives save/load.</summary>
         public bool IsWaitingForLane =>
@@ -409,6 +416,7 @@ namespace GameCore.Inventory
         /// <summary>Extra lanes for an order too big for one lane. Empty in older saves, which is correct.</summary>
         public List<StagingLaneRef> overflowLanes = new List<StagingLaneRef>();
         public bool releasedToFloor;
+        public bool returnsMode;
         public int cancelledCases;
         public bool hasBeenFined;
         /// <summary>False in a save written before the late-load fine existed — correct, since

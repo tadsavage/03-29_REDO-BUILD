@@ -104,50 +104,7 @@ namespace GameCore.Actors
             ReleaseJackLaneLock();
 
             // 3. Reverse pick: last case picked goes back first, slot by slot.
-            while (pallet != null && pallet.TotalCases > 0 && _jack != null)
-            {
-                string source = pallet.CaseSources.Count > 0 ? pallet.CaseSources[pallet.CaseSources.Count - 1] : "";
-                LocationData loc = null;
-                if (!string.IsNullOrEmpty(source)) LocationRegistry.TryGet(source, out loc);
-                if (loc == null || !TryGetPickGeometry(loc, out Vector3 slotFlat, out Vector3 toAisle))
-                {
-                    // Source unknown: the case still goes back into stock (best available slot), no trip needed.
-                    if (pallet.RemoveLastCase(out string sku0, out _)) PutCaseBack(null, sku0);
-                    continue;
-                }
-
-                // A return walks the pick route BACKWARDS, so it faces against the aisle's pick direction.
-                Vector3 heading = PickHeading(toAisle, loc);   // never turn around: a return walks the aisle backwards, so the jack reverses
-                Vector3 park = slotFlat + toAisle * ParkOffset - heading * ForkPalletZ[0];
-                yield return DriveJackTo(park, heading, $"return to {loc.Address}");
-                if (!_jackLegOk || _jack == null) break;
-
-                yield return StepOut(slotFlat);
-                float y = transform.position.y;
-                Vector3 faceSpot = Flat(slotFlat + toAisle * PickFaceStandOff, y);
-                // Every consecutive case that came from this slot goes back on this visit.
-                while (pallet != null && pallet.TotalCases > 0 &&
-                       pallet.CaseSources.Count > 0 && pallet.CaseSources[pallet.CaseSources.Count - 1] == source)
-                {
-                    Vector3 palletSide = Flat(pallet.transform.position - toAisle * (ParkOffset - PalletSideOff), y);
-                    yield return WalkTo(palletSide);
-                    yield return FaceDir(toAisle);
-                    yield return new WaitForSeconds(ReturnCaseSeconds);
-                    if (!pallet.RemoveLastCase(out string sku, out _)) break;
-                    var skuData = _inventoryService.GetSkuData(sku);
-                    if (skuData != null && skuData.Prefab != null) SpawnHeldCase(skuData.Prefab, skuData.CaseHeight);
-                    SetAnimBool("CarryCase", true);
-                    yield return WalkTo(faceSpot);
-                    yield return FaceDir(-toAisle);
-                    yield return new WaitForSeconds(GrabSeconds);
-                    DestroyHeldCase();
-                    SetAnimBool("CarryCase", false);
-                    PutCaseBack(source, sku);
-                }
-                yield return StepIn();
-                if (_jack == null) break;
-                _jack.StepOn();
-            }
+            yield return ReverseCasesOnJack(pallet, 0);
 
             // 4. Done (or the jack went away): anything still on the pallet goes back without a trip, then tidy up.
             if (pallet != null)
@@ -268,9 +225,162 @@ namespace GameCore.Actors
             return true;
         }
 
+        /// <summary>Reverse pick on the jack: the last case picked goes back first, slot by slot, walking the pick route
+        /// BACKWARDS. <paramref name="palletIndex"/> is where the pallet sits on the forks (ForkPalletZ).</summary>
+        private IEnumerator ReverseCasesOnJack(OutboundPalletBuilder pallet, int palletIndex)
+        {
+            while (pallet != null && pallet.TotalCases > 0 && _jack != null)
+            {
+                string source = pallet.CaseSources.Count > 0 ? pallet.CaseSources[pallet.CaseSources.Count - 1] : "";
+                LocationData loc = null;
+                if (!string.IsNullOrEmpty(source)) LocationRegistry.TryGet(source, out loc);
+                if (loc == null || !TryGetPickGeometry(loc, out Vector3 slotFlat, out Vector3 toAisle))
+                {
+                    // Source unknown: the case still goes back into stock (best available slot), no trip needed.
+                    if (pallet.RemoveLastCase(out string sku0, out _)) PutCaseBack(null, sku0);
+                    continue;
+                }
+
+                // A return walks the pick route BACKWARDS, so it faces against the aisle's pick direction.
+                Vector3 heading = PickHeading(toAisle, loc);   // never turn around: a return walks the aisle backwards, so the jack reverses
+                Vector3 park = slotFlat + toAisle * ParkOffset - heading * ForkPalletZ[palletIndex];
+                yield return DriveJackTo(park, heading, $"return to {loc.Address}");
+                if (!_jackLegOk || _jack == null) break;
+
+                yield return StepOut(slotFlat);
+                float y = transform.position.y;
+                Vector3 faceSpot = Flat(slotFlat + toAisle * PickFaceStandOff, y);
+                // Every consecutive case that came from this slot goes back on this visit.
+                while (pallet != null && pallet.TotalCases > 0 &&
+                       pallet.CaseSources.Count > 0 && pallet.CaseSources[pallet.CaseSources.Count - 1] == source)
+                {
+                    Vector3 palletSide = Flat(pallet.transform.position - toAisle * (ParkOffset - PalletSideOff), y);
+                    yield return WalkTo(palletSide);
+                    yield return FaceDir(toAisle);
+                    yield return new WaitForSeconds(ReturnCaseSeconds);
+                    if (!pallet.RemoveLastCase(out string sku, out _)) break;
+                    var skuData = _inventoryService.GetSkuData(sku);
+                    if (skuData != null && skuData.Prefab != null) SpawnHeldCase(skuData.Prefab, skuData.CaseHeight);
+                    SetAnimBool("CarryCase", true);
+                    yield return WalkTo(faceSpot);
+                    yield return FaceDir(-toAisle);
+                    yield return new WaitForSeconds(GrabSeconds);
+                    DestroyHeldCase();
+                    SetAnimBool("CarryCase", false);
+                    PutCaseBack(source, sku);
+                }
+                yield return StepIn();
+                if (_jack == null) break;
+                _jack.StepOn();
+            }
+        }
+
+        // ── RETURNS, mid-pick (Tad, 2026-10-22) ──────────────────────────────────────────────────────────
+        // The player closed the route while this selector was still picking (the order is in ReturnsMode). They announce
+        // it, then put every case back in reverse pick order - on the jack if they have one, on foot otherwise - and the
+        // order is purged (OrderService.CompleteReturnedOrder).
+
+        private bool ReturnsRequested => _currentOrder != null && _currentOrder.ReturnsMode;
+        private bool _midPickReturnStarted;
+
+        private IEnumerator MidPickReturnRoutine()
+        {
+            if (_midPickReturnStarted) yield break;
+            _midPickReturnStarted = true;
+            var task = _currentTask;
+            var order = _currentOrder;
+            Debug.Log($"[OrderSelectionTaskDriver] '{name}': route closed mid-pick on order {order?.OrderNumber} - putting everything back.");
+            WorldSpeechBubbles.Show(transform, "Now I gotta put it all back??? F*** my life...", 7f);
+            DestroyHeldCase();
+            SetAnimBool("CarryCase", false);
+            SetLean(0f);
+            yield return new WaitForSeconds(1.5f);   // let the bubble be read before they move
+
+            if (_jack != null)
+            {
+                if (_offJack)
+                {
+                    yield return StepIn();
+                    if (_jack != null) _jack.StepOn();
+                    _offJack = false;
+                }
+                // Last pallet built goes first, mirroring the pick order.
+                for (int i = _pallets.Count - 1; i >= 0 && _jack != null; i--)
+                    if (_pallets[i] != null) yield return ReverseCasesOnJack(_pallets[i], Mathf.Min(i, ForkPalletZ.Length - 1));
+            }
+            else
+            {
+                EndScriptedFoot();
+                for (int i = _pallets.Count - 1; i >= 0; i--)
+                    if (_pallets[i] != null) yield return FootReverseCases(_pallets[i]);
+            }
+
+            // Anything left (jack lost, slot gone) goes back without a trip so stock and records stay true.
+            foreach (var p in _pallets)
+            {
+                if (p == null) continue;
+                while (p.RemoveLastCase(out string skuLeft, out string srcLeft)) PutCaseBack(srcLeft, skuLeft);
+                Destroy(p.gameObject);
+            }
+            _pallets.Clear();
+
+            if (_jack != null)
+            {
+                yield return MoveForks(0f);
+                yield return ParkJack();
+                yield return StayAboardWhileCharging();
+                if (_jack != null) yield return StepOut(_jack.transform.position - _jack.transform.right);
+                ReleaseJack();
+            }
+            FinishMidPickReturn(task, order);
+        }
+
+        private void FinishMidPickReturn(WorkTask task, OrderData order)
+        {
+            _orderService.ReleasePick(task?.TaskId);
+            if (task != null) _workQueue.CompleteTask(task.TaskId);
+            _orderService.CompleteReturnedOrder(order, task);
+            Debug.Log($"[OrderSelectionTaskDriver] '{name}' finished putting order {order?.OrderNumber} back.");
+            _currentTask = null;
+            _currentOrder = null;
+            _pallets.Clear();
+            _cubingCapHit = false;
+            _midPickReturnStarted = false;
+            _taskInProgress = false;
+            _nav.SetTaskBusy(false);
+            _nav.Patrol();
+        }
+
+        /// <summary>On foot: walk to each source slot in reverse picking order and put the pallet's cases back.</summary>
+        private IEnumerator FootReverseCases(OutboundPalletBuilder pallet)
+        {
+            while (pallet != null && pallet.TotalCases > 0)
+            {
+                string source = pallet.CaseSources.Count > 0 ? pallet.CaseSources[pallet.CaseSources.Count - 1] : "";
+                LocationData loc = null;
+                if (!string.IsNullOrEmpty(source)) LocationRegistry.TryGet(source, out loc);
+                if (loc != null)
+                {
+                    bool arrived = false;
+                    _nav.CancelSeekPosition();
+                    _nav.SeekPosition(loc.WorldPosition, () => arrived = true);
+                    float t = 0f;
+                    while (!arrived && t < 45f) { t += Time.deltaTime; yield return null; }
+                }
+                while (pallet != null && pallet.TotalCases > 0 &&
+                       (pallet.CaseSources.Count == 0 || pallet.CaseSources[pallet.CaseSources.Count - 1] == source))
+                {
+                    if (!pallet.RemoveLastCase(out string sku, out _)) break;
+                    PutCaseBack(source, sku);
+                    yield return new WaitForSeconds(ReturnCaseSeconds);
+                }
+            }
+        }
+
         private void FinishReturn(WorkTask task)
         {
             if (task != null) _workQueue.CompleteTask(task.TaskId);
+            if (task != null) SystemsLogWindow.Log($"Pallet {OrderService.ReturnLabel(task.PalletId)} returned to picks Complete.");
             Debug.Log($"[OrderSelectionTaskDriver] '{name}' finished a return - the cases are back in their pick slots.");
             _currentTask = null;
             _currentOrder = null;

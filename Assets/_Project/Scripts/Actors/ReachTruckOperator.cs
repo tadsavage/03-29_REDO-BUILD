@@ -1386,6 +1386,22 @@ namespace GameCore.Actors
                 yield break;
             }
 
+            // GHOST SLOT (2026-10-22): the slot names this pallet, but the pallet object is standing somewhere else. Reaching into
+            // the slot can only miss, and the old abort path re-occupied the slot, so the same replenishment was filed again and
+            // again. The slot is really empty: release both ends and drop the task; the scanner picks a pallet that is there.
+            if (!PalletStandsAt(pallet, reserveLoc))
+            {
+                Debug.LogWarning($"[ReachTruckOperator] Replenish: slot {reserveAddress} names pallet {palletId} but it is not standing there " +
+                                 $"(it is at {pallet.position}). Slot released and the replenishment cancelled.");
+                pickLoc.Release();
+                reserveLoc.Release();
+                ReplenishmentService.MarkUnextractable(palletId, UnextractableSeconds);
+                task.Status = WorkTaskStatus.Cancelled;
+                task.AssignedToEmployeeGuid = null;
+                Restore();
+                yield break;
+            }
+
             // Capture the pallet's resting pose for abort-safety, same convention as PutawayRoutine.
             _carryOriginPos   = pallet.position;
             _carryOriginRot   = pallet.rotation;
@@ -1494,6 +1510,18 @@ namespace GameCore.Actors
                 if (reserveLoc != null)
                     reserveLoc.Occupy(reserveLoc.PalletId, reserveLoc.SkuId, reserveLoc.Quantity, reserveLoc.ExpirationDate);
                 task.PalletId = null;   // re-resolved on the next claim
+                ReleaseTaskWithBackoff(task);
+                Restore();
+                yield break;
+            }
+
+            // GHOST SLOT (2026-10-22): see ReplenishRoutine. Release the slot and re-resolve the source on the next claim.
+            if (!PalletStandsAt(pallet, reserveLoc))
+            {
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick: slot {reserveAddress} names pallet {palletId} but it is not standing there " +
+                                 $"(it is at {pallet.position}). Slot released; the pick will look for another pallet.");
+                reserveLoc.Release();
+                task.PalletId = null;
                 ReleaseTaskWithBackoff(task);
                 Restore();
                 yield break;
@@ -2735,6 +2763,16 @@ namespace GameCore.Actors
         // warehouse) read as ~0 apart and drive loops exit instantly = teleport/snap. Use PlanarDist
         // for "how far apart are these two points on the XZ plane".
         private static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude > 1e-6f ? v.normalized : Vector3.forward; }
+
+        /// <summary>True when the pallet object is standing in this rack slot (within 0.9 m across the floor, the same tolerance
+        /// LocationRegistry.ReleasePhantomOccupancy uses). A pallet is seated on its Location transform.</summary>
+        private static bool PalletStandsAt(Transform pallet, LocationData loc)
+        {
+            if (pallet == null || loc == null) return false;
+            Vector3 a = pallet.position, b = loc.WorldPosition;
+            a.y = 0f; b.y = 0f;
+            return (a - b).sqrMagnitude <= 0.81f;
+        }
         private static Vector2 FlatV2(Vector3 v) => new Vector2(v.x, v.z);
 
         /// <summary>Horizontal (XZ) distance between two world points, ignoring Y. Non-normalizing —

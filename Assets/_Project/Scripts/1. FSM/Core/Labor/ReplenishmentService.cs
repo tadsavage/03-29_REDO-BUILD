@@ -207,7 +207,13 @@ namespace GameCore.Labor
                 // The pallet must physically exist. A location (or inventory record) can outlive its pallet — staged and carried
                 // pallets are not saved — and a task filed against a ghost can never be done: the truck drives out, finds nothing
                 // and aborts, and the replenishment gets filed again.
-                if (PalletMasterLink.Find(location.PalletId) == null) continue;
+                var link = PalletMasterLink.Find(location.PalletId);
+                if (link == null) continue;
+                // ...and stand IN this slot. A slot whose recorded pallet is somewhere else (2026-10-22: 03-07-A1) is a ghost:
+                // a reach truck reaches into an empty slot, misses, and the replenishment comes straight back.
+                Vector3 at = link.transform.position, slot = location.WorldPosition;
+                at.y = 0f; slot.y = 0f;
+                if ((at - slot).sqrMagnitude > 0.81f) continue;
                 if (IsUnextractable(location.PalletId)) continue;
 
                 // RESERVED is exclusive (Tad, 2026-10-17): a pallet a live replenishment or pallet pick already claimed

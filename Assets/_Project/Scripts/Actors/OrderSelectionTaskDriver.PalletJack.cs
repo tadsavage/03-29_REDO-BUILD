@@ -209,6 +209,9 @@ namespace GameCore.Actors
             {
                 if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
 
+                // Route closed mid-pick: put it all back (OrderSelectionTaskDriver.Returns.cs).
+                if (ReturnsRequested) { yield return MidPickReturnRoutine(); yield break; }
+
                 // Flat battery: climb off; the jack stages what it already has by itself, the rest of the order
                 // becomes another trip (FinishOrderCleanup files it) for a selector with a charged jack.
                 if (JackOutOfPower)
@@ -406,7 +409,7 @@ namespace GameCore.Actors
 
             for (int i = 0; i < takeQty; i++)
             {
-                if (_jack == null) yield break;
+                if (_jack == null || ReturnsRequested) yield break;
 
                 // To the slot, reach in, take a case.
                 yield return WalkTo(faceSpot);

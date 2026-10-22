@@ -30,7 +30,10 @@ namespace GameCore.Utilities.Editor
         }
 
         [MenuItem("Tools/Build/Release Windows Build")]
-        public static void BuildRelease()
+        public static void BuildRelease() => BuildReleaseTo(OutputFolder);
+
+        /// <summary>Same release build into another folder (an existing build there is updated incrementally).</summary>
+        public static void BuildReleaseTo(string outputFolder)
         {
             ApplyReleaseSettings();
 
@@ -42,11 +45,11 @@ namespace GameCore.Utilities.Editor
                 return;
             }
 
-            Directory.CreateDirectory(OutputFolder);
+            Directory.CreateDirectory(outputFolder);
             var options = new BuildPlayerOptions
             {
                 scenes = scenes,
-                locationPathName = Path.Combine(OutputFolder, ExeName),
+                locationPathName = Path.Combine(outputFolder, ExeName),
                 target = BuildTarget.StandaloneWindows64,
                 targetGroup = BuildTargetGroup.Standalone,
                 options = BuildOptions.None,   // NOT Development, no autoconnect profiler, no script debugging

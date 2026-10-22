@@ -485,9 +485,14 @@ namespace GameCore.Labor
 
             // A saved task that points at a pallet which is no longer present in inventory can never be
             // completed. Mark it cancelled immediately so it doesn't resurrect as "live" work after load.
+            // RETURNS tasks name the pallet's return id (OutboundPalletBuilder.ReturnId), never an inventory record, so they
+            // must not be cancelled here - that stranded every pending return on load (2026-10-22). Tasks already finished
+            // or cancelled in the save have nothing to cancel.
             if (!string.IsNullOrEmpty(task.PalletId) &&
+                task.Status != WorkTaskStatus.Cancelled && task.Status != WorkTaskStatus.Complete &&
                 task.Type != WorkTaskType.OrderSelect &&
                 task.Type != WorkTaskType.Load &&
+                task.Type != WorkTaskType.Return &&
                 ServiceLocator.TryGet<InventoryService>(out var inventory) &&
                 inventory.GetPallet(task.PalletId) == null)
             {

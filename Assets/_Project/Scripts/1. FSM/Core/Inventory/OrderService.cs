@@ -701,6 +701,7 @@ namespace GameCore.Inventory
             // Pallets the remaining loose cases build into, as fractions of each SKU's full pallet.
             float pallets = 0f;
             int cases = 0;
+            bool pickable = false;
             foreach (var li in order.LineItems)
             {
                 int want = SelectableRemaining(order, li);
@@ -708,8 +709,11 @@ namespace GameCore.Inventory
                 cases += want;
                 int full = FullPalletCases(li.SkuId);
                 pallets += full > 0 ? want / (float)full : want / 48f;
+                if (!pickable && OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null) pickable = true;
             }
-            if (cases <= 0 || pallets <= working * SelectorPalletsPerTrip) return false;
+            // Only with something a case picker can actually take from a pick face. Without stock a helper claimed the trip,
+            // found nothing, ended it, and the next claim filed another helper: 784 empty trips in the 2026-10-22 soak.
+            if (cases <= 0 || !pickable || pallets <= working * SelectorPalletsPerTrip) return false;
 
             var st = _workQueue.CreateTask(
                 WorkTaskType.OrderSelect,
@@ -1598,6 +1602,10 @@ namespace GameCore.Inventory
         /// inventory at the lane slot it stands in, strips its outbound tag, and files a Putaway.</summary>
         /// <summary>Files a Return task for a left-behind case-picked pallet: an Order Selector takes it on a pallet jack
         /// and puts every case back into the pick slot it came from, in the reverse of the order it was picked.</summary>
+        /// <summary>Short pallet label shown in RETURNS rows and log lines (first 4 characters of the return id).</summary>
+        public static string ReturnLabel(string returnId)
+            => string.IsNullOrEmpty(returnId) ? "??" : returnId.Substring(0, Mathf.Min(4, returnId.Length)).ToUpperInvariant();
+
         private void FileReturnTask(OutboundPalletBuilder pallet)
         {
             if (_workQueue == null || pallet == null) return;
@@ -1612,11 +1620,11 @@ namespace GameCore.Inventory
                 WorkTaskType.Return,
                 EmployeeRole.OrderSelector,
                 palletId: pallet.ReturnId,
-                description: $"Return {pallet.TotalCases} case(s) from order {num} to their pick slots",
+                description: $"Pallet {ReturnLabel(pallet.ReturnId)}: return {pallet.TotalCases} case(s) from order {num} to their pick slots",
                 fromLocation: string.IsNullOrEmpty(where) ? null : where,
                 orderId: null);
             if (task != null) task.Status = WorkTaskStatus.Available;
-            string msg = $"Order {num}: a pallet of {pallet.TotalCases} case(s) was left behind - the customer was not charged for it, and a selector will put the cases back in their pick slots.";
+            string msg = $"Order {num}: pallet {ReturnLabel(pallet.ReturnId)} ({pallet.TotalCases} case(s)) was not loaded - it was cancelled off the order and a RETURNS task was filed so a selector puts the cases back in their pick slots.";
             Debug.LogWarning($"[OrderService] {msg}");
             SystemsLogWindow.LogSystem(msg);
         }
@@ -2202,6 +2210,151 @@ namespace GameCore.Inventory
                       $"({order.TotalUnitsPicked}/{order.TotalUnits}) — satisfaction −{penalty:F1}.");
         }
 
+        // ── CLOSE ROUTE / RETURNS (Tad, 2026-10-22) ─────────────────────────────────────────────────
+        // Closing the route mid-way never silently deletes an order. What is on the trailer ships and is billed; every
+        // quantity that is not aboard is cancelled off the order and sent back: case-picked pallets standing in a staging
+        // lane become RETURNS tasks (a selector reverse-picks them into their pick slots, ReclaimOrphanedFreight), whole
+        // pallets go back through putaway. An order whose selector is still mid-pick goes to RETURNS status: the selector
+        // puts everything back in reverse pick order (OrderSelectionTaskDriver.Returns.cs), then the order is purged.
+
+        /// <summary>A selector is out on the floor picking this order right now (the PICKING status).</summary>
+        public bool IsPicking(OrderData order)
+            => order != null && !order.ReturnsMode &&
+               LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect && t.Status == WorkTaskStatus.Assigned);
+
+        public bool CanCloseRoute(OrderData order, out string whyNot)
+        {
+            whyNot = null;
+            if (order == null) { whyNot = "no longer exists"; return false; }
+            if (order.ReturnsMode) { whyNot = "is already being put back"; return false; }
+            switch (order.Status)
+            {
+                case OrderData.OrderStatus.Staged:
+                case OrderData.OrderStatus.Loading:
+                case OrderData.OrderStatus.Loaded:
+                    return true;
+                case OrderData.OrderStatus.PartiallyPicked:
+                case OrderData.OrderStatus.Pending:
+                case OrderData.OrderStatus.FullyPicked:
+                    if (IsPicking(order) || order.TotalUnitsPicked > 0) return true;
+                    whyNot = "has nothing picked yet - cancel it instead";
+                    return false;
+                default:
+                    whyNot = $"is {order.Status}";
+                    return false;
+            }
+        }
+
+        /// <summary>What closing these routes would do, in words, for the confirmation modal.</summary>
+        public string DescribeCloseRoute(List<string> orderIds)
+        {
+            int picking = 0, aboard = 0, inLane = 0;
+            foreach (var id in orderIds ?? new List<string>())
+            {
+                var o = _activeOrders.FirstOrDefault(x => x.OrderId == id);
+                if (o == null) continue;
+                if (IsPicking(o)) { picking++; continue; }
+                foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+                {
+                    if (p == null || p.OrderId != id) continue;
+                    if (p.Lifecycle == PalletLifecycle.Shipped) aboard++; else inLane++;
+                }
+            }
+            var sb = new System.Text.StringBuilder("Close the route?\n");
+            if (aboard > 0) sb.Append($"{aboard} pallet(s) already on the trailer ship and are billed.\n");
+            if (inLane > 0) sb.Append($"{inLane} pallet(s) not loaded yet are cancelled off the order and sent back (RETURNS).\n");
+            if (picking > 0) sb.Append($"{picking} order(s) are being picked right now - the selector puts everything back (RETURNS).\n");
+            if (aboard + inLane + picking == 0) sb.Append("Nothing is physically out yet - the order closes.\n");
+            return sb.ToString().TrimEnd();
+        }
+
+        /// <summary>Closes the route for these orders. See the block comment above.</summary>
+        public int CloseRoute(List<string> orderIds)
+        {
+            if (orderIds == null || orderIds.Count == 0) return 0;
+            ServiceLocator.TryGet<DockScheduleService>(out var schedule);
+            var billedByDoor = new Dictionary<int, int>();
+            int handled = 0;
+
+            foreach (var id in orderIds.ToList())
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == id);
+                if (!CanCloseRoute(order, out _)) continue;
+                string number = order.OrderNumber ?? order.OrderId;
+                int door = order.AssignedDoorNumber;
+
+                // Mid-pick: the selector reverses what they have done. Unclaimed work is called off now.
+                if (IsPicking(order))
+                {
+                    order.ReturnsMode = true;
+                    CancelLeftoverTasks(id);
+                    SystemsLogWindow.LogWarning($"Order {number}: route closed while it was being picked - the selector is putting everything back (RETURNS).");
+                    handled++;
+                    continue;
+                }
+
+                int aboard = 0;
+                foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+                    if (p != null && p.OrderId == id && p.Lifecycle == PalletLifecycle.Shipped)
+                        foreach (var (_, cases) in CasesOn(p)) aboard += cases;
+
+                CancelLeftoverTasks(id);
+                if (aboard > 0)
+                {
+                    // Everything not on the trailer is cancelled off the order - the customer is neither billed for it nor
+                    // charged a short-ship penalty for it (the player chose this).
+                    order.CancelledCases = Mathf.Max(order.CancelledCases, order.TotalUnits - aboard);
+                    int billed = ShipOrder(id);
+                    billedByDoor.TryGetValue(door, out int prev);
+                    billedByDoor[door] = prev + billed;
+                    string msg = $"Route closed for order {number}: {aboard} case(s) on the trailer shipped (${billed:N0}); the rest was cancelled off the order and is going back.";
+                    SystemsLogWindow.LogRevenue(msg);
+                    ShippedFanfare.Show(number, billed);
+                }
+                else
+                {
+                    ArchiveWithoutPenalty(order, schedule);
+                    if (!billedByDoor.ContainsKey(door)) billedByDoor[door] = 0;
+                    SystemsLogWindow.LogWarning($"Route closed for order {number}: nothing was on the trailer, so the order was closed. Staged pallets are being returned.");
+                }
+                handled++;
+            }
+
+            ReclaimOrphanedFreight();   // files the RETURNS tasks / putaways for whatever is still standing in a lane
+            foreach (var kv in billedByDoor) if (kv.Key > 0) TryReleaseDoorIfClear(kv.Key, kv.Value);
+            return handled;
+        }
+
+        /// <summary>The selector has put the last case back. Purges the order (no reputation hit - the player chose this) and returns any
+        /// pallets earlier trips already staged. Waits for any other selector still returning the same order.</summary>
+        public void CompleteReturnedOrder(OrderData order, WorkTask finishedTask)
+        {
+            if (order == null || !_activeOrders.Contains(order)) return;
+            if (OtherSelectorsOnOrder(order, finishedTask) > 0) return;
+            ServiceLocator.TryGet<DockScheduleService>(out var schedule);
+            string number = order.OrderNumber ?? order.OrderId;
+            int door = order.AssignedDoorNumber;
+            ArchiveWithoutPenalty(order, schedule);
+            ReclaimOrphanedFreight();
+            SystemsLogWindow.Log($"Order {number} returned to picks Complete.");
+            if (door > 0) TryReleaseDoorIfClear(door, 0);
+        }
+
+        private void ArchiveWithoutPenalty(OrderData order, DockScheduleService schedule)
+        {
+            CancelLeftoverTasks(order.OrderId);
+            order.ReturnsMode = false;
+            order.NoCancelPenalty = true;
+            order.AssignedDoorNumber = 0;
+            order.StagingDoorNumber = 0;
+            order.AssignedLane = null;
+            order.OverflowLanes.Clear();
+            order.Status = OrderData.OrderStatus.Cancelled;
+            StampClosedNow(order);
+            schedule?.DetachCancelledOrder(order.OrderId);
+            Archive(order);
+        }
+
         public bool CanCloseOut(OrderData order, out string whyNot)
         {
             whyNot = null;
@@ -2738,6 +2891,7 @@ namespace GameCore.Inventory
                     assignedDoorNumber = o.AssignedDoorNumber,
                     stagingDoorNumber = o.StagingDoorNumber,
                     releasedToFloor = o.ReleasedToFloor,
+                    returnsMode = o.ReturnsMode,
                     cancelledCases = o.CancelledCases,
                     assignedLane = o.AssignedLane,
                     overflowLanes = o.OverflowLanes.Select(l => new StagingLaneRef { door = l.door, lane = l.lane }).ToList(),
@@ -2793,6 +2947,7 @@ namespace GameCore.Inventory
                 {
                     AssignedDoorNumber = snap.assignedDoorNumber,
                     StagingDoorNumber = snap.stagingDoorNumber,
+                    ReturnsMode = snap.returnsMode,
                     ReleasedToFloor = snap.releasedToFloor || snap.assignedDoorNumber != 0, // old saves: released iff a door was stamped
                     AssignedLane = snap.assignedLane,
                     HasBeenFined = snap.hasBeenFined,

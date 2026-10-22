@@ -1418,6 +1418,17 @@ public class PlacementSystem : MonoBehaviour
         }
 
         PlacedObjectRegistry.Clear();
+
+        // Case-picked outbound pallets have no PlacedObject (the selector strips it), so the loop above never
+        // reached them: loading another save mid-session left the old game's staged pallets standing in the
+        // lanes, inside the restored ones (2026-10-22 soak). OutboundPalletPersistence restores the saved set.
+        // Deactivated first: Destroy is deferred and the restore runs later in this same frame.
+        foreach (var outbound in FindObjectsByType<OutboundPalletBuilder>(FindObjectsInactive.Include))
+        {
+            if (outbound == null) continue;
+            outbound.gameObject.SetActive(false);
+            Destroy(outbound.gameObject);
+        }
         grid.InitializeGrid();
     }
     private void OnSlotSaveCompleted(int slotIndex)

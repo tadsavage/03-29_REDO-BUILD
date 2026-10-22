@@ -206,6 +206,12 @@ namespace GameCore.Inventory
             => Add(-LateOrderPenalty, $"order {order?.OrderId} was late");
 
         private void HandleOrderCancelled(OrderData order)
+        {
+            if (order != null && order.NoCancelPenalty) return;
+            HandleOrderCancelledCore(order);
+        }
+
+        private void HandleOrderCancelledCore(OrderData order)
             => Add(-(order != null && order.CancelReputationCost > 0 ? order.CancelReputationCost : CancelledOrderPenalty),
                    $"order {order?.OrderId} was cancelled");
 

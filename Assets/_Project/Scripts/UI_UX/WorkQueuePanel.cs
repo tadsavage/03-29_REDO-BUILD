@@ -112,7 +112,7 @@ public class WorkQueuePanel : IUIPanel
 
     // NoStock = a legacy Backorder record (that status is retired). Shown so the player can cancel it
     // instead of it sitting invisible while holding a stage.
-    private enum RowPhase { Open, Available, Assigned, Staged, Loading, Loaded, NoStock }
+    private enum RowPhase { Open, Available, Assigned, Staged, Loading, Loaded, NoStock, Picking, Returns }
     // ReleaseToStagesAuto: a multi-customer Open selection, where the target dropdown is inert because
     // the stage is decided per customer by OrderService.TryPlanStageSpread rather than picked.
     private enum ActionMode { None, ReleaseToLane, ReleaseToStagesAuto, ReleaseToLoading, ReleaseToLoadingAuto, CloseOut, Mixed, ReassignLane, ReleaseHeld }
@@ -125,6 +125,7 @@ public class WorkQueuePanel : IUIPanel
     private Button _selectAllButton;
     private Button _cancelSelectedButton;
     private Button _cancelRemainingButton;
+    private Button _closeRouteButton;
     private Button _scaleButton;
     private Label _dayLabel;
     private Label _timeLabel;
@@ -286,7 +287,7 @@ public class WorkQueuePanel : IUIPanel
             .Where(t => t.Status != WorkTaskStatus.Complete)
             .Select(t => $"{t.TaskId}:{t.Status}:{t.PalletId}:{t.OrderId}:{t.AssignedToEmployeeGuid}:{t.FromLocation}:{t.ToLocation}"));
         string orders = orderService == null ? "" : string.Join("|", orderService.ActiveOrders
-            .Select(o => $"{o.OrderId}:{o.Status}:{o.CustomerName}:{o.AssignedDoorNumber}:{o.StagingDoorNumber}:{o.ReleasedToFloor}:{o.AssignedLane}:{o.OverflowLanes.Count}:{o.TotalUnitsPicked}"));
+            .Select(o => $"{o.OrderId}:{o.Status}:{o.CustomerName}:{o.AssignedDoorNumber}:{o.StagingDoorNumber}:{o.ReleasedToFloor}:{o.AssignedLane}:{o.OverflowLanes.Count}:{o.TotalUnitsPicked}:{o.ReturnsMode}"));
         // Per-pallet stages (Staged / Loading / Loaded) drive each pallet row's Status, so a stage change
         // alone must redraw the panel. Only counted per order + stage -- cheap, and only ever runs while visible.
         var stageCounts = new Dictionary<string, int>();
@@ -451,6 +452,18 @@ public class WorkQueuePanel : IUIPanel
         _cancelRemainingButton.style.paddingRight = 0;
         _cancelRemainingButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
         titleBar.Add(_cancelRemainingButton);
+
+        // Close Route (Tad, 2026-10-22): stop a route that is part-way. What is on the trailer ships; the rest is cancelled off the
+        // order and sent back to the pick slots by RETURNS tasks; an order a selector is still picking goes to RETURNS and is put back.
+        _closeRouteButton = StyleButton(new Button(CloseRouteSelected) { text = "Close Route" },
+            ColWarning, ColOrangeEdge, ColOrangeText, ColOrangeHover);
+        _closeRouteButton.style.width = CancelSelectedWidth;
+        _closeRouteButton.style.flexShrink = 0;
+        _closeRouteButton.style.marginLeft = 8;
+        _closeRouteButton.style.paddingLeft = 0;
+        _closeRouteButton.style.paddingRight = 0;
+        _closeRouteButton.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+        titleBar.Add(_closeRouteButton);
 
         // Centered on the title bar's full width via absolute positioning rather than a flexGrow
         // spacer -- the left button cluster (Select All/Cancel Selected) and the right-side
@@ -937,7 +950,7 @@ public class WorkQueuePanel : IUIPanel
         phase == RowPhase.Available || phase == RowPhase.NoStock ||
         // Loading too: a trailer that took everything the lane had never reaches Loaded (there was
         // nothing left to fetch), and close-out is the only way to bill it and free the door.
-        phase == RowPhase.Loading;
+        phase == RowPhase.Loading || phase == RowPhase.Picking;
 
     /// <summary>Phases the Cancel Selected button acts on — mirrors OrderService.CanCancelOrder,
     /// which re-checks authoritatively before anything is actually cancelled.</summary>
@@ -1132,6 +1145,45 @@ public class WorkQueuePanel : IUIPanel
         UpdateSelectAllButton();
         UpdateCancelSelectedButton();
         UpdateCancelRemainingButton();
+        UpdateCloseRouteButton();
+    }
+
+    /// <summary>The checked orders whose route can be closed (staged, loading, loaded or being picked).</summary>
+    private List<string> CloseRouteCheckedOrderIds()
+    {
+        var ids = new List<string>();
+        if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null) return ids;
+        foreach (var id in _checkedOrderIds)
+        {
+            var order = orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == id);
+            if (order != null && orderService.CanCloseRoute(order, out _)) ids.Add(id);
+        }
+        return ids;
+    }
+
+    private void CloseRouteSelected()
+    {
+        if (!ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null) return;
+        var ids = CloseRouteCheckedOrderIds();
+        if (ids.Count == 0) return;
+
+        ConfirmationModal.Show(orderService.DescribeCloseRoute(ids), () =>
+        {
+            int done = orderService.CloseRoute(ids);
+            _checkedOrderIds.ExceptWith(ids);
+            _liveSignature = null;
+            RebuildRows();
+            if (done > 0) _bottomMessage.text = $"Closed the route on {done} order(s).";
+        });
+    }
+
+    private void UpdateCloseRouteButton()
+    {
+        if (_closeRouteButton == null) return;
+        int n = CloseRouteCheckedOrderIds().Count;
+        _closeRouteButton.SetEnabled(n > 0);
+        _closeRouteButton.text = n > 0 ? $"Close Route ({n})" : "Close Route";
+        _closeRouteButton.style.opacity = n > 0 ? 1f : 0.5f;
     }
 
     private void UpdateCancelRemainingButton()
@@ -1465,6 +1517,8 @@ public class WorkQueuePanel : IUIPanel
     };
     private RowPhase? DeterminePhase(OrderData order, WorkTask task)
     {
+        // RETURNS: the route was closed while a selector was picking; they are putting it all back (Tad, 2026-10-22).
+        if (order.ReturnsMode) return RowPhase.Returns;
         if (order.Status == OrderData.OrderStatus.Loading) return RowPhase.Loading;
         if (order.Status == OrderData.OrderStatus.Staged) return RowPhase.Staged;
         // A PARTIALLY PICKED order with freight already in its lane is offered as Staged so the player
@@ -1498,7 +1552,8 @@ public class WorkQueuePanel : IUIPanel
         {
             WorkTaskStatus.Open => RowPhase.Open,
             WorkTaskStatus.Available => RowPhase.Available,
-            WorkTaskStatus.Assigned => RowPhase.Assigned,
+            // A selector has claimed the pick: PICKING (same as Assigned, but says what is happening).
+            WorkTaskStatus.Assigned => task.Type == WorkTaskType.OrderSelect ? RowPhase.Picking : RowPhase.Assigned,
             _ => null,
         };
     }
@@ -1582,7 +1637,7 @@ public class WorkQueuePanel : IUIPanel
         string taskName = TaskTypeLabel(order, phase, task);
         string from = OrderFromLocation(order, task, phase);
         string to = OrderToLocation(order, task, phase);
-        string operatorName = phase == RowPhase.Assigned ? GetOperatorName(task?.AssignedToEmployeeGuid) : "—";
+        string operatorName = (phase == RowPhase.Assigned || phase == RowPhase.Picking || phase == RowPhase.Returns) ? GetOperatorName(task?.AssignedToEmployeeGuid) : "—";
 
         AddRowCell(row, DelDateText(order), DelDateWidth, ColSubtleText);
         AddRowCell(row, itemNumber, ItemNumberWidth, ColTitleText);
@@ -1699,6 +1754,7 @@ public class WorkQueuePanel : IUIPanel
     private static string WorkTaskTypeDisplayName(WorkTaskType type) => type switch
     {
         WorkTaskType.Replenish => "Replenishment",
+        WorkTaskType.Return => "RETURNS",
         _ => type.ToString()
     };
 
@@ -1791,6 +1847,8 @@ public class WorkQueuePanel : IUIPanel
         RowPhase.Loading => "Loading",
         RowPhase.Loaded => "Loaded",
         RowPhase.NoStock => "No Stock",
+        RowPhase.Picking => "Picking",
+        RowPhase.Returns => "Returns",
         _ => "?",
     };
 
@@ -1803,6 +1861,8 @@ public class WorkQueuePanel : IUIPanel
         RowPhase.Loading => ColStatusLoading,
         RowPhase.Loaded => ColStatusLoaded,
         RowPhase.NoStock => ColWarning,
+        RowPhase.Picking => ColStatusAssigned,
+        RowPhase.Returns => ColWarning,
         _ => ColSubtleText,
     };
 
@@ -1865,6 +1925,17 @@ public class WorkQueuePanel : IUIPanel
         // is enforced where it belongs — per stage and per door in OrderService — rather than by
         // refusing the whole selection up front.
         string customerId = customers[0];
+        // Picking / Returns: a selector is out on the floor. Nothing to submit here; Close Route (title bar) stops it.
+        if (phases[0] == RowPhase.Picking || phases[0] == RowPhase.Returns)
+        {
+            SetBottomBar(ActionMode.None,
+                phases[0] == RowPhase.Picking
+                    ? $"{checkedOrders.Count} order(s) are being picked. Use Close Route (top) to stop - the selector puts everything back (RETURNS)."
+                    : $"{checkedOrders.Count} order(s) are being put back by their selector (RETURNS). They leave the queue when everything is back in its pick slot.",
+                new List<string> { "\u2014" }, enableTarget: false, enableSubmit: false);
+            return;
+        }
+
 
         // No Stock (a legacy backorder record) has no Submit action of its own — Cancel Selected is
         // the only thing that acts on it.
@@ -1998,7 +2069,7 @@ public class WorkQueuePanel : IUIPanel
             {
                 orderService.CanCloseOut(blocked[0], out string whyNot);
                 SetBottomBar(ActionMode.CloseOut,
-                    $"Can't close out yet — {blocked[0].CustomerName}'s order {whyNot}.",
+                    $"Can't close out yet — {blocked[0].CustomerName}'s order {whyNot}. (Close Route, top, ships what is aboard and sends the rest back.)",
                     new List<string> { "—" }, enableTarget: false, enableSubmit: false);
                 return;
             }
@@ -2208,7 +2279,7 @@ public class WorkQueuePanel : IUIPanel
             SortColumn.Status => PhaseLabel(phase),
             SortColumn.From => OrderFromLocation(order, task, phase),
             SortColumn.To => OrderToLocation(order, task, phase),
-            SortColumn.Operator => phase == RowPhase.Assigned ? GetOperatorName(task?.AssignedToEmployeeGuid) : "\u2014",
+            SortColumn.Operator => (phase == RowPhase.Assigned || phase == RowPhase.Picking || phase == RowPhase.Returns) ? GetOperatorName(task?.AssignedToEmployeeGuid) : "\u2014",
             SortColumn.Customer => order.CustomerName,
             _ => "\u2014"
         };

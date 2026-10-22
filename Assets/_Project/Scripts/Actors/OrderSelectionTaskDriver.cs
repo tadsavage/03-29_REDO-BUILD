@@ -138,6 +138,7 @@ namespace GameCore.Actors
         /// same philosophy as ReceivingTaskDriver's orphan handling.</summary>
         private void AdvanceToNextPick()
         {
+            if (ReturnsRequested) { StartCoroutine(MidPickReturnRoutine()); return; }
             if (_currentOrder.IsFullyPicked)
             {
                 if (HelperNotNeeded()) { EndUnneededHelperTrip(); return; }
@@ -252,6 +253,7 @@ namespace GameCore.Actors
 
             for (int i = 0; i < takeQty; i++)
             {
+                if (ReturnsRequested) { StartCoroutine(MidPickReturnRoutine()); yield break; }
                 yield return new WaitForSeconds(PickSecondsPerCase);
 
                 if (!string.IsNullOrEmpty(location.PalletId))
@@ -660,6 +662,21 @@ namespace GameCore.Actors
             // (the selector already took every last case from every reachable slot, down to zero) stages what it picked as
             // usual; the deficit becomes a brand new SCRATCHES pick list that must be picked before the truck departs,
             // unless the player cancels the rest of the order.
+            // The route was closed while this trip was already heading for the lane: the pallets it just staged are
+            // returned to their pick slots by RETURNS tasks (OrderService.CompleteReturnedOrder -> ReclaimOrphanedFreight).
+            if (_currentOrder != null && _currentOrder.ReturnsMode)
+            {
+                _orderService.CompleteReturnedOrder(_currentOrder, task);
+                _cubingCapHit = false;
+                _currentTask = null;
+                _currentOrder = null;
+                _pallets.Clear();
+                _taskInProgress = false;
+                _nav.SetTaskBusy(false);
+                _nav.Patrol();
+                return;
+            }
+
             bool moreToPick = _currentOrder != null &&
                               ((_cubingCapHit && _orderService.FileContinuationSelect(_currentOrder)) ||
                                _orderService.FileScratchSelect(_currentOrder));

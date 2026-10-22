@@ -1646,7 +1646,11 @@ namespace GameCore.Inventory
             // either charged the vendor "driver never showed" — twice for one backfill in the 2026-10-17 soak test
             // (PO IG4160, which had arrived and offloaded fine).
             var elapsed = _appointments
-                .Where(a => (a.Kind != AppointmentKind.Inbound || (!string.IsNullOrEmpty(a.ShipmentPoNumber) && !a.Parked && !a.ClosedOut)) &&
+                // Outbound: a slot already closed out as missed was judged once; re-judging it wrote the same warning every
+                // sweep (31 times for one slot in the 2026-10-22 soak).
+                .Where(a => (a.Kind == AppointmentKind.Inbound
+                                 ? (!string.IsNullOrEmpty(a.ShipmentPoNumber) && !a.Parked && !a.ClosedOut)
+                                 : !a.ClosedOut) &&
                             (a.Day < today || (a.Day == today && a.BlockIndex < nowBlock)))
                 .ToList();
 
@@ -1745,7 +1749,12 @@ namespace GameCore.Inventory
             if (po != null && po.Status == ShipmentData.ShipmentStatus.Receiving)
                 return;
 
-            if (po != null && po.Status == ShipmentData.ShipmentStatus.InTransit &&
+            // The PO still reads InTransit until it docks, but a truck already in the yard (gate queue, guard check, waiting
+            // for a door) DID show up. Penalizing it as "never showed" cost -10 per PO in the 2026-10-22 soak for trucks that
+            // were offloaded within the hour; waiting is already charged separately by the dwell clock.
+            bool truckInYard = po != null && Object.FindObjectsByType<TruckController>(FindObjectsInactive.Exclude)
+                .Any(t => t != null && t.AssignedShipment == po);
+            if (po != null && po.Status == ShipmentData.ShipmentStatus.InTransit && !truckInYard &&
                 ServiceLocator.TryGet(out VendorEconomyService economy) && economy != null &&
                 !string.IsNullOrEmpty(po.SupplierId))
             {
