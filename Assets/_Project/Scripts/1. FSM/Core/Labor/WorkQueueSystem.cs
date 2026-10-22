@@ -260,10 +260,14 @@ namespace GameCore.Labor
 
                 // IsAvailableForWork, not just Active — it also excludes the injured, and an injured
                 // employee is exactly as able to clear this queue as one who was never hired.
-                bool anyoneHired = registry.All.Any(e => e != null && e.Record != null &&
-                                                         CanServe(e.Record.role, role) &&
-                                                         e.Record.IsAvailableForWork);
-                if (anyoneHired) continue;
+                int staff = registry.All.Count(e => e != null && e.Record != null &&
+                                                     CanServe(e.Record.role, role) &&
+                                                     e.Record.IsAvailableForWork);
+                if (staff > 0)
+                {
+                    WarnIfBacklogged(role, group.Count(), staff, clock);
+                    continue;
+                }
 
                 _unstaffedWarned.Add(role);
                 int count = group.Count();
@@ -272,6 +276,27 @@ namespace GameCore.Labor
                 Debug.LogWarning($"[WorkQueueSystem] {count} Available task(s) require role {role}, " +
                                  $"which no active employee holds. That work cannot progress.");
             }
+        }
+
+        // ── Backlog warning (2026-10-22 soak) ──────────────────────────────────────────────────────
+        // Staffed but swamped: 15 putaways waiting for 2 reach trucks while inbound trucks sat in the yard and the dwell clock
+        // took vendor standing hour after hour, with nothing telling the player why. Says which role is the bottleneck.
+        private const int BacklogPerWorker = 5;
+        private const int BacklogMinimum = 8;
+        private const int BacklogWarnEveryMinutes = 4 * 60;
+        private readonly Dictionary<EmployeeRole, long> _backlogWarnedAt = new();
+
+        private void WarnIfBacklogged(EmployeeRole role, int waiting, int staff, GameCore.Economy.SimulationTimeService clock)
+        {
+            if (clock == null || waiting < BacklogMinimum || waiting < staff * BacklogPerWorker) return;
+            long now = clock.TotalMinutesElapsed;
+            if (_backlogWarnedAt.TryGetValue(role, out long last) && now - last < BacklogWarnEveryMinutes) return;
+            _backlogWarnedAt[role] = now;
+
+            string msg = $"{waiting} jobs are waiting for your {staff} {Pretty(role)}(s) - they can't keep up. " +
+                         $"Hire another {Pretty(role)}, or space out deliveries in the Scheduler.";
+            UIToast.Show(msg, 5f);
+            SystemsLogWindow.LogWarning(msg);
         }
 
         /// <summary>

@@ -3215,7 +3215,7 @@ private DockSlot        _dock;
         {
             var gameCtxClock = FindAnyObjectByType<GameContext>();
             _inboundClockStartSimMinute = gameCtxClock != null && gameCtxClock.TimeService != null
-                ? gameCtxClock.TimeService.TotalMinutesElapsed : -1;
+                ? InboundClockStart(gameCtxClock.TimeService.TotalMinutesElapsed) : -1;
             _inboundPenaltyTierApplied = 0;
         }
 
@@ -3834,6 +3834,25 @@ private DockSlot        _dock;
     /// mid-unload is left alone by this method; DockScheduleService's own 8-hour "no full receipt"
     /// deadline (measured from the appointment, not the gate) still governs that case independently.
     /// </summary>
+    /// <summary>When the dwell clock starts: clearing the gate, but never before the PO's booked slot opens. Inbound trucks
+    /// are sent a block early so they are at the dock when the slot starts (ShipmentService.DispatchDueShipments); waiting
+    /// for their own slot is not the player's fault (2026-10-22).</summary>
+    private long InboundClockStart(long now)
+    {
+        if (AssignedShipment != null &&
+            GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService schedule) && schedule != null)
+        {
+            var appt = schedule.FindForPo(AssignedShipment.PONumber);
+            if (appt != null && !appt.Parked)
+            {
+                long slotStart = (long)(appt.Day - 1) * 24 * 60 +
+                                 appt.BlockIndex * GameCore.Inventory.DockScheduleService.BlockHours * 60;
+                if (slotStart > now) return slotStart;
+            }
+        }
+        return now;
+    }
+
     private void UpdateInboundDwellClock()
     {
         if (_isOutbound || AssignedShipment == null) return;
@@ -3850,7 +3869,7 @@ private DockSlot        _dock;
         if (gameCtx == null || gameCtx.TimeService == null) return;
 
         if (_inboundClockStartSimMinute < 0)
-            _inboundClockStartSimMinute = gameCtx.TimeService.TotalMinutesElapsed;
+            _inboundClockStartSimMinute = InboundClockStart(gameCtx.TimeService.TotalMinutesElapsed);
 
         float elapsedHours = (gameCtx.TimeService.TotalMinutesElapsed - _inboundClockStartSimMinute) / 60f;
         float frac = Mathf.Clamp01(1f - elapsedHours / InboundDeadlineHours);
