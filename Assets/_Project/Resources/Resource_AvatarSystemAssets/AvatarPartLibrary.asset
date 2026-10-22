@@ -17,7 +17,40 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: f8d95e469279787448f99b4305b8aae0, type: 3}
   - fbxPath: Assets/_Project/__Avatar_System2.0/Male/2. FBX/Male_Regular_Body.fbx
     prefab: {fileID: 919132149155446097, guid: 5f901948738602a4f8db59b121a85edd, type: 3}
-  parts: []
+  parts:
+  - objectName: Female_Hair_Bob-Blk-2.0
+    gender: female
+    slot: hair
+    variant: Bob-Blk-2.0
+    sourceIndex: 0
+    allowedRoles: 
+    colorVariants: []
+    defaultWeight: 1
+    hiddenBodySlots: []
+    metadataReviewed: 0
+    verifiedInGame: 1
+  - objectName: Female_Hair_Bob-Blonde-2.0
+    gender: female
+    slot: hair
+    variant: Bob-Blonde-2.0
+    sourceIndex: 0
+    allowedRoles: 
+    colorVariants: []
+    defaultWeight: 1
+    hiddenBodySlots: []
+    metadataReviewed: 0
+    verifiedInGame: 1
+  - objectName: Female_Hair_Bob-Red-2.0
+    gender: female
+    slot: hair
+    variant: Bob-Red-2.0
+    sourceIndex: 0
+    allowedRoles: 
+    colorVariants: []
+    defaultWeight: 1
+    hiddenBodySlots: []
+    metadataReviewed: 0
+    verifiedInGame: 1
   finalizedParts:
   - {fileID: 11400000, guid: 78e45ef4f59662546bf6a6723a7c34d1, type: 2}
   - {fileID: 11400000, guid: 78a7db190b1bfc045911abac732ded70, type: 2}
