@@ -867,8 +867,15 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         }
         if (_animator != null && !_animator.enabled) _animator.enabled = true;
 
+        // The two seek blocks below read remainingDistance/pathStatus, which throw ("can only be
+        // called on an active agent that has been placed on a NavMesh") while the agent is off the
+        // mesh - e.g. a save-loaded worker resuming its walk before the NavMesh bake finishes. With
+        // the Console's Error Pause on, that one error froze the whole game on its first frames. The
+        // off-mesh recovery further down re-seats the agent; the seeks simply wait until it has.
+        bool onMesh = agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh;
+
         // ── Equipment seeking (operator walks toward placed equipment) ──────────────
-        if (_seekingEquipment && _targetEquipment != null)
+        if (_seekingEquipment && _targetEquipment != null && onMesh)
         {
             // Check if target equipment became occupied
             if (_targetEquipment.IsOccupied || !_targetEquipment.AcceptsOperatorFrom(_operatorIdentity))
@@ -904,7 +911,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         }
 
         // ── Task seeking (employee walks toward a generic task position, e.g. a pallet) ──────────
-        if (_seekingTask)
+        if (_seekingTask && onMesh)
         {
             // Progress tracking for the no-progress backstop below. "Progress" is the remaining
             // distance actually falling — being shunted around by MHE doesn't count as progress, and

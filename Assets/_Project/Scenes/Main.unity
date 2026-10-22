@@ -5856,6 +5856,8 @@ MonoBehaviour:
   dioramaDepthOfField: 1
   dofFocalLengthMm: 90
   dofFStop: 1.6
+  dofUltraFocalLengthMm: 120
+  dofUltraFStop: 1
   dofBladeCount: 6
   dofFStopFocused: 3.6
   dofFStopPalletFocus: 32
@@ -17117,7 +17119,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &2059509887
 Transform:
   m_ObjectHideFlags: 0
