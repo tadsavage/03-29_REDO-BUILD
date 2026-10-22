@@ -15,7 +15,7 @@ RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
   m_Fog: 1
-  m_FogColor: {r: 0.2943663, g: 0.5317012, b: 0.5943396, a: 1}
+  m_FogColor: {r: 0.2668494, g: 0.3334693, b: 0.3509434, a: 1}
   m_FogMode: 2
   m_FogDensity: 0.004
   m_LinearFogStart: 0
@@ -24,7 +24,7 @@ RenderSettings:
   m_AmbientEquatorColor: {r: 0.3301887, g: 0.2857639, b: 0.26477394, a: 1}
   m_AmbientGroundColor: {r: 0.2264151, g: 0.20719115, b: 0.20719115, a: 1}
   m_AmbientIntensity: 0.75
-  m_AmbientMode: 0
+  m_AmbientMode: 1
   m_SubtractiveShadowColor: {r: 0.2535778, g: 0.270372, b: 0.3207547, a: 1}
   m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
   m_HaloStrength: 0.5
@@ -1571,6 +1571,14 @@ MonoBehaviour:
     - {fileID: 11400000, guid: c5e22691d1a03ea49bdb272d078cd19d, type: 2}
     - {fileID: 11400000, guid: bad36bbcdd9623f4f9a49f5e7d996825, type: 2}
     - {fileID: 11400000, guid: 3f6abcf4564019f44b419646de95ddee, type: 2}
+  - id: Grounds 2.0
+    displayName: Grounds 2.0
+    icon: {fileID: 2800000, guid: 04b13d7459f93ee4eb71db9f3567639c, type: 3}
+    items:
+    - {fileID: 11400000, guid: e1f7207715498dc4aba0ff915776ca3e, type: 2}
+    - {fileID: 11400000, guid: e5dfd5f325422d54ea6c82cacb89a58e, type: 2}
+    - {fileID: 11400000, guid: 37eb47d56ec153a48b90e60484468950, type: 2}
+    - {fileID: 11400000, guid: f1d382493798e594d920b7708905d880, type: 2}
   - id: Loss Prevention
     displayName: Loss Prevention
     icon: {fileID: 2800000, guid: 8316f3267e8ec46488e5c982def25c36, type: 3}
@@ -5767,8 +5775,8 @@ Camera:
   m_GameObject: {fileID: 614450591}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.54401034, g: 0.60760796, b: 0.7075472, a: 1}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.14568168, g: 0.20516714, b: 0.2981131, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -17109,7 +17117,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2059509887
 Transform:
   m_ObjectHideFlags: 0
