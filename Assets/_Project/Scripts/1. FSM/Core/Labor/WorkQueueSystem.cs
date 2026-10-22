@@ -260,10 +260,10 @@ namespace GameCore.Labor
 
                 // IsAvailableForWork, not just Active — it also excludes the injured, and an injured
                 // employee is exactly as able to clear this queue as one who was never hired.
-                int staff = registry.All.Count(e => e != null && e.Record != null &&
-                                                     CanServe(e.Record.role, role) &&
-                                                     e.Record.IsAvailableForWork);
-                if (staff > 0)
+                var staff = registry.All.Where(e => e != null && e.Record != null &&
+                                                    CanServe(e.Record.role, role) &&
+                                                    e.Record.IsAvailableForWork).ToList();
+                if (staff.Count > 0)
                 {
                     WarnIfBacklogged(role, group.Count(), staff, clock);
                     continue;
@@ -286,17 +286,36 @@ namespace GameCore.Labor
         private const int BacklogWarnEveryMinutes = 4 * 60;
         private readonly Dictionary<EmployeeRole, long> _backlogWarnedAt = new();
 
-        private void WarnIfBacklogged(EmployeeRole role, int waiting, int staff, GameCore.Economy.SimulationTimeService clock)
+        private const float GrumbleSeconds = 7f;
+        private const string DefaultGrumble = "We need help Dummy! I only have 2 speeds and your not gonna like my other speed!";
+
+        /// <summary>What the swamped crew says over their heads (Tad, 2026-10-22). One line per role; a role without its
+        /// own line uses the default. Add entries here to give a role its own complaint.</summary>
+        private static readonly Dictionary<EmployeeRole, string> Grumbles = new()
         {
-            if (clock == null || waiting < BacklogMinimum || waiting < staff * BacklogPerWorker) return;
+            { EmployeeRole.ReachTruckOperator, DefaultGrumble },
+            { EmployeeRole.OrderSelector, "We're getting buried moron. You gonna pick some of these cases?" },
+            { EmployeeRole.Receiver, "This dock ain't gonna clear itself! Where's our help?" },
+            // Dock stockers do the loading (the old Loader role is gone).
+            { EmployeeRole.DockStockerOperator, "This dock is getting stupid full, and its about to go full retard!" },
+        };
+
+        private void WarnIfBacklogged(EmployeeRole role, int waiting, List<EmployeeIdentity> staff, GameCore.Economy.SimulationTimeService clock)
+        {
+            if (clock == null || waiting < BacklogMinimum || waiting < staff.Count * BacklogPerWorker) return;
             long now = clock.TotalMinutesElapsed;
             if (_backlogWarnedAt.TryGetValue(role, out long last) && now - last < BacklogWarnEveryMinutes) return;
             _backlogWarnedAt[role] = now;
 
-            string msg = $"{waiting} jobs are waiting for your {staff} {Pretty(role)}(s) - they can't keep up. " +
+            string msg = $"{waiting} jobs are waiting for your {staff.Count} {Pretty(role)}(s) - they can't keep up. " +
                          $"Hire another {Pretty(role)}, or space out deliveries in the Scheduler.";
             UIToast.Show(msg, 5f);
             SystemsLogWindow.LogWarning(msg);
+
+            // The crew grumbles about it too: a speech bubble over each of them.
+            string line = Grumbles.TryGetValue(role, out var own) ? own : DefaultGrumble;
+            foreach (var e in staff)
+                if (e != null) WorldSpeechBubbles.Show(e.transform, line, GrumbleSeconds);
         }
 
         /// <summary>
