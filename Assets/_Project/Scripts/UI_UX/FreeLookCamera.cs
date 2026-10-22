@@ -40,6 +40,10 @@ public class FreeLookCamera : MonoBehaviour
     [SerializeField] private float dofFocalLengthMm = 90f;
     [Tooltip("F-stop. Lower = thinner sharp zone and stronger blur (1.2 is strong, 1.8-2.8 subtle).")]
     [SerializeField] private float dofFStop = 1.6f;
+    [Tooltip("Ultra's tilt-shift strength (2026-10-22, Tad wanted strong DoF): replaces the focal length above. Blur grows with focal length squared.")]
+    [SerializeField] private float dofUltraFocalLengthMm = 120f;
+    [Tooltip("Ultra's f-stop; replaces the f-stop above. URP's minimum is 1.0 (strongest).")]
+    [SerializeField] private float dofUltraFStop = 1.0f;
     [Tooltip("Aperture blades; 5-6 gives angular highlights that suit the low-poly look.")]
     [SerializeField] private int   dofBladeCount = 6;
     [Tooltip("F-stop used while a clicked employee is in focus. Higher = a deeper sharp zone, so the whole person (head to feet) stays crisp while the surroundings still soften. 3-5 is good; set equal to the main f-stop for no change.")]
@@ -340,13 +344,14 @@ public class FreeLookCamera : MonoBehaviour
         // With someone in focus, deepen the sharp zone (higher f-stop) so all of them is crisp, not just the plane
         // at chest height; eases back out when the banner closes.
         _dofFocusedBlend = Mathf.MoveTowards(_dofFocusedBlend, focused != null ? 1f : 0f, Time.unscaledDeltaTime * 4f);
-        float fStop = Mathf.Lerp(dofFStop, Mathf.Max(dofFStop, dofFStopFocused), _dofFocusedBlend);
+        float baseStop = dofUltraFStop;   // only Ultra gets this far (Good/Toaster return above)
+        float fStop = Mathf.Lerp(baseStop, Mathf.Max(baseStop, dofFStopFocused), _dofFocusedBlend);
         _dofPalletBlend = Mathf.MoveTowards(_dofPalletBlend, palletFocus ? 1f : 0f, Time.unscaledDeltaTime * 4f);
         fStop = Mathf.Lerp(fStop, Mathf.Max(fStop, dofFStopPalletFocus), _dofPalletBlend);
 
         _dof.mode.Override(DepthOfFieldMode.Bokeh);
         _dof.focusDistance.Override(_dofFocus);
-        _dof.focalLength.Override(dofFocalLengthMm);
+        _dof.focalLength.Override(dofUltraFocalLengthMm);
         _dof.aperture.Override(fStop);
         _dof.bladeCount.Override(Mathf.Clamp(dofBladeCount, 3, 9));
         _dof.bladeCurvature.Override(1f);

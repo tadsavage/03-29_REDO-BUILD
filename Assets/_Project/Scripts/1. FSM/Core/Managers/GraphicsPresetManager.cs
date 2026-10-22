@@ -97,6 +97,7 @@ public class GraphicsPresetManager : MonoBehaviour
             case Preset.Good:    ApplyGood();    break;
             case Preset.Toaster: ApplyToaster(); break;
         }
+        DioramaStage.ApplyPreset(preset);   // stage plane, overhead light, backdrop colour + fog
 
         ShaderWarmup.Run($"preset {preset}");
 
@@ -115,7 +116,8 @@ public class GraphicsPresetManager : MonoBehaviour
     private void ApplyUltra()
     {
         FXPool.DisabledKeys.Remove("dust");
-        DayNightCycle.PresetAmbientMultiplier = 1f;
+        // Lower ambient than the other presets so the sun's soft shadows read bold (the overhead light lifts the tops).
+        DayNightCycle.PresetAmbientMultiplier = 0.85f;
         SetPipeline(urpUltra);
         SetVolume(profileUltra);
         SetSceneBlurVolumes(true);
@@ -154,7 +156,8 @@ public class GraphicsPresetManager : MonoBehaviour
     {
         FXPool.DisabledKeys.Add("dust");
         // Same story as Good (no backdrop fill lights): Toaster measured ~0.27 against Ultra's 0.45.
-        DayNightCycle.PresetAmbientMultiplier = 1.5f;
+        // Coloring-book: bright and flat, but not so flat the hard shadows disappear.
+        DayNightCycle.PresetAmbientMultiplier = 0.9f;
         SetPipeline(urpToaster);
         SetVolume(profileToaster);
         SetSceneBlurVolumes(false);   // no depth-of-field blur anywhere on Toaster
