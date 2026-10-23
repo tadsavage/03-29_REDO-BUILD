@@ -13,44 +13,13 @@ MonoBehaviour:
   m_Name: AvatarPartLibrary
   m_EditorClassIdentifier: Assembly-CSharp::AvatarPartLibrary
   sources:
+  - fbxPath: Assets/_Project/__Avatar_System2.0/Female/Regular_Body_Type/1. Blender/Female_Body_Reg-White.fbx
+    prefab: {fileID: 919132149155446097, guid: 1359c1cf619ea024a9ee2699abcbda45, type: 3}
   - fbxPath: Assets/_Project/__Avatar_System2.0/Female/Regular_Body_Type/2. FBX/female_regular_body.fbx
     prefab: {fileID: 919132149155446097, guid: f8d95e469279787448f99b4305b8aae0, type: 3}
   - fbxPath: Assets/_Project/__Avatar_System2.0/Male/2. FBX/Male_Regular_Body.fbx
     prefab: {fileID: 919132149155446097, guid: 5f901948738602a4f8db59b121a85edd, type: 3}
-  parts:
-  - objectName: Female_Hair_Bob-Blk-2.0
-    gender: female
-    slot: hair
-    variant: Bob-Blk-2.0
-    sourceIndex: 0
-    allowedRoles: 
-    colorVariants: []
-    defaultWeight: 1
-    hiddenBodySlots: []
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: Female_Hair_Bob-Blonde-2.0
-    gender: female
-    slot: hair
-    variant: Bob-Blonde-2.0
-    sourceIndex: 0
-    allowedRoles: 
-    colorVariants: []
-    defaultWeight: 1
-    hiddenBodySlots: []
-    metadataReviewed: 0
-    verifiedInGame: 1
-  - objectName: Female_Hair_Bob-Red-2.0
-    gender: female
-    slot: hair
-    variant: Bob-Red-2.0
-    sourceIndex: 0
-    allowedRoles: 
-    colorVariants: []
-    defaultWeight: 1
-    hiddenBodySlots: []
-    metadataReviewed: 0
-    verifiedInGame: 1
+  parts: []
   finalizedParts:
   - {fileID: 11400000, guid: 78e45ef4f59662546bf6a6723a7c34d1, type: 2}
   - {fileID: 11400000, guid: 78a7db190b1bfc045911abac732ded70, type: 2}
@@ -87,6 +56,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 1b2e3e6210203c94d90c6a6a1a5c4f2b, type: 2}
   - {fileID: 11400000, guid: 83a9313f844f2664eb57c57b2c71f359, type: 2}
   - {fileID: 11400000, guid: b9c208faa1522b04986e3d7473c34e71, type: 2}
+  - {fileID: 11400000, guid: 0eef5cec51ec83043963b2941429b735, type: 2}
+  - {fileID: 11400000, guid: afa88208e87fe834abf950fcc8670d09, type: 2}
+  - {fileID: 11400000, guid: bbdd90143697dfb40bc267d0589f0b86, type: 2}
   - {fileID: 11400000, guid: 3ce471736f44abd4b8876c917e647cf6, type: 2}
   - {fileID: 11400000, guid: 1c69d51ff72de1e44a3560f88eb43e0b, type: 2}
   - {fileID: 11400000, guid: 9ee577fbda341ab4d8b353dc258ff61a, type: 2}

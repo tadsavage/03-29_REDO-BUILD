@@ -5854,24 +5854,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FreeLookCamera
   buildMenuUI: {fileID: 93724068}
   dioramaDepthOfField: 1
-  dofFocalLengthMm: 90
+  dofFocalLengthMm: 70
   dofFStop: 1.6
-  dofUltraFocalLengthMm: 120
-  dofUltraFStop: 1
+  dofUltraFocalLengthMm: 90
+  dofUltraFStop: 1.25
   dofBladeCount: 6
-  dofFStopFocused: 3.6
+  dofFStopFocused: 4
   dofFStopPalletFocus: 32
-  dofFocusSmoothTime: 0.12
+  dofFocusSmoothTime: 0.25
   pitchMin: 15
   pitchMax: 80
   defaultPitch: 45
   minDistance: 0.5
   maxDistance: 45
   defaultDistance: 15
-  xMin: -55
-  xMax: 55
-  zMin: -55
-  zMax: 55
+  xMin: -65
+  xMax: 65
+  zMin: -65
+  zMax: 65
 --- !u!114 &614450597
 MonoBehaviour:
   m_ObjectHideFlags: 0
