@@ -261,9 +261,8 @@ namespace GameCore.Labor
 
         private bool HasStagedPalletForOrder(string orderId)
         {
-            foreach (var p in FindObjectsByType<OutboundPalletBuilder>())
-                if (p != null && p.IsOnFloor && p.OrderId == orderId) return true;
-            return false;
+            // One scene scan per frame (see StagedOrderIdsThisFrame) instead of one per call.
+            return StagedOrderIdsThisFrame().Contains(orderId);
         }
 
         // ── The routine ──────────────────────────────────────────────────────────────────────────

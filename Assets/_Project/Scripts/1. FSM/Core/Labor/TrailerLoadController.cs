@@ -102,6 +102,11 @@ namespace GameCore.Labor
             if (_instance == this) _instance = null;
         }
 
+        // TEMP-PROFILE (2026-10-23)
+        private static readonly Unity.Profiling.ProfilerMarker _mTc1 = new("TLC.FindTrucks");
+        private static readonly Unity.Profiling.ProfilerMarker _mTc2 = new("TLC.AutoFileLoadTasks");
+        private static readonly Unity.Profiling.ProfilerMarker _mTc3 = new("TLC.TryStartDigAndLoad");
+
         private void Update()
         {
             if (Time.unscaledTime < _nextScan) return;
@@ -113,14 +118,14 @@ namespace GameCore.Labor
             // A docked outbound truck waits indefinitely for the player to release orders to its
             // door via the Work Queue panel -- keep resetting the idle clock so it never times out
             // and departs empty just because nobody has loaded it yet.
-            foreach (var t in FindObjectsByType<TruckController>())
+            using (_mTc1.Auto()) foreach (var t in TrucksThisFrame())
                 if (t.AwaitingLoad) t.KeepDockAlive();
 
             if (!ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue) || workQueue == null) return;
 
             // A Staged order with a trailer already waiting at its door needs no player action any
             // more — file its Load task automatically the instant both are true. See AutoFileLoadTasks.
-            AutoFileLoadTasks();
+            using (_mTc2.Auto()) AutoFileLoadTasks();
 
             // Work a door's lanes in A -> B -> C order. GetPendingTasksForRole hands tasks back in
             // CREATION order, which is just the order the player happened to release lanes in — so a
@@ -164,7 +169,7 @@ namespace GameCore.Labor
             // Nothing staged to load right now — see if a docked trailer is waiting on an order pallet
             // still sitting in an inbound lane that a dock stocker can dig out and load directly
             // (TrailerLoadController.DigOut.cs).
-            TryStartDigAndLoad(workQueue);
+            using (_mTc3.Auto()) TryStartDigAndLoad(workQueue);
         }
 
         /// <summary>
@@ -350,9 +355,39 @@ namespace GameCore.Labor
 
         private static TruckController FindDockedOutboundTruck(int doorNumber)
         {
-            foreach (var t in FindObjectsByType<TruckController>())
-                if (t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber) return t;
+            foreach (var t in TrucksThisFrame())
+                if (t != null && t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber) return t;
             return null;
+        }
+
+        // FindObjectsByType<T> scans every object in the scene (several ms here). The scan loop asked for trucks and for
+        // staged pallets once per ORDER, several times per poll: ~35 ms hitches twice a second (2026-10-23 profile). One scan per frame is
+        // plenty - these are looked up only inside one frame's poll, and a truck or pallet that appears next frame is seen next poll.
+        private static int _trucksFrame = -1;
+        private static TruckController[] _trucksCache = System.Array.Empty<TruckController>();
+        internal static TruckController[] TrucksThisFrame()
+        {
+            if (_trucksFrame != Time.frameCount)
+            {
+                _trucksFrame = Time.frameCount;
+                _trucksCache = FindObjectsByType<TruckController>();
+            }
+            return _trucksCache;
+        }
+
+        private static int _palletsFrame = -1;
+        private static readonly HashSet<string> _stagedOrderIds = new HashSet<string>();
+        /// <summary>Order ids that have at least one outbound pallet standing on the floor, from one scan per frame.</summary>
+        internal static HashSet<string> StagedOrderIdsThisFrame()
+        {
+            if (_palletsFrame != Time.frameCount)
+            {
+                _palletsFrame = Time.frameCount;
+                _stagedOrderIds.Clear();
+                foreach (var p in FindObjectsByType<OutboundPalletBuilder>())
+                    if (p != null && p.IsOnFloor && !string.IsNullOrEmpty(p.OrderId)) _stagedOrderIds.Add(p.OrderId);
+            }
+            return _stagedOrderIds;
         }
 
         /// <summary>Splits a lane address like "3A" (WorkTask.FromLocation) back into door number

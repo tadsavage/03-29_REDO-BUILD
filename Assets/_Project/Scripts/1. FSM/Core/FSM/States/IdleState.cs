@@ -28,6 +28,9 @@ public class IdleState : PlacementStateBase
         raycast?.ResetHitData();
     }
 
+    // TEMP-PROFILE (2026-10-23)
+    private static readonly Unity.Profiling.ProfilerMarker _mIdleCell = new("IDLE.SetCell");
+
     public override void Update()
     {
         var ray = raycast;
@@ -37,7 +40,7 @@ public class IdleState : PlacementStateBase
         if (ray.HasHit)
         {
             Vector2Int cell = ray.HitCell;
-            topBarUI?.SetCell(cell.x, cell.y);
+            using (_mIdleCell.Auto()) topBarUI?.SetCell(cell.x, cell.y);
         }
     }
 

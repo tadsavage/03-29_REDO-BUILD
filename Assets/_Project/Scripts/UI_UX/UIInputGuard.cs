@@ -11,11 +11,16 @@ public static class UIInputGuard
     /// <summary>The UI element that most recently made IsPointerOverUIToolkit return true (read it via execute_code when a world click "does nothing").</summary>
     public static string LastBlocker;
 
+    // TEMP-PROFILE (2026-10-23)
+    private static readonly Unity.Profiling.ProfilerMarker _mUigRefresh = new("UIG.RefreshDocs");
+    private static readonly Unity.Profiling.ProfilerMarker _mUigOver = new("UIG.IsPointerOverUIToolkit");
+
     private static void RefreshDocs()
     {
         if (Time.realtimeSinceStartup - _lastRefresh < 2.0f && _cachedDocs.Count > 0) return;
-        
-        _cachedDocs = new List<UIDocument>(Object.FindObjectsByType<UIDocument>());
+
+        using (_mUigRefresh.Auto())
+            _cachedDocs = new List<UIDocument>(Object.FindObjectsByType<UIDocument>());
         _lastRefresh = Time.realtimeSinceStartup;
     }
 
@@ -25,6 +30,11 @@ public static class UIInputGuard
     /// Handles what EventSystem.IsPointerOverGameObject() misses for UI Toolkit.
     /// </summary>
     public static bool IsPointerOverUIToolkit()
+    {
+        using (_mUigOver.Auto()) return IsPointerOverUIToolkitImpl();
+    }
+
+    private static bool IsPointerOverUIToolkitImpl()
     {
         if (Mouse.current == null) return false;
         RefreshDocs();

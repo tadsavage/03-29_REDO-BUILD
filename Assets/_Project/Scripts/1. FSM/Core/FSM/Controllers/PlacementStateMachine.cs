@@ -188,12 +188,17 @@ public class PlacementStateMachine : MonoBehaviour
     // ---------------------------------------------------------
     // UPDATE LOOP
     // ---------------------------------------------------------
+    // TEMP-PROFILE (2026-10-23)
+    private static readonly Unity.Profiling.ProfilerMarker _mPs1 = new("PSM.StateTick");
+    private static readonly Unity.Profiling.ProfilerMarker _mPs2 = new("PSM.HandleIdleHover");
+    private static readonly Unity.Profiling.ProfilerMarker _mPs3 = new("PSM.IsHoveringClickable");
+
     private void Update()
     {
         // -----------------------------------------------------
         // STATE TICK
         // -----------------------------------------------------
-        _currentState?.Tick();
+        using (_mPs1.Auto()) _currentState?.Tick();
 
         // -----------------------------------------------------
         // IDLE HOVER LOGIC
@@ -203,7 +208,7 @@ public class PlacementStateMachine : MonoBehaviour
             if (_raycast != null && _hoverUI != null)
             {
                 // We don't call raycast.Tick() again here because IdleState already did it.
-                HandleIdleHover(tickRaycast: false);
+                using (_mPs2.Auto()) HandleIdleHover(tickRaycast: false);
 
                 // Select cursor whenever the thing under the mouse right now is something a click
                 // (or Shift+click, for lights) actually does something to — per Tad's explicit call,
@@ -218,7 +223,7 @@ public class PlacementStateMachine : MonoBehaviour
                 // cursor would flash on for an instant over a button and immediately vanish. Over UI,
                 // this system has nothing useful to say either way, so it just stays out of it.
                 if (!_raycast.IsPointerOverUI)
-                    CustomCursorService.SetHoveringInteractable(IsHoveringClickableWorldObject());
+                    using (_mPs3.Auto()) CustomCursorService.SetHoveringInteractable(IsHoveringClickableWorldObject());
 
                 // Ctrl + Left Click on a pallet opens PalletBuilder UI. Shift+Click is reserved for
                 // Slot Assignment — this used to be bound to Shift and directly duplicated

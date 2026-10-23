@@ -106,9 +106,14 @@ public class RaycastController : MonoBehaviour
         }
     }
 
+    // TEMP-PROFILE (2026-10-23)
+    private static readonly Unity.Profiling.ProfilerMarker _mRcUi = new("RC.PointerOverUI");
+    private static readonly Unity.Profiling.ProfilerMarker _mRcObj = new("RC.ObjectRaycast");
+    private static readonly Unity.Profiling.ProfilerMarker _mRcGround = new("RC.GroundRaycast");
+
     public void Tick()
     {
-        _isPointerOverUI = CheckIfPointerOverUI();
+        using (_mRcUi.Auto()) _isPointerOverUI = CheckIfPointerOverUI();
 
         if (!_enabled || _isPointerOverUI)
         {
@@ -142,8 +147,8 @@ public class RaycastController : MonoBehaviour
         // ---------------------------------------------------------
         // We use QueryTriggerInteraction.Collide so we can hit pallet box colliders (which are triggers)
         // even when they are inside rack shelves or other obstacles.
-        bool objectHit = Physics.Raycast(ray, out RaycastHit objHit, 500f, dynamicObjectMask, QueryTriggerInteraction.Collide);
-        bool groundHit = Physics.Raycast(ray, out RaycastHit hit, 999f, dynamicGroundMask, QueryTriggerInteraction.Ignore);
+        bool objectHit; RaycastHit objHit; using (_mRcObj.Auto()) objectHit = Physics.Raycast(ray, out objHit, 500f, dynamicObjectMask, QueryTriggerInteraction.Collide);
+        bool groundHit; RaycastHit hit; using (_mRcGround.Auto()) groundHit = Physics.Raycast(ray, out hit, 999f, dynamicGroundMask, QueryTriggerInteraction.Ignore);
 
         HasHit = objectHit || groundHit;
 

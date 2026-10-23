@@ -522,9 +522,10 @@ public class TopBarUI : MonoBehaviour
     public void SetCell(int x, int y)
     {
         // Cell info moved to DevHud window via TopBar's SetCell routing
-        var devHud = FindAnyObjectByType<DevHudWindow>();
-        if (devHud != null) devHud.SetCell(x, y);
+        if (_devHud == null) _devHud = FindAnyObjectByType<DevHudWindow>();
+        if (_devHud != null) _devHud.SetCell(x, y);
     }
+    private DevHudWindow _devHud;
 
     private int _lastMoney = -1;
     private int _lastRevenueThisHour = -1, _lastExpensesThisHour = -1;

@@ -948,7 +948,7 @@ private DockSlot        _dock;
         // Initialize PalletData with the cargo SKU info. LoadId is left empty — it will be assigned
         // when the pallet is actually received by a Receiver. CaseQuantity estimated from Ti x Hi.
         int estimatedCases = (sku.Ti > 0 && sku.Hi > 0) ? (sku.Ti * sku.Hi) : 0;
-        var gameCtx = FindAnyObjectByType<GameContext>();
+        var gameCtx = Ctx;
         int currentDay = gameCtx != null ? gameCtx.TimeService.Day : 0;
         int expirationDay = sku.ShelfLifeDays >= 0 ? currentDay + sku.ShelfLifeDays : -1;
         palletData.Initialize(
@@ -1465,7 +1465,7 @@ private DockSlot        _dock;
         Debug.Log($"[TruckController] Cleared Load container '{loadParent.name}' on {name}. Preparing to restore {palletSnaps.Count} pallet(s).");
 
         var inventoryService = GameCore.Services.ServiceLocator.Get<GameCore.Inventory.InventoryService>();
-        var gameCtx = FindAnyObjectByType<GameContext>();
+        var gameCtx = Ctx;
         int currentDay = gameCtx != null ? gameCtx.TimeService.Day : 0;
 
         for (int i = 0; i < palletSnaps.Count; i++)
@@ -1755,13 +1755,30 @@ private DockSlot        _dock;
         + DockYardRight(dock)   * legacyApproachDepartSide;
 
     // ── Main loop ────────────────────────────────────────────────────────────────
+    // FindAnyObjectByType scans every object in the scene (tens of thousands here): ~6 ms per call. The dwell clocks
+    // ran it every frame for every truck in the yard, which was 37 of a 100 ms frame (2026-10-23 profile). Cached; the
+    // Unity null check re-finds it after a scene reload.
+    private static GameContext _ctxCache;
+    private static GameContext Ctx => _ctxCache != null ? _ctxCache : (_ctxCache = FindAnyObjectByType<GameContext>());
+
+    // TEMP-PROFILE (2026-10-23): attribute TruckController.Update's cost; remove once the hot spot is fixed.
+    private static readonly Unity.Profiling.ProfilerMarker _mDoors = new("TC.UpdateDoors");
+    private static readonly Unity.Profiling.ProfilerMarker _mCab = new("TC.UpdateCabSteering");
+    private static readonly Unity.Profiling.ProfilerMarker _mIn = new("TC.InboundDwell");
+    private static readonly Unity.Profiling.ProfilerMarker _mOut = new("TC.OutboundDwell");
+    private static readonly Unity.Profiling.ProfilerMarker _mSwitch = new("TC.StateSwitch");
+
     private void Update()
     {
-        UpdateDoors();
-        UpdateCabSteering();
-        UpdateInboundDwellClock();
-        UpdateOutboundDwellClock();
+        using (_mDoors.Auto()) UpdateDoors();
+        using (_mCab.Auto()) UpdateCabSteering();
+        using (_mIn.Auto()) UpdateInboundDwellClock();
+        using (_mOut.Auto()) UpdateOutboundDwellClock();
+        using (_mSwitch.Auto()) UpdateStateMachine();
+    }
 
+    private void UpdateStateMachine()
+    {
         switch (_state)
         {
             case TruckState.Queuing:
@@ -3213,7 +3230,7 @@ private DockSlot        _dock;
         // proceeds through the gate." See UpdateInboundDwellClock.
         if (!_isOutbound)
         {
-            var gameCtxClock = FindAnyObjectByType<GameContext>();
+            var gameCtxClock = Ctx;
             _inboundClockStartSimMinute = gameCtxClock != null && gameCtxClock.TimeService != null
                 ? InboundClockStart(gameCtxClock.TimeService.TotalMinutesElapsed) : -1;
             _inboundPenaltyTierApplied = 0;
@@ -3431,7 +3448,7 @@ private DockSlot        _dock;
     private static bool TryMinutesToWindowEnd(GameCore.Inventory.DockAppointment appt, out int minutes)
     {
         minutes = 0;
-        var clock = FindAnyObjectByType<GameContext>()?.TimeService;
+        var clock = Ctx?.TimeService;
         if (appt == null || clock == null) return false;
         int now = clock.Day * 1440 + clock.Hour * 60 + clock.Minute;
         int end = appt.Day * 1440 + appt.EndHour * 60;
@@ -3520,7 +3537,7 @@ private DockSlot        _dock;
         // Inbound only — outbound dwell isn't part of the vendor dwell-time stat.
         if (!_isOutbound)
         {
-            var gameCtx = FindAnyObjectByType<GameContext>();
+            var gameCtx = Ctx;
             _dockedAtSimMinute = gameCtx != null ? gameCtx.TimeService.TotalMinutesElapsed : -1;
         }
 
@@ -3677,7 +3694,7 @@ private DockSlot        _dock;
                     !string.IsNullOrEmpty(AssignedShipment.SupplierId) &&
                     GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.VendorPerformanceTracker perf))
                 {
-                    var gameCtx = FindAnyObjectByType<GameContext>();
+                    var gameCtx = Ctx;
                     if (gameCtx != null)
                     {
                         float hours = (gameCtx.TimeService.TotalMinutesElapsed - _dockedAtSimMinute) / 60f;
@@ -3791,7 +3808,7 @@ private DockSlot        _dock;
             return false;
         if (dockedAtSimMinute < 0) return false;
 
-        var gameCtx = FindAnyObjectByType<GameContext>();
+        var gameCtx = Ctx;
         if (gameCtx == null) return false;
 
         float elapsedMinutes = gameCtx.TimeService.TotalMinutesElapsed - dockedAtSimMinute;
@@ -3865,7 +3882,7 @@ private DockSlot        _dock;
         // (2026-10-17 soak test, PO IG4160).
         if (_offloadClaimed || _offloadComplete || IsLeaving || IsDeparting) return;
 
-        var gameCtx = FindAnyObjectByType<GameContext>();
+        var gameCtx = Ctx;
         if (gameCtx == null || gameCtx.TimeService == null) return;
 
         if (_inboundClockStartSimMinute < 0)
