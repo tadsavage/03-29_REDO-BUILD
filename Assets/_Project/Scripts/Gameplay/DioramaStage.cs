@@ -60,9 +60,14 @@ public class DioramaStage : MonoBehaviour
         return Instance;
     }
 
+    /// <summary>OFF (Tad, 2026-10-23): the full-screen lit stage quad and the second, per-pixel directional light were a
+    /// steady cost on every frame. With it off the old yard ground plane, camera background and fog stay as the scene
+    /// sets them. Flip to true to bring the studio-diorama look back.</summary>
+    public static bool Enabled = false;
+
     public static void ApplyPreset(GraphicsPresetManager.Preset preset)
     {
-        if (!Application.isPlaying) return;
+        if (!Application.isPlaying || !Enabled) return;
         Ensure().Apply(LookFor(preset));
     }
 
