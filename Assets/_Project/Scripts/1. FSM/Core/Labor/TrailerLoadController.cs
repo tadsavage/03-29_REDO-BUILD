@@ -126,6 +126,7 @@ namespace GameCore.Labor
             // A Staged order with a trailer already waiting at its door needs no player action any
             // more — file its Load task automatically the instant both are true. See AutoFileLoadTasks.
             using (_mTc2.Auto()) AutoFileLoadTasks();
+            ReleaseStaleLoadClaims();
 
             // Work a door's lanes in A -> B -> C order. GetPendingTasksForRole hands tasks back in
             // CREATION order, which is just the order the player happened to release lanes in — so a
@@ -353,6 +354,26 @@ namespace GameCore.Labor
             }
         }
 
+        // A load claim is a mutex held by a running LoadRoutine / dig-out. If that routine died (its dock stocker was destroyed, fired or
+        // had its coroutine dropped) nothing ever released the claim: the truck then sat docked at the door, AwaitingLoad false, and
+        // AutoFileLoadTasks skipped it forever while its orders waited staged (block 5, 2026-10-24: two empty trucks blocking both doors).
+        // A claim is legitimate only while some dock machine is commandeered, so a claim with none for 15 real seconds is stale.
+        private readonly Dictionary<TruckController, float> _claimIdleSince = new();
+        private void ReleaseStaleLoadClaims()
+        {
+            bool anyDriving = DockEquipmentCommandeerRegistry.Any();
+            foreach (var t in TrucksThisFrame())
+            {
+                if (t == null || !t.IsOutbound || !t.LoadClaimed) { if (t != null) _claimIdleSince.Remove(t); continue; }
+                if (anyDriving) { _claimIdleSince.Remove(t); continue; }
+                if (!_claimIdleSince.TryGetValue(t, out float since)) { _claimIdleSince[t] = Time.unscaledTime; continue; }
+                if (Time.unscaledTime - since < 15f) continue;
+                t.ReleaseLoadClaim();
+                _claimIdleSince.Remove(t);
+                Debug.LogWarning($"[TrailerLoad] {t.name} was marked as being loaded but no dock machine was working it for 15 s - released the stale claim so it can be loaded.");
+            }
+        }
+
         private static TruckController FindDockedOutboundTruck(int doorNumber)
         {
             foreach (var t in TrucksThisFrame())
@@ -511,7 +532,7 @@ namespace GameCore.Labor
                 // panel offers no action on a Loading row, so it would be stuck for good.
                 int stranded = orderService.RevertUnloadedOrdersToStaged(doorNumber, lane, loadedPalletsByOrder.Keys);
                 if (stranded > 0)
-                    Debug.LogWarning($"[TrailerLoad] {stranded} order(s) at {doorNumber}{lane} had no staged pallets to load — reverted to Staged.");
+                    ThrottledLog.Warn("tl-stranded-" + doorNumber + lane, $"[TrailerLoad] {stranded} order(s) at {doorNumber}{lane} had no staged pallets to load — reverted to Staged.");
             }
 
             // ── Restore the DS to patrol ──
@@ -528,6 +549,12 @@ namespace GameCore.Labor
             }
 
             DockEquipmentCommandeerRegistry.Release(slot);
+            // The trailer can be destroyed under us (it departed, the save was reloaded): Unity's fake-null makes truck.name throw.
+            if (truck == null)
+            {
+                workQueue?.CompleteTask(task.TaskId);
+                yield break;
+            }
             // Hand the truck back so a LATER Load task at this door can still run against it. It is
             // still docked with cargo space; only close-out (CompleteLoad) should retire it. Leaving
             // the claim set is what deadlocked door 1 — every subsequent task stayed Available and its
@@ -619,7 +646,7 @@ namespace GameCore.Labor
                 int firstForeign = found.FindIndex(f => !loadingIds.Contains(f.pallet.OrderId));
                 if (firstForeign >= 0)
                 {
-                    Debug.LogWarning($"[TrailerLoad] {doorNumber}{lane}: pallet at pos{found[firstForeign].slotIndex} belongs to " +
+                    ThrottledLog.Warn("tl-foreign-" + doorNumber + lane, $"[TrailerLoad] {doorNumber}{lane}: pallet at pos{found[firstForeign].slotIndex} belongs to " +
                                      $"order {found[firstForeign].pallet.OrderId}, not one being loaded here — stopping before it.");
                     found = found.Take(firstForeign).ToList();
                 }
@@ -632,6 +659,32 @@ namespace GameCore.Labor
                       string.Join(" -> ", found.Select(f => $"pos{f.slotIndex}")));
 
             return found.Select(f => f.pallet).ToList();
+        }
+
+        /// <summary>After a pallet leaves a stack, every pallet that was resting above it drops by the gap it left.
+        /// Covers outbound pallets and received stock standing in the same cell.</summary>
+        private void SettlePalletsAbove(Vector2Int cell, Transform removed, float removedY)
+        {
+            var above = new List<Transform>();
+            foreach (var other in FindObjectsByType<OutboundPalletBuilder>())
+            {
+                if (other == null || other.transform == removed || !other.IsOnFloor) continue;
+                if (_grid.WorldToCell(other.transform.position) != cell) continue;
+                if (other.transform.position.y > removedY + 0.3f) above.Add(other.transform);
+            }
+            if (ServiceLocator.TryGet<InventoryService>(out var inv) && inv != null)
+                foreach (var rec in inv.GetPalletsAtLocation(cell))
+                {
+                    var link = PalletMasterLink.Find(rec.PalletId);
+                    if (link == null || link.transform == removed || !OutboundPalletBuilder.IsOnFloorTransform(link.transform)) continue;
+                    if (link.transform.position.y > removedY + 0.3f && !above.Contains(link.transform)) above.Add(link.transform);
+                }
+            if (above.Count == 0) return;
+            float lowest = float.MaxValue;
+            foreach (var t in above) lowest = Mathf.Min(lowest, t.position.y);
+            float drop = lowest - removedY;
+            if (drop <= 0.01f) return;
+            foreach (var t in above) t.position += Vector3.down * drop;
         }
 
         private IEnumerator LoadOnePallet(Transform ds, Transform forks, float forkRestY,
@@ -726,6 +779,7 @@ namespace GameCore.Labor
                 Transform carrier = forks != null ? forks : ds;
                 // Captured BEFORE parenting — once it's a child, its world rotation is already whatever
                 // the carrier imposes and there's nothing left to compare against.
+                float liftedFromY = palletT.position.y;
                 Vector3 palletFacingBeforePickup = palletT.forward;
                 palletT.SetParent(carrier, worldPositionStays: false);
                 pallet.Stage = OutboundPalletBuilder.PalletStage.Loading; // lifted: Loading until it's down in the trailer
@@ -735,6 +789,9 @@ namespace GameCore.Labor
                 // Riding the forks now — stop carving, or the pallet cuts a moving trench across the
                 // NavMesh and shoves every agent it passes.
                 pallet.SetNavObstacleActive(false);
+                // Anything stacked on this pallet would now hang in mid-air (the pick list is a snapshot, so a pallet
+                // staged on top after it was built, or any bottom-first grab, strands the upper one): lower it.
+                SettlePalletsAbove(cell, palletT, liftedFromY);
                 // 4b. Lift to carry height — PalletLiftClearance off the deck, NOT the old fixed 1m.
                 if (forks != null) yield return LiftForks(forks, forks.localPosition.y + PalletLiftClearance);
                 // 5. Reverse straight back out to the staging-lane pivot — cab-first, no spin.

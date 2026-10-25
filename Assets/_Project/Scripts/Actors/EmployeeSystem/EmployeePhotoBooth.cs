@@ -286,7 +286,7 @@ public class EmployeePhotoBooth : MonoBehaviour
             // Modular-avatar employees: dress the live-feed model with their real assembled look (incl. Pimp My
             // Employee overrides), same as CapturePortrait does. Without this the animated Employee Info portrait
             // showed the plain placeholder body no matter what the employee was wearing.
-            if (_employeeSpawner == null) _employeeSpawner = FindFirstObjectByType<EmployeeSpawner>();
+            if (_employeeSpawner == null) _employeeSpawner = FindAnyObjectByType<EmployeeSpawner>();
             if (_employeeSpawner != null && _employeeSpawner.UsesModularAvatar(record))
             {
                 _employeeSpawner.RefreshAvatarAppearance(identity);
@@ -762,7 +762,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         Animator modularAnimator = null;
         if (identity != null)
         {
-            if (_employeeSpawner == null) _employeeSpawner = FindFirstObjectByType<EmployeeSpawner>();
+            if (_employeeSpawner == null) _employeeSpawner = FindAnyObjectByType<EmployeeSpawner>();
             if (_employeeSpawner != null && _employeeSpawner.UsesModularAvatar(record))
             {
                 _employeeSpawner.RefreshAvatarAppearance(identity);

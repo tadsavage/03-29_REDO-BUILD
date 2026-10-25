@@ -187,6 +187,11 @@ public class EmployeeWorldBanners : MonoBehaviour
         var anchor = AnchorWorld(b);
         var vp = _cam.WorldToViewportPoint(anchor);
         bool visible = vp.z > 0.2f && vp.x > -0.15f && vp.x < 1.15f && vp.y > -0.3f && vp.y < 1.3f;
+        // A banner lives in the HUD document, which draws above panels that have their own document (Dev Console, Pallet
+        // Builder, ...): it floated over them. Whenever a hotkey panel or sub-popup is open, banners step aside.
+        if (visible && (ReportsPanelController.AnyReportOpen ||
+                        (UIKeyBindingManager.Instance != null && (UIKeyBindingManager.Instance.AnyPanelOpen || UIKeyBindingManager.Instance.AnyAuxiliaryOpen))))
+            visible = false;
         b.Root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         if (!visible) return;
 

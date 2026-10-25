@@ -121,9 +121,15 @@ public class EquipmentBattery : MonoBehaviour
         get
         {
             if (Slot != null && Slot.IsPalletJack) return "PALLET JACK";
+            // Name-based on purpose-built prefabs ("RT_Full", "DS_FULL") AND the plain names a placed machine now carries
+            // ("ReachTruck", "Dockstocker"). Matching only the old prefixes classified every placed machine as "EQUIPMENT", whose helper
+            // role is OrderSelector - so the real drivers counted as the WRONG rider and were stepped off every 8 seconds, killing every
+            // job (the 2026-10-24 block 1: 0 shipped, hundreds of dismounts, "NO NAVMESH PATH" on every leg).
             string n = name.ToUpperInvariant();
-            if (n.StartsWith("RT")) return "REACH TRUCK";
-            if (n.StartsWith("DS")) return "DOCK STOCKER";
+            var po = _po != null ? _po : GetComponent<PlacedObject>();
+            string dn = po != null && po.data != null && po.data.objName != null ? po.data.objName.ToUpperInvariant() : "";
+            if (GetComponent<ReachTruckOperator>() != null || n.StartsWith("RT") || n.Contains("REACH") || dn.Contains("REACH")) return "REACH TRUCK";
+            if (n.StartsWith("DS") || n.Contains("DOCK") || dn.Contains("DOCK")) return "DOCK STOCKER";
             return "EQUIPMENT";
         }
     }
@@ -381,7 +387,11 @@ public class EquipmentBattery : MonoBehaviour
         // Wrong person aboard (e.g. an order selector who only came to pull the truck off a charger and was never sent
         // away): a reach truck / dock stocker does no putaways with them. After a grace period, step them off and call
         // the right operator (Tad, 2026-10-18: "RT1 is operated by an order selector").
-        if (operated && _trip == null && _vacate == null && !_helperTrip && !_switchTrip && !NeedsCharge)
+        // Pallet jacks count too (2026-10-24): a RECEIVER was left aboard a jack after a charge errand. The jack patrols by itself with
+        // a driver aboard, so it carried her out of receiving range again and again, her Receive task was released each time, and the
+        // whole inbound side stalled (19 receive tasks waiting, none claimed). Only an order selector belongs on a jack.
+        bool riderAboard = Slot != null && Slot.IsOccupied;
+        if (riderAboard && _trip == null && _vacate == null && !_helperTrip && !_switchTrip && !NeedsCharge && !(Slot.IsPalletJack && IsBusy))
         {
             var rider = Slot.CurrentOperator;
             bool wrong = rider != null && rider.Record != null && rider.Record.role != HelperRole;
@@ -391,8 +401,11 @@ public class EquipmentBattery : MonoBehaviour
                 _wrongRiderTime = 0f;
                 _ejectedOperator = null;
                 DismountOperator();   // not the right role: they go back to patrolling
-                var right = PickOperatorToRecall();
-                if (right != null) right.GetComponent<AiNavigation>()?.SeekEquipment(Slot);
+                if (!Slot.IsPalletJack)   // a jack needs no one called: selectors claim it themselves when they have a pick
+                {
+                    var right = PickOperatorToRecall();
+                    if (right != null) right.GetComponent<AiNavigation>()?.SeekEquipment(Slot);
+                }
             }
         }
         else _wrongRiderTime = 0f;
@@ -499,7 +512,7 @@ public class EquipmentBattery : MonoBehaviour
     {
         if (!CanChangeBattery) return;
         NeedsCharge = true;
-        SystemsLogWindow.LogSystem($"{LogLinks.Equipment(LinkId, Label)} is going to a charger" + (IsBusy ? " once its current job is delivered." : "."));
+        // (no log line: charging chatter was overkill - Tad, 2026-10-24)
     }
 
     private bool _switchTrip;
@@ -518,8 +531,6 @@ public class EquipmentBattery : MonoBehaviour
         }
         _switchTrip = true;
         NeedsCharge = true;   // drives to a charger, parks, and the driver steps off to the other machine
-        SystemsLogWindow.LogSystem($"{LogLinks.Equipment(LinkId, Label)}: its driver is switching machines" +
-                                   (IsBusy ? " once the current job is delivered." : "."));
         return true;
     }
 
@@ -736,7 +747,7 @@ public class EquipmentBattery : MonoBehaviour
         var role = HelperRole;
         EmployeeIdentity best = null;
         float bestD = float.MaxValue;
-        foreach (var e in FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None))
+        foreach (var e in FindObjectsByType<EmployeeIdentity>())
         {
             if (e == null || !e.isActiveAndEnabled || e.Record == null) continue;
             // Prefer someone whose job is this kind of machine; with none free, any idle employee on foot will do (not the
@@ -978,7 +989,7 @@ public class EquipmentBattery : MonoBehaviour
         if (Free(_ejectedOperator)) return _ejectedOperator;
         EmployeeIdentity best = null;
         float bestD = float.MaxValue;
-        foreach (var e in FindObjectsByType<EmployeeIdentity>(FindObjectsSortMode.None))
+        foreach (var e in FindObjectsByType<EmployeeIdentity>())
         {
             if (!Free(e)) continue;
             float d = Vector3.Distance(e.transform.position, transform.position);

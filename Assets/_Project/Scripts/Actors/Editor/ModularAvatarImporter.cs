@@ -150,6 +150,9 @@ public static class ModularAvatarImporter
             if (path.Replace('\\', '/').Contains("/01_StoreBought/", System.StringComparison.OrdinalIgnoreCase))
                 continue;
 
+            // Standalone characters (Betty Pages + her animation FBXs) are not dress-up parts: scanning them reset her Humanoid rig.
+            if (IsStandaloneCharacter(path)) continue;
+
             // Skip loose "*Workshop*" staging files sitting at the drop folder's own root (e.g.
             // Gender_Neutral_Workshop.fbx) — these are Blender reference/pose-testing exports, not
             // real avatar sources: no skeleton, and they duplicate a mesh (e.g. man_construction_
@@ -300,8 +303,12 @@ public static class ModularAvatarImporter
     /// for why. Idempotent (only reimports if something actually needed changing), so re-running a
     /// scan on an already-fixed file is a no-op.
     /// </summary>
+    internal static bool IsStandaloneCharacter(string path)
+        => path.Replace('\\', '/').Contains("/BettyPages_w_Anims/", System.StringComparison.OrdinalIgnoreCase);
+
     private static void FixNewExport(string path)
     {
+        if (IsStandaloneCharacter(path)) return;
         var importer = AssetImporter.GetAtPath(path) as ModelImporter;
         if (importer == null) return;
 
@@ -623,7 +630,7 @@ public static class ModularAvatarImporter
                 arr.Any(p =>
                 {
                     string np = p.Replace('\\', '/');
-                    return (np.StartsWith(DropFolder + "/") || np.StartsWith(NewPipelineRoot + "/"))
+                    return (np.StartsWith(DropFolder + "/") || np.StartsWith(NewPipelineRoot + "/")) && !IsStandaloneCharacter(np)
                         && (np.EndsWith(".fbx") || np.EndsWith(".blend") || np.EndsWith(".obj"));
                 });
 

@@ -26,6 +26,7 @@ namespace GameCore.Labor
     /// </summary>
     public class ReceiverReceivingWorkflow : MonoBehaviour
     {
+        private static float s_lastAnimWarn = -999f;
         private enum ReceivingState { Idle, Receiving, Completing }
 
         [SerializeField] private ReceivingFillBar _fillBar;
@@ -190,7 +191,7 @@ namespace GameCore.Labor
                     // Force the animation to restart by briefly disabling and re-enabling the parameter
                     _animator.SetBool("isReceiving", false);
                     _animator.SetBool("isReceiving", true);
-                    Debug.LogWarning("[ReceiverReceivingWorkflow] Receiving animation stopped, restarting loop");
+                    if (Time.time - s_lastAnimWarn > 30f) { s_lastAnimWarn = Time.time; Debug.LogWarning("[ReceiverReceivingWorkflow] Receiving animation stopped, restarting loop (logged once per 30 s)"); }
                 }
             }
         }
@@ -461,6 +462,10 @@ namespace GameCore.Labor
                 fromLocation: $"STG{address}",   // picked up from the staging lane
                 toLocation: null,                // reserve/pick slot not resolved until putaway logic (Chunk 2)
                 area: area);
+
+            // Freight that a waiting pallet pick can use goes straight out, skipping the putaway-then-retrieve round trip.
+            if (ServiceLocator.TryGet<OrderService>(out var orderService) && orderService != null)
+                orderService.TryAssignInboundPalletToPendingPick(_palletMasterRecord.PalletId);
         }
 
         private void CompleteWorkflow()

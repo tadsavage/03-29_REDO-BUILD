@@ -101,13 +101,13 @@ namespace GameCore.Diagnostics
             foreach (var g in recs.GroupBy(r => r.SkuId)) lines.Add($"stock {g.Key} pallets={g.Count()} cases={g.Sum(r => r.Quantity)}");
             int linked = recs.Count(r => PalletMasterLink.Find(r.PalletId) != null);
             lines.Add($"recordsWithObject {linked}");
-            foreach (var g in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
+            foreach (var g in Object.FindObjectsByType<OutboundPalletBuilder>()
                                     .Where(p => p != null && !string.IsNullOrEmpty(p.OrderId))
                                     .GroupBy(p => $"{p.OrderId.Substring(0, 6)} {p.Stage}"))
                 lines.Add($"outbound {g.Key} pallets={g.Count()} cases={g.Sum(p => p.TotalCases)}");
-            foreach (var t in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None).OrderBy(t => t.name))
+            foreach (var t in Object.FindObjectsByType<TruckController>().OrderBy(t => t.name))
                 lines.Add($"truck {(t.IsOutbound ? "OUT" : "IN")} {t.CurrentState} door={(t.DockedAt != null ? t.DockedAt.DoorNumber : 0)} pallets={t.GetComponentsInChildren<PalletData>(true).Length}");
-            lines.Add($"mheOccupied {Object.FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None).Count(s => s.IsOccupied)}");
+            lines.Add($"mheOccupied {Object.FindObjectsByType<MHEOperatorSlot>().Count(s => s.IsOccupied)}");
             lines.Sort(System.StringComparer.Ordinal);
             return string.Join("\n", lines);
         }
@@ -118,7 +118,7 @@ namespace GameCore.Diagnostics
         {
             if (!ServiceLocator.TryGet<InventoryService>(out var inv)) return "services not ready";
             var sb = new StringBuilder();
-            foreach (var loc in Object.FindObjectsByType<LocationData>(FindObjectsSortMode.None))
+            foreach (var loc in Object.FindObjectsByType<LocationData>())
             {
                 if (loc == null || string.IsNullOrEmpty(loc.PalletId)) continue;
                 var link = PalletMasterLink.Find(loc.PalletId);

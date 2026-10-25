@@ -86,6 +86,8 @@ namespace GameCore.Actors
         private const float LaneEntryMargin  = 1.0f;   // LaneLineUp stops this far outside the lane's last slot edge before reversing in
         private const float MountWalkTimeout = 60f;
         private const float StagingCellPitch = 1.33f;
+        private const float NavLegArriveTolerance = 3f;   // a finished nav leg must leave the jack this close to its stop
+        private const int   NavLegRetries = 6;
         private const float ReverseMaxDistance = 8f;   // ~3 bays (a bay is two 1.33 m cells): shorter backward moves reverse instead of turning
 
         /// <summary>Pallet positions on the jack's double-length forks, local Z behind the operator anchor:
@@ -151,7 +153,19 @@ namespace GameCore.Actors
             float bestD = float.MaxValue;
             foreach (var slot in FindObjectsByType<MHEOperatorSlot>())
             {
-                if (slot == null || !slot.isActiveAndEnabled || !slot.IsPalletJack || slot.IsOccupied) continue;
+                if (slot == null || !slot.isActiveAndEnabled || !slot.IsPalletJack) continue;
+                // A jack can be left listing a selector as its operator long after they walked away (a run torn down without the vacate).
+                // Everyone then saw it as occupied, found no free jack and picked by hand with pallets on their back. If nobody claims it
+                // and its "operator" isn't physically on it, the link is stale: clear it and the jack is free again.
+                if (slot.IsOccupied)
+                {
+                    var op = slot.CurrentOperator;
+                    bool claimed = s_jackClaims.TryGetValue(slot, out var claimant) && claimant != null;
+                    bool physicallyOn = op != null && op.transform.IsChildOf(slot.transform);
+                    if (claimed || physicallyOn) continue;
+                    Debug.LogWarning($"[OrderSelectionTaskDriver] Pallet jack still listed '{(op != null ? op.name : "?")}' as its operator though nobody is on it or running it - clearing the stale link.");
+                    slot.VacateOperator();
+                }
                 if (slot.GetComponent<AiNavigation>() == null || slot.GetComponent<PlacedObject>() == null) continue; // build-menu ghost
                 if (s_jackClaims.TryGetValue(slot, out var owner) && owner != null && owner != this) continue;
                 // Battery: a dead jack stays on its charger; a low one (under an hour left) only if nothing better is free.
@@ -293,6 +307,7 @@ namespace GameCore.Actors
                     if (UnityEngine.AI.NavMesh.Raycast(park + Vector3.up * 0.05f, park + heading * 2.5f, out _, UnityEngine.AI.NavMesh.AllAreas))
                         parkHeading = (heading + toAisle).normalized;
                     park = KeepJackBodyOffWalls(park, parkHeading);
+                    park = KeepClearOfOtherJacks(park, parkHeading);
                     yield return DriveJackTo(park, parkHeading, $"bay {bayKey}");
                     if (!_jackLegOk)
                     {
@@ -678,6 +693,56 @@ namespace GameCore.Actors
             if (agent != null && agent.enabled) agent.Warp(transform.position);
         }
 
+        private float _strandedSeconds;
+
+        /// <summary>Watchdog (2026-10-23): a selector can end up still MOUNTED on a pallet jack while the driver has already lost
+        /// the jack (<c>_jack</c> null, no routine running) - the run was torn down but the vacate never happened. The task stays
+        /// claimed and flagged in progress, the stale-claim sweep never frees it (the driver refreshes it every frame), and the
+        /// selector sits on the charger "picking" forever. Mounted + no jack for ~8 s = dismount, stage what was picked or free
+        /// the task, and go back to work.</summary>
+        private void CheckStrandedOnJack()
+        {
+            if (!_taskInProgress || _jack != null) { _strandedSeconds = 0f; return; }
+            var slot = GetComponentInParent<MHEOperatorSlot>();
+            var identity = GetComponent<EmployeeIdentity>();
+            if (slot == null || !slot.IsPalletJack || identity == null || slot.CurrentOperator != identity) { _strandedSeconds = 0f; return; }
+            _strandedSeconds += Time.deltaTime;
+            if (_strandedSeconds < 8f) return;
+            _strandedSeconds = 0f;
+
+            Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' was stranded on a pallet jack with no run driving it - dismounting and recovering the task.");
+            slot.VacateOperator();
+            s_jackClaims.Remove(slot);
+            _footScripted = false;
+            ReleaseJackLaneLock();
+            DestroyHeldCase();
+            SetLean(0f);
+            SetAnimBool("CarryCase", false);
+            EndScriptedFoot();
+
+            int picked = _pallets.Sum(p => p != null ? p.TotalCases : 0);
+            if (_currentOrder != null && _currentTask != null && picked > 0)
+            {
+                FinishOrder(OrderData.OrderStatus.PartiallyPicked);   // stage what it already picked, exactly like a short pick
+                return;
+            }
+
+            // Nothing picked: hand the task back so any selector (this one included) can claim it fresh.
+            if (_currentTask != null)
+            {
+                _orderService?.ReleasePick(_currentTask.TaskId);
+                _currentTask.Status = WorkTaskStatus.Available;
+                _currentTask.AssignedToEmployeeGuid = null;
+            }
+            foreach (var p in _pallets) if (p != null) Destroy(p.gameObject);
+            _pallets.Clear();
+            _currentTask = null;
+            _currentOrder = null;
+            _taskInProgress = false;
+            _nav.SetTaskBusy(false);
+            _nav.Patrol();
+        }
+
         private void ReleaseJackLaneLock()
         {
             if (_jackLaneLock == null) return;
@@ -1032,6 +1097,23 @@ namespace GameCore.Actors
             yield return JackNavLeg(target, phase);
             if (!_jackLegOk || _jack == null) yield break;
 
+            // TRUST BUT VERIFY (2026-10-23): the nav leg reports "arrived" from AiNavigation's callbacks, which also fire for a
+            // partial path or a no-progress timeout (e.g. while this jack was held behind another one). The old code then parked the
+            // jack wherever it stood - 15 m from the bay - and the selector walked every case across the warehouse. Re-issue the leg
+            // until the jack is really close; if it never gets there, say so instead of pretending.
+            for (int retry = 0; retry < NavLegRetries && _jack != null && PlanarDist(jt.position, target) > NavLegArriveTolerance; retry++)
+            {
+                Debug.LogWarning($"[OrderSelectionTaskDriver] Pallet jack stopped {PlanarDist(jt.position, target):0.0}m short of '{phase}' - re-issuing the drive ({retry + 1}/{NavLegRetries}).");
+                yield return JackNavLeg(target, phase);
+                if (!_jackLegOk || _jack == null) yield break;
+            }
+            if (_jack != null && PlanarDist(jt.position, target) > NavLegArriveTolerance)
+            {
+                Debug.LogError($"[OrderSelectionTaskDriver] Pallet jack never got within {NavLegArriveTolerance:0}m of '{phase}' ({PlanarDist(jt.position, target):0.0}m short) - giving up on this stop.");
+                _jackLegOk = false;
+                yield break;
+            }
+
             // Close the last metre along the jack's local Z, then square up to the requested final heading.
             Vector3 to = target - jt.position; to.y = 0f;
             if (to.magnitude > 0.05f && Vector3.Dot(to, finalForward) >= 0f)   // forward only: never reverse the last bit
@@ -1256,6 +1338,30 @@ namespace GameCore.Actors
         private static float s_allJacksAt = -10f;
 
         private static Vector3 JackCentre(Transform t) => t.position - t.forward * JackCentreBack;
+
+        /// <summary>Two selectors on one order park at the same bay: both jacks used to take the SAME stop and sit on top of each
+        /// other. If another jack is within a jack's length of this stop, park one jack-length further back along the aisle instead
+        /// (still within pick reach of the bay), as long as that spot is on the NavMesh.</summary>
+        private Vector3 KeepClearOfOtherJacks(Vector3 park, Vector3 heading)
+        {
+            if (_jack == null) return park;
+            heading.y = 0f; if (heading.sqrMagnitude < 0.0001f) return park; heading.Normalize();
+            const float Spacing = 3.4f;
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                bool taken = false;
+                foreach (var other in FindObjectsByType<MHEOperatorSlot>())
+                {
+                    if (other == null || other == _jack || !other.isActiveAndEnabled || !other.IsPalletJack || other.GetComponent<PlacedObject>() == null) continue;
+                    if (PlanarDist(JackCentre(other.transform), park - heading * JackCentreBack) < Spacing) { taken = true; break; }
+                }
+                if (!taken) break;
+                Vector3 shifted = park - heading * Spacing;
+                if (!UnityEngine.AI.NavMesh.SamplePosition(shifted, out var onMesh, 0.6f, UnityEngine.AI.NavMesh.AllAreas)) break;
+                park = shifted;
+            }
+            return park;
+        }
 
         /// <summary>Another pallet jack (working or parked) sits in this jack's path for a move in <paramref name="moveDir"/>.</summary>
         private bool JackPathBlocked(Vector3 moveDir)

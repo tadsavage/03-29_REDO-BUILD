@@ -189,7 +189,7 @@ public class GraphicsPresetManager : MonoBehaviour
     // every such volume off; Ultra/Good turn them back on.
     private void SetSceneBlurVolumes(bool blurAllowed)
     {
-        foreach (var v in FindObjectsByType<Volume>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        foreach (var v in FindObjectsByType<Volume>(FindObjectsInactive.Include))
         {
             if (v == globalVolume || v.sharedProfile == null) continue;
             if (v.name.Contains("PhotoBooth")) continue;   // portrait rig keeps its own look in every preset

@@ -410,14 +410,28 @@ namespace GameCore.Inventory
         /// lane strictly serial, so by the time a second delivery is allowed in, the first one's pallet
         /// is already standing there to be measured correctly.
         /// </summary>
-        private readonly HashSet<(int Door, string Lane)> _laneEntryLocks = new HashSet<(int, string)>();
+        // Lane -> sim time the lock was taken. A routine that dies while holding one (operator fired, vehicle destroyed, a
+        // coroutine stopped - Unity does not run its finally block) used to leave the lane locked for the whole session and every
+        // later vehicle waited at the lane mouth forever (2026-10-23: dock stockers, reach trucks and the loader all frozen).
+        private readonly Dictionary<(int Door, string Lane), float> _laneEntryLocks = new Dictionary<(int, string), float>();
+        /// <summary>A lane lock older than this (sim seconds) is treated as leaked and may be taken over. A real delivery is well under a minute.</summary>
+        public const float LaneLockStaleSeconds = 120f;
 
         /// <summary>Claim exclusive physical entry to a lane. False if someone else already holds it —
         /// the caller should wait outside (poll) rather than proceed. Every successful call MUST be
         /// paired with ReleaseLaneEntry on every exit path, or the lane is blocked for the rest of the
         /// session.</summary>
-        public bool TryEnterLaneForDelivery(int doorNumber, string lane) =>
-            _laneEntryLocks.Add((doorNumber, lane));
+        public bool TryEnterLaneForDelivery(int doorNumber, string lane)
+        {
+            var key = (doorNumber, lane);
+            if (_laneEntryLocks.TryGetValue(key, out float since))
+            {
+                if (Time.time - since < LaneLockStaleSeconds) return false;
+                Debug.LogWarning($"[InventoryService] Lane {doorNumber}{lane} lock was held for over {LaneLockStaleSeconds:F0}s - treating it as leaked and taking it over.");
+            }
+            _laneEntryLocks[key] = Time.time;
+            return true;
+        }
 
         /// <summary>Hand the lane back once the pallet is down (or the delivery aborted). Safe to call
         /// for a lane that was never locked.</summary>
@@ -507,7 +521,7 @@ namespace GameCore.Inventory
                 axis = new Vector3(laneGeo.DepthAxis.x, 0f, laneGeo.DepthAxis.z).normalized;
             const float MaxLateral = 0.6f;
 
-            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>())
             {
                 if (pallet == null || !pallet.IsOnFloor) continue;
 

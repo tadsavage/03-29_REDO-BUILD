@@ -64,6 +64,13 @@ public class WelcomeOverlayManager : MonoBehaviour
         _audioSource.Play();
     }
 
+    /// <summary>Hides the welcome pop-up and silences the boss voice. HAL 9000 (no human to click Dismiss) calls this.</summary>
+    public void Dismiss()
+    {
+        StopBossAudio();
+        foreach (var a in GetComponents<AudioSource>()) a.Stop();
+    }
+
     private void StopBossAudio()
     {
         if (_audioSource != null && _audioSource.isPlaying)

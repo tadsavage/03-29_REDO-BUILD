@@ -706,12 +706,20 @@ namespace GameCore.Labor
                 yield return null;
             }
 
+            string failDiag = "";
+            if (!arrived)
+            {
+                bool onMeshNow = agent.enabled && agent.isOnNavMesh;
+                failDiag = $" [seekingTask={nav.IsSeekingTask}, onMesh={onMeshNow}, pathStatus={(onMeshNow ? agent.pathStatus.ToString() : "n/a")}, " +
+                           $"remaining={(onMeshNow && !agent.pathPending ? agent.remainingDistance.ToString("F1") : "n/a")}, reissues={reissues}, " +
+                           $"lastSeekCancelledBy=[{nav.LastCancelCaller}] {(Time.time - nav.LastCancelTime):F1}s ago]";
+            }
             nav.SetTaskBusy(false);
             agent.enabled = false;
             nav.enabled = false;
             if (!arrived)
                 Debug.LogError($"[TrailerLoad] '{ds.name}' {phase}: never arrived at {driveTarget} (elapsed {elapsed:F1}s) — " +
-                               "refusing to straight-line through pallets.");
+                               "refusing to straight-line through pallets." + failDiag);
             onDone?.Invoke(arrived);
         }
     }

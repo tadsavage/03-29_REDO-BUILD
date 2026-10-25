@@ -113,7 +113,7 @@ public class UIToast : MonoBehaviour
         // Mirrored into the Systems Log regardless of whether the toast label itself is ready —
         // SystemsLogWindow.Log buffers until its own UI exists, so nothing said before that point
         // is lost the way it would be with the early-return below.
-        SystemsLogWindow.Log(msg);
+        if (!msg.StartsWith("Profile is") && !msg.Contains("fully charged")) SystemsLogWindow.Log(msg);   // graphics-profile changes are noise in the log (Tad)
 
         if (_toast == null || _toast.panel == null) return;
 
@@ -186,6 +186,9 @@ public class UIToast : MonoBehaviour
         CenterToast();
     }
 
+    /// <summary>Gap (panel px) between the toast's bottom edge and the top edge of the bottom bar.</summary>
+    private const float ToastBarGap = 6f;
+
     private static void CenterToast()
     {
         if (_toast == null || _toast.panel == null) return;
@@ -195,12 +198,22 @@ public class UIToast : MonoBehaviour
         // way of the play area (Tad, 2026-10-20).
         var panelBottomCentre = RuntimePanelUtils.ScreenToPanel(
             _toast.panel,
-            new Vector2(Screen.width * 0.5f, 0f));   // Screen y 0 is the bottom edge
+            // RuntimePanelUtils.ScreenToPanel treats screen y as measured from the TOP: y = 0 came back as panel y = 0, so
+            // the old (width/2, 0) put the toast above the top of the screen (top = -248) and no toast was ever visible.
+            // Screen.height is the bottom edge (verified live: it maps to the panel's full height).
+            new Vector2(Screen.width * 0.5f, Screen.height));
 
         float w = _toast.resolvedStyle.width;
         float h = _toast.resolvedStyle.height;
 
         _toast.style.left = panelBottomCentre.x - w * 0.5f;
-        _toast.style.top  = panelBottomCentre.y - BuildMenuUI.BottomHudReservedHeight - h - 12f;
+        // Sit ToastBarGap px above the TOP EDGE of whichever bottom bar is showing (measured, so it tracks the bar's real
+        // height). The label's own top margin is added on top of style.top by layout, so it is subtracted here.
+        float bottomLimit = panelBottomCentre.y - BuildMenuUI.BottomHudReservedHeight - 12f;   // fallback until the bar has a layout
+        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
+        if (bar != null && bar.panel == _toast.panel && bar.worldBound.height > 1f && !float.IsNaN(bar.worldBound.y))
+            bottomLimit = bar.worldBound.y - ToastBarGap;
+        float margin = _toast.resolvedStyle.marginTop; if (float.IsNaN(margin)) margin = 0f;
+        _toast.style.top = bottomLimit - h - margin;
     }
 }

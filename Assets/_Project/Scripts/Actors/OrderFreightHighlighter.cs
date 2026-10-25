@@ -100,7 +100,7 @@ public class OrderFreightHighlighter : MonoBehaviour
             var orders = orderService.ActiveOrders.Where(o => ids.Contains(o.OrderId)).ToList();
 
             // Pallets already built / staged for these orders (lane, forks) - not the ones already on the trailer.
-            foreach (var p in FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            foreach (var p in FindObjectsByType<OutboundPalletBuilder>())
             {
                 if (p == null || !ids.Contains(p.OrderId)) continue;
                 if (p.Stage == OutboundPalletBuilder.PalletStage.Loaded || p.Stage == OutboundPalletBuilder.PalletStage.Shipped) continue;

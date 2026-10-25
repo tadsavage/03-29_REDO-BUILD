@@ -293,7 +293,90 @@ public class MainMenuManager : MonoBehaviour
 
         // Resolution dropdown
         BuildResolutionDropdown();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        AddHalMenu();
+#endif
     }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    // ── HAL 9000 (dev builds only): INITIATE above the normal buttons, HAL 9000 + BALANCE settings under SETTINGS ──
+    private VisualElement _halPopup;
+    private ScrollView _halScroll;
+    private Label _halPopupTitle;
+
+    private Button HalMenuButton(string text, Color bg, Color fg)
+    {
+        var b = new Button { text = text };
+        b.AddToClassList("menu-btn");
+        b.style.backgroundColor = bg; b.style.color = fg;
+        b.style.borderBottomColor = fg;
+        if (HalDevTabs.HalFont != null) b.style.unityFontDefinition = FontDefinition.FromFont(HalDevTabs.HalFont);
+        b.style.fontSize = 18;
+        return b;
+    }
+
+    private void AddHalMenu()
+    {
+        var clock = _root.Q<Button>("btn-clock-in");
+        if (clock == null || clock.parent == null) return;
+        var col = clock.parent;
+
+        var init = HalMenuButton("INITIATE HAL 9000", new Color(0.05f, 0.1f, 0.2f), new Color(0.25f, 0.65f, 1f));
+        init.clicked += () => { PlayClick(); OnInitiateHal(); };
+        col.Insert(0, init);
+
+        var settings = _root.Q<Button>("btn-settings");
+        int at = settings != null ? col.IndexOf(settings) + 1 : col.childCount;
+        var hal = HalMenuButton("HAL 9000", new Color(0.18f, 0.2f, 0.24f), new Color(0.25f, 0.65f, 1f));
+        hal.clicked += () => { PlayClick(); ShowHalPopup(false); };
+        var bal = HalMenuButton("BALANCE", new Color(0.18f, 0.2f, 0.24f), new Color(0.25f, 0.65f, 1f));
+        bal.clicked += () => { PlayClick(); ShowHalPopup(true); };
+        col.Insert(at, hal); col.Insert(at + 1, bal);
+    }
+
+    private void ShowHalPopup(bool balance)
+    {
+        HideAllPopups();
+        if (_halPopup == null)
+        {
+            _halPopup = new VisualElement();
+            _halPopup.style.position = Position.Absolute;
+            _halPopup.style.left = _halPopup.style.right = _halPopup.style.top = _halPopup.style.bottom = 0;
+            _halPopup.style.backgroundColor = new Color(0, 0, 0, 0.78f);
+            _halPopup.style.alignItems = Align.Center; _halPopup.style.justifyContent = Justify.Center;
+            var card = new VisualElement();
+            card.style.width = Length.Percent(70); card.style.maxWidth = 1100; card.style.height = Length.Percent(88);
+            card.style.backgroundColor = new Color(0.07f, 0.1f, 0.14f, 1f);
+            card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 3;
+            card.style.borderTopColor = card.style.borderBottomColor = card.style.borderLeftColor = card.style.borderRightColor = new Color(0.25f, 0.65f, 1f);
+            card.style.borderTopLeftRadius = card.style.borderTopRightRadius = card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 12;
+            var close = new Button(() => { PlayClick(); HideAllPopups(); }) { text = "CLOSE" };
+            close.style.height = 54; close.style.fontSize = 20; close.style.color = Color.white; close.style.backgroundColor = new Color(0.65f, 0.18f, 0.15f);
+            if (HalDevTabs.HalFont != null) close.style.unityFontDefinition = FontDefinition.FromFont(HalDevTabs.HalFont);
+            _halScroll = new ScrollView(ScrollViewMode.Vertical);
+            _halScroll.style.flexGrow = 1;
+            card.Add(_halScroll); card.Add(close);
+            _halPopup.Add(card);
+            _root.Add(_halPopup);
+        }
+        _halScroll.Clear();
+        var holder = new VisualElement(); _halScroll.Add(holder);
+        if (balance) HalDevTabs.BuildBalance(holder); else HalDevTabs.BuildHal(holder);
+        _halPopup.BringToFront();
+        SetVisible(_halPopup, true);
+    }
+
+    private void OnInitiateHal()
+    {
+        if (string.IsNullOrEmpty(_playerName)) _playerName = "Tug Dudley";
+        PlayerPrefs.SetString("PlayerName", _playerName);
+        PlayerPrefs.SetInt("IsNewGame", 1);
+        PlayerPrefs.SetInt("FromMainMenu", 1);
+        PlayerPrefs.SetInt("HalAutoStart", 1);
+        PlayerPrefs.Save();
+        LoadGameScene();
+    }
+#endif
 
     // ─────────────────────────────────────────────────────────────────────────
     // Button Handlers
@@ -827,6 +910,9 @@ public class MainMenuManager : MonoBehaviour
         SetVisible(_namePopup,               false);
         SetVisible(_loadPopup,               false);
         SetVisible(_settingsPopup,           false);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        SetVisible(_halPopup,                false);
+#endif
         SetVisible(_resolutionConfirmOverlay, false);
         _pendingResolutionIndex = -1;
     }

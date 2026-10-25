@@ -59,6 +59,10 @@ public class SystemsLogWindow : MonoBehaviour
     private static readonly Color WarningColor   = new Color(0.75f, 0.05f, 0.05f, 1f); // blood red
     private static readonly Color RevenueColor   = new Color(0.15f, 1f, 0.25f, 1f);   // bright green
     private const float RevenueFontMultiplier = 1.35f;
+    private static readonly Color HalColor = new Color(0.25f, 0.65f, 1f, 1f);          // bright blue
+    private const float HalFontMultiplier = 1f;   // same size as the other lines (Tad); still blue, bold, Orbitron
+    private static Font _halFont;
+    public static Font HalFont => _halFont != null ? _halFont : (_halFont = Resources.Load<Font>("Resource_Fonts/HalOrbitron"));
     private static readonly Color CelebrationColor = new Color(0.95f, 0.76f, 0.20f, 1f); // gold
 
     private static SystemsLogWindow _instance;
@@ -128,6 +132,9 @@ public class SystemsLogWindow : MonoBehaviour
 
     /// <summary>Money coming in (a shipped order paid out). Big, bold, bright green.</summary>
     public static void LogRevenue(string message) => Log(message, RevenueColor);
+
+    /// <summary>A decision made by the HAL 9000 playtest bot. Bright blue, bold, a touch larger, in the Orbitron face.</summary>
+    public static void LogHal(string message) => Log(message, HalColor);
 
     /// <summary>Guard shack announcements — inbound PO/door assignments, side lot, driver departures.
     /// Dark blue.</summary>
@@ -624,6 +631,13 @@ public class SystemsLogWindow : MonoBehaviour
             msgLabel.userData = RevenueFontMultiplier;
             msgLabel.style.fontSize = fontSize * RevenueFontMultiplier;
             msgLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+        }
+        if (messageColor == HalColor)
+        {
+            msgLabel.userData = HalFontMultiplier;
+            msgLabel.style.fontSize = fontSize * HalFontMultiplier;
+            msgLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            if (HalFont != null) msgLabel.style.unityFontDefinition = FontDefinition.FromFont(HalFont);
         }
         msgLabel.style.whiteSpace = WhiteSpace.Normal;
         msgLabel.style.flexShrink = 1;

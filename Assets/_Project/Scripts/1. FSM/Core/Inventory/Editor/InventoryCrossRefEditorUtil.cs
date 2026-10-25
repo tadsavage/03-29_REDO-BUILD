@@ -43,7 +43,7 @@ namespace GameCore.Inventory.EditorTools
             if (Application.isPlaying && LocationRegistry.TryGet(address, out var fromRegistry) && fromRegistry != null)
                 return fromRegistry;
 
-            foreach (var ld in Object.FindObjectsByType<LocationData>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var ld in Object.FindObjectsByType<LocationData>(FindObjectsInactive.Include))
             {
                 if (ld != null && ld.Address == address) return ld;
             }
@@ -62,7 +62,7 @@ namespace GameCore.Inventory.EditorTools
 
             if (!string.IsNullOrWhiteSpace(palletId))
             {
-                foreach (var l in Object.FindObjectsByType<PalletMasterLink>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                foreach (var l in Object.FindObjectsByType<PalletMasterLink>(FindObjectsInactive.Include))
                 {
                     if (l != null && l.PalletId == palletId) return l.gameObject;
                 }
@@ -72,7 +72,7 @@ namespace GameCore.Inventory.EditorTools
             // master record was lost can still be identified by the plate printed on it.
             if (!string.IsNullOrWhiteSpace(loadId))
             {
-                foreach (var pd in Object.FindObjectsByType<PalletData>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                foreach (var pd in Object.FindObjectsByType<PalletData>(FindObjectsInactive.Include))
                 {
                     if (pd != null && pd.LoadId == loadId) return pd.gameObject;
                 }

@@ -30,6 +30,11 @@ namespace GameCore.Inventory
         private long _totalOrdersShipped;
         private long _totalOrdersLate;
         private long _totalCasesRequested; // denominator for lifetime fill rate
+        // Pallets shipped per in-game day (day number -> pallets), for the throughput donut on the Warehouse Capacity report.
+        private readonly System.Collections.Generic.Dictionary<int, int> _palletsShippedByDay = new();
+
+        /// <summary>Pallets shipped on the given in-game day (0 if none).</summary>
+        public int PalletsShippedOn(int day) => _palletsShippedByDay.TryGetValue(day, out int n) ? n : 0;
 
         // ── Cached, recomputed once per in-game hour — what the UI actually reads ──
 
@@ -48,6 +53,7 @@ namespace GameCore.Inventory
         public void Initialize()
         {
             _eventManager = EventManager.Instance;
+            _palletsShippedByDay.Clear();
             ServiceLocator.TryGet(out _orderService);
             ServiceLocator.TryGet(out _timeService);
 
@@ -79,11 +85,16 @@ namespace GameCore.Inventory
 
             if (_orderService != null)
             {
+                int palletsThisOrder = 0;
                 foreach (var lineItem in order.LineItems)
                 {
                     int casesPerFullPallet = Mathf.Max(1, _orderService.FullPalletCases(lineItem.SkuId));
-                    _totalPalletsShipped += Mathf.CeilToInt(lineItem.QuantityPicked / (float)casesPerFullPallet);
+                    palletsThisOrder += Mathf.CeilToInt(lineItem.QuantityPicked / (float)casesPerFullPallet);
                 }
+                _totalPalletsShipped += palletsThisOrder;
+                int today = _timeService != null ? _timeService.Day : 0;
+                _palletsShippedByDay.TryGetValue(today, out int soFar);
+                _palletsShippedByDay[today] = soFar + palletsThisOrder;
             }
         }
 

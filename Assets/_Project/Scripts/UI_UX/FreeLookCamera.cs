@@ -233,7 +233,7 @@ public class FreeLookCamera : MonoBehaviour
         var kb = Keyboard.current;
         if (kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed)) return;
 
-        if (_placementFsm == null) _placementFsm = FindFirstObjectByType<PlacementStateMachine>();
+        if (_placementFsm == null) _placementFsm = FindAnyObjectByType<PlacementStateMachine>();
         if (_placementFsm != null && !(_placementFsm.CurrentState is IdleState)) return;
 
         var cam = GetComponent<Camera>() != null ? GetComponent<Camera>() : Camera.main;

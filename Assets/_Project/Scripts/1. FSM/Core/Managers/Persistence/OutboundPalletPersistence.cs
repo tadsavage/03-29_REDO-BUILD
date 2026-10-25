@@ -28,7 +28,7 @@ namespace GameCore.Persistence
         public static List<OutboundPalletSnapshot> CaptureAll()
         {
             var result = new List<OutboundPalletSnapshot>();
-            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
             {
                 if (p == null || string.IsNullOrEmpty(p.OrderId)) continue;
                 if (p.GetComponentInParent<TruckController>() != null) continue;      // trailer cargo: TruckPersistenceService

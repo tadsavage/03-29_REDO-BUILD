@@ -6,6 +6,7 @@ using System.Collections.Generic;
 
 public class NavMeshManager : MonoBehaviour
 {
+    private static readonly System.Collections.Generic.HashSet<string> s_warnedNoLedge = new();
     public static NavMeshManager Instance { get; private set; }
 
     // ── Startup Signal ──────────────────────────────────────────────────────────
@@ -362,7 +363,7 @@ public class NavMeshManager : MonoBehaviour
             var marker = dock.GetComponentInChildren<LedgeLinkMarker>();
             if (marker == null)
             {
-                Debug.LogWarning($"[NavDock] {dock.name}: no LedgeLinkMarker child — skipping.");
+                if (s_warnedNoLedge.Add(dock.name)) Debug.LogWarning($"[NavDock] {dock.name}: no LedgeLinkMarker child — skipping (said once; it repeated ~25,000 times a session).");
                 continue;
             }
 
@@ -616,7 +617,7 @@ public class NavMeshManager : MonoBehaviour
         if (stale)
         {
             _worldBoundsCache.Clear();
-            var renderers = Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+            var renderers = Object.FindObjectsByType<Renderer>();
             foreach (var s in _surfaces)
             {
                 if (s == null || s.collectObjects != CollectObjects.All) continue;

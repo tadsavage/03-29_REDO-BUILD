@@ -1004,7 +1004,7 @@ public class AODPanel : IUIPanel
             if (IsUsable(saved)) return saved;
         }
 
-        if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindFirstObjectByType<EmployeeSpawner>();
+        if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindAnyObjectByType<EmployeeSpawner>();
         EmployeeIdentity best = null, any = null;
         foreach (var e in UnityEngine.Object.FindObjectsByType<EmployeeIdentity>(FindObjectsInactive.Exclude))
         {
@@ -1031,7 +1031,7 @@ public class AODPanel : IUIPanel
     private void BeginEmployee(EmployeeIdentity identity)
     {
         _employeeIdentity = identity;
-        if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindFirstObjectByType<EmployeeSpawner>();
+        if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindAnyObjectByType<EmployeeSpawner>();
         _selectedPart = null;
         _pendingOverrides.Clear();
         _employeeSlot = null;
@@ -1103,7 +1103,7 @@ public class AODPanel : IUIPanel
         // Live employees are rebuilt (and their portraits re-shot) so the change is felt immediately, exactly like Submit/Update.
         if (Application.isPlaying)
         {
-            if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindFirstObjectByType<EmployeeSpawner>();
+            if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindAnyObjectByType<EmployeeSpawner>();
             _employeeSpawner?.RefreshAllModularAvatars();
         }
     }
@@ -2035,11 +2035,11 @@ public class AODPanel : IUIPanel
         // Per Tad (2026-09-30): a Submit/Update should be felt everywhere live, not just on the
         // next hire — rebuild every already-spawned modular-avatar employee and recapture their
         // portrait so the hiring board / employee info UI stop showing a stale look. Play-mode only:
-        // there's nothing spawned to refresh in the editor outside Play, and FindFirstObjectByType
+        // there's nothing spawned to refresh in the editor outside Play, and FindAnyObjectByType
         // would otherwise just silently no-op anyway.
         if (Application.isPlaying)
         {
-            if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindFirstObjectByType<EmployeeSpawner>();
+            if (_employeeSpawner == null) _employeeSpawner = UnityEngine.Object.FindAnyObjectByType<EmployeeSpawner>();
             _employeeSpawner?.RefreshAllModularAvatars();
         }
 

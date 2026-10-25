@@ -327,7 +327,7 @@ public class WallSeeThrough : MonoBehaviour
     /// </summary>
     private PlacementGrid Grid()
     {
-        if (_grid == null) _grid = Object.FindFirstObjectByType<PlacementGrid>();
+        if (_grid == null) _grid = Object.FindAnyObjectByType<PlacementGrid>();
         return _grid;
     }
 }

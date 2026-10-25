@@ -420,7 +420,7 @@ private void ShowBuilding(string name, int cost, int hourlyCost)
 
         // "In stock" is only honest for a pallet that is racked. One standing in a staging lane with no task at all
         // is stranded - say so, instead of a reassuring word that hides it.
-        var grid = Object.FindFirstObjectByType<PlacementGrid>();
+        var grid = Object.FindAnyObjectByType<PlacementGrid>();
         if (grid != null && LaneNamingService.TryGetSlot(grid.WorldToCell(palletGO.transform.position), out var laneSlot))
             return queue == null
                 ? "Unknown - work queue offline"
@@ -884,7 +884,8 @@ private void ShowLocation(LocationData location)
             // opened from, since several of them (WorkQueuePanel.OpenScheduler and its siblings on
             // ContractsPanel/PurchasingPanel) call Show() directly instead of routing through
             // UIKeyBindingManager.ToggleUI, so there's no single call site to intercept.
-            if (UIKeyBindingManager.Instance != null && UIKeyBindingManager.Instance.AnyPanelOpen)
+            if (ReportsPanelController.AnyReportOpen ||
+                (UIKeyBindingManager.Instance != null && UIKeyBindingManager.Instance.AnyPanelOpen))
             {
                 UnpinTruck();
                 return;
@@ -916,6 +917,7 @@ private void ShowLocation(LocationData location)
     public void ToggleTruckPin(TruckController truck)
     {
         if (truck == null) return;
+        if (ReportsPanelController.AnyReportOpen) return;   // a report has the screen: nothing pins over it
 
         if (_pinnedTruck == truck)
         {

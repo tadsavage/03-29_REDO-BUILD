@@ -39,7 +39,8 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     [SerializeField] private CustomerRegistry _customerRegistry;
 
     // Tabs (PLT BUILDER removed — pallet settings now live in Dev Settings)
-    private Button _tabDev, _tabSettings;
+    private Button _tabDev, _tabSettings, _tabHal, _tabBalance, _tabIter;
+    private VisualElement _contentHal, _contentBalance, _contentIter;
     private VisualElement _contentDev, _contentSettings;
     private bool _settingsBuilt;
 
@@ -173,6 +174,12 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         Wire<Button>("tab-btn-dev",    root, b => { _tabDev      = b; b.clicked += () => SwitchTab("dev"); });
         Wire<Button>("tab-btn-settings", root, b => { _tabSettings = b; b.clicked += () => SwitchTab("settings"); });
 
+        Wire<Button>("tab-btn-hal",     root, b => { _tabHal     = b; b.clicked += () => SwitchTab("hal"); });
+        Wire<Button>("tab-btn-balance", root, b => { _tabBalance = b; b.clicked += () => SwitchTab("balance"); });
+        Wire<Button>("tab-btn-iter",    root, b => { _tabIter    = b; b.clicked += () => SwitchTab("iter"); });
+        _contentIter     = root.Q("tab-content-iter");
+        _contentHal      = root.Q("tab-content-hal");
+        _contentBalance  = root.Q("tab-content-balance");
         _contentDev      = root.Q("tab-content-dev");
         _contentSettings = root.Q("tab-content-settings");
         _titlebar        = root.Q("tools-titlebar");
@@ -398,6 +405,17 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
         if (_contentDev      != null) _contentDev.style.display      = isDev      ? DisplayStyle.Flex : DisplayStyle.None;
         if (_contentSettings != null) _contentSettings.style.display = isSettings ? DisplayStyle.Flex : DisplayStyle.None;
+        if (_contentHal      != null) _contentHal.style.display      = tab == "hal"     ? DisplayStyle.Flex : DisplayStyle.None;
+        if (_contentBalance  != null) _contentBalance.style.display  = tab == "balance" ? DisplayStyle.Flex : DisplayStyle.None;
+        if (_contentIter     != null) _contentIter.style.display     = tab == "iter"    ? DisplayStyle.Flex : DisplayStyle.None;
+        if (_tabIter    != null) SetTabActive(_tabIter,    tab == "iter");
+        if (_tabHal     != null) SetTabActive(_tabHal,     tab == "hal");
+        if (_tabBalance != null) SetTabActive(_tabBalance, tab == "balance");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (tab == "hal"     && _contentHal     != null) HalDevTabs.BuildHal(_contentHal);
+        if (tab == "balance" && _contentBalance != null) HalDevTabs.BuildBalance(_contentBalance);
+        if (tab == "iter"    && _contentIter    != null) HalDevTabs.BuildIterations(_contentIter);
+#endif
 
         if (_tabDev      != null) SetTabActive(_tabDev,      isDev);
         if (_tabSettings != null) SetTabActive(_tabSettings, isSettings);

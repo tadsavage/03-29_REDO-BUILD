@@ -73,7 +73,7 @@ public class GlobalButtonUX : MonoBehaviour
 
     private void HookAllDocuments()
     {
-        foreach (var doc in FindObjectsByType<UIDocument>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        foreach (var doc in FindObjectsByType<UIDocument>(FindObjectsInactive.Include))
             HookRoot(doc.rootVisualElement);
     }
 

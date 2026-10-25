@@ -97,6 +97,8 @@ namespace GameCore.Actors
             // which would otherwise hand it to a second selector mid-pick.
             if (_taskInProgress && _currentTask != null) _currentTask.AssignedAtRealtime = Time.realtimeSinceStartup;
 
+            CheckStrandedOnJack();
+
             if (_taskInProgress) return;
 
             if (_workQueue == null)
@@ -216,7 +218,11 @@ namespace GameCore.Actors
         private void SeekPickSlot(LocationData location, OrderLineItem lineItem, int takeQty, int attempt)
         {
             _nav.CancelSeekPosition();
-            _nav.SeekPosition(location.WorldPosition, () =>
+            // SeekPosition invokes its callback IMMEDIATELY when this agent is inactive (nav off, on a jack, etc.). Every
+            // skipped slot then re-entered SeekPickSlot/AdvanceToNextPick inside the previous call and a long pick list
+            // blew the stack (2026-10-23). Anything that fires inside the call is deferred one frame.
+            bool insideCall = true;
+            System.Action handle = () =>
             {
                 Vector3 a = transform.position, b = location.WorldPosition;
                 a.y = 0f; b.y = 0f;
@@ -226,9 +232,20 @@ namespace GameCore.Actors
                     return;
                 }
                 if (attempt < 3) { SeekPickSlot(location, lineItem, takeQty, attempt + 1); return; }
-                Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' could not get within {OnFootMaxPickReach:0}m of {location.Address} - skipping that pick.");
+                ThrottledLog.Warn("osd-reach-" + name + location.Address, $"[OrderSelectionTaskDriver] '{name}' could not get within {OnFootMaxPickReach:0}m of {location.Address} - skipping that pick.");
                 AdvanceToNextPick();
+            };
+            _nav.SeekPosition(location.WorldPosition, () =>
+            {
+                if (insideCall) StartCoroutine(RunNextFrame(handle)); else handle();
             });
+            insideCall = false;
+        }
+
+        private IEnumerator RunNextFrame(System.Action action)
+        {
+            yield return null;
+            if (this != null && _taskInProgress) action();
         }
 
         /// <summary>Grabs `takeQty` cases one at a time (a short pause per case for pacing), updating

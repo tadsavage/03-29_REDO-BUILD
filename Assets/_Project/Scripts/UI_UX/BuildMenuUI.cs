@@ -76,6 +76,7 @@ public class BuildMenuUI : MonoBehaviour
     private Button _reportsBtnFinancial;
     private Button _reportsBtnOperational;
     private Button _reportsBtnInventory;
+    private Button _reportsBtnItemListing;
     private ReportsPanelController _reportsController;
 
     // Hotkey number -> its play-bar button, for reflecting the open panel back onto the bar.
@@ -96,7 +97,7 @@ public class BuildMenuUI : MonoBehaviour
     private const string BuildTabTooltipText = "Everything you need to build your Empire";
     private const string OrdersTabTooltipText = "Manage all orders, Inbound and Outbound";
     private const string StaffTabTooltipText = "Hiring, roster, employees and shift scheduling";
-    private const string ReportsTabTooltipText = "Financial, Operational and Inventory reports";
+    private const string ReportsTabTooltipText = "Financial, Operational, Warehouse Capacity and Item Listing reports";
 
     // ORDERS (Play mode) is the default view on startup — players land in "run the warehouse" mode,
     // with BUILD a deliberate switch away from it.
@@ -203,6 +204,9 @@ public class BuildMenuUI : MonoBehaviour
     /// Operational/Inventory buttons, each of which opens its own separate floating report window
     /// (see ReportsPanelController) rather than embedding content in this row.</summary>
     public VisualElement ReportsBar => _reportsBar;
+
+    /// <summary>Opens one of the report windows (Item Listing etc.) from outside the Reports bar - e.g. Purchasing's RUSH ORDERS button.</summary>
+    public void OpenReport(ReportsPanelController.Tab tab) => _reportsController?.Open(tab);
 
     /// <summary>Whichever bar is currently visible. Use this when a widget should follow the mode
     /// switch; use <see cref="BuildBar"/>/<see cref="PlayBar"/>/<see cref="StaffBar"/>/
@@ -317,6 +321,7 @@ public class BuildMenuUI : MonoBehaviour
         _reportsBtnFinancial = _root.Q<Button>("ReportsBtnFinancial");
         _reportsBtnOperational = _root.Q<Button>("ReportsBtnOperational");
         _reportsBtnInventory = _root.Q<Button>("ReportsBtnInventory");
+        _reportsBtnItemListing = _root.Q<Button>("ReportsBtnItemListing");
 
         // The bars are Ignore in UXML (legacy reason) — override to Position so
         // any click inside a bar area is caught and doesn't pass through to the
@@ -343,6 +348,7 @@ public class BuildMenuUI : MonoBehaviour
             if (_reportsBtnFinancial != null) _reportsBtnFinancial.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Financial);
             if (_reportsBtnOperational != null) _reportsBtnOperational.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Operational);
             if (_reportsBtnInventory != null) _reportsBtnInventory.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Inventory);
+            if (_reportsBtnItemListing != null) _reportsBtnItemListing.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.ItemListing);
 
             // UI Toolkit's built-in `tooltip` property only renders inside the Editor's own UI — a
             // runtime UIDocument HUD like this one never shows it — so the mode tabs hook into the
@@ -605,12 +611,18 @@ public class BuildMenuUI : MonoBehaviour
     {
         var el = _miniTimeline != null ? _miniTimeline.Root : null;
         var bar = ActiveBar;
-        if (el == null || bar == null || el.parent == bar) return;
+        if (el == null || bar == null) return;
 
-        el.RemoveFromHierarchy();
-        int index = bar.childCount;
-        if (bar.childCount > 0 && bar[bar.childCount - 1].ClassListContains("buildmenu-utility-row")) index = bar.childCount - 1;
-        bar.Insert(index, el);
+        if (el.parent != bar)
+        {
+            el.RemoveFromHierarchy();
+            int index = bar.childCount;
+            if (bar.childCount > 0 && bar[bar.childCount - 1].ClassListContains("buildmenu-utility-row")) index = bar.childCount - 1;
+            bar.Insert(index, el);
+        }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        HalScoreModal.DockBefore(el);   // HAL 9000's running score sits just left of the dock schedule
+#endif
     }
 
     // EnableInClassList rather than Add/RemoveFromClassList: the classes are also set in the UXML, and

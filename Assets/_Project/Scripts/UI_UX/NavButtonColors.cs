@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 /// </summary>
 public static class NavButtonColors
 {
-    public enum Dest { WorkQueue, Purchasing, Orders }
+    public enum Dest { WorkQueue, Purchasing, Orders, RushOrders }
 
     public static void Apply(Button b, Dest dest)
     {
@@ -22,9 +22,12 @@ public static class NavButtonColors
             case Dest.Purchasing:
                 fill = new Color(0.22f, 0.48f, 0.74f); hover = new Color(0.32f, 0.60f, 0.88f);
                 edge = new Color(0.12f, 0.28f, 0.48f); text = Color.white; break;
-            default: // Orders
-                fill = new Color(0.95f, 0.78f, 0.20f); hover = new Color(1.00f, 0.88f, 0.38f);
-                edge = new Color(0.62f, 0.48f, 0.08f); text = new Color(0.12f, 0.09f, 0.03f); break;
+            case Dest.RushOrders: // baby blue, white text
+                fill = new Color(0.45f, 0.74f, 0.94f); hover = new Color(0.58f, 0.82f, 0.98f);
+                edge = new Color(0.25f, 0.50f, 0.72f); text = Color.white; break;
+            default: // Orders: green with white text (was yellow/black - it sat next to two orange buttons)
+                fill = new Color(0.20f, 0.62f, 0.28f); hover = new Color(0.28f, 0.74f, 0.37f);
+                edge = new Color(0.10f, 0.38f, 0.15f); text = Color.white; break;
         }
 
         b.style.color = new StyleColor(text);

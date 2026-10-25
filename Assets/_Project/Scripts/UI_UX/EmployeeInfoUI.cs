@@ -495,7 +495,7 @@ public class EmployeeInfoUI : MonoBehaviour
             // AODPanel lives on the TopBar document (see TopBarUI.Init) — reused here rather than
             // duplicating the panel, so "browse the library" and "edit this employee" share the
             // exact same UI/rendering machinery.
-            var topBar = UnityEngine.Object.FindFirstObjectByType<TopBarUI>();
+            var topBar = UnityEngine.Object.FindAnyObjectByType<TopBarUI>();
             topBar?.AODPanel?.ShowForEmployee(id);
             Hide(); // AOD now covers the whole screen anyway — no point leaving this card open behind it
             return;

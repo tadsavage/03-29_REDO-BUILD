@@ -602,10 +602,10 @@ namespace GameCore.Actors
             if (Time.time < _nextLanePutawaySweepAt) return;
             _nextLanePutawaySweepAt = Time.time + 5f;
 
-            var grid = FindFirstObjectByType<PlacementGrid>();
+            var grid = FindAnyObjectByType<PlacementGrid>();
             if (grid == null || _inventoryService == null || _workQueue == null) return;
 
-            foreach (var link in FindObjectsByType<PalletMasterLink>(FindObjectsSortMode.None))
+            foreach (var link in FindObjectsByType<PalletMasterLink>())
             {
                 if (link == null || string.IsNullOrEmpty(link.PalletId)) continue;
                 if (link.GetComponentInParent<MHEOperatorSlot>() != null || link.GetComponentInParent<TruckController>() != null) continue;
@@ -2552,6 +2552,18 @@ namespace GameCore.Actors
             // Release the agent claim and hand the transform back. The caller's next step is
             // precision work and must not be fighting a live agent; an aborting caller needs a
             // settled vehicle too.
+            // Captured BEFORE the drive mode flips back to manual: SetDriveMode(Manual) disables the agent, so the old message always
+            // read agentOnMesh=False and said nothing about why the leg really ended.
+            string failDiag = "";
+            if (!arrived)
+            {
+                bool onMeshNow = _vehicleAgent != null && _vehicleAgent.enabled && _vehicleAgent.isOnNavMesh;
+                failDiag = $"agentOnMeshAtEnd={onMeshNow}, navEnabled={_vehicleNav.enabled}, seekingTask={_vehicleNav.IsSeekingTask}, " +
+                           $"pathStatus={(onMeshNow ? _vehicleAgent.pathStatus.ToString() : "n/a")}, hasPath={(onMeshNow && _vehicleAgent.hasPath)}, " +
+                           $"remaining={(onMeshNow && !_vehicleAgent.pathPending ? _vehicleAgent.remainingDistance.ToString("F1") : "n/a")}, reissues={reissues}, " +
+                           $"batteryNeedsCharge={(GetComponent<EquipmentBattery>() != null && GetComponent<EquipmentBattery>().NeedsCharge)}, " +
+                           $"lastSeekCancelledBy=[{_vehicleNav.LastCancelCaller}] {(Time.time - _vehicleNav.LastCancelTime):F1}s ago";
+            }
             _vehicleNav.SetTaskBusy(false);
             SetDriveMode(DriveMode.Manual, arrived ? $"arrived → {phase}" : $"leg FAILED → {phase}");
 
@@ -2559,8 +2571,7 @@ namespace GameCore.Actors
             {
                 Debug.LogError($"[ReachTruckOperator] '{name}' {phase}: NO NAVMESH PATH. " +
                     $"anchor={target} → driveTarget={driveTarget}, from={transform.position}, " +
-                    $"elapsed={elapsed:F1}s, timedOut={elapsed >= MaxSeekTime}, " +
-                    $"agentOnMesh={_vehicleAgent.isOnNavMesh}, pathStatus={(_vehicleAgent.isOnNavMesh ? _vehicleAgent.pathStatus.ToString() : "n/a")}. " +
+                    $"elapsed={elapsed:F1}s, timedOut={elapsed >= MaxSeekTime}, {failDiag}. " +
                     $"Refusing to straight-line through obstacles — aborting this leg.");
             }
 

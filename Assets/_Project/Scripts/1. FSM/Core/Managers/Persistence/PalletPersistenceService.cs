@@ -162,7 +162,7 @@ namespace GameCore.Persistence
 
         private static int ClearExistingPalletVisuals(PlacementGrid grid)
         {
-            var builders = Object.FindObjectsByType<PalletBuilder>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var builders = Object.FindObjectsByType<PalletBuilder>(FindObjectsInactive.Include);
             var roots = new HashSet<GameObject>();
 
             foreach (var builder in builders)

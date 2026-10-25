@@ -137,7 +137,11 @@
             </ui:Button>
 
             <ui:Button name="ReportsBtnInventory" class="buildmenu-category-button playbar-button">
-                <ui:Label text="Inventory" class="buildmenu-category-label reports-category-label"/>
+                <ui:Label text="Warehouse Capacity" class="buildmenu-category-label reports-category-label"/>
+            </ui:Button>
+
+            <ui:Button name="ReportsBtnItemListing" class="buildmenu-category-button playbar-button">
+                <ui:Label text="Item Listing" class="buildmenu-category-label reports-category-label"/>
             </ui:Button>
 
         </ui:VisualElement>

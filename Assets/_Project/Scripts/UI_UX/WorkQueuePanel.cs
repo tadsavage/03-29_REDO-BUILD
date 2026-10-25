@@ -291,10 +291,10 @@ public class WorkQueuePanel : IUIPanel
         // Per-pallet stages (Staged / Loading / Loaded) drive each pallet row's Status, so a stage change
         // alone must redraw the panel. Only counted per order + stage -- cheap, and only ever runs while visible.
         var stageCounts = new Dictionary<string, int>();
-        foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+        foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
         {
             if (p == null || string.IsNullOrEmpty(p.OrderId)) continue;
-            string key = p.OrderId + ":" + p.Stage;
+            string key = p.OrderId + ":" + p.Stage + (p.IsOnFloor ? "" : "*");
             stageCounts.TryGetValue(key, out int n);
             stageCounts[key] = n + 1;
         }
@@ -859,6 +859,14 @@ public class WorkQueuePanel : IUIPanel
         {
             foreach (var (order, phase, task) in rows)
             {
+                // Every released order lists ALL of its pallets from release until close-out (Tad, 2026-10-23): built
+                // pallets (each with its own stage), pallet picks not yet delivered, and the loose pallets a selector
+                // has yet to build. Rows never appear out of nowhere and never vanish while work is outstanding.
+                if (workQueue != null && phase != RowPhase.Returns && phase != RowPhase.NoStock && phase != RowPhase.Open)
+                {
+                    AddUnifiedOrderRows(order, phase, task, workQueue);
+                    continue;
+                }
                 // Pre-staging, an order with several live pick tasks (a bulk order's PalletPick per pallet,
                 // plus any leftover case pick) gets ONE ROW PER TASK -- the player expects to see the six
                 // pallets going to the door as six jobs, not a single summary row. Phases per row come from
@@ -881,6 +889,28 @@ public class WorkQueuePanel : IUIPanel
                             _rowScroll.Add(BuildRow(order, pickPhase, pick, _rowScroll.childCount, pickPalletId));
                         }
                         continue;
+                    }
+                }
+
+                // Staged / Loading / Loaded orders can STILL owe work: the first load pass marks an order Loaded while
+                // selectors are mid-trip or later trips are unclaimed. That work used to vanish from the queue (order
+                // status wins), so show every live pick task as its own row above the pallet rows.
+                if (workQueue != null && (phase == RowPhase.Staged || phase == RowPhase.Loading || phase == RowPhase.Loaded))
+                {
+                    foreach (var pick in workQueue.Tasks
+                        .Where(t => t.OrderId == order.OrderId
+                                 && (t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.OrderSelect)
+                                 && t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled)
+                        .OrderBy(t => t.Type == WorkTaskType.PalletPick ? 0 : 1).ToList())
+                    {
+                        var pickPhase = pick.Status switch
+                        {
+                            WorkTaskStatus.Assigned => pick.Type == WorkTaskType.OrderSelect ? RowPhase.Picking : RowPhase.Assigned,
+                            WorkTaskStatus.Open => order.ReleasedToFloor ? RowPhase.Available : RowPhase.Open,
+                            _ => RowPhase.Available,
+                        };
+                        string pickPalletId = string.IsNullOrEmpty(pick.PalletId) ? "—" : GetPalletLoadId(pick.PalletId);
+                        _rowScroll.Add(BuildRow(order, pickPhase, pick, _rowScroll.childCount, pickPalletId));
                     }
                 }
 
@@ -908,6 +938,9 @@ public class WorkQueuePanel : IUIPanel
                 for (int i = 0; i < palletsOfOrder.Count; i++)
                 {
                     var rowPhase = perPallet ? PhaseForPalletStage(palletsOfOrder[i].Stage, phase) : phase;
+                    // Still riding a selector's jack (not on the floor yet): it is being built, not staged.
+                    if (perPallet && palletsOfOrder[i].Stage == OutboundPalletBuilder.PalletStage.Staged && !palletsOfOrder[i].IsOnFloor)
+                        rowPhase = RowPhase.Picking;
                     _rowScroll.Add(BuildRow(order, rowPhase, task, _rowScroll.childCount, $"Pallet {i + 1}"));
                 }
             }
@@ -1498,7 +1531,7 @@ public class WorkQueuePanel : IUIPanel
     private static List<OutboundPalletBuilder> GetOrderPallets(OrderData order)
     {
         if (order == null) return new List<OutboundPalletBuilder>();
-        return Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
+        return Object.FindObjectsByType<OutboundPalletBuilder>()
             .Where(p => p != null && p.OrderId == order.OrderId && p.Stage != OutboundPalletBuilder.PalletStage.Shipped)
             .OrderBy(p => p.name, System.StringComparer.Ordinal)
             .ThenBy(p => p.transform.position.x).ThenBy(p => p.transform.position.z)
@@ -1556,6 +1589,53 @@ public class WorkQueuePanel : IUIPanel
             WorkTaskStatus.Assigned => task.Type == WorkTaskType.OrderSelect ? RowPhase.Picking : RowPhase.Assigned,
             _ => null,
         };
+    }
+
+    /// <summary>One row per pallet of a released order: pallets that exist (own stage; riding a jack = PICKING), then
+    /// pallet picks still outstanding, then the loose pallets still to be built (shown against the selector task
+    /// that will build them). Total is at least the order's planned pallet count.</summary>
+    private void AddUnifiedOrderRows(OrderData order, RowPhase orderPhase, WorkTask repTask, WorkQueueSystem workQueue)
+    {
+        RowPhase TaskPhase(WorkTask t) => t.Status switch
+        {
+            WorkTaskStatus.Assigned => t.Type == WorkTaskType.OrderSelect ? RowPhase.Picking : RowPhase.Assigned,
+            WorkTaskStatus.Open => order.ReleasedToFloor ? RowPhase.Available : RowPhase.Open,
+            _ => RowPhase.Available,
+        };
+        var live = workQueue.Tasks.Where(t => t.OrderId == order.OrderId
+                && (t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.OrderSelect)
+                && t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled).ToList();
+        var picks = live.Where(t => t.Type == WorkTaskType.PalletPick).ToList();
+        var selects = live.Where(t => t.Type == WorkTaskType.OrderSelect).ToList();
+        var pallets = GetOrderPallets(order);
+
+        int n = 0;
+        for (int i = 0; i < pallets.Count; i++)
+        {
+            var ph = PhaseForPalletStage(pallets[i].Stage, orderPhase);
+            if (pallets[i].Stage == OutboundPalletBuilder.PalletStage.Staged && !pallets[i].IsOnFloor) ph = RowPhase.Picking;
+            n++;
+            _rowScroll.Add(BuildRow(order, ph, repTask, _rowScroll.childCount, $"Pallet {n}"));
+        }
+        foreach (var pick in picks)
+        {
+            n++;
+            string id = string.IsNullOrEmpty(pick.PalletId) ? "—" : GetPalletLoadId(pick.PalletId);
+            _rowScroll.Add(BuildRow(order, TaskPhase(pick), pick, _rowScroll.childCount, id));
+        }
+        if (selects.Count > 0)
+        {
+            int planned = 1;
+            if (ServiceLocator.TryGet<OrderService>(out var os) && os != null) planned = os.PalletsNeeded(order);
+            int pad = Mathf.Max(selects.Count, planned - n);
+            for (int i = 0; i < pad; i++)
+            {
+                var sel = selects[i % selects.Count];
+                n++;
+                _rowScroll.Add(BuildRow(order, TaskPhase(sel), sel, _rowScroll.childCount, $"Pallet {n}"));
+            }
+        }
+        if (n == 0) _rowScroll.Add(BuildRow(order, orderPhase, repTask, _rowScroll.childCount, "—"));
     }
 
     private VisualElement BuildTaskRow(WorkTask task, int rowIndex)

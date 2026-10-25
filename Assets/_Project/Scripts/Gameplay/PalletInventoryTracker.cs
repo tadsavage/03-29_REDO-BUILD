@@ -37,7 +37,7 @@ public class PalletInventoryTracker : MonoBehaviour
         // 2026-09-23: survivors are now DESTROYED, not adopted. Adopting one carried over a previous
         // session's _linked map and a subscription to that session's (dead) EventManager. The object is
         // HideInHierarchy + DontDestroyOnLoad now (HideAndDontSave outlived exiting Play mode), and
-        // FindObjectsOfTypeAll (not FindFirstObjectByType) is still needed to see hidden objects.
+        // FindObjectsOfTypeAll (not FindAnyObjectByType) is still needed to see hidden objects.
         foreach (var stale in Resources.FindObjectsOfTypeAll<PalletInventoryTracker>())
             if (stale != null && stale != _instance) DestroyImmediate(stale.gameObject);
         if (_instance != null) return;

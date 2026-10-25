@@ -12,6 +12,9 @@
             <ui:VisualElement class="tools-tabstrip">
                 <ui:Button name="tab-btn-dev"      text="DEV CONSOLE"  class="tools-tab tools-tab--active"/>
                 <ui:Button name="tab-btn-settings" text="DEV SETTINGS" class="tools-tab tools-tab--inactive"/>
+                <ui:Button name="tab-btn-hal"      text="HAL 9000"     class="tools-tab tools-tab--inactive"/>
+                <ui:Button name="tab-btn-balance"  text="BALANCE"      class="tools-tab tools-tab--inactive"/>
+                <ui:Button name="tab-btn-iter"     text="ITERATIONS"   class="tools-tab tools-tab--inactive"/>
             </ui:VisualElement>
             <ui:ScrollView name="tools-scroll" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto" class="tools-scroll">
                 <ui:VisualElement name="tab-content-dev" class="tab-content">
@@ -127,6 +130,12 @@
                 </ui:VisualElement>
                 <!-- ── DEV SETTINGS tab (populated dynamically at runtime) ── -->
                 <ui:VisualElement name="tab-content-settings" class="tab-content">
+                </ui:VisualElement>
+                <ui:VisualElement name="tab-content-hal" class="tab-content">
+                </ui:VisualElement>
+                <ui:VisualElement name="tab-content-balance" class="tab-content">
+                </ui:VisualElement>
+                <ui:VisualElement name="tab-content-iter" class="tab-content">
                 </ui:VisualElement>
             </ui:ScrollView>
         </ui:VisualElement>

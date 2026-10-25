@@ -242,7 +242,7 @@ namespace GameCore.Inventory
         /// by LanesInStage instead.</summary>
         public static bool HasInboundTruckDocked(int door)
         {
-            foreach (var truck in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+            foreach (var truck in Object.FindObjectsByType<TruckController>())
             {
                 if (truck == null || truck.IsOutbound) continue;
                 if (truck.DockedAt != null && truck.DockedAt.DoorNumber == door) return true;

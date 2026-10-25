@@ -224,14 +224,14 @@ public class TruckYardManager : MonoBehaviour
         }
         
         // Find EVERY truck in the scene, even those that lost their controller or identity
-        var trucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None);
+        var trucks = Object.FindObjectsByType<TruckController>();
         foreach (var t in trucks)
         {
             if (t != null && t.gameObject != null) DestroyImmediate(t.gameObject);
         }
 
         // Cleanup any orphaned "(Clone)" trucks, named instances, OR GUARDS that might be missing scripts
-        var allGOs = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+        var allGOs = Object.FindObjectsByType<GameObject>();
         foreach (var go in allGOs)
         {
             if (go == null) continue;
@@ -405,7 +405,7 @@ public class TruckYardManager : MonoBehaviour
         }
 
         // Search for existing guard in the scene first
-        var existingGuards = Object.FindObjectsByType<GuardController>(FindObjectsSortMode.None);
+        var existingGuards = Object.FindObjectsByType<GuardController>();
         GuardController foundGuard = null;
         
         if (existingGuards.Length > 0)
@@ -551,7 +551,7 @@ public class TruckYardManager : MonoBehaviour
     /// </summary>
     public static bool HasOutboundTruckFor(int doorNumber, string appointmentId = null)
     {
-        foreach (var t in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+        foreach (var t in Object.FindObjectsByType<TruckController>())
         {
             if (t == null || !t.IsOutbound || t.IsLeaving) continue;
             if (!string.IsNullOrEmpty(appointmentId))

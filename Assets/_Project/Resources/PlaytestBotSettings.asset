@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: PlaytestBotSettings
+  m_EditorClassIdentifier: GameCore.Simulation:GameCore.Diagnostics:PlaytestBotSettings
+  gameSpeed: 5
+  daysPerBlock: 7
+  pauseAtBlockEnd: 1
+  saveAtBlockEnd: 1
+  decisionIntervalMinutes: 30
+  layoutName: Standard Layout
+  startDockStockers: 2
+  startReachTruckOps: 2
+  startReceivers: 1
+  startSelectors: 1
+  buildReserveCash: 15000
+  buildOnly: 0
+  maxRecurringAccounts: 3
+  bulkOffersPerDay: 2
+  bulkCashMultiple: 2
+  minPalletsBeforeBulk: 12
+  targetPalletsPerDay: 12
+  minCashBalance: 10000
+  palletsPerActiveSku: 2
+  stockCoverDays: 2
+  inventoryValueCap: 60000
+  bulkUpPalletsPerSku: 6
+  bulkUpCashMultiple: 4
+  maxPendingPOs: 3
+  coverRushOrders: 1
+  maxDailySpendFraction: 0.3
+  maxRushPerDay: 1
+  bailoutCash: 0
+  healthCheckIntervalMinutes: 15
+  stationarySeconds: 240
+  reportFolder: Assets/_Project/Docs/Playtest
+  wOnTime: 15
+  wFill: 10
+  wThroughput: 15
+  wRevenue: 15
+  wProfit: 10
+  wCash: 5
+  wReliability: 25
+  wReputation: 5
+  targetRevenuePerDay: 8000
+  targetProfitPerDay: 1500
+  reputationGainPerBlock: 30
+  reliabilityTolerance: 12
+  plannerEnabled: 1
+  plannerMayRemove: 1
+  addUtilPercent: 85
+  addBacklog: 3
+  removeUtilPercent: 25
+  addWaitingTrucks: 1.5

@@ -190,7 +190,7 @@ namespace GameCore.DebugTools
 
             sb.AppendLine("  Inbound trucks docked:");
             bool any = false;
-            foreach (var truck in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+            foreach (var truck in Object.FindObjectsByType<TruckController>())
             {
                 if (truck == null || truck.IsOutbound || truck.DockedAt == null) continue;
                 any = true;

@@ -183,6 +183,17 @@ public class EquipmentBatteryPanels : MonoBehaviour
 
     private void Update()
     {
+        // A report window has the screen: no battery cards, bolts or menus over it (Tad, 2026-10-23). They come back when it closes.
+        if (ReportsPanelController.AnyReportOpen)
+        {
+            _scratch.Clear();
+            _scratch.AddRange(_cards.Keys);
+            foreach (var b in _scratch) Remove(b);
+            foreach (var v in _bolts.Values) if (v != null) v.style.display = DisplayStyle.None;
+            CloseMenu();
+            return;
+        }
+
         HandleRightClick();
 
         // Cards: clicked ones, plus every machine charging on a station.

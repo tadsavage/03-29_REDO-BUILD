@@ -2481,7 +2481,7 @@ public class SchedulerPanel : IUIPanel
     {
         if (string.IsNullOrEmpty(poNumber)) return;
 
-        var trucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None);
+        var trucks = Object.FindObjectsByType<TruckController>();
         foreach (var truck in trucks)
         {
             if (truck == null || truck.AssignedShipment == null) continue;

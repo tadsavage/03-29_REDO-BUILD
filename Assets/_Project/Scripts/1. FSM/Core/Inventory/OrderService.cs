@@ -299,6 +299,50 @@ namespace GameCore.Inventory
             return !order.ReleasedToFloor && live.Count > 0 && live.All(t => IsReleasablePlaceholder(t));
         }
 
+        /// <summary>A pallet has just been RECEIVED into a staging lane and its Putaway filed. If a released pallet pick for that SKU
+        /// is still waiting (not claimed by anyone) - either with no source at all or aimed at a pallet sitting in the racks - point it
+        /// at THIS pallet instead and cancel the Putaway: the freight goes straight out the door instead of up into a rack and back
+        /// down again (Tad, 2026-10-23: a load of tuna was racked while a dozen tuna pallet picks were pending). The old source, if
+        /// any, is un-reserved and stays where it is. Returns true when the pallet was handed to a pick.</summary>
+        public bool TryAssignInboundPalletToPendingPick(string palletId)
+        {
+            if (_workQueue == null || _inventoryService == null || string.IsNullOrEmpty(palletId)) return false;
+            var rec = _inventoryService.GetPallet(palletId);
+            if (rec == null) return false;
+            int full = FullPalletCases(rec.SkuId);
+            if (full <= 0 || rec.Quantity != full) return false;   // only whole pallets can satisfy a pallet pick
+
+            var putaway = _workQueue.Tasks.FirstOrDefault(t => t.Type == WorkTaskType.Putaway && t.PalletId == palletId
+                                                           && t.Status == WorkTaskStatus.Available);
+            if (putaway == null || string.IsNullOrEmpty(putaway.FromLocation)) return false;
+            if (PalletLifecycleResolver.IsReservedByTask(palletId, out _)) return false;
+
+            // Unassigned picks first (they have nothing to throw away), then ones aimed at a rack pallet nobody has gone for yet.
+            var pick = _workQueue.Tasks
+                .Where(t => t.Type == WorkTaskType.PalletPick && t.SkuId == rec.SkuId
+                         && (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Open)
+                         && string.IsNullOrEmpty(t.AssignedToEmployeeGuid)
+                         && !string.IsNullOrEmpty(t.ToLocation)              // has a staging lane to go to
+                         && _activeOrders.Any(o => o.OrderId == t.OrderId))
+                .OrderBy(t => string.IsNullOrEmpty(t.PalletId) ? 0 : 1)
+                .ThenBy(t => t.TaskId)
+                .FirstOrDefault();
+            if (pick == null) return false;
+
+            string fromLane = putaway.FromLocation;
+            // Hand back the rack pallet this pick had put on hold; it simply stays racked.
+            if (!string.IsNullOrEmpty(pick.PalletId) && !string.IsNullOrEmpty(pick.FromLocation)
+                && LocationRegistry.TryGet(pick.FromLocation, out var oldSource) && oldSource.Status == LocationStatus.Reserved)
+                oldSource.Unreserve();
+
+            _workQueue.CancelTasksForPallet(palletId);              // cancels the Putaway (do this BEFORE the pick names the pallet)
+            pick.PalletId = palletId;
+            pick.AssignFromLocation(fromLane);
+            if (pick.Status == WorkTaskStatus.Open) pick.Status = WorkTaskStatus.Available;
+            Debug.Log($"[OrderService] Received pallet {palletId} ({rec.SkuId}) goes straight to a waiting pallet pick - no putaway.");
+            return true;
+        }
+
         /// <summary>A live task of a never-released order that release may replace. Open is the normal placeholder; Available is
         /// what a PalletPick can be left as when an order was sent back to Open (ReturnOrderToOpen only resets the task the
         /// selector held), and release replaces those too. Anything a worker has already picked up (Assigned) is real work.</summary>
@@ -1220,7 +1264,7 @@ namespace GameCore.Inventory
         private void HealPhantomStagedOrders()
         {
             var havePallets = new HashSet<string>();
-            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsInactive.Include))
                 if (p != null && !string.IsNullOrEmpty(p.OrderId)) havePallets.Add(p.OrderId);
 
             var phantom = new List<string>();
@@ -1321,7 +1365,7 @@ namespace GameCore.Inventory
                     int n = CancelLeftoverTasks(orphanId);
                     if (n > 0) Debug.LogWarning($"[OrderService] Cancelled {n} leftover task(s) of order {orphanId}, which is no longer active.");
                 }
-            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>())
             {
                 if (pallet == null || string.IsNullOrEmpty(pallet.OrderId) || activeIds.Contains(pallet.OrderId)) continue;
                 if (!pallet.IsOnFloor) continue;   // on forks / in a trailer
@@ -1571,10 +1615,10 @@ namespace GameCore.Inventory
             caseBuilt = 0;
             var result = new List<(OutboundPalletBuilder, string, int)>();
             if (order == null || !order.AllStagingLanes().Any()) return result;
-            var grid = Object.FindFirstObjectByType<PlacementGrid>();
+            var grid = Object.FindAnyObjectByType<PlacementGrid>();
             if (grid == null) return result;
 
-            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>())
             {
                 if (pallet == null || pallet.OrderId != order.OrderId || !pallet.IsOnFloor) continue;
                 if (!LaneNamingService.TryGetSlot(grid.WorldToCell(pallet.transform.position), out var slot)) continue;
@@ -1611,7 +1655,7 @@ namespace GameCore.Inventory
             if (_workQueue == null || pallet == null) return;
             pallet.ReturnId = System.Guid.NewGuid().ToString();
             string where = "";
-            var grid = Object.FindFirstObjectByType<PlacementGrid>();
+            var grid = Object.FindAnyObjectByType<PlacementGrid>();
             if (grid != null && LaneNamingService.TryGetSlot(grid.WorldToCell(pallet.transform.position), out var slot))
                 where = $"{slot.DoorNumber}{slot.Lane}";
             var order = _orderHistory.FirstOrDefault(o => o.OrderId == pallet.OrderId) ?? _activeOrders.FirstOrDefault(o => o.OrderId == pallet.OrderId);
@@ -1631,7 +1675,7 @@ namespace GameCore.Inventory
 
         private bool ReturnLanePalletToStock(OutboundPalletBuilder outbound, string skuId, int cases)
         {
-            var grid = Object.FindFirstObjectByType<PlacementGrid>();
+            var grid = Object.FindAnyObjectByType<PlacementGrid>();
             if (outbound == null || grid == null || _inventoryService == null) return false;
 
             var go = outbound.gameObject;
@@ -1857,12 +1901,12 @@ namespace GameCore.Inventory
                 if (_workQueue != null)
                 {
                     var lanes = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
-                    var grid = Object.FindFirstObjectByType<PlacementGrid>();
+                    var grid = Object.FindAnyObjectByType<PlacementGrid>();
                     foreach (var task in _workQueue.Tasks.Where(t => t.Type == WorkTaskType.Load &&
                                  (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Open) &&
                                  lanes.Contains(t.FromLocation)).ToList())
                     {
-                        bool laneStillHasFreight = grid != null && Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
+                        bool laneStillHasFreight = grid != null && Object.FindObjectsByType<OutboundPalletBuilder>()
                             .Any(p => p != null && p.IsOnFloor &&
                                       LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var sl) &&
                                       $"{sl.DoorNumber}{sl.Lane}" == task.FromLocation);
@@ -1925,7 +1969,7 @@ namespace GameCore.Inventory
             if (grid != null)
             {
                 var ids = new HashSet<string>(orders.Select(o => o.OrderId));
-                foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+                foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
                 {
                     if (p == null || !p.IsOnFloor || !ids.Contains(p.OrderId)) continue;
                     if (LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var s) &&
@@ -1944,7 +1988,7 @@ namespace GameCore.Inventory
             }
             lanes = lanes.OrderBy(l => l.door).ThenBy(l => l.lane).ToList();
 
-            bool truckAtDoor = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+            bool truckAtDoor = Object.FindObjectsByType<TruckController>()
                 .Any(t => t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber);
             if (!truckAtDoor)
                 Object.FindAnyObjectByType<TruckYardManager>()?.SpawnOutboundTruck(doorNumber);
@@ -2123,7 +2167,7 @@ namespace GameCore.Inventory
 
                 order.Status = OrderData.OrderStatus.Staged;
                 reverted++;
-                Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) was released to loading " +
+                ThrottledLog.Warn("os-revert-" + order.OrderId, $"[OrderService] Order {order.OrderId} ({order.CustomerName}) was released to loading " +
                                  $"from {doorNumber}{lane} but no staged pallet for it could be found there — " +
                                  $"reverted to Staged so it can be re-released. Its pallets are most likely sitting " +
                                  $"somewhere other than the lane.");
@@ -2254,7 +2298,7 @@ namespace GameCore.Inventory
                 var o = _activeOrders.FirstOrDefault(x => x.OrderId == id);
                 if (o == null) continue;
                 if (IsPicking(o)) { picking++; continue; }
-                foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+                foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
                 {
                     if (p == null || p.OrderId != id) continue;
                     if (p.Lifecycle == PalletLifecycle.Shipped) aboard++; else inLane++;
@@ -2294,7 +2338,7 @@ namespace GameCore.Inventory
                 }
 
                 int aboard = 0;
-                foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+                foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
                     if (p != null && p.OrderId == id && p.Lifecycle == PalletLifecycle.Shipped)
                         foreach (var (_, cases) in CasesOn(p)) aboard += cases;
 
@@ -2437,11 +2481,11 @@ namespace GameCore.Inventory
             if (order == null || !order.AllStagingLanes().Any())
                 return 0;
 
-            var grid = Object.FindFirstObjectByType<PlacementGrid>();
+            var grid = Object.FindAnyObjectByType<PlacementGrid>();
             if (grid == null) return 0;
 
             int count = 0;
-            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            foreach (var pallet in Object.FindObjectsByType<OutboundPalletBuilder>())
             {
                 // Mid-carry / in a trailer. A save-restored pallet sits under PlacedObjectsContainer and IS in
                 // the lane: skipping every parented pallet let an order auto-ship (and bill) with 40 cases still
@@ -2583,7 +2627,7 @@ namespace GameCore.Inventory
         /// depart. The other half of the manual close-out flow (see CloseOutOrders).</summary>
         private void TryReleaseDoorIfClear(int doorNumber, int revenueJustBilled)
         {
-            var truck = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+            var truck = Object.FindObjectsByType<TruckController>()
                 .FirstOrDefault(t => t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber);
 
             if (revenueJustBilled > 0 && truck != null)
@@ -2666,7 +2710,7 @@ namespace GameCore.Inventory
             // BILLING = SHIPPED PALLETS ONLY (Tad, 2026-10-17). A pallet of this order that is not in the trailer (still
             // staged, on the loader's forks, riding a selector) did not ship: its cases come off QuantityPicked so they are
             // not billed, and it stays tagged so ReclaimOrphanedFreight returns it to stock once the order is archived.
-            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
             {
                 if (p == null || p.OrderId != orderId) continue;
                 if (p.Lifecycle == PalletLifecycle.Shipped)
@@ -3036,7 +3080,7 @@ namespace GameCore.Inventory
         public int ReconcileStagedOrdersAgainstScene(ICollection<string> onlyOrderIds = null)
         {
             var livePalletOrderIds = new HashSet<string>();
-            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None))
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
                 if (p != null && !string.IsNullOrEmpty(p.OrderId))
                     livePalletOrderIds.Add(p.OrderId);
 

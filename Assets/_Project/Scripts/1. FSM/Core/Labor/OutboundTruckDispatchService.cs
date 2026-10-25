@@ -224,7 +224,7 @@ namespace GameCore.Labor
         /// appointment (debug button, order-release path, or an older save).</summary>
         private static bool HasUnattributedOutboundTruck(int doorNumber)
         {
-            foreach (var t in FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+            foreach (var t in FindObjectsByType<TruckController>())
             {
                 if (t == null || !t.IsOutbound || t.IsLeaving || !string.IsNullOrEmpty(t.OutboundAppointmentId)) continue;
                 int door = t.AssignedDock != null ? t.AssignedDock.DoorNumber : t.OutboundDoorNumber;

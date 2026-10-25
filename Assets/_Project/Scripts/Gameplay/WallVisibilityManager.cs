@@ -327,7 +327,7 @@ public class WallVisibilityManager : MonoBehaviour
     // (ignorePlacementRules = true) can be placed anywhere in the room.
     private void GhostAllLightFixtures()
     {
-        Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include);
         foreach (var sceneLight in sceneLights)
         {
             if (sceneLight == null || sceneLight.type == LightType.Directional) continue;
@@ -374,7 +374,7 @@ public class WallVisibilityManager : MonoBehaviour
     {
         if (candidate == null) return false;
 
-        Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include);
         Transform rendererTransform = candidate.transform;
 
         foreach (var sceneLight in sceneLights)

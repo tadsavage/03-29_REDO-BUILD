@@ -49,7 +49,7 @@ namespace GameCore.Persistence
             var forkPallets = BuildForkPalletMap();
 
             // Collect all trucks in yard, ordered so gate-queue slots are deterministic.
-            var allTrucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None);
+            var allTrucks = Object.FindObjectsByType<TruckController>();
 
             foreach (var truck in allTrucks)
             {
@@ -225,14 +225,14 @@ namespace GameCore.Persistence
 
             // Every truck being actively offloaded (claimed but not complete). It used to take only the FIRST one, so with
             // two dock stockers on two trailers the second one's carried pallet went back onto the wrong truck.
-            var offloadTrucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+            var offloadTrucks = Object.FindObjectsByType<TruckController>()
                 .Where(t => t != null && t.OffloadClaimed && !t.OffloadComplete && !t.IsOutbound &&
                             t.CurrentState == TruckController.TruckState.Docked)
                 .ToList();
             if (offloadTrucks.Count == 0) return map;
 
             // Scan every dock stocker's Forks child for carried pallets.
-            foreach (var slot in Object.FindObjectsByType<MHEOperatorSlot>(FindObjectsSortMode.None))
+            foreach (var slot in Object.FindObjectsByType<MHEOperatorSlot>())
             {
                 if (slot == null) continue;
                 Transform forks = FindDeepChild(slot.transform, "Forks");

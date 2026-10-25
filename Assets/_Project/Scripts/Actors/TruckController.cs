@@ -406,6 +406,9 @@ public class TruckController : MonoBehaviour
     /// <summary>Marks this outbound truck as being actively loaded so no other loader claims it.</summary>
     public void ClaimForLoad() => _loadClaimed = true;
 
+    /// <summary>True while a loader holds the claim on this truck.</summary>
+    public bool LoadClaimed => _loadClaimed;
+
     /// <summary>Releases the "a loader is working me right now" claim, called when a load routine
     /// finishes. This flag is a MUTEX for the duration of one routine, not a permanent latch: the
     /// truck stays docked awaiting close-out and may still have cargo space, so further Load tasks
@@ -3409,7 +3412,7 @@ private DockSlot        _dock;
         // A door an outbound driver is already parked and waiting for is spoken for — otherwise an
         // inbound truck grabs it the moment it frees and the outbound pickup misses its window again.
         var reserved = new HashSet<int>();
-        foreach (var t in FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+        foreach (var t in FindObjectsByType<TruckController>())
             if (t != null && t != this && t.IsOutboundWaitingForDoor) reserved.Add(t.OutboundDoorNumber);
 
         List<DockSlot> free = null;

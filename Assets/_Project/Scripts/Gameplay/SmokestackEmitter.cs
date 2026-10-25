@@ -92,26 +92,29 @@ public class SmokestackEmitter : MonoBehaviour
             }
         }
 
-        StartCoroutine(DriftAndDestroy(puff, duration));
+        // The PUFF owns its own drift and cleanup. This emitter's coroutine used to do it, so when a truck despawned the
+        // timer died with it and every puff already in the air hung there forever (the grainy column by the guard shack).
+        var life = puff.AddComponent<SmokePuffLifetime>();
+        life.Init(duration, riseSpeed, sidewaysDrift);
+    }
+}
+
+/// <summary>Moves one smoke puff upward with a gentle sway, then destroys it. Lives on the puff itself so it survives its emitter.</summary>
+public class SmokePuffLifetime : MonoBehaviour
+{
+    private float _duration = 1.5f, _rise = 0.5f, _t;
+    private Vector3 _sway;
+
+    public void Init(float duration, float riseSpeed, float sidewaysDrift)
+    {
+        _duration = duration; _rise = riseSpeed;
+        _sway = new Vector3(Random.Range(-sidewaysDrift, sidewaysDrift), 0f, Random.Range(-sidewaysDrift, sidewaysDrift));
     }
 
-    private IEnumerator DriftAndDestroy(GameObject puff, float duration)
+    private void Update()
     {
-        // A gentle, randomized sideways sway so puffs don't all rise in an identical straight
-        // line -- reads more like real smoke drifting on a breeze than a mechanical repeat.
-        Vector3 sway = new Vector3(
-            Random.Range(-sidewaysDrift, sidewaysDrift),
-            0f,
-            Random.Range(-sidewaysDrift, sidewaysDrift));
-
-        float t = 0f;
-        while (puff != null && t < duration)
-        {
-            puff.transform.position += (Vector3.up * riseSpeed + sway) * Time.deltaTime;
-            t += Time.deltaTime;
-            yield return null;
-        }
-
-        if (puff != null) Destroy(puff);
+        _t += Time.deltaTime;
+        transform.position += (Vector3.up * _rise + _sway) * Time.deltaTime;
+        if (_t >= _duration) Destroy(gameObject);
     }
 }

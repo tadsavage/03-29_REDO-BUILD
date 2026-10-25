@@ -31,7 +31,7 @@ namespace GameCore.Persistence
 
             // CLEANUP: Destroy any lingering pallet visuals from the previous session
             // These are ChepEmpty instances that weren't cleared on the last save/exit
-            var oldPallets = Object.FindObjectsByType<PalletBuilder>(FindObjectsSortMode.None);
+            var oldPallets = Object.FindObjectsByType<PalletBuilder>();
             int destroyedCount = 0;
             foreach (var oldPalletBuilder in oldPallets)
             {

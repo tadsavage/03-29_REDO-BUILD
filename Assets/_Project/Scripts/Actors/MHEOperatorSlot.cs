@@ -124,6 +124,23 @@ public class MHEOperatorSlot : MonoBehaviour
     /// <summary>Order-selector use: the rider hops off to pick a case but KEEPS the machine (still
     /// CurrentOperator, own navigation stays off, vehicle stays parked). The caller walks them around by
     /// script and calls <see cref="StepOn"/> to get back on.</summary>
+    /// <summary>Dev builds: every time an operator is taken off a machine, say who, which machine and WHO ASKED (call stack). Warnings are
+    /// visible even with Debug.Log muted. Added 2026-10-24 to find why reach truck / dock stocker operators keep getting off.</summary>
+    [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+    private void TraceDismount(string how, EmployeeIdentity who)
+    {
+        var lines = System.Environment.StackTrace.Split((char)10);
+        var shown = new System.Text.StringBuilder();
+        int n = 0;
+        foreach (var l in lines)
+        {
+            if (l.Contains("TraceDismount") || l.Contains("StackTrace") || l.Contains(how)) continue;
+            shown.Append((char)10).Append("   ").Append(l.Trim());
+            if (++n >= 6) break;
+        }
+        Debug.Log($"[DISMOUNT] {(who != null && who.Record != null ? who.Record.employeeName + " (" + who.Record.role + ")" : "?")} off {name} via {how} at {Time.time:F0}s.{shown}");
+    }
+
     public void StepOff()
     {
         if (CurrentOperator == null) return;
@@ -190,6 +207,7 @@ public class MHEOperatorSlot : MonoBehaviour
     {
         EmployeeIdentity identity = CurrentOperator;
         if (identity == null) return null;
+        TraceDismount("EjectRider", identity);
 
         SetDriveStyle(identity, 0);
         identity.GetComponent<AgentAnimation>()?.SetRidingMHE(false);
@@ -260,6 +278,7 @@ public class MHEOperatorSlot : MonoBehaviour
     {
         EmployeeIdentity identity = CurrentOperator;
         if (identity == null) return null;
+        TraceDismount("VacateOperator", identity);
 
         SetDriveStyle(identity, 0);
         identity.GetComponent<AgentAnimation>()?.SetRidingMHE(false);

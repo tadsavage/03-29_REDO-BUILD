@@ -45,7 +45,7 @@ public class UIKeyBindingManager : MonoBehaviour
         {
             if (_instance != null) return _instance;
 
-            _instance = FindFirstObjectByType<UIKeyBindingManager>();
+            _instance = FindAnyObjectByType<UIKeyBindingManager>();
             if (_instance == null)
             {
                 var go = new GameObject("[UIKeyBindingManager]");

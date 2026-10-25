@@ -426,8 +426,28 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     }
 
     /// <summary>Cancel an in-progress SeekPosition (e.g. assignment changed mid-walk).</summary>
+    /// <summary>Dev builds: who last cancelled a seek and when - the reach truck "NO NAVMESH PATH" legs ended early with nobody having
+    /// logged why. Read by ReachTruckOperator's failure message.</summary>
+    public string LastCancelCaller { get; private set; }
+    public float LastCancelTime { get; private set; }
+
     public void CancelSeekPosition()
     {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (_seekingTask)
+        {
+            var sb = new System.Text.StringBuilder();
+            int n = 0;
+            foreach (var l in System.Environment.StackTrace.Split((char)10))
+            {
+                if (l.Contains("CancelSeekPosition") || l.Contains("StackTrace")) continue;
+                sb.Append(l.Trim().Split(new[] { " (at " }, System.StringSplitOptions.None)[0]).Append(" < ");
+                if (++n >= 3) break;
+            }
+            LastCancelCaller = sb.ToString();
+            LastCancelTime = Time.time;
+        }
+#endif
         _seekingTask = false;
         _onTaskArrived = null;
         _seekBestRemaining = float.MaxValue;
@@ -911,7 +931,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         }
 
         // ── Task seeking (employee walks toward a generic task position, e.g. a pallet) ──────────
-        if (_seekingTask && onMesh)
+        // Re-read: the equipment block above can re-route or warp this agent, which makes the earlier onMesh stale and made
+        // remainingDistance throw ("can only be called on an active agent that has been placed on a NavMesh").
+        if (_seekingTask && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
             // Progress tracking for the no-progress backstop below. "Progress" is the remaining
             // distance actually falling — being shunted around by MHE doesn't count as progress, and
@@ -1077,7 +1099,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                     // Same taskBusy/seeking guard as OnNavMeshBaked() — re-snapping onto the mesh
                     // is always safe, but overwriting a Receiver's destination mid-task is not.
                     if (!_taskBusy && !_seekingTask && !_seekingEquipment
-                        && waypoints != null && waypoints.Length > 0)
+                        && waypoints != null && waypoints.Length > 0 && agent.isOnNavMesh)   // Warp can fail to seat the agent this frame
                         agent.SetDestination(waypoints[currentIndex].position);
                 }
                 else
@@ -1244,13 +1266,17 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
         if (!NavMesh.SamplePosition(nearest.position, out NavMeshHit hit, 4f, agent.areaMask))
         {
-            Debug.LogWarning($"[AiNavigation] {name}: stranded on an isolated NavMesh island at {transform.position}, " +
-                             $"and the nearest waypoint has no NavMesh within 4m either — cannot self-rescue.");
+            if (Time.time - _lastStrandedLog > 60f) { _lastStrandedLog = Time.time; Debug.LogWarning($"[AiNavigation] {name}: stranded on an isolated NavMesh island at {transform.position}, " +
+                             $"and the nearest waypoint has no NavMesh within 4m either — cannot self-rescue."); }
             return;
         }
 
-        Debug.LogWarning($"[AiNavigation] {name}: stranded on an isolated NavMesh island at {transform.position} " +
-                         $"(no waypoint reachable for {StrandedRescueSeconds:F0}s) — warping to {hit.position} to rejoin patrol.");
+        if (Time.time - _lastStrandedLog > 60f)   // one line a minute per agent: this fired hundreds of times a session
+        {
+            _lastStrandedLog = Time.time;
+            Debug.LogWarning($"[AiNavigation] {name}: stranded on an isolated NavMesh island at {transform.position} " +
+                             $"(no waypoint reachable for {StrandedRescueSeconds:F0}s) — warping to {hit.position} to rejoin patrol.");
+        }
         agent.Warp(hit.position);
         transform.position = hit.position;
         agent.isStopped = false;
@@ -1633,6 +1659,8 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         _footstepSource.SetCustomCurve(AudioSourceCurveType.CustomRolloff, curve);
     }
 
+    private float _lastStrandedLog = -999f;
+
     public void GoToRandomWaypoint()
     {
         // Always re-scan so newly placed waypoints are picked up immediately.
@@ -1640,6 +1668,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
         if (waypoints == null || waypoints.Length == 0) return;
         if (!agent.isOnNavMesh) return;
+        if (currentIndex < 0 || currentIndex >= waypoints.Length) currentIndex = 0;   // the list shrank since last time: this threw IndexOutOfRange ~900 times in a session
 
         int nextIndex = currentIndex;
         int safety = 0;

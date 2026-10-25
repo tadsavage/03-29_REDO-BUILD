@@ -134,8 +134,12 @@ namespace GameCore.Labor
         public static void CreateReceiveTaskForPallet(PalletMasterRecord masterRecord)
         {
             if (masterRecord == null) return;
-            if (!ServiceLocator.TryGet<WorkQueueSystem>(out var queue) || queue == null) return;
-            if (!ServiceLocator.TryGet<InventoryService>(out var inventory) || inventory == null) return;
+            // Loud, not silent: a missing service here means a pallet lands in a lane with NO Receive task (it just sits
+            // there until someone triggers receiving by hand). That happens when a script reload during Play wiped the services.
+            if (!ServiceLocator.TryGet<WorkQueueSystem>(out var queue) || queue == null)
+            { Debug.LogError($"[ReceivingService] No WorkQueueSystem registered - NO Receive task created for pallet {masterRecord.PalletId}. (Script reload during Play? Restart Play.)"); return; }
+            if (!ServiceLocator.TryGet<InventoryService>(out var inventory) || inventory == null)
+            { Debug.LogError($"[ReceivingService] No InventoryService registered - NO Receive task created for pallet {masterRecord.PalletId}. (Script reload during Play? Restart Play.)"); return; }
 
             string description = $"Receive pallet {masterRecord.SkuId} ({masterRecord.Quantity} cases)";
             string staging = LaneNamingService.AddressAt(masterRecord.CurrentLocation);

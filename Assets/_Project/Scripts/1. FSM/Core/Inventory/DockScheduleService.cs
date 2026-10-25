@@ -641,7 +641,7 @@ namespace GameCore.Inventory
             {
                 _inboundDoorCacheTime = Time.unscaledTime;
                 _inboundDoorCache.Clear();
-                foreach (var truck in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+                foreach (var truck in Object.FindObjectsByType<TruckController>())
                 {
                     if (truck == null || truck.IsOutbound) continue;
                     if (truck.DockedAt != null) _inboundDoorCache.Add(truck.DockedAt.DoorNumber);
@@ -1218,6 +1218,32 @@ namespace GameCore.Inventory
         /// appointment as that customer's case-pick orders — physically two different trailers, and the
         /// chip could only be coloured as one of them.
         /// </summary>
+        /// <summary>True when the given orders, taken together, fit ONE trailer (12 floor positions, 2.5 m roof). Two orders of the same customer
+        /// used to ride one trailer however big they were: block 2 (2026-10-24) shipped orders short because the pair was a pallet too big,
+        /// the leftover pallet was not billed and went back to stock.</summary>
+        public bool FitsOneTrailer(IEnumerable<string> orderIds)
+        {
+            if (!ServiceLocator.TryGet(out OrderService orders) || !ServiceLocator.TryGet(out InventoryService inv)) return true;
+            var totals = new Dictionary<string, int>();
+            foreach (var id in orderIds)
+            {
+                var o = orders.ActiveOrders.FirstOrDefault(x => x.OrderId == id);
+                if (o == null) continue;
+                foreach (var li in o.LineItems)
+                {
+                    if (li == null || string.IsNullOrEmpty(li.SkuId)) continue;
+                    totals.TryGetValue(li.SkuId, out int n);
+                    totals[li.SkuId] = n + Mathf.Max(0, li.QuantityNeeded);
+                }
+            }
+            var lines = new List<(SkuData sku, int cases)>();
+            foreach (var kv in totals) { var sku = inv.GetSkuData(kv.Key); if (sku != null) lines.Add((sku, kv.Value)); }
+            return TrailerCapacity.OrderFloorSlots(lines, 1) <= TrailerCapacity.FloorSlots;
+        }
+
+        private bool FitsWith(DockAppointment a, OrderData order)
+            => FitsOneTrailer((a.OrderIds ?? new List<string>()).Concat(new[] { order.OrderId }));
+
         private void HandleOrderArrived(OrderData order)
         {
             if (order == null) return;
@@ -1245,8 +1271,8 @@ namespace GameCore.Inventory
             var candidates = UpcomingFor(order.CustomerId)
                 .Where(a => a.Kind != AppointmentKind.Inbound && a.ContractId == order.ContractId)
                 .ToList();
-            var existing = candidates.FirstOrDefault(a => a.Day == scheduledDay) ??
-                           (order.IsBulk ? candidates.FirstOrDefault() : null);
+            var existing = candidates.FirstOrDefault(a => a.Day == scheduledDay && FitsWith(a, order)) ??
+                           (order.IsBulk ? candidates.FirstOrDefault(a => FitsWith(a, order)) : null);
             if (existing != null)
             {
                 if (!existing.OrderIds.Contains(order.OrderId)) existing.OrderIds.Add(order.OrderId);
@@ -1507,7 +1533,7 @@ namespace GameCore.Inventory
             // the appointment) and orders that were mid-pick (2026-10-18). Keep an outbound appointment for ONE extra day
             // while a truck on site holds its id or any of its orders is still unshipped.
             var onSite = new HashSet<string>();
-            foreach (var t in Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None))
+            foreach (var t in Object.FindObjectsByType<TruckController>())
                 if (t != null && t.IsOutbound && !t.IsLeaving && !string.IsNullOrEmpty(t.OutboundAppointmentId))
                     onSite.Add(t.OutboundAppointmentId);
             ServiceLocator.TryGet(out OrderService liveOrders);
@@ -1574,7 +1600,7 @@ namespace GameCore.Inventory
                 // Force out any live truck still sitting on this PO before cancelling — ForceDeparture
                 // internally marks the shipment Departed, which we immediately override to Cancelled
                 // below so the PO doesn't read as fulfilled.
-                var truck = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+                var truck = Object.FindObjectsByType<TruckController>()
                     .FirstOrDefault(t => t != null && t.AssignedShipment == po);
                 truck?.ForceDeparture();
 
@@ -1691,7 +1717,7 @@ namespace GameCore.Inventory
                 // Status alone isn't enough: an order picked over several trips goes back to picking between them while
                 // its first pallets already sit in the trailer. Freight aboard = loading has started (2026-10-17).
                 var apptIds = new HashSet<string>(apptOrders.Select(o => o.OrderId));
-                bool freightAboard = Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsSortMode.None)
+                bool freightAboard = Object.FindObjectsByType<OutboundPalletBuilder>()
                     .Any(p => p != null && apptIds.Contains(p.OrderId) && p.Lifecycle == PalletLifecycle.Shipped);
                 bool startedLoading = freightAboard || apptOrders.Any(o =>
                     o.Status == OrderData.OrderStatus.Loading ||

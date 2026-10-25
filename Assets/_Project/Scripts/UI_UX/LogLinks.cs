@@ -129,7 +129,7 @@ public static class LogLinks
         int.TryParse(parts[0], out int doorNumber);
         string key = parts.Length > 1 ? parts[1] : null; // PO number or outbound appointment id
 
-        var trucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+        var trucks = Object.FindObjectsByType<TruckController>()
                            .Where(t => t != null && !t.IsLeaving).ToList();
         TruckController truck =
             (!string.IsNullOrEmpty(key)

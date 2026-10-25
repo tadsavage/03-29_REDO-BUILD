@@ -477,13 +477,11 @@ public class PurchasingPanel : IUIPanel
         titleBar.Add(leftSpacer);
 
         // At-a-glance total of everything that could be scratched off an order for lack of balance.
+        // Lives in Inbound Order Creation's filter row now (it used to sit over the title); built here once, parented there.
         _scratchTotalLabel = MakeText("", 22, ColDanger, bold: true);
         _scratchTotalLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        _scratchTotalLabel.style.position = Position.Absolute;
-        _scratchTotalLabel.style.left = 0;
-        _scratchTotalLabel.style.top = -8;
+        _scratchTotalLabel.style.flexShrink = 0;
         _scratchTotalLabel.pickingMode = PickingMode.Ignore;
-        titleBar.Add(_scratchTotalLabel);
         titleBar.schedule.Execute(RefreshScratchTotal).Every(1000);
 
         _titleLabel = MakeText("PURCHASING", 39, ColTitleText, bold: true);
@@ -496,7 +494,7 @@ public class PurchasingPanel : IUIPanel
         rightGroup.style.alignItems = Align.Center;
         rightGroup.style.flexShrink = 0;
         rightGroup.RegisterCallback<GeometryChangedEvent>(_ =>
-            leftSpacer.style.width = rightGroup.resolvedStyle.width);
+            leftSpacer.style.width = Mathf.Max(0f, rightGroup.resolvedStyle.width - TitleShiftLeft * 2f));
 
         // Return leg of the trip the Inbound Order Creation hint describes: a raised PO still needs a
         // day, time block and door, and that happens on the Scheduler. It used to sit down in that
@@ -545,6 +543,23 @@ public class PurchasingPanel : IUIPanel
             toWorkQueue.style.borderBottomLeftRadius = toWorkQueue.style.borderBottomRightRadius = 8;
         RuntimeTooltip.Attach(toWorkQueue, "Close purchasing and open the Work Queue.");
 
+        var toRush = new Button(OpenRushOrders) { text = "RUSH ORDERS" };
+        StyleOrangeButton(toRush);
+        NavButtonColors.Apply(toRush, NavButtonColors.Dest.RushOrders);
+        ApplyFont(toRush, bold: true, size: 16);
+        toRush.style.height = TitleButtonSize;
+        toRush.style.width = 96;
+        toRush.style.whiteSpace = WhiteSpace.Normal;          // wraps onto two lines: RUSH / ORDERS
+        toRush.style.unityTextAlign = TextAnchor.MiddleCenter;
+        toRush.style.paddingLeft = toRush.style.paddingRight = 6;
+        toRush.style.paddingTop = toRush.style.paddingBottom = 2;
+        toRush.style.marginRight = 10;
+        toRush.style.flexShrink = 0;
+        toRush.style.borderTopLeftRadius = toRush.style.borderTopRightRadius =
+            toRush.style.borderBottomLeftRadius = toRush.style.borderBottomRightRadius = 8;
+        RuntimeTooltip.Attach(toRush, "Close purchasing and open the Item Listing, where you can rush-order items at double cost.");
+
+        rightGroup.Add(toRush);
         rightGroup.Add(toWorkQueue);
         rightGroup.Add(toOrders);
         rightGroup.Add(toScheduler);
@@ -996,7 +1011,7 @@ public class PurchasingPanel : IUIPanel
             shipment.Status != ShipmentData.ShipmentStatus.Receiving)
             return null;
 
-        var trucks = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None);
+        var trucks = Object.FindObjectsByType<TruckController>();
         foreach (var truck in trucks)
         {
             if (truck == null || truck.AssignedShipment == null) continue;
@@ -1327,6 +1342,17 @@ public class PurchasingPanel : IUIPanel
         UIKeyBindingManager.Instance?.CloseAll();
         workQueue.Show();
     }
+
+    private void OpenRushOrders()
+    {
+        Hide();
+        UIKeyBindingManager.Instance?.CloseAll();
+        if (BuildMenuUI.Instance == null) { UIToast.Show("Couldn't open the Item Listing - the report windows aren't loaded."); return; }
+        BuildMenuUI.Instance.OpenReport(ReportsPanelController.Tab.ItemListing);
+    }
+
+    /// <summary>How far (px) the title slides left of true centre, to make room for the RUSH ORDERS button.</summary>
+    private const float TitleShiftLeft = 140f;
 
     private void OpenOrders()
     {
@@ -2226,13 +2252,12 @@ public class PurchasingPanel : IUIPanel
             else { _multiVendorItemAutoClose?.Pause(); _multiVendorItemAutoClose = null; }
         };
 
-        var hint = MakeText("The same item can appear under several vendors at different prices — " +
-                             "compare and build multiple loads at once.", 12, ColEmptyText);
-        hint.style.marginLeft = 16;
-        hint.style.marginTop = 8;
-        hint.style.whiteSpace = WhiteSpace.Normal;
-        hint.style.flexShrink = 1;
-        bar.Add(hint);
+        // The explanatory hint that used to sit here is gone; the potential-scratches total takes its place.
+        _scratchTotalLabel.RemoveFromHierarchy();
+        _scratchTotalLabel.style.marginLeft = 20;
+        _scratchTotalLabel.style.marginTop = 3;
+        bar.Add(_scratchTotalLabel);
+        RefreshScratchTotal();
 
         // A Rebuild() can land here while a popout is still open (e.g. ticking a vendor checkbox, or
         // the Critical Items toggle, both call Rebuild() without touching the *Open flag) — restart

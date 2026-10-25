@@ -422,6 +422,9 @@ namespace GameCore.Inventory
         /// is just a tax the player learns to pre-order against.</summary>
         private const float DefaultShortShipmentChance = 0.25f;
 
+        /// <summary>Supplier id of the one-trailer "Rush Courier" PO raised by the Item Listing's Dispatch All Rush Orders! button.</summary>
+        public const string RushSupplierId = "RUSH_COURIER";
+
         /// <summary>
         /// How likely this PO is to arrive short — derived from the VENDOR'S current Partnership
         /// Level fill rate where one is known (100% fill rate = 0% short-ship chance).
@@ -431,8 +434,14 @@ namespace GameCore.Inventory
         /// terms and almost never missing, and the player learns which is which the only way that
         /// matters: by being let down.
         /// </summary>
+        /// <summary>Master switch for vendors shipping short (and so the whole backfill process). OFF while we get the basic loop working
+        /// (Tad, 2026-10-24): receive, put away, replenish, pick, load.</summary>
+        public static bool ShortShipmentsEnabled = false;
+
         private static float ShortShipChanceFor(ShipmentData shipment)
         {
+            if (!ShortShipmentsEnabled) return 0f;
+            if (shipment != null && shipment.SupplierId == RushSupplierId) return 0f;   // paid double for it: it arrives complete
             var vendor = VendorRegistry.Load()?.GetById(shipment?.SupplierId);
             if (vendor == null) return DefaultShortShipmentChance;
 
@@ -533,7 +542,7 @@ namespace GameCore.Inventory
             if (_yardManager != null)
             {
                 // Check if a truck for this PO already exists in the scene to prevent duplicates
-                var existing = Object.FindObjectsByType<TruckController>(FindObjectsSortMode.None)
+                var existing = Object.FindObjectsByType<TruckController>()
                     .Any(t => t != null && t.AssignedShipment != null && t.AssignedShipment.PONumber == shipment.PONumber);
 
                 if (existing)

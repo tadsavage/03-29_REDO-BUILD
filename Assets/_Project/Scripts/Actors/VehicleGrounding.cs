@@ -165,6 +165,7 @@ public class VehicleGrounding : MonoBehaviour
         t.position = new Vector3(centre.x, floorY, centre.z);
         t.rotation = rot;
         t.localScale = new Vector3(size.x, size.y, 1f);   // X = width, Y = length (the quad is rotated flat)
+        if (_mpb == null) _mpb = new MaterialPropertyBlock();   // non-serialized: a script reload during Play nulls it
         r.GetPropertyBlock(_mpb);
         _mpb.SetFloat(AlphaId, alpha);
         r.SetPropertyBlock(_mpb);

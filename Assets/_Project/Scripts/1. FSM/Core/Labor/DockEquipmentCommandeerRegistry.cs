@@ -18,6 +18,8 @@ namespace GameCore.Labor
     {
         private static readonly HashSet<MHEOperatorSlot> _commandeered = new();
 
+        /// <summary>True while any dock machine is being driven by a dock controller (offload or load). Destroyed slots are swept out first.</summary>
+        public static bool Any() { _commandeered.RemoveWhere(s => s == null); return _commandeered.Count > 0; }
         public static bool IsCommandeered(MHEOperatorSlot slot) => slot != null && _commandeered.Contains(slot);
         public static void Commandeer(MHEOperatorSlot slot) { if (slot != null) _commandeered.Add(slot); }
         public static void Release(MHEOperatorSlot slot) { if (slot != null) _commandeered.Remove(slot); }

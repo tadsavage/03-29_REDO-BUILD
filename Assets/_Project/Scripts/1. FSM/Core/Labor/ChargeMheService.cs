@@ -56,7 +56,6 @@ public class ChargeMheService : MonoBehaviour
         var task = queue.CreateTask(WorkTaskType.ChargeMHE, EmployeeRole.Boss, key, $"Charge {b.KindName.ToLowerInvariant()}");
         if (task == null) return false;
         task.AnyRole = true;
-        SystemsLogWindow.LogSystem($"Charge job filed on the Work Queue for {LogLinks.Equipment(b.LinkId, b.Label)}.");
         return true;
     }
 

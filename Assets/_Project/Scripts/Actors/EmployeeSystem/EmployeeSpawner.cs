@@ -368,6 +368,18 @@ public class EmployeeSpawner : MonoBehaviour
     /// players must place equipment via the build menu first. If no free vehicle exists, the
     /// operator stays on-foot.
     /// </summary>
+    private System.Collections.IEnumerator RetrySeekEquipment(AiNavigation nav, MHEOperatorSlot slot)
+    {
+        for (int i = 0; i < 40; i++)
+        {
+            yield return new WaitForSecondsRealtime(0.5f);
+            if (nav == null || slot == null || slot.IsOccupied) yield break;
+            if (nav.IsSeekingEquipment) yield break;
+            nav.SeekEquipment(slot);
+            if (nav.IsSeekingEquipment) yield break;
+        }
+    }
+
     private bool TryBoardExistingMHE(EmployeeIdentity identity, EmployeeRole role)
     {
         ObjDataSO targetData = role == EmployeeRole.ReachTruckOperator ? _reachTruckData
@@ -390,6 +402,10 @@ public class EmployeeSpawner : MonoBehaviour
         // Found a matching unoccupied vehicle — walk over and board on arrival.
         var nav = identity.GetComponent<AiNavigation>();
         if (nav != null) nav.SeekEquipment(slot);
+        // SeekEquipment silently does nothing while the new hire's NavMeshAgent is not active/on the mesh yet (the first frames after
+        // spawn). Hired seconds after the machine was placed, the operator then patrolled forever without ever heading for it. Keep
+        // re-issuing the order until it takes, the machine is gone/taken, or ~20 s pass.
+        if (nav != null && !nav.IsSeekingEquipment) StartCoroutine(RetrySeekEquipment(nav, slot));
 
         identity.Record.currentAssignment = role == EmployeeRole.ReachTruckOperator
             ? EmployeeAssignment.DriveReach
