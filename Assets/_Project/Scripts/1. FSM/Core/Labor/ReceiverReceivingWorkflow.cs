@@ -63,7 +63,12 @@ namespace GameCore.Labor
         // which released the task back to the queue, got it immediately re-claimed by the same
         // lane-sticky receiver, and re-triggered the same near-instant arrival/rejection — the
         // receiver visibly shuffling back and forth instead of ever starting to receive.
-        private const float MaxReceivingDistance = 3f;
+        public const float MaxReceivingDistance = 3f;
+
+        // The range the CURRENT receive is held to. Normally MaxReceivingDistance; ReceivingTaskDriver passes a slightly larger
+        // one only after it has already tried twice to walk closer and the pallet's surroundings leave no nearer standing spot
+        // (block 8: 100+ cancel/re-claim loops at 3.1-3.6 m, which starved receiving and so putaway and shipping).
+        private float _maxDistance = MaxReceivingDistance;
 
         // The RF gun's "Infra-Red" beam ("Scan_Ray" mesh child) — forced off at equip time by
         // ReceivingEquipmentService, only switched on partway through the receiving fill bar (see
@@ -137,7 +142,7 @@ namespace GameCore.Labor
             if (_targetPallet == null) return false;
             Vector3 delta = _targetPallet.position - transform.position;
             delta.y = 0f;
-            return delta.sqrMagnitude > MaxReceivingDistance * MaxReceivingDistance;
+            return delta.sqrMagnitude > _maxDistance * _maxDistance;
         }
 
         /// <summary>Aborts an in-progress (or never-actually-started) receive because the employee is
@@ -151,7 +156,7 @@ namespace GameCore.Labor
             Debug.LogWarning($"[ReceiverReceivingWorkflow] Cancelling receive for pallet " +
                              $"{_currentTask?.PalletId} — {reason} (distance " +
                              $"{(_targetPallet != null ? Vector3.Distance(transform.position, _targetPallet.position).ToString("F1") : "?")}m, " +
-                             $"max {MaxReceivingDistance}m).");
+                             $"max {_maxDistance}m).");
 
             _fillBar?.CompleteReceiving(); // stops _isReceiving and hides the canvas — same effect a cancel needs, name notwithstanding
             if (_animator != null) _animator.SetBool("isReceiving", false);
@@ -197,8 +202,9 @@ namespace GameCore.Labor
         }
 
         /// <summary>Called by ReceivingTaskDriver once the employee has arrived at the pallet.</summary>
-        public void BeginReceivingAt(WorkTask task, Transform palletTransform)
+        public void BeginReceivingAt(WorkTask task, Transform palletTransform, float maxDistance = 0f)
         {
+            _maxDistance = maxDistance > 0f ? maxDistance : MaxReceivingDistance;
             // Allow immediate transitions between receive tasks (Completing → Receiving) without going through Idle.
             // This prevents the receiving animation from dropping to idle between consecutive pallets.
             if (_state != ReceivingState.Idle && _state != ReceivingState.Completing)
@@ -225,7 +231,7 @@ namespace GameCore.Labor
             {
                 Debug.LogWarning($"[ReceiverReceivingWorkflow] Arrival callback fired for pallet " +
                                  $"{task.PalletId} but the employee is {Vector3.Distance(transform.position, palletTransform.position):F1}m " +
-                                 $"away (max {MaxReceivingDistance}m) — refusing to start receiving.");
+                                 $"away (max {_maxDistance}m) — refusing to start receiving.");
                 _currentTask = null;
                 _targetPallet = null;
                 OnWorkflowCancelled?.Invoke();

@@ -21,9 +21,20 @@ public class BettyBehavior : MonoBehaviour
     [SerializeField] float sitWeight = 12f;
     [SerializeField] float poseWeight = 8f;
 
+    void Awake()
+    {
+        // Same fix the employees have: the "Avatars" layer is redrawn over the SSAO pass by a Render Objects feature (PC_Renderer, Good_Renderer),
+        // so the occlusion pass can't turn her into coal dust (Tad 2026-10-11). Her material is the shared avatar one, which already has
+        // Receive Shadows off. Only the rendered model moves layers; the root keeps its own layer for click detection and the NavMesh agent.
+        int avatars = LayerMask.NameToLayer("Avatars");
+        if (avatars < 0) return;
+        foreach (var r in GetComponentsInChildren<Renderer>(true)) r.gameObject.layer = avatars;
+    }
+
     [Header("Sitting")]
     [SerializeField, Tooltip("Height of the cube she sits on (metres).")] float seatHeight = 1.0f;
     [SerializeField] float seatWidth = 0.6f;
+    [SerializeField, Tooltip("Length of the box front-to-back (metres). The extra length runs behind her so she can lean back on it.")] float seatDepth = 1.4f;
     [SerializeField, Tooltip("Raise/lower her root relative to the cube top so her hips land on it. Tune live.")] float sitRootYOffset = -0.3f;
     [SerializeField, Tooltip("How far the cube is placed in front of her (metres).")] float seatDistance = 0.55f;
 
@@ -183,12 +194,23 @@ public class BettyBehavior : MonoBehaviour
         _seat = GameObject.CreatePrimitive(PrimitiveType.Cube);
         _seat.name = "Betty_Seat";
         var col = _seat.GetComponent<Collider>(); if (col != null) Destroy(col);   // no physics: keeps the build-mode raycasts and the NavMesh clean
-        _seat.transform.position = seatCentre + Vector3.up * (seatHeight * 0.5f);
+        var seatRenderer = _seat.GetComponent<Renderer>();
+        if (seatRenderer != null)
+        {
+            var cardboard = new Color(0.72f, 0.54f, 0.33f);
+            var mat = seatRenderer.material;                       // instance, so the shared default cube material stays untouched
+            mat.color = cardboard;
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", cardboard);
+            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.05f);
+        }
+        // The box is longer than it is wide: the front edge stays under her, the extra length runs BEHIND her so she leans back onto it.
+        Vector3 boxCentre = seatCentre - fwd * ((seatDepth - seatWidth) * 0.5f);
+        _seat.transform.position = boxCentre + Vector3.up * (seatHeight * 0.5f);
         _seat.transform.rotation = transform.rotation;
         for (float t = 0f; t < 1f; t += Time.deltaTime / 0.4f)    // pop up out of the floor
         {
-            _seat.transform.localScale = new Vector3(seatWidth, Mathf.Max(0.01f, seatHeight * t), seatWidth);
-            _seat.transform.position = seatCentre + Vector3.up * (seatHeight * t * 0.5f);
+            _seat.transform.localScale = new Vector3(seatWidth, Mathf.Max(0.01f, seatHeight * t), seatDepth);
+            _seat.transform.position = boxCentre + Vector3.up * (seatHeight * t * 0.5f);
             yield return null;
         }
 
@@ -229,8 +251,8 @@ public class BettyBehavior : MonoBehaviour
         for (float t = 0f; t < 1f; t += Time.deltaTime / 0.4f)
         {
             if (_seat == null) break;
-            _seat.transform.localScale = new Vector3(seatWidth, Mathf.Max(0.01f, seatHeight * (1f - t)), seatWidth);
-            _seat.transform.position = seatCentre + Vector3.up * (seatHeight * (1f - t) * 0.5f);
+            _seat.transform.localScale = new Vector3(seatWidth, Mathf.Max(0.01f, seatHeight * (1f - t)), seatDepth);
+            _seat.transform.position = boxCentre + Vector3.up * (seatHeight * (1f - t) * 0.5f);
             yield return null;
         }
         if (_seat != null) Destroy(_seat);

@@ -844,14 +844,10 @@ namespace GameCore.Inventory
             // refresh tick, so a trailer can dock or a putaway can land in the gap between the player
             // seeing the list and clicking Submit. Refusing here is what actually prevents the double
             // assignment; hiding it in the UI is only the first line.
-            if (StagingLaneAssignmentService.HasInboundTruckDocked(doorNumber))
-            {
-                Debug.LogWarning($"[OrderService] Stage {doorNumber} has an inbound trailer docked — release refused.");
-                return false;
-            }
-            // Lane-level inbound stock needs no separate check here: TryResolveStartLane picks from
-            // LanesInStage, which already excludes any lane holding received pallets.
-            if (!StagingLaneAssignmentService.TryResolveStartLane(this, inv, doorNumber, out string startLane))
+            // An inbound trailer at the door no longer closes it: TryResolveStartLane picks from LanesInStage, which already excludes
+            // any lane holding received pallets AND the lanes a docked inbound trailer will fill. It fails only if nothing is left.
+            string releasingCustomer = orderIds != null && orderIds.Count > 0 ? _activeOrders.FirstOrDefault(o => o.OrderId == orderIds[0])?.CustomerId : null;
+            if (!StagingLaneAssignmentService.TryResolveStartLane(this, inv, doorNumber, out string startLane, releasingCustomer))
             {
                 Debug.LogWarning($"[OrderService] Stage {doorNumber} has no pickable staging lane — release refused.");
                 return false;
@@ -1058,10 +1054,9 @@ namespace GameCore.Inventory
 
             string customerId = pairs[0].order.CustomerId;
             if (pairs.Any(p => p.order.CustomerId != customerId)) return false;
-            // Availability is reckoned per STAGE (the whole door): no other customer may use a door
-            // this customer is staging at.
-            foreach (var l in lanes)
-                if (!StagingLaneAssignmentService.IsStageAvailableFor(this, l.door, customerId)) return false;
+            // Exclusivity is per LANE (Tad, 2026-10-25), and the lanes passed in were chosen by the lane planner with that rule (empty lanes
+            // first, a lane shared with another customer only as a last resort). A door-wide "no other customer at this door" check here
+            // would refuse exactly the lanes the planner is allowed to pick.
 
             foreach (var (order, placeholders) in pairs)
             {

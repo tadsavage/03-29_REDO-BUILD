@@ -1,0 +1,45 @@
+# Bug log - block 7
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 13:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 1 task(s) wait
+- day 1 17:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 1 22:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 300s while 7 task(s) wait
+- day 2 01:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 300s while 7 task(s) wait
+- day 2 02:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 2 04:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 2 05:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 2 06:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 2 08:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 2 10:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 300s while 7 task(s) wait
+- day 2 10:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 2 13:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 300s while 7 task(s) wait
+- day 2 15:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 300s while 7 task(s) wait
+- day 2 15:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 300s while 7 task(s) wait
+- day 2 16:10 | **REPEATING** | x25 and counting: [OrderService] Order OG5154: no reserve or pick-face pallet of 903561 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 2 17:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 2 19:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 2 19:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 2 22:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 300s while 7 task(s) wait
+- day 3 00:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 300s while 7 task(s) wait
+- day 3 00:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 300s while 7 task(s) wait
+- day 3 01:11 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Margaret Campbell' as its operator though nobody is on it or running it - clearing the stale link.
+- day 3 02:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 3 05:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 300s while 8 task(s) wait
+- day 1 13:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 1 17:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 1 task(s) wait
+- day 2 03:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 600s while 1 task(s) wait
+- day 2 13:10 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Cheryl Thompson' as its operator though nobody is on it or running it - clearing the stale link.
+- day 2 13:10 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Cheryl Thompson' as its operator though nobody is on it or running it - clearing the stale link.
+- day 2 16:10 | **REPEATING** | x25 and counting: [OrderService] Order OG5164: no reserve or pick-face pallet of 897034 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 2 16:10 | **REPEATING** | x25 and counting: [OrderService] Order OG5164: no reserve or pick-face pallet of 897034 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 2 20:32 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Cheryl Thompson' as its operator though nobody is on it or running it - clearing the stale link.
+- day 2 20:32 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Cheryl Thompson' as its operator though nobody is on it or running it - clearing the stale link.
+- day 3 06:42 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (3.24, 1.11, 35.22) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 06:42 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (3.24, 1.11, 35.22) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 15:21 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-23.82, 1.11, 34.66) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 15:21 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-23.82, 1.11, 34.66) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 18:18 | **REPEATING** | x25 and counting: [ReachTruckOperator] 'ReachTruck' found no Available Putaway/Replenish tasks this poll.
+- day 3 18:18 | **REPEATING** | x25 and counting: [ReachTruckOperator] 'ReachTruck' found no Available Putaway/Replenish tasks this poll.
+- day 7 17:37 | **WARN** | [OrderService] Order OG7170 closed with a STAGED pallet (41 cs) that never made the trailer - not billed, returning it to stock.
+- day 7 17:37 | **WARN** | [OrderService] Order OG7170 closed with a STAGED pallet (41 cs) that never made the trailer - not billed, returning it to stock.

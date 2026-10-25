@@ -1,0 +1,93 @@
+# Bug log - block 9
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 12:55 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 4 task(s) wait
+- day 2 13:10 | **REPEATING** | x25 and counting: [OrderService] Order OG2188: no reserve or pick-face pallet of 304759 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 2 13:25 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 750s while 1 task(s) wait
+- day 2 13:25 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 1470s while 1 task(s) wait
+- day 2 13:25 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 1080s while 1 task(s) wait
+- day 2 17:25 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 1 task(s) wait
+- day 2 17:25 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 1 task(s) wait
+- day 2 17:25 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 1 task(s) wait
+- day 2 21:25 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 1 task(s) wait
+- day 2 21:25 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 1 task(s) wait
+- day 3 01:40 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 1 task(s) wait
+- day 3 01:40 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 1 task(s) wait
+- day 3 05:40 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 1 task(s) wait
+- day 3 05:40 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 1 task(s) wait
+- day 3 09:55 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 1 task(s) wait
+- day 3 09:55 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 1 task(s) wait
+- day 3 13:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 1095s while 2 task(s) wait
+- day 3 13:55 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 3 18:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 3 18:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 3 22:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 3 22:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 4 02:25 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 4 02:25 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 4 05:56 | **WARN** | [AiNavigation] ReachTruck: stuck at (0.00, 1.11, 40.50) — walking out to (3.46, 0.08, 42.50) (3.17m to mesh).
+- day 4 06:40 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 4 06:40 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 4 08:46 | **WARN** | [AiNavigation] ReachTruck: stuck at (0.00, 1.16, 40.50) — walking out to (3.46, 0.08, 42.50) (3.19m to mesh).
+- day 4 10:55 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 4 10:55 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 4 14:33 | **REPEATING** | x25 and counting: [ReachTruckOperator] 'ReachTruck' found no Available Putaway/Replenish tasks this poll.
+- day 4 14:55 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 4 14:55 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 4 19:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 4 19:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 4 23:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 4 23:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 5 03:25 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 5 03:25 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 5 05:25 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→Outbound_Door1 & Truck→Outbound_Door2 at (-7.6, 0.0, -46.4)
+- day 5 07:25 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 5 07:25 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 5 09:40 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 5 11:40 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 5 11:40 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 5 13:55 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 5 15:55 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 5 15:55 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 5 17:55 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 5 19:55 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 5 19:55 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 5 22:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 00:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 00:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 02:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 6 04:25 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 04:25 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 06:25 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 08:40 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 08:40 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 10:25 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 6 12:40 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 6 12:40 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 6 14:40 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 16:55 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 16:55 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 18:55 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 21:10 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 21:10 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 6 22:55 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 01:25 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 7 01:25 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 7 02:55 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 05:25 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→Outbound_Door2 & Truck→Outbound_Door1 at (-7.6, 0.0, -42.6)
+- day 7 05:25 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 05:25 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 06:55 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 09:25 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 09:25 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 11:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 7 13:40 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 7 13:40 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 7 15:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 17:55 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 7 17:55 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 7 19:10 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 21:55 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 21:55 | **VEHICLE-STATIONARY** | PalletJack has a driver, hasn't moved in 240s while 2 task(s) wait
+- day 7 23:25 | **VEHICLE-STATIONARY** | ReachTruck has a driver, hasn't moved in 255s while 2 task(s) wait

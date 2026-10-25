@@ -187,7 +187,46 @@ namespace GameCore.Actors
             // ReachTruckOperator/TrailerOffloadController for the identical landmine — this call site
             // never got it.
             _nav.CancelSeekPosition();
-            _nav.SeekPosition(standPosition, () => _workflow.BeginReceivingAt(task, palletTransform));
+            _nav.SeekPosition(standPosition, () => OnArrivedAtStandPosition(task, palletTransform, 0));
+        }
+
+        // The stand position is snapped onto the NavMesh (up to NavSampleRadius away from the ideal spot) and SeekPosition reports
+        // arrival within about a metre of it, so a receiver can legitimately "arrive" 3-3.6 m from the pallet. The workflow refuses
+        // anything past MaxReceivingDistance; before, that cancelled the task, put it back in the queue and the same receiver
+        // re-claimed it straight away, over and over (block 8: 100+ times, which starved receiving and with it putaway and
+        // shipping). Now the receiver walks the last stretch itself, and only after two tries is the range relaxed a little.
+        private const int MaxApproachRetries = 2;
+        private const float RelaxedReceivingDistance = 4.5f;
+        private const float CloseApproachDistance = 1.5f;
+
+        private void OnArrivedAtStandPosition(WorkTask task, Transform palletTransform, int attempt)
+        {
+            if (_workflow == null) return;
+            if (palletTransform == null) { _workflow.BeginReceivingAt(task, palletTransform); return; }
+
+            Vector3 toPallet = palletTransform.position - transform.position; toPallet.y = 0f;
+            if (toPallet.magnitude <= ReceiverReceivingWorkflow.MaxReceivingDistance)
+            {
+                _workflow.BeginReceivingAt(task, palletTransform);
+                return;
+            }
+
+            if (attempt < MaxApproachRetries)
+            {
+                // Closest standing spot to the pallet on the side the receiver is already on.
+                Vector3 side = -toPallet; side.y = 0f;
+                side = side.sqrMagnitude > 0.0001f ? side.normalized : palletTransform.right;
+                Vector3 want = palletTransform.position + side * CloseApproachDistance;
+                if (NavMesh.SamplePosition(want, out var hit, 1.5f, _agentAreaMask))
+                {
+                    _nav.CancelSeekPosition();
+                    _nav.SeekPosition(hit.position, () => OnArrivedAtStandPosition(task, palletTransform, attempt + 1));
+                    return;
+                }
+            }
+
+            // No nearer standing spot (or out of tries): accept a slightly larger range rather than looping forever.
+            _workflow.BeginReceivingAt(task, palletTransform, RelaxedReceivingDistance);
         }
 
         /// <summary>

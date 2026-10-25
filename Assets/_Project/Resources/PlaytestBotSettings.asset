@@ -9,17 +9,17 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: b7a3f1c2d9e84a6fa1c05d2e7b8c4f31, type: 3}
   m_Name: PlaytestBotSettings
   m_EditorClassIdentifier: GameCore.Simulation:GameCore.Diagnostics:PlaytestBotSettings
-  gameSpeed: 5
+  gameSpeed: 3
   daysPerBlock: 7
   pauseAtBlockEnd: 1
   saveAtBlockEnd: 1
   decisionIntervalMinutes: 30
   layoutName: Standard Layout
-  startDockStockers: 2
-  startReachTruckOps: 2
+  startDockStockers: 1
+  startReachTruckOps: 1
   startReceivers: 1
   startSelectors: 1
   buildReserveCash: 15000
@@ -29,14 +29,14 @@ MonoBehaviour:
   bulkCashMultiple: 2
   minPalletsBeforeBulk: 12
   targetPalletsPerDay: 12
-  minCashBalance: 10000
+  minCashBalance: 15000
   palletsPerActiveSku: 2
   stockCoverDays: 2
   inventoryValueCap: 60000
   bulkUpPalletsPerSku: 6
   bulkUpCashMultiple: 4
   maxPendingPOs: 3
-  coverRushOrders: 1
+  coverRushOrders: 0
   maxDailySpendFraction: 0.3
   maxRushPerDay: 1
   bailoutCash: 0

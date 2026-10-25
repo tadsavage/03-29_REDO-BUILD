@@ -57,7 +57,15 @@ public static class HalDevTabs
             UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
         });
         fresh.style.marginLeft = 12;
-        btnRow.Add(start); btnRow.Add(stop); btnRow.Add(fresh); status.Add(btnRow);
+        // A human plays and HAL only scores it: no decisions, no planner, your own speed. Load YOUR save first, then press this.
+        var mine = BigButton("I'LL PLAY (SCORE ME)", new Color(0.7f, 0.5f, 0.1f), () =>
+        {
+            if (!Application.isPlaying) { UIToast.Show("Enter Play mode and load your save first."); return; }
+            PlaytestBot.Ensure().StartBlock(true);
+            UIToast.Show("HAL 9000 is watching. Your score is at the top of the screen.");
+        });
+        mine.style.marginLeft = 12;
+        btnRow.Add(start); btnRow.Add(stop); btnRow.Add(fresh); btnRow.Add(mine); status.Add(btnRow);
 
         statusLine.schedule.Execute(() =>
         {
@@ -65,7 +73,8 @@ public static class HalDevTabs
             if (bot == null) { statusLine.text = "Idle - press START BLOCK"; stats.text = ""; return; }
             int day = GameCore.Services.ServiceLocator.TryGet<GameCore.Economy.SimulationTimeService>(out var t) ? t.Day : 0;
             statusLine.text = bot.Running
-                ? $"Block {bot.BlockNo} running - day {Mathf.Max(0, day - bot.BlockStartDay) + 1} of {bot.S.daysPerBlock}"
+                ? (bot.ObserveOnly ? $"YOU are playing - day {Mathf.Max(0, day - bot.BlockStartDay) + 1} of {bot.S.daysPerBlock} (HAL is only scoring)"
+                                   : $"Block {bot.BlockNo} running - day {Mathf.Max(0, day - bot.BlockStartDay) + 1} of {bot.S.daysPerBlock}")
                 : (bot.BlockNo > 0 ? bot.Status : "Idle - press START BLOCK");
             statusLine.style.color = bot.Running ? Good : Ink;
             stats.text = $"Shipped {bot.ShippedThisBlock}   Late {bot.LateThisBlock}   Bug incidents {bot.IncidentCount}   Errors {bot.ErrorCount}   Bot actions {bot.ActionsTaken}";
@@ -73,7 +82,7 @@ public static class HalDevTabs
 
         // knobs
         var run = Section(root, "RUN", Blue);
-        Slider(run, "Game speed", 1, 5, 1, () => Mathf.RoundToInt(S.gameSpeed), v => { S.gameSpeed = v; if (PlaytestBot.Instance != null && PlaytestBot.Instance.Running) Time.timeScale = v; }, v => v + "x");
+        Slider(run, "Game speed", 1, 5, 1, () => Mathf.RoundToInt(S.gameSpeed), v => { S.gameSpeed = v; if (PlaytestBot.Instance != null && PlaytestBot.Instance.Running && !PlaytestBot.Instance.ObserveOnly) Time.timeScale = v; }, v => v + "x");
         Slider(run, "Days per block", 1, 14, 1, () => S.daysPerBlock, v => S.daysPerBlock = v, v => v + " days");
         Slider(run, "Decides every", 15, 120, 15, () => S.decisionIntervalMinutes, v => S.decisionIntervalMinutes = v, v => v + " min");
         Toggle(run, "Pause when a block ends", () => S.pauseAtBlockEnd, v => S.pauseAtBlockEnd = v);

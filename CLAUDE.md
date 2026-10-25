@@ -13,6 +13,7 @@ When a task touches one of these systems, invoke its skill (`.claude/skills/<nam
 | `order-system` | Inbound (vendors, POs, shipments, Purchasing key 9) and outbound (contracts, negotiation, orders, scheduler key 0, close-out, fines), reputation |
 | `inventory-system` | Pallets, SKUs, slots/locations, putaway, replenishment, staging lanes, persistence, inventory UIs |
 | `finance-system` | MoneyService, EconomyService, PayrollService, FinanceCategory/GL lines, TopBar finance panels |
+| `warehouse-strategy` | Tad's real planning rules (full-pallet vs case-pick, work-backwards timing, buy/book/release order) and how HAL 9000's decisions encode them; read before changing bot decisions, and add every new rule he explains |
 | `physics-system` | PLANNED (not built): dormant-rigidbody cases, rack collapse, damage; see `FUTURE_IDEAS.md` |
 | `lane_setup` | Dock doors, lane naming, LaneConfig |
 | `racking-system` | Racks, chevrons, aisles, location naming |

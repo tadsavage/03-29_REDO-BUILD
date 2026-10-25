@@ -45,6 +45,46 @@ public static class ShippedFanfare
         if (!_playing) PlayNext();
     }
 
+    /// <summary>A one-off headline with the same pop-in and confetti, outside the payout queue (used when the player beats HAL 9000).</summary>
+    public static void ShowBanner(string text, Color color, int durationMs = 6500)
+    {
+        if (!EnsureLayer()) { UIToast.Show(text, 5f); return; }
+
+        var label = new Label(text);
+        label.pickingMode = PickingMode.Ignore;
+        label.style.position = Position.Absolute;
+        label.style.left = 0; label.style.right = 0;
+        label.style.top = Length.Percent(12);
+        label.style.unityTextAlign = TextAnchor.MiddleCenter;
+        label.style.whiteSpace = WhiteSpace.Normal;
+        label.style.fontSize = 84;
+        label.style.unityFontStyleAndWeight = FontStyle.Bold;
+        label.style.color = new StyleColor(color);
+        label.style.unityTextOutlineWidth = 0.4f;
+        label.style.unityTextOutlineColor = new StyleColor(new Color(0.1f, 0.06f, 0f, 0.95f));
+        label.style.opacity = 0f;
+        ApplyFont(label);
+        _root.Add(label);
+        label.BringToFront();
+
+        label.experimental.animation.Start(0f, 1f, durationMs, (e, t) =>
+        {
+            float pop = t < 0.1f ? Mathf.Sin(t / 0.1f * Mathf.PI * 0.5f) : 1f;
+            float overshoot = t < 0.1f ? 1f + 0.3f * Mathf.Sin(t / 0.1f * Mathf.PI) : 1f;
+            float s = Mathf.Lerp(0.4f, 1f, pop) * overshoot;
+            e.transform.scale = new Vector3(s, s, 1f);
+            e.style.opacity = t < 0.85f ? Mathf.Min(1f, t * 10f) : 1f - Mathf.InverseLerp(0.85f, 1f, t);
+        });
+
+        // Two showers a couple of seconds apart: this is the big moment, not a payout.
+        ConfettiFx.Play(_root, _confettiStrip);
+        label.schedule.Execute(() => ConfettiFx.Play(_root, _confettiStrip)).ExecuteLater(2200);
+        label.schedule.Execute(() => label.RemoveFromHierarchy()).ExecuteLater(durationMs + 40);
+    }
+
+    /// <summary>The fanfare layer's root, so other full-screen UI (the results modal) can share its panel and stay above everything.</summary>
+    public static VisualElement LayerRoot() { return EnsureLayer() ? _root : null; }
+
     private static bool EnsureLayer()
     {
         if (_root != null && _root.panel != null) return true;

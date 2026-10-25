@@ -13,93 +13,6 @@ using GameCore.Services;
 
 namespace GameCore.Diagnostics
 {
-    /// <summary>
-    /// Tweakable knobs for the playtest bot. A plain ScriptableObject so the values persist between Play sessions and
-    /// can be edited in the Inspector (Tools > Playtest Bot > Select Settings). NOT an AI: the bot is a fixed rule set
-    /// that does what a sensible player does so the simulation keeps running while we hunt bugs.
-    /// </summary>
-    [CreateAssetMenu(fileName = "PlaytestBotSettings", menuName = "Warehouse/Playtest Bot Settings")]
-    public class PlaytestBotSettings : ScriptableObject
-    {
-        [Header("Run")]
-        [Tooltip("Game speed the bot runs at (Time.timeScale).")] public float gameSpeed = 3f;
-        [Tooltip("In-game days per scored block.")] public int daysPerBlock = 7;
-        [Tooltip("Pause at the end of each block so fixes can be made. Off = roll straight into the next block.")] public bool pauseAtBlockEnd = true;
-        [Tooltip("Write a quicksave slot at the end of every block (bot_block_N).")] public bool saveAtBlockEnd = true;
-        [Tooltip("How often (in-game minutes) the bot makes decisions.")] public int decisionIntervalMinutes = 30;
-
-        [Header("Starting a company (HAL builds from nothing)")]
-        [Tooltip("Which file in Resources/HalLayouts the building is copied from.")] public string layoutName = "Standard Layout";
-        public int startDockStockers = 1;
-        public int startReachTruckOps = 1;
-        public int startReceivers = 1;
-        public int startSelectors = 1;
-        [Tooltip("The upper rack levels are only built while cash stays above this.")] public int buildReserveCash = 15000;
-
-        [Tooltip("HAL only builds the warehouse and hires the crew: no bot, no records (no scoreboard, no builds.csv, no ledger). For making a new layout.")] public bool buildOnly = false;
-
-        [Header("Customers")]
-        [Tooltip("Recurring accounts the bot keeps signed. Orders/day scales with this.")] public int maxRecurringAccounts = 3;
-        [Tooltip("Bulk offers the bot accepts per in-game day.")] public int bulkOffersPerDay = 2;
-        [Tooltip("Only take a bulk offer when cash is at least this multiple of the minimum balance.")] public float bulkCashMultiple = 2f;
-        [Tooltip("Do not accept a bulk order until this many pallets are on hand or on order: HAL must be able to ship what it promises.")] public int minPalletsBeforeBulk = 12;
-
-        [Header("Targets (used for the score)")]
-        [Tooltip("Average pallets shipped per day the block is scored against.")] public float targetPalletsPerDay = 12f;
-        [Tooltip("Smallest bank balance the bot is happy with. Purchases never take cash below this.")] public int minCashBalance = 15000;
-
-        [Header("Purchasing")]
-        [Tooltip("The MOST pallets of one item HAL will hold (on shelf + inbound). How many it actually wants comes from recent demand.")] public int palletsPerActiveSku = 2;
-        [Tooltip("HAL releases an order to the floor only this many game hours before its trailer's booked block starts. Releasing earlier fills the staging lanes with pallets that then wait hours for a trailer (block 5).")] public int releaseLeadHours = 3;
-        [Tooltip("Days of recent demand HAL tries to keep on hand for an item that customers are ordering.")] public int stockCoverDays = 2;
-        [Tooltip("HAL stops restocking once stock on hand plus on order is worth this much at cost (orders already promised are still bought).")] public int inventoryValueCap = 60000;
-        [Tooltip("When cash is plentiful (> minimum x this), keep this many pallets per active sku instead.")] public int bulkUpPalletsPerSku = 6;
-        [Tooltip("Cash multiple of the minimum balance that triggers bulking up.")] public float bulkUpCashMultiple = 4f;
-        [Tooltip("Max purchase orders in transit at once.")] public int maxPendingPOs = 3;
-        [Tooltip("Cover a SKU that orders are owed and nothing is coming with a double-cost rush PO.")] public bool coverRushOrders = true;
-        [Tooltip("Max share of spendable cash (above the minimum balance) the bot commits to purchases per in-game day.")] public float maxDailySpendFraction = 0.3f;
-        [Tooltip("Max rush POs per in-game day.")] public int maxRushPerDay = 1;
-        [Tooltip("Cash the bot may inject if it would otherwise go bankrupt (0 = never; the economy stays honest).")] public int bailoutCash = 0;
-
-        [Header("Bug monitor")]
-        [Tooltip("How often (in-game minutes) the integrity check runs.")] public int healthCheckIntervalMinutes = 60;
-        [Tooltip("Game seconds a vehicle with a driver may sit still while work waits before it is reported.")] public float stationarySeconds = 240f;
-        [Tooltip("Where reports are written, relative to the project root.")] public string reportFolder = "Assets/_Project/Docs/Playtest";
-
-        [Header("Score weights - whole points, meant to total 100 (edited on the Balance tab)")]
-        public int wOnTime = 15;
-        public int wFill = 10;
-        public int wThroughput = 15;
-        public int wRevenue = 15;
-        public int wProfit = 10;
-        public int wCash = 5;
-        public int wReliability = 25;
-        public int wReputation = 5;
-
-        [Header("Score targets (100% of a component = hitting its target)")]
-        public float targetRevenuePerDay = 8000f;
-        public float targetProfitPerDay = 1500f;
-        public float reputationGainPerBlock = 30f;
-        [Tooltip("Higher = bugs hurt the reliability score less.")] public float reliabilityTolerance = 12f;
-
-        [Header("Growth rules (the planner makes ONE change per block)")]
-        public bool plannerEnabled = true;
-        [Tooltip("Also allow removing people / doors that are not needed.")] public bool plannerMayRemove = true;
-        [Tooltip("Hire when a role is at least this busy AND its backlog is at least the number below.")] public int addUtilPercent = 85;
-        public int addBacklog = 3;
-        [Tooltip("Let someone go when a role is under this busy for two blocks in a row.")] public int removeUtilPercent = 25;
-        [Tooltip("Build another dock door when this many trucks waited on average.")] public float addWaitingTrucks = 1.5f;
-
-        /// <summary>Where reports go. Never null or empty even if the settings asset lost the field (it did once, mid-run, and the block report failed to save).</summary>
-        public string ReportDir => string.IsNullOrWhiteSpace(reportFolder) ? "Assets/_Project/Docs/Playtest" : reportFolder;
-
-        public int TotalWeight => wOnTime + wFill + wThroughput + wRevenue + wProfit + wCash + wReliability + wReputation;
-
-        public void ResetWeightsToBaseline()
-        {
-            wOnTime = 15; wFill = 10; wThroughput = 15; wRevenue = 15; wProfit = 10; wCash = 5; wReliability = 25; wReputation = 5;
-        }
-    }
 
     [Serializable] public class PlaytestBlockResult
     {
@@ -202,15 +115,44 @@ namespace GameCore.Diagnostics
             OrderService.OnOrderFined -= OnFined;
         }
 
-        public void StartBlock()
+        /// <summary>True while a human is playing and the bot only WATCHES: it scores the block and logs bugs exactly as it does for itself, but makes no
+        /// decisions (no contracts, bookings, releases, purchases, boarding) and the planner changes nothing. Player blocks are numbered 1001+ so their
+        /// reports can never collide with HAL's, and are kept out of scoreboard.json (HAL's trend) in player_scoreboard.json instead.</summary>
+        public bool ObserveOnly { get; private set; }
+
+        /// <summary>Raised once when a block ends: (result, wasObserveOnly).</summary>
+        public static event Action<PlaytestBlockResult, bool> BlockFinished;
+
+        /// <summary>HAL's recorded blocks, read fresh from disk (never the player's).</summary>
+        public List<PlaytestBlockResult> LoadHalHistory()
         {
+            var l = new List<PlaytestBlockResult>();
+            try { if (File.Exists(ScoreFile())) l.AddRange(JsonUtility.FromJson<PlaytestScoreboard>(File.ReadAllText(ScoreFile())).blocks); } catch { }
+            return l;
+        }
+
+        string PlayerScoreFile() => Path.Combine(Folder(), "player_scoreboard.json");
+
+        List<PlaytestBlockResult> LoadPlayerHistory()
+        {
+            var l = new List<PlaytestBlockResult>();
+            try { if (File.Exists(PlayerScoreFile())) l.AddRange(JsonUtility.FromJson<PlaytestScoreboard>(File.ReadAllText(PlayerScoreFile())).blocks); } catch { }
+            return l;
+        }
+
+        public void StartBlock(bool observeOnly = false)
+        {
+            ObserveOnly = observeOnly;
             S = LoadSettings();   // always the live asset: a stale or blank copy ended a block the moment it started
             if (!ServiceLocator.TryGet<SimulationTimeService>(out var time) || !ServiceLocator.TryGet<MoneyService>(out var money))
             { Debug.LogWarning("[PlaytestBot] Services not ready - enter Play mode and load a save first."); return; }
 
             LoadHistory();
-            _blockNo = _history.Count + 1;
-            if (_history.Count > 0) HalPlanner.PlanAndApply(S, _history, _blockNo);   // the one change for this block
+            // The next block is one past the HIGHEST recorded block, not one past the entry count: a scoreboard that lost rows
+            // (block 7 once left only itself in the file) made the next run call itself "block 2" and overwrite the old block 2 reports.
+            _blockNo = (_history.Count > 0 ? _history.Max(b => b.block) : 0) + 1;
+            if (observeOnly) _blockNo = 1001 + LoadPlayerHistory().Count;               // a human's run: its own number series
+            else if (_history.Count > 0) HalPlanner.PlanAndApply(S, _history, _blockNo);   // the one change for this block
             _startDay = time.Day; _startCash = money.CurrentCapital; _startIncome = money.LifetimeIncome.Values.Sum();
             _startRep = ServiceLocator.TryGet<ReputationService>(out var rs0) ? rs0.Score : 0;
             _shipped = _late = _cashDipHours = _cashSamples = _purchases = _rushes = _signed = _booked = _released = _errors = 0;
@@ -223,6 +165,13 @@ namespace GameCore.Diagnostics
             _bugLines = 0;
             _nextDecision = 0; _nextHealth = 0;
             Running = true; _status = $"block {_blockNo} running";
+            if (observeOnly)
+            {
+                // The player sets the speed. HAL only watches and scores.
+                SystemsLogWindow.LogHal($"HAL 9000 is watching. Your block {_blockNo - 1000}, day {_startDay}, cash ${_startCash:N0}. {S.daysPerBlock} days. Good luck.");
+                Debug.LogWarning($"[PlaytestBot] PLAYER block {_blockNo} started on day {_startDay}, cash ${_startCash:N0} (observe only).");
+                return;
+            }
             Time.timeScale = Mathf.Max(0.1f, S.gameSpeed);
             SystemsLogWindow.LogHal($"HAL 9000 initiated. Block {_blockNo}, day {_startDay}, cash ${_startCash:N0}.");
             Debug.LogWarning($"[PlaytestBot] Block {_blockNo} started on day {_startDay} at {S.gameSpeed}x, cash ${_startCash:N0}.");
@@ -319,6 +268,7 @@ namespace GameCore.Diagnostics
 
         void Decide()
         {
+            if (ObserveOnly) return;   // a human is playing: the bot makes no decisions
             if (!ServiceLocator.TryGet<MoneyService>(out var money) || !ServiceLocator.TryGet<SimulationTimeService>(out var time)) return;
             ServiceLocator.TryGet<OrderArrivalService>(out var arrivals);
             ServiceLocator.TryGet<OrderService>(out var orders);
@@ -422,18 +372,7 @@ namespace GameCore.Diagnostics
             var doors = schedule.OutboundDoors();
             if (doors.Count == 0) return;
 
-            foreach (var g in schedule.UnscheduledGroups().ToList().SelectMany(grp => SplitToFit(schedule, grp)).ToList())
-            {
-                bool done = false;
-                foreach (var (d, b) in Slots(time, Mathf.Max(g.EarliestDueDay, time.Day + 1)))
-                {
-                    if (!schedule.HasRoom(d, b)) continue;
-                    foreach (int door in doors)
-                        if (schedule.TryBookGroupAtDoor(d, b, door, g, out _, out _)) { done = true; _booked++; Act($"booked {g.CustomerName} day {d} block {b} door {door}"); break; }
-                    if (done) break;
-                }
-            }
-
+            // 1. Inbound first, in the earliest free slots, so that the outbound bookings below can count on what it will bring.
             foreach (var appt in schedule.ParkedAppointments.ToList())
             {
                 bool done = false;
@@ -445,6 +384,149 @@ namespace GameCore.Diagnostics
                     if (done) break;
                 }
             }
+
+            // 2. Outbound. A trailer is booked only when everything on its orders is in the building or on an inbound PO that is already on the
+            // calendar, and never sooner than the lead time from now. Otherwise the order simply waits unscheduled and the buying rule goes
+            // and gets the stock. A trailer parked at a door with nothing to ship holds the door for days and blocks every inbound behind it.
+            if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return;
+            var timeline = BuildStockTimeline(schedule, time, orders);
+            var cpp = new Dictionary<string, int>();
+            foreach (var r in ItemAvailability.Build()) if (r.CasesPerPallet > 0) cpp[r.SkuId] = r.CasesPerPallet;
+            int nowHours = (time.Day - 1) * 24 + time.Hour;
+            foreach (var g in schedule.UnscheduledGroups().ToList().SelectMany(grp => SplitToFit(schedule, grp)).ToList())
+            {
+                if (!TryStockReadyHour(g, timeline, orders, out int readyHour)) continue;   // not coverable yet: no trailer
+                // The trailer must not arrive before the work of getting this order onto it can be done, counted from when the stock
+                // is in the building. Pallet-only orders are a straight roll-on / roll-off (stage + load); case-pick orders take as long
+                // as their selector trips do; rush orders are off, so there is no last-minute scratch run to catch up with.
+                float turnHours = TurnHoursFor(g, orders, cpp, out string kind);
+                int earliestStart = Mathf.Max(nowHours + Mathf.Max(0, S.outboundLeadHours), Mathf.CeilToInt(readyHour + turnHours));
+                int earliestDay = earliestStart / 24 + 1;
+                bool done = false;
+                foreach (var (d, b) in Slots(time, Mathf.Max(g.EarliestDueDay, earliestDay)))
+                {
+                    if ((d - 1) * 24 + b * DockScheduleService.BlockHours < earliestStart) continue;
+                    if (!schedule.HasRoom(d, b)) continue;
+                    foreach (int door in doors)
+                        if (schedule.TryBookGroupAtDoor(d, b, door, g, out _, out _)) { done = true; _booked++; Act($"booked {g.CustomerName} day {d} block {b} door {door} ({kind}: stock ready hour {readyHour} + {turnHours:F1}h of work)"); break; }
+                    if (done) break;
+                }
+            }
+        }
+
+        // When each item is available, as (hour, cases) entries: what is on the shelves now, plus every inbound PO that already has a slot on
+        // the calendar (available a buffer after that slot ends: offload, receive, putaway). Cases already promised to orders that HAVE a
+        // trailer booked are taken out first, so two orders never count the same pallet.
+        Dictionary<string, List<(int hour, int cases)>> BuildStockTimeline(DockScheduleService schedule, SimulationTimeService time, OrderService orders)
+        {
+            int nowHours = (time.Day - 1) * 24 + time.Hour;
+            var t = new Dictionary<string, List<(int hour, int cases)>>();
+            foreach (var r in ItemAvailability.Build())
+                if (r.OnHand > 0) t[r.SkuId] = new List<(int hour, int cases)> { (nowHours, r.OnHand) };
+
+            if (ServiceLocator.TryGet<ShipmentService>(out var ship) && ship != null)
+                foreach (var po in ship.PendingShipments)
+                {
+                    if (po == null || po.Status != ShipmentData.ShipmentStatus.InTransit) continue;
+                    var appt = schedule.FindForPo(po.PONumber);
+                    if (appt == null || appt.Parked) continue;                           // not on the calendar: do not count on it
+                    int ready = (appt.Day - 1) * 24 + appt.EndHour + Mathf.Max(0, S.inboundBufferHours);
+                    foreach (var li in po.LineItems)
+                    {
+                        if (li == null || li.Dropped || string.IsNullOrEmpty(li.SkuId)) continue;
+                        int cases = li.Quantity - li.ReceivedQuantity;
+                        if (cases <= 0) continue;
+                        if (!t.TryGetValue(li.SkuId, out var list)) t[li.SkuId] = list = new List<(int hour, int cases)>();
+                        list.Add((Mathf.Max(ready, nowHours), cases));
+                    }
+                }
+            foreach (var list in t.Values) list.Sort((a, b) => a.hour.CompareTo(b.hour));
+
+            foreach (var o in orders.ActiveOrders)
+            {
+                if (o == null || o.ReturnsMode) continue;
+                if (o.Status != OrderData.OrderStatus.Pending && o.Status != OrderData.OrderStatus.PartiallyPicked && o.Status != OrderData.OrderStatus.Backorder) continue;
+                if (schedule.FindForOrder(o.OrderId) == null) continue;                   // only the orders that already hold a trailer
+                foreach (var li in o.LineItems) ConsumeStock(t, li.SkuId, li.QuantityRemaining, out _);
+            }
+            return t;
+        }
+
+        // How long, in game hours, the floor needs once the stock is in the building before the trailer can leave.
+        //  - Pallet-only order ("straight roll-on / roll-off"): the reach truck pulls whole pallets to the lane and the loader takes them: short.
+        //  - Case-pick order: every selector trip is a picklist (~2-2.5 h, two pallets a trip); the selectors work in parallel, so the time is
+        //    the number of rounds the picklists need. Pallet picks run on another role and always finish first, so they add nothing.
+        // The order is a case-pick order when any line leaves loose cases (a quantity that is not a whole number of pallets).
+        float TurnHoursFor(UnscheduledGroup g, OrderService orders, Dictionary<string, int> cpp, out string kind)
+        {
+            float loosePalletEquivalents = 0f;
+            foreach (var id in g.OrderIds)
+            {
+                var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
+                if (o == null) continue;
+                foreach (var li in o.LineItems)
+                {
+                    if (li == null || li.QuantityRemaining <= 0) continue;
+                    if (!cpp.TryGetValue(li.SkuId, out int full) || full <= 0) { loosePalletEquivalents += li.QuantityRemaining / 48f; continue; }
+                    int loose = li.QuantityRemaining % full;
+                    if (loose > 0) loosePalletEquivalents += loose / (float)full;
+                }
+            }
+            if (loosePalletEquivalents < 0.0001f) { kind = "pallet-only"; return S.palletTurnHours; }
+
+            int looseTrips = Mathf.Max(1, Mathf.CeilToInt(Mathf.CeilToInt(loosePalletEquivalents - 0.0001f) / (float)OrderService.SelectorPalletsPerTrip));
+            int selectors = Mathf.Max(1, HalMetrics.Headcount(EmployeeRole.OrderSelector));
+            int rounds = Mathf.CeilToInt(looseTrips / (float)selectors);
+            kind = $"case-pick, {looseTrips} picklist(s) / {selectors} selector(s)";
+            return rounds * S.pickHoursPerPicklist + S.loadBufferHours;
+        }
+
+        static bool ConsumeStock(Dictionary<string, List<(int hour, int cases)>> t, string sku, int need, out int maxHour)
+        {
+            maxHour = 0;
+            if (need <= 0) return true;
+            if (string.IsNullOrEmpty(sku) || !t.TryGetValue(sku, out var list)) return false;
+            int left = need;
+            for (int i = 0; i < list.Count && left > 0; i++)
+            {
+                int take = Mathf.Min(left, list[i].cases);
+                left -= take;
+                maxHour = Mathf.Max(maxHour, list[i].hour);
+                list[i] = (list[i].hour, list[i].cases - take);
+            }
+            list.RemoveAll(e => e.cases <= 0);
+            return left == 0;
+        }
+
+        // True when the whole group's orders can be filled from the timeline; readyHour is the latest hour any of it arrives.
+        // On success the cases are taken out of the timeline for good; on failure it is left exactly as it was.
+        static bool TryStockReadyHour(UnscheduledGroup g, Dictionary<string, List<(int hour, int cases)>> timeline, OrderService orders, out int readyHour)
+        {
+            readyHour = 0;
+            var need = new Dictionary<string, int>();
+            foreach (var id in g.OrderIds)
+            {
+                var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
+                if (o == null) continue;
+                foreach (var li in o.LineItems)
+                    if (li != null && li.QuantityRemaining > 0 && !string.IsNullOrEmpty(li.SkuId))
+                        need[li.SkuId] = (need.TryGetValue(li.SkuId, out var n) ? n : 0) + li.QuantityRemaining;
+            }
+            if (need.Count == 0) return true;
+
+            var trial = new Dictionary<string, List<(int hour, int cases)>>();
+            foreach (var sku in need.Keys)
+            {
+                if (!timeline.TryGetValue(sku, out var l)) return false;
+                trial[sku] = new List<(int hour, int cases)>(l);
+            }
+            foreach (var kv in need)
+            {
+                if (!ConsumeStock(trial, kv.Key, kv.Value, out int h)) return false;
+                readyHour = Mathf.Max(readyHour, h);
+            }
+            foreach (var kv in trial) timeline[kv.Key] = kv.Value;
+            return true;
         }
 
         void ReleaseOrders(OrderService orders, DockScheduleService schedule, SimulationTimeService time)
@@ -491,11 +573,11 @@ namespace GameCore.Diagnostics
                 { _rushes++; _rushToday++; return; }
             }
 
-            // Normal restock, one vendor per PO, most-needed first.
-            // Orders already promised come first: anything owed to a customer and not covered by stock + inbound is bought before restocking.
-            var owed = rows.Where(r => r.Pending > 0 && r.CasesPerPallet > 0 && r.VendorId != null && r.OnHand + r.Inbound < r.Pending)
-                           .Select(r => (row: r, pallets: Mathf.CeilToInt((r.Pending - r.OnHand - r.Inbound) / (float)r.CasesPerPallet)))
-                           .ToList();
+            // Normal restock, one vendor per PO.
+            // Orders already promised come first, and they are bought ONE ORDER AT A TIME, soonest due first, only when the whole shortfall
+            // of that order fits the budget. (Block 6 spread $123k as a pallet or two of ~45 different SKUs, so no order was ever
+            // fully covered and nothing shipped: shipping needs every line of an order, not a little of every line of every order.)
+            var owed = PlanOrderCoverage(rows, budget);
             foreach (var g in owed.GroupBy(x => x.row.VendorId))
             {
                 if (pending >= S.maxPendingPOs) break;
@@ -527,6 +609,61 @@ namespace GameCore.Diagnostics
                 if (TryRaisePO(ship, time, g.Select(x => (x.row, x.pallets)).ToList(), g.Key, vendor != null ? vendor.DisplayName : g.Key, 1, ref budget, false, vendor != null ? vendor.MinimumOrderCases : 0))
                 { pending++; _purchases++; }
             }
+        }
+
+        /// <summary>
+        /// Picks what to buy so that whole orders become fillable. Walks the open orders soonest-due first, hands each one stock that is
+        /// already on hand or on its way (a running pool, so two orders never count the same pallet), and for the part still short asks for
+        /// whole pallets. An order is bought for only if EVERY line has a vendor and its full cost fits what is left of the budget;
+        /// otherwise it is skipped and the pool is left untouched, so a smaller or cheaper order behind it can still be covered.
+        /// </summary>
+        List<(ItemAvailabilityRow row, int pallets)> PlanOrderCoverage(List<ItemAvailabilityRow> rows, int budget)
+        {
+            var result = new List<(ItemAvailabilityRow row, int pallets)>();
+            if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return result;
+            var bySku = rows.ToDictionary(r => r.SkuId, r => r);
+            var pool = rows.ToDictionary(r => r.SkuId, r => r.OnHand + r.Inbound);   // cases promised to nobody yet
+            var palletsToBuy = new Dictionary<string, int>();
+            int left = budget;
+
+            var open = orders.ActiveOrders
+                .Where(o => o != null && !o.ReturnsMode &&
+                            (o.Status == OrderData.OrderStatus.Pending || o.Status == OrderData.OrderStatus.PartiallyPicked || o.Status == OrderData.OrderStatus.Backorder))
+                .OrderBy(o => o.DueDay).ThenBy(o => o.CreatedDayNumber).ToList();
+
+            foreach (var o in open)
+            {
+                var take = new Dictionary<string, int>();      // cases this order takes from the pool
+                var buy = new Dictionary<string, int>();       // pallets this order needs bought
+                int cost = 0; bool buyable = true;
+                foreach (var line in o.LineItems)
+                {
+                    int need = line.QuantityRemaining;
+                    if (need <= 0) continue;
+                    if (!bySku.TryGetValue(line.SkuId, out var r)) { buyable = false; break; }
+                    int have = Mathf.Max(0, pool.TryGetValue(line.SkuId, out var p) ? p : 0) - (take.TryGetValue(line.SkuId, out var t) ? t : 0);
+                    int fromPool = Mathf.Min(need, Mathf.Max(0, have));
+                    take[line.SkuId] = (take.TryGetValue(line.SkuId, out var t2) ? t2 : 0) + fromPool;
+                    int short_ = need - fromPool;
+                    if (short_ <= 0) continue;
+                    if (r.CasesPerPallet <= 0 || r.VendorId == null) { buyable = false; break; }
+                    int plt = Mathf.CeilToInt(short_ / (float)r.CasesPerPallet);
+                    buy[line.SkuId] = (buy.TryGetValue(line.SkuId, out var b) ? b : 0) + plt;
+                    cost += Mathf.RoundToInt(r.PurchasePrice) * r.CasesPerPallet * plt;
+                }
+                if (!buyable || cost > left) continue;           // cannot be covered completely: leave the pool alone, try the next order
+                foreach (var kv in take) pool[kv.Key] = Mathf.Max(0, pool[kv.Key] - kv.Value);
+                foreach (var kv in buy)
+                {
+                    palletsToBuy[kv.Key] = (palletsToBuy.TryGetValue(kv.Key, out var cur) ? cur : 0) + kv.Value;
+                    // the pallets bought land in the pool as cases and are consumed by this order, so nothing is left over to double count
+                }
+                left -= cost;
+                if (left <= 0) break;
+            }
+
+            foreach (var kv in palletsToBuy) result.Add((bySku[kv.Key], kv.Value));
+            return result;
         }
 
         bool TryRaisePO(ShipmentService ship, SimulationTimeService time, List<(ItemAvailabilityRow row, int pallets)> want, string vendorId, string vendorName,
@@ -780,12 +917,34 @@ namespace GameCore.Diagnostics
             };
             foreach (var kv in _incidents.OrderByDescending(k => WeightOf(k.Key) * k.Value)) { res.bugKeys.Add(kv.Key); res.bugCounts.Add(kv.Value); }
 
+            if (ObserveOnly)
+            {
+                // A human's block: its own scoreboard and report, nothing added to HAL's trend, no planner, no restart.
+                try
+                {
+                    var mine = LoadPlayerHistory(); mine.Add(res);
+                    File.WriteAllText(PlayerScoreFile(), JsonUtility.ToJson(new PlaytestScoreboard { blocks = mine }, true));
+                    File.WriteAllText(Path.Combine(Folder(), $"Block_{_blockNo:00}.md"), BuildReport(res, null));
+                }
+                catch (Exception e) { Debug.LogError("[PlaytestBot] Couldn't write the player report: " + e.Message); }
+                SystemsLogWindow.LogHal($"HAL 9000: your block is complete. Score {total:F1}.");
+                Debug.LogWarning($"[PlaytestBot] PLAYER BLOCK {_blockNo} DONE: score {total:F1}. Report: {Path.Combine(S.ReportDir, $"Block_{_blockNo:00}.md")}");
+                _status = $"your block done: {total:F1}";
+                Time.timeScale = 0f;                       // hold the moment while the results come up
+                BlockFinished?.Invoke(res, true);
+                return;
+            }
+
             var prev = _history.LastOrDefault();
             _history.Add(res);
             HalPlanner.RecordOutcome(S, res);
             try
             {
-                File.WriteAllText(ScoreFile(), JsonUtility.ToJson(new PlaytestScoreboard { blocks = _history }, true));
+                // Merge with what is already on disk so a short in-memory history can never erase recorded blocks.
+                var onDisk = new List<PlaytestBlockResult>();
+                try { if (File.Exists(ScoreFile())) onDisk.AddRange(JsonUtility.FromJson<PlaytestScoreboard>(File.ReadAllText(ScoreFile())).blocks); } catch { }
+                var merged = onDisk.Where(d => _history.All(h => h.block != d.block)).Concat(_history).OrderBy(b => b.block).ToList();
+                File.WriteAllText(ScoreFile(), JsonUtility.ToJson(new PlaytestScoreboard { blocks = merged }, true));
                 File.WriteAllText(Path.Combine(Folder(), $"Block_{_blockNo:00}.md"), BuildReport(res, prev));
                 File.WriteAllText(Path.Combine(Folder(), "Scoreboard.md"), BuildScoreboard());
             }

@@ -350,7 +350,26 @@ namespace GameCore.Labor
                 var truck = FindDockedOutboundTruck(door);
                 if (truck == null || !truck.AwaitingLoad) continue; // nothing waiting at this door yet
 
-                orderService.ReleaseOrdersToLoading(orderIds, door);
+                // A DOOR may hold several customers at once (one per lane: 1A for one, 1B for another), but a TRAILER carries one customer's
+                // freight. Handing every staged order of the door to ReleaseOrdersToLoading in one batch made it refuse the whole lot as
+                // "more than one customer", every half second, and no Load task was ever filed - the truck sat docked while two customers'
+                // pallets sat in their lanes, which in turn held those lanes and left the selectors' work Open (block 10, 2026-10-25).
+                // So: load the orders that belong to THIS truck's appointment, and only one customer's at a time.
+                var toLoad = orderIds;
+                if (!string.IsNullOrEmpty(truck.OutboundAppointmentId) && ServiceLocator.TryGet<DockScheduleService>(out var sched) && sched != null)
+                {
+                    var appt = sched.FindById(truck.OutboundAppointmentId);
+                    if (appt != null && appt.OrderIds != null && appt.OrderIds.Count > 0)
+                    {
+                        var mine = orderIds.Where(id => appt.OrderIds.Contains(id)).ToList();
+                        if (mine.Count > 0) toLoad = mine;
+                    }
+                }
+                string CustomerOf(string id) => orderService.ActiveOrders.FirstOrDefault(o => o != null && o.OrderId == id)?.CustomerId;
+                var firstCustomer = CustomerOf(toLoad[0]);
+                toLoad = toLoad.Where(id => CustomerOf(id) == firstCustomer).ToList();   // no appointment info: take one customer, the other loads on its own truck
+
+                orderService.ReleaseOrdersToLoading(toLoad, door);
             }
         }
 

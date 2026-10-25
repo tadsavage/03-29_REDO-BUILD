@@ -192,7 +192,7 @@ public static class HalScoreModal
     static void Refresh()
     {
         var bot = PlaytestBot.Instance;
-        bool show = bot != null && (bot.Running || bot.BlockNo > 0);
+        bool show = bot != null && (bot.Running || bot.BlockNo > 0) && !bot.ObserveOnly;   // in a player's block the top-centre score replaces this
         _root.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
         if (!show) return;
 

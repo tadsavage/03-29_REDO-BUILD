@@ -59,6 +59,8 @@ namespace GameCore.Inventory
                 lane = candidate;
                 return true;
             }
+            // (Sharing a lane with another customer is a last resort and lives in TryFindLanesForOrder, AFTER the empty lanes have been
+            // spread across: a shared lane must never beat using several empty ones.)
             return false;
         }
 
@@ -90,6 +92,19 @@ namespace GameCore.Inventory
                 lanes.Add((door, candidate));
                 total += room;
                 if (palletsNeeded > 0 && total >= palletsNeeded) break;
+            }
+            // Still short after every empty lane: top up from lanes that are shared with another customer (last resort).
+            if (palletsNeeded <= 0 || total < palletsNeeded)
+            {
+                foreach (var (door, candidate) in EnumerateSharedLanes(orderService, inv, dockDoor, plannedLanes))
+                {
+                    if (lanes.Contains((door, candidate))) continue;
+                    int room = inv != null ? inv.CountFreeStagingSlotsInLane(door, candidate) : 0;
+                    if (room <= 0) continue;
+                    lanes.Add((door, candidate));
+                    total += room;
+                    if (palletsNeeded > 0 && total >= palletsNeeded) break;
+                }
             }
             return lanes.Count > 0;
         }
@@ -124,6 +139,13 @@ namespace GameCore.Inventory
                 door = d; lane = candidate;
                 return true;
             }
+            // Last resort: a lane with room that another customer is also using.
+            foreach (var (d, candidate) in EnumerateSharedLanes(orderService, inv, order.EffectiveStagingDoor, null))
+            {
+                if (inv.CountFreeStagingSlotsInLane(d, candidate) < pallets) continue;
+                door = d; lane = candidate;
+                return true;
+            }
             lane = null;
             return false;
         }
@@ -147,18 +169,47 @@ namespace GameCore.Inventory
 
             foreach (int door in ordered)
             {
-                if (HasInboundTruckDocked(door)) continue;
+                // An inbound trailer at this door holds back only the lanes it will actually fill, not the whole door.
+                var reserved = LanesReservedForInbound(orderService, inv, door);
 
-                var owner = GetOwningCustomerIdForDoor(orderService, door);
-                if (owner != null && owner != customerId) continue;
-                // Earlier customers in the same planned batch hold doors/lanes that aren't committed yet.
-                if (plannedDoorOwners != null && plannedDoorOwners.TryGetValue(door, out var plannedOwner)
-                    && plannedOwner != customerId) continue;
-
+                // Exclusivity is per LANE, not per door (Tad, 2026-10-25): one customer per lane, but a door's lanes can belong to different
+                // customers (1A one customer, 1B another). A lane another order uses already fails LaneIsCompletelyEmpty below, and lanes
+                // earlier customers in this planned batch took are skipped via plannedLanes. The old door-wide rule meant that with two
+                // doors only two customers could stage at once, however many lanes sat empty.
                 foreach (var candidate in allLanes.Where(l => l.door == door).Select(l => l.lane).OrderBy(l => l))
                 {
+                    if (reserved.Contains(candidate)) continue;
                     if (plannedLanes != null && plannedLanes.Contains((door, candidate))) continue;
                     if (!LaneIsCompletelyEmpty(orderService, inv, door, candidate)) continue;
+                    yield return (door, candidate);
+                }
+            }
+        }
+
+        /// <summary>
+        /// LAST RESORT lanes: a lane that still has room but is not completely empty, because another customer's staged pallets or another
+        /// order's claim are in it. Nearest door first, then letter order. Never offered when an inbound trailer is docked at the door, when
+        /// received stock is in the lane (putaway owns it), when inbound is about to land there, or when the lane is not pickable for outbound.
+        /// The caller checks room. Mixed lanes are fine here: the loader digs out the pallets it needs.
+        /// </summary>
+        private static IEnumerable<(int door, string lane)> EnumerateSharedLanes(OrderService orderService, InventoryService inv, int dockDoor,
+                                               ICollection<(int door, string lane)> plannedLanes)
+        {
+            if (orderService == null) yield break;
+            var allLanes = LaneNamingService.AllLanes();
+            var doors = allLanes.Select(l => l.door).Distinct().ToList();
+            if (doors.Count == 0) yield break;
+            int anchor = dockDoor > 0 ? dockDoor : doors.Min();
+            foreach (int door in doors.OrderBy(d => System.Math.Abs(d - anchor)).ThenBy(d => d))
+            {
+                var reserved = LanesReservedForInbound(orderService, inv, door);
+                foreach (var candidate in allLanes.Where(l => l.door == door).Select(l => l.lane).OrderBy(l => l))
+                {
+                    if (reserved.Contains(candidate)) continue;
+                    if (plannedLanes != null && plannedLanes.Contains((door, candidate))) continue;
+                    if (inv != null && !inv.LaneAllowsPicking(door, candidate)) continue;
+                    if (LaneHasInboundStock(inv, door, candidate)) continue;
+                    if (GameCore.Labor.TrailerOffloadController.IsLanePendingInbound(door, candidate)) continue;
                     yield return (door, candidate);
                 }
             }
@@ -236,10 +287,58 @@ namespace GameCore.Inventory
             return false;
         }
 
-        /// <summary>True if an INBOUND trailer is docked at this door. Its cargo is headed for these
-        /// lanes, so the whole stage is spoken for even though the pallets haven't landed yet. This is
-        /// the only genuinely door-WIDE inbound signal; stock sitting in a lane is per-lane and handled
-        /// by LanesInStage instead.</summary>
+        /// <summary>DIFFICULTY HOOK (Tad, 2026-10-25). On (default): while an inbound trailer is docked at a door, the lanes it will fill are held back from
+        /// outbound automatically, and the rest of the door's lanes stay available. Off (a harder mode, later): nothing is held back, so the player has to
+        /// keep inbound and outbound apart themselves.</summary>
+        public static bool AutoReserveLanesForInbound = true;
+
+        /// <summary>Pallets still to come off the inbound trailer(s) docked at this door (a line item is one pallet; dropped and already
+        /// received lines don't count). A docked trailer with no shipment data counts as one pallet.</summary>
+        public static int InboundPalletsToCome(int door)
+        {
+            int total = 0;
+            foreach (var truck in Object.FindObjectsByType<TruckController>())
+            {
+                if (truck == null || truck.IsOutbound || truck.DockedAt == null || truck.DockedAt.DoorNumber != door) continue;
+                var po = truck.AssignedShipment;
+                if (po == null) { total += 1; continue; }
+                foreach (var li in po.LineItems)
+                    if (li != null && !li.Dropped && li.ReceivedQuantity < li.Quantity) total++;
+            }
+            return total;
+        }
+
+        /// <summary>
+        /// The lanes at this door an inbound trailer needs, and so are not offered to outbound. Worked out the way the dock stocker picks them:
+        /// the door's lanes in letter order, skipping lanes that don't take inbound and lanes an outbound order already holds, taking each lane's
+        /// free room until the pallets still on the trailer are covered. A 2-pallet trailer at a 5-lane door holds back one lane, not the door.
+        /// </summary>
+        public static HashSet<string> LanesReservedForInbound(OrderService orderService, InventoryService inv, int door)
+        {
+            var reserved = new HashSet<string>();
+            if (!AutoReserveLanesForInbound) return reserved;
+            int pallets = InboundPalletsToCome(door);
+            if (pallets <= 0) return reserved;
+            foreach (var (d, lane) in LaneNamingService.AllLanes())
+            {
+                if (d != door) continue;
+                if (inv != null && !inv.LaneAcceptsPutaway(d, lane)) continue;
+                if (orderService != null && GetOwningCustomerId(orderService, d, lane) != null) continue;   // outbound holds it: the offloader skips it too
+                int room = inv != null ? inv.CountFreeStagingSlotsInLane(d, lane) : 1;
+                if (room <= 0) continue;
+                reserved.Add(lane);
+                pallets -= room;
+                if (pallets <= 0) break;
+            }
+            return reserved;
+        }
+
+        public static bool IsLaneReservedForInbound(OrderService orderService, InventoryService inv, int door, string lane)
+            => LanesReservedForInbound(orderService, inv, door).Contains(lane);
+
+        /// <summary>True if an INBOUND trailer is docked at this door. Its cargo is headed for some of these
+        /// lanes; see <see cref="LanesReservedForInbound"/> for which. Kept for callers that only need to
+        /// know a trailer is present - lane choices use the per-lane reservation instead.</summary>
         public static bool HasInboundTruckDocked(int door)
         {
             foreach (var truck in Object.FindObjectsByType<TruckController>())
@@ -257,23 +356,22 @@ namespace GameCore.Inventory
         {
             reason = null;
 
-            if (HasInboundTruckDocked(door))
-            {
-                reason = "an inbound trailer is docked there";
-                return false;
-            }
-
+            // (An inbound trailer docked here no longer closes the whole door: LanesInStage leaves out just the lanes it will fill.)
             var usable = LanesInStage(inv, door);
             if (usable.Count == 0)
             {
-                reason = "no lane is free for outbound picking (Inbound-only, or all holding received pallets)";
+                reason = HasInboundTruckDocked(door)
+                    ? "an inbound trailer is docked there and needs its lanes"
+                    : "no lane is free for outbound picking (Inbound-only, or all holding received pallets)";
                 return false;
             }
 
-            var owner = GetOwningCustomerIdForDoor(orderService, door);
-            if (owner != null && owner != customerId)
+            // Per LANE, not per door: the stage is offered while this customer can still have a lane to themselves, or - as a last resort -
+            // while some lane still has room (sharing it with another customer; the loader digs out what it needs).
+            bool haveOwnLane = usable.Any(l => IsLaneAvailableFor(orderService, door, l, customerId));
+            if (!haveOwnLane && !(inv != null && usable.Any(l => inv.CountFreeStagingSlotsInLane(door, l) > 0)))
             {
-                reason = "already assigned to another customer";
+                reason = "every lane there is held by another customer and none has room";
                 return false;
             }
 
@@ -287,8 +385,12 @@ namespace GameCore.Inventory
         /// This ordering IS the overflow order.</summary>
         public static List<string> LanesInStage(InventoryService inv, int door)
         {
+            // Lanes a docked inbound trailer will fill are held back from outbound (the order service isn't to hand here, so an outbound
+            // order's own claim is not consulted: at worst one extra lane stays held, never one too few).
+            var reservedForInbound = LanesReservedForInbound(null, inv, door);
             return LaneNamingService.AllLanes()
                 .Where(l => l.door == door)
+                .Where(l => !reservedForInbound.Contains(l.lane))
                 .Where(l => inv == null || inv.LaneAllowsPicking(l.door, l.lane))
                 // Skip lanes currently holding received pallets. This USED to reject the entire door
                 // if any single lane had inbound stock, which made whole stages vanish from the
@@ -309,11 +411,17 @@ namespace GameCore.Inventory
         /// Stage that still has room. If every lane is full we still hand back the first one rather
         /// than failing the release — the order stages there when space frees up, and the driver's
         /// own overflow walk re-resolves at drop time anyway.</summary>
-        public static bool TryResolveStartLane(OrderService orderService, InventoryService inv, int door, out string lane)
+        public static bool TryResolveStartLane(OrderService orderService, InventoryService inv, int door, out string lane, string customerId = null)
         {
             lane = null;
             var lanes = LanesInStage(inv, door);
             if (lanes.Count == 0) return false;
+
+            // A lane this customer can have to themselves (empty or already theirs) beats one shared with another customer.
+            if (customerId != null)
+                foreach (var candidate in lanes)
+                    if (IsLaneAvailableFor(orderService, door, candidate, customerId) && inv != null && inv.TryFindStagingSlotInLane(door, candidate, out _))
+                    { lane = candidate; return true; }
 
             foreach (var candidate in lanes)
             {
