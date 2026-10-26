@@ -496,7 +496,14 @@ namespace GameCore.Actors
                     if (!string.IsNullOrEmpty(t.FromLocation) &&
                         t.FromLocation.StartsWith("STG", System.StringComparison.OrdinalIgnoreCase) &&
                         TryParseLaneName(t.FromLocation, out int sd, out string sl) &&
-                        !LanePalletPickReachable(t, sd, sl)) continue;
+                        !LanePalletPickReachable(t, sd, sl))
+                    {
+                        // The pick was written against a lane slot, but its pallet may have been put away into a rack since
+                        // (a putaway already under way when the order claimed it). The lane will never offer it again, so the
+                        // task sat Available forever - "the pallet is right there in the reserve and nobody fetches it".
+                        // Re-aim the pick at the rack slot that really holds the pallet.
+                        if (!TryRebindPickToRack(t)) continue;
+                    }
                 }
 
                 if (t.Type == WorkTaskType.Replenish && PalletMasterLink.Find(t.PalletId) == null)
@@ -786,6 +793,41 @@ namespace GameCore.Actors
         /// <summary>Can a lane-sourced pallet pick actually be done right now — is the front pallet of
         /// its source lane the target itself or the same product? Checked at claim time so a task whose
         /// pallet is buried behind other products isn't claimed and aborted every poll.</summary>
+        /// <summary>A lane-sourced pallet pick whose pallet is no longer in the lane but sits in a rack slot: point the task at that
+        /// slot and lock it, exactly as a rack-sourced pick is set up at release. False when the pallet isn't in any rack slot.</summary>
+        private bool TryRebindPickToRack(WorkTask task)
+        {
+            if (string.IsNullOrEmpty(task.PalletId)) return false;
+            LocationData found = null;
+            foreach (var loc in LocationRegistry.All)
+                if (loc != null && loc.PalletId == task.PalletId) { found = loc; break; }
+
+            if (found == null)
+            {
+                // The slot's own record can be blank (contents aren't saved, and the reconcile pass fills them in later), so
+                // fall back to where the pallet physically is: the nearest rack slot under it.
+                var link = PalletMasterLink.Find(task.PalletId);
+                if (link != null && link.GetComponentInParent<MHEOperatorSlot>() == null)
+                {
+                    Vector3 pp = link.transform.position; float best = 0.9f;
+                    foreach (var loc in LocationRegistry.All)
+                    {
+                        if (loc == null) continue;
+                        Vector3 d = loc.transform.position - pp;
+                        if (Mathf.Abs(d.y) > 0.8f) continue;
+                        float planar = new Vector2(d.x, d.z).magnitude;
+                        if (planar < best) { best = planar; found = loc; }
+                    }
+                }
+            }
+            if (found == null) return false;
+
+            if (found.Status == LocationStatus.Occupied) found.Reserve();   // hold it for this order, like release-time rack picks
+            task.AssignFromLocation(found.Address);
+            Debug.LogWarning($"[ReachTruckOperator] PalletPick {task.TaskId}: pallet {task.PalletId} is no longer in its staging lane - it is in {found.Address}. Re-aimed the pick there.");
+            return true;
+        }
+
         private bool LanePalletPickReachable(WorkTask task, int door, string lane)
         {
             string exitId = ExitIdCached(door, lane);
