@@ -57,6 +57,14 @@
                     <ui:Button name="ig-btn-diff-supervisor" text="SUPERVISOR" class="gfx-btn gfx-btn-blue"/>
                     <ui:Button name="ig-btn-diff-manager"    text="MANAGER"    class="gfx-btn gfx-btn-red"/>
                 </ui:VisualElement>
+                <ui:Label text="AUTOSAVE (IN-GAME HOURS)" class="settings-section-header"/>
+                <ui:VisualElement class="settings-row">
+                    <ui:Button name="ig-btn-autosave-0"  text="OFF" class="gfx-btn gfx-btn-red"/>
+                    <ui:Button name="ig-btn-autosave-6"  text="6 HRS" class="gfx-btn gfx-btn-green"/>
+                    <ui:Button name="ig-btn-autosave-12" text="12 HRS" class="gfx-btn gfx-btn-green"/>
+                    <ui:Button name="ig-btn-autosave-24" text="24 HRS" class="gfx-btn gfx-btn-blue"/>
+                </ui:VisualElement>
+                <ui:Button name="ig-btn-load-autosave" text="LOAD LAST AUTOSAVE" class="gfx-btn gfx-btn-blue"/>
                 <ui:Label text="RESOLUTION" class="settings-section-header"/>
                 <ui:DropdownField name="ig-resolution-dropdown" class="settings-dropdown"/>
                 <ui:Label text="VOLUME" class="settings-section-header"/>

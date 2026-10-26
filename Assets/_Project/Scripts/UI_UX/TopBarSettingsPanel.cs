@@ -9,6 +9,9 @@ public class TopBarSettingsPanel : MonoBehaviour
     // Difficulty
     private Button _igBtnClerk, _igBtnSupervisor, _igBtnManager;
 
+    // Autosave
+    private readonly System.Collections.Generic.Dictionary<int, Button> _igAutoSaveButtons = new();
+
     // Resolution & audio
     private DropdownField _igResolutionDropdown;
     private Slider _igGameVolumeSlider, _igMusicVolumeSlider;
@@ -54,6 +57,22 @@ public class TopBarSettingsPanel : MonoBehaviour
         _igBtnSupervisor?.RegisterCallback<ClickEvent>(_ => ApplyDifficulty(1));
         _igBtnManager?.RegisterCallback<ClickEvent>(_ => ApplyDifficulty(2));
 
+        // Autosave interval + load
+        foreach (int h in AutoSaveSettings.Choices)
+        {
+            var b = hudRoot.Q<Button>($"ig-btn-autosave-{h}");
+            if (b == null) continue;
+            int hours = h;
+            _igAutoSaveButtons[h] = b;
+            b.RegisterCallback<ClickEvent>(_ => { AutoSaveSettings.Hours = hours; RefreshAutoSaveButtons(); });
+        }
+        hudRoot.Q<Button>("ig-btn-load-autosave")?.RegisterCallback<ClickEvent>(_ =>
+        {
+            var ps = FindAnyObjectByType<PlacementSystem>();
+            if (ps != null && ps.LoadNewestAutoSave()) Close();
+        });
+        RefreshAutoSaveButtons();
+
         // Settings done button
         hudRoot.Q<Button>("ig-settings-done")?.RegisterCallback<ClickEvent>(_ => Close());
 
@@ -91,6 +110,16 @@ public class TopBarSettingsPanel : MonoBehaviour
             _igResConfirmOverlay.pickingMode   = PickingMode.Ignore;
         }
         _igPendingResIdx = -1;
+    }
+
+    private void RefreshAutoSaveButtons()
+    {
+        int current = AutoSaveSettings.Hours;
+        foreach (var kv in _igAutoSaveButtons)
+        {
+            if (kv.Key == current) kv.Value.AddToClassList("gfx-btn--active");
+            else kv.Value.RemoveFromClassList("gfx-btn--active");
+        }
     }
 
     private void ApplyStoredSettings()

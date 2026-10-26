@@ -1,4 +1,5 @@
 using GameCore.Economy;
+using GameCore.Events;
 using GameCore.Services;
 using GameCore.Labor;
 using GameCore.Inventory;
@@ -48,7 +49,47 @@ public class PlacementSystem : MonoBehaviour
             SaveManager.Instance.OnSaveCompleted += OnSlotSaveCompleted;
             SaveManager.Instance.OnLoadCompleted += OnSlotLoadCompleted;
         }
+
+        // Autosave: counted in IN-GAME hours so it follows the game speed and never fires while paused.
+        _autoSaveEvents = EventManager.Instance;
+        _autoSaveEvents?.Unsubscribe<int>(GameEvents.Time.OnHourChanged, OnAutoSaveHour);
+        _autoSaveEvents?.Subscribe<int>(GameEvents.Time.OnHourChanged, OnAutoSaveHour);
     }
+
+    private EventManager _autoSaveEvents;
+    private int _lastAutoSaveStamp = -1;   // day * 24 + hour of the last autosave (or of the first tick this session)
+
+    private void OnAutoSaveHour(string eventId, int hour)
+    {
+        int every = AutoSaveSettings.Hours;
+        if (every <= 0) return;
+        if (!ServiceLocator.TryGet<SimulationTimeService>(out var time) || time == null) return;
+        int stamp = time.Day * 24 + hour;
+        if (_lastAutoSaveStamp < 0 || stamp < _lastAutoSaveStamp) { _lastAutoSaveStamp = stamp; return; }   // first tick / a load rewound the clock
+        if (stamp - _lastAutoSaveStamp < every) return;
+        _lastAutoSaveStamp = stamp;
+        try
+        {
+            string target = AutoSaveSettings.NextTarget();
+            SaveGame(target);
+            lastSaveName = "quicksave";   // SaveGame sets this; F9/QuickLoad must keep meaning the quicksave
+            UIToast.Show($"Autosaved (Day {time.Day}, {hour:00}:00)");
+        }
+        catch (System.Exception e) { Debug.LogError($"[AutoSave] failed: {e.Message}"); }
+    }
+
+    /// <summary>Loads the newest autosave (Settings panel button). False if there is none.</summary>
+    public bool LoadNewestAutoSave()
+    {
+        string name = AutoSaveSettings.Newest();
+        if (name == null) { UIToast.Show("No autosave found yet"); return false; }
+        LoadGame(name);
+        lastSaveName = "quicksave";
+        _lastAutoSaveStamp = -1;
+        UIToast.Show("Autosave loaded");
+        return true;
+    }
+
     private void Update()
     {
         // Unscaled: this is a debounce against key-repeat, not a simulation tick. Scaled Time.deltaTime
@@ -1451,6 +1492,7 @@ public class PlacementSystem : MonoBehaviour
 
     private void OnDestroy()
     {
+        _autoSaveEvents?.Unsubscribe<int>(GameEvents.Time.OnHourChanged, OnAutoSaveHour);
         if (SaveManager.Instance != null)
         {
             SaveManager.Instance.OnSaveCompleted -= OnSlotSaveCompleted;
