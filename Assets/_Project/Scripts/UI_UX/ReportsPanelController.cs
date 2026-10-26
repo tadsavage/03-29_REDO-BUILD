@@ -132,6 +132,14 @@ public class ReportsPanelController
         titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
         titleBar.Add(titleLabel);
 
+        // Item Listing is reached from Scheduler / Orders / Purchasing, so it links straight back to each of them.
+        if (tab == Tab.ItemListing)
+        {
+            AddNavButton(titleBar, "SCHEDULER", NavButtonColors.Dest.Scheduler, 0);
+            AddNavButton(titleBar, "ORDERS", NavButtonColors.Dest.Orders, 8);
+            AddNavButton(titleBar, "PURCHASING", NavButtonColors.Dest.Purchasing, 9);
+        }
+
         modal.Add(titleBar);
 
         VisualElement scroll = scrollable ? new ScrollView() : new VisualElement();
@@ -156,7 +164,27 @@ public class ReportsPanelController
         };
     }
 
-public void Open(Tab tab)
+/// <summary>Title-bar link that closes this report and opens the numbered panel (same call its hotkey makes).</summary>
+    void AddNavButton(VisualElement titleBar, string label, NavButtonColors.Dest dest, int panelKey)
+    {
+        var b = new Button(() =>
+        {
+            CloseAll();
+            UIKeyBindingManager.Instance?.ToggleUI(panelKey);
+        }) { text = label };
+        b.style.height = 36;
+        b.style.paddingLeft = b.style.paddingRight = 14;
+        b.style.marginRight = 8;
+        b.style.flexShrink = 0;
+        b.style.fontSize = 15;
+        b.style.unityFontStyleAndWeight = FontStyle.Bold;
+        b.style.borderTopWidth = b.style.borderBottomWidth = b.style.borderLeftWidth = b.style.borderRightWidth = 2;
+        b.style.borderTopLeftRadius = b.style.borderTopRightRadius = b.style.borderBottomLeftRadius = b.style.borderBottomRightRadius = 8;
+        NavButtonColors.Apply(b, dest);
+        titleBar.Add(b);
+    }
+
+    public void Open(Tab tab)
     {
         if (!_windows.TryGetValue(tab, out var win)) return;
 
@@ -169,6 +197,11 @@ public void Open(Tab tab)
         // Inventory and opens Operational in its place.
         foreach (var kvp in _windows)
             if (kvp.Key != tab && kvp.Value.Visible) HideWindow(kvp.Key);
+
+        // Any other open panel (Purchasing, Contracts, Work Queue, Scheduler...) is closed first, exactly as opening one numbered
+        // panel closes another. Without this a report opened from the Reports bar stayed hidden behind, or was blocked by, whatever
+        // was already up (Item Listing "would not open").
+        UIKeyBindingManager.Instance?.CloseAll();
 
         // The employee info card and the floating employee banners sit in layers ABOVE these windows and covered them; close them
         // for as long as a report is up (Tad, 2026-10-23).

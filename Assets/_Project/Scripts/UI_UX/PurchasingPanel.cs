@@ -504,9 +504,10 @@ public class PurchasingPanel : IUIPanel
         // Left of the window buttons, so the destructive ✕ keeps the far corner it always has.
         var toScheduler = new Button(() => OpenScheduler(null)) { text = "SCHEDULER" };
         StyleOrangeButton(toScheduler);
+        NavButtonColors.Apply(toScheduler, NavButtonColors.Dest.Scheduler);
         ApplyFont(toScheduler, bold: true, size: 16);
         toScheduler.style.height = TitleButtonSize;   // clears the helper's fixed 30px
-        toScheduler.style.paddingLeft = toScheduler.style.paddingRight = 18;
+        toScheduler.style.paddingLeft = toScheduler.style.paddingRight = 10;
         toScheduler.style.marginRight = 10;
         toScheduler.style.flexShrink = 0;          // the title flexGrows; without this the label squeezes
         toScheduler.style.borderTopLeftRadius = toScheduler.style.borderTopRightRadius =
@@ -521,7 +522,7 @@ public class PurchasingPanel : IUIPanel
         NavButtonColors.Apply(toOrders, NavButtonColors.Dest.Orders);
         ApplyFont(toOrders, bold: true, size: 16);
         toOrders.style.height = TitleButtonSize;
-        toOrders.style.paddingLeft = toOrders.style.paddingRight = 18;
+        toOrders.style.paddingLeft = toOrders.style.paddingRight = 10;
         toOrders.style.marginRight = 10;
         toOrders.style.flexShrink = 0;
         toOrders.style.borderTopLeftRadius = toOrders.style.borderTopRightRadius =
@@ -536,7 +537,7 @@ public class PurchasingPanel : IUIPanel
         NavButtonColors.Apply(toWorkQueue, NavButtonColors.Dest.WorkQueue);
         ApplyFont(toWorkQueue, bold: true, size: 16);
         toWorkQueue.style.height = TitleButtonSize;
-        toWorkQueue.style.paddingLeft = toWorkQueue.style.paddingRight = 18;
+        toWorkQueue.style.paddingLeft = toWorkQueue.style.paddingRight = 12;
         toWorkQueue.style.marginRight = 10;
         toWorkQueue.style.flexShrink = 0;
         toWorkQueue.style.borderTopLeftRadius = toWorkQueue.style.borderTopRightRadius =
@@ -545,7 +546,17 @@ public class PurchasingPanel : IUIPanel
 
         var toRush = new Button(OpenRushOrders) { text = "RUSH ORDERS" };
         StyleOrangeButton(toRush);
-        NavButtonColors.Apply(toRush, NavButtonColors.Dest.RushOrders);
+        // The one exception to the nav colours: RUSH ORDERS is yellow with red lettering. Mouse events, registered after
+        // StyleOrangeButton's, so the fill is not repainted orange when the cursor leaves.
+        {
+            var rushFill = new Color(1f, 0.85f, 0.1f); var rushHover = new Color(1f, 0.92f, 0.35f); var rushEdge = new Color(0.65f, 0.5f, 0f);
+            toRush.style.backgroundColor = new StyleColor(rushFill);
+            toRush.style.color = new StyleColor(new Color(0.85f, 0.05f, 0.05f));
+            toRush.style.borderTopColor = toRush.style.borderBottomColor =
+                toRush.style.borderLeftColor = toRush.style.borderRightColor = new StyleColor(rushEdge);
+            toRush.RegisterCallback<MouseEnterEvent>(_ => toRush.style.backgroundColor = new StyleColor(rushHover));
+            toRush.RegisterCallback<MouseLeaveEvent>(_ => toRush.style.backgroundColor = new StyleColor(rushFill));
+        }
         ApplyFont(toRush, bold: true, size: 16);
         toRush.style.height = TitleButtonSize;
         toRush.style.width = 96;
@@ -559,6 +570,23 @@ public class PurchasingPanel : IUIPanel
             toRush.style.borderBottomLeftRadius = toRush.style.borderBottomRightRadius = 8;
         RuntimeTooltip.Attach(toRush, "Close purchasing and open the Item Listing, where you can rush-order items at double cost.");
 
+        var toItemListing = new Button(OpenRushOrders) { text = "ITEM LISTING" };
+        StyleOrangeButton(toItemListing);
+        NavButtonColors.Apply(toItemListing, NavButtonColors.Dest.ItemListing);
+        ApplyFont(toItemListing, bold: true, size: 16);
+        toItemListing.style.height = TitleButtonSize;
+        toItemListing.style.width = 96;                          // same width as RUSH ORDERS
+        toItemListing.style.whiteSpace = WhiteSpace.Normal;      // wraps onto two lines: ITEM / LISTING
+        toItemListing.style.unityTextAlign = TextAnchor.MiddleCenter;
+        toItemListing.style.paddingTop = toItemListing.style.paddingBottom = 2;
+        toItemListing.style.paddingLeft = toItemListing.style.paddingRight = 6;
+        toItemListing.style.marginRight = 10;
+        toItemListing.style.flexShrink = 0;
+        toItemListing.style.borderTopLeftRadius = toItemListing.style.borderTopRightRadius =
+            toItemListing.style.borderBottomLeftRadius = toItemListing.style.borderBottomRightRadius = 8;
+        RuntimeTooltip.Attach(toItemListing, "Close purchasing and open the Item Listing.");
+
+        rightGroup.Add(toItemListing);
         rightGroup.Add(toRush);
         rightGroup.Add(toWorkQueue);
         rightGroup.Add(toOrders);

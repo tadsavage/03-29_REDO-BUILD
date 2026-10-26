@@ -664,6 +664,11 @@ public class SchedulerPanel : IUIPanel
         NavButtonColors.Apply(backToPurchasing, NavButtonColors.Dest.Purchasing);
         titleBar.Add(backToPurchasing);
 
+        var toItemListing = new Button(OpenItemListing) { text = "ITEM LISTING" };
+        StyleCrossLinkButton(toItemListing);
+        NavButtonColors.Apply(toItemListing, NavButtonColors.Dest.ItemListing);
+        titleBar.Add(toItemListing);
+
         _scaleBtn = new Button { text = string.Empty };
         RuntimeTooltip.Attach(_scaleBtn, "Resize window (normal / large / fill screen)", ignoreGlobalToggle: true);
         StyleSquareButton(_scaleBtn);
@@ -799,6 +804,7 @@ public class SchedulerPanel : IUIPanel
         // comment for why a raw per-event Rebuild() was the actual cause of the pool "shaking" and
         // tooltips never staying open. Scheduled ONCE here, same reasoning as the sweep poll above.
         content.schedule.Execute(FlushPendingLiveRefresh).Every(500);
+        content.schedule.Execute(SyncDoorLiveStatus).Every(500);   // door OCCUPIED / % complete labels
 
         footerMessage = new Label();
         ApplyFont(footerMessage, size: 15);
@@ -3143,6 +3149,14 @@ private static void ApplyLilitaFont(VisualElement el)
         workQueue.Show();
     }
 
+    private void OpenItemListing()
+    {
+        Hide();
+        UIKeyBindingManager.Instance?.CloseAll();
+        if (BuildMenuUI.Instance == null) { UIToast.Show("Couldn't open the Item Listing - the report windows aren't loaded."); return; }
+        BuildMenuUI.Instance.OpenReport(ReportsPanelController.Tab.ItemListing);
+    }
+
     private void OpenPurchasing()
     {
         Hide();
@@ -3836,6 +3850,85 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         return $"{h12}:{minute:00}{suffix}";
     }
 
+    // ── Live door status ("OCCUPIED - 40% Completed Offloading") ──────────────
+    private readonly Dictionary<int, Label> _doorLiveLabels = new();
+
+    private void SyncDoorLiveStatus()
+    {
+        if (_doorLiveLabels.Count == 0) return;
+        var trucks = UnityEngine.Object.FindObjectsByType<TruckController>();
+        foreach (var kv in _doorLiveLabels)
+        {
+            var lab = kv.Value;
+            if (lab == null || lab.panel == null) continue;
+            string t = DoorLiveText(kv.Key, trucks);
+            if (lab.text == t) continue;
+            lab.text = t;
+            lab.style.display = t.Length == 0 ? DisplayStyle.None : DisplayStyle.Flex;
+        }
+    }
+
+    /// <summary>Second line under the percent: how long this trailer has been at the door (a new line reading "In door: 1h 05m"), or "" when unknown.</summary>
+    private static string TimeInDoor(TruckController truck)
+    {
+        int m = truck.MinutesInDoor;
+        if (m < 0) return "";
+        return m < 60 ? "\nIn door: " + m + "m" : "\nIn door: " + (m / 60) + "h " + (m % 60).ToString("00") + "m";
+    }
+
+    /// <summary>"" when the door is free; otherwise OCCUPIED, with the trailer's progress once it is docked.</summary>
+    private static string DoorLiveText(int doorNumber, TruckController[] trucks)
+    {
+        DockSlot dock = null;
+        foreach (var d in DockSlot.All) if (d != null && d.DoorNumber == doorNumber) { dock = d; break; }
+        if (dock == null || !dock.IsOccupied) return "";
+
+        trucks ??= UnityEngine.Object.FindObjectsByType<TruckController>();
+        TruckController truck = null;
+        foreach (var t in trucks) if (t != null && t.AssignedDock == dock) { truck = t; break; }
+        if (truck == null) return "OCCUPIED";
+        if (truck.CurrentState != TruckController.TruckState.Docked) return "OCCUPIED - arriving";
+
+        if (!truck.IsOutbound)
+        {
+            int total = truck.TotalPalletsAtDock;
+            if (total <= 0 || truck.LoadContainer == null) return "OCCUPIED";
+            int done = Mathf.Clamp(total - truck.LoadContainer.childCount, 0, total);
+            return $"OCCUPIED - {Mathf.RoundToInt(100f * done / total)}% Complete Unloading{TimeInDoor(truck)}";
+        }
+
+        // Outbound: cases aboard vs cases the trailer's orders need (cases, because case-picked pallets mix SKUs).
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null
+            || !ServiceLocator.TryGet<DockScheduleService>(out var sched) || sched == null) return "OCCUPIED - loading";
+        var appt = string.IsNullOrEmpty(truck.OutboundAppointmentId) ? null : sched.FindById(truck.OutboundAppointmentId);
+        if (appt == null || appt.OrderIds.Count == 0) return "OCCUPIED - loading";
+
+        var need = new Dictionary<string, int>();
+        foreach (var id in appt.OrderIds)
+        {
+            var o = orders.ActiveOrders.FirstOrDefault(x => x.OrderId == id);
+            if (o == null) continue;
+            foreach (var li in o.LineItems) need[li.SkuId] = (need.TryGetValue(li.SkuId, out var n) ? n : 0) + li.QuantityNeeded;
+        }
+        var have = new Dictionary<string, int>();
+        if (truck.LoadContainer != null)
+            foreach (var ob in truck.LoadContainer.GetComponentsInChildren<OutboundPalletBuilder>(true))
+            {
+                if (ob.CaseCountsBySku.Count > 0)
+                    foreach (var kv in ob.CaseCountsBySku) have[kv.Key] = (have.TryGetValue(kv.Key, out var h) ? h : 0) + kv.Value;
+                else
+                {
+                    var pd = ob.GetComponent<PalletData>();
+                    if (pd != null && !string.IsNullOrEmpty(pd.ItemNumber) && pd.CaseQuantity > 0)
+                        have[pd.ItemNumber] = (have.TryGetValue(pd.ItemNumber, out var h2) ? h2 : 0) + pd.CaseQuantity;
+                }
+            }
+        int needTotal = need.Values.Sum(), haveTotal = 0;
+        foreach (var kv in need) haveTotal += Mathf.Min(kv.Value, have.TryGetValue(kv.Key, out var hv) ? hv : 0);
+        if (needTotal <= 0) return "OCCUPIED - loading";
+        return $"OCCUPIED - {Mathf.RoundToInt(100f * haveTotal / needTotal)}% Complete Loading{TimeInDoor(truck)}";
+    }
+
     private VisualElement BuildNewSchedulerDoorRow(DockScheduleService schedule, OrderArrivalService arrivals,
                                                     int doorNumber, int today)
     {
@@ -3845,13 +3938,27 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         row.style.borderBottomWidth = 1;
         row.style.borderBottomColor = new StyleColor(new Color(ColBlueEdge.r, ColBlueEdge.g, ColBlueEdge.b, 0.4f));
 
+        // Door number on top; under it, live, whether the door is occupied and how far its trailer is through offloading / loading.
+        var doorCol = new VisualElement();
+        doorCol.style.width = NewSchedulerDoorLabelWidth;
+        doorCol.style.minWidth = NewSchedulerDoorLabelWidth;
+        doorCol.style.flexShrink = 0;
+        doorCol.style.justifyContent = Justify.Center;
+
         var label = MakeText($"Door {doorNumber}", 16, ColSubtleText, bold: true);
-        label.style.width = NewSchedulerDoorLabelWidth;
-        label.style.minWidth = NewSchedulerDoorLabelWidth;
-        label.style.flexShrink = 0;
         label.style.paddingLeft = 8;
         label.style.unityTextAlign = TextAnchor.MiddleLeft;
-        row.Add(label);
+        doorCol.Add(label);
+
+        var live = MakeText(DoorLiveText(doorNumber, null), 11, new Color(1f, 0.78f, 0.35f), bold: true);
+        live.style.paddingLeft = 8; live.style.paddingRight = 4;
+        live.style.whiteSpace = WhiteSpace.Normal;
+        live.style.unityTextAlign = TextAnchor.UpperLeft;
+        live.style.display = live.text.Length == 0 ? DisplayStyle.None : DisplayStyle.Flex;
+        live.pickingMode = PickingMode.Ignore;
+        doorCol.Add(live);
+        _doorLiveLabels[doorNumber] = live;
+        row.Add(doorCol);
 
         var lane = new VisualElement();
         lane.style.flexGrow = 1;
@@ -4635,6 +4742,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         // from the tile edge wherever the cursor is, and the tile's own buttons stay uncovered.
         // Prefer the right side, fall back to the left, and only drop below if neither fits.
         const float TooltipW = 460f;
+        const float TooltipRightShift = 32f;
         float modalW = _modal.resolvedStyle.width;
         Vector2 tl = _modal.WorldToLocal(new Vector2(cell.worldBound.x, cell.worldBound.y));
         Vector2 br = _modal.WorldToLocal(new Vector2(cell.worldBound.xMax, cell.worldBound.yMax));
@@ -4650,6 +4758,9 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             left = leftX;
             top = Mathf.Clamp(tl.y - grownExtra, 4f, maxTop);
         }
+        // Pushed further right so the card stops covering the slots next to the hovered tile (Tad). Clamped
+        // so it never runs off the modal's right edge.
+        left = Mathf.Clamp(left + TooltipRightShift, 4f, Mathf.Max(4f, modalW - TooltipW - 4f));
         _newSchedulerTooltip.style.left = left;
         _newSchedulerTooltip.style.top = top;
         // Cap the scroll area to whatever room is left below it in the modal, rather than letting

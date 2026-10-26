@@ -106,7 +106,7 @@ public static class ShippedFanfare
         _eventPlaying = true;
 
         string text = _eventQueue.Dequeue();
-        int durationMs = _eventQueue.Count > 0 ? 2200 : 3400;
+        int durationMs = _eventQueue.Count > 0 ? 4400 : 6800;   // twice as long as first cut, so the text can be read
         if (AudioManager.Has(HalAlertSound)) AudioManager.Play(HalAlertSound);
 
         var label = new Label(text);
@@ -119,8 +119,8 @@ public static class ShippedFanfare
         label.style.fontSize = 48;
         label.style.unityFontStyleAndWeight = FontStyle.Bold;
         label.style.color = new StyleColor(HalPurple);
-        label.style.unityTextOutlineWidth = 0.4f;
-        label.style.unityTextOutlineColor = new StyleColor(new Color(0.08f, 0f, 0.14f, 0.95f));
+        label.style.unityTextOutlineWidth = 0.35f;
+        label.style.unityTextOutlineColor = new StyleColor(new Color(1f, 0.92f, 0.1f, 1f));   // yellow outline so the purple pops
         label.style.opacity = 0f;
         ApplyFont(label);
         _root.Add(label);

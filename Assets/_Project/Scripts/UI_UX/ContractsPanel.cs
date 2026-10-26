@@ -423,6 +423,19 @@ public class ContractsPanel : IUIPanel
             openScheduler.style.backgroundColor = new StyleColor(ColOrange));
         titleBar.Add(openScheduler);
 
+        var toItemListing = new Button(OpenItemListing) { text = "ITEM LISTING" };
+        ApplyFont(toItemListing, bold: true, size: 16);
+        toItemListing.style.height = titleBtnSize;
+        toItemListing.style.paddingLeft = toItemListing.style.paddingRight = 18;
+        toItemListing.style.marginRight = 10;
+        toItemListing.style.flexShrink = 0;
+        toItemListing.style.borderTopWidth = toItemListing.style.borderBottomWidth =
+            toItemListing.style.borderLeftWidth = toItemListing.style.borderRightWidth = 2;
+        toItemListing.style.borderTopLeftRadius = toItemListing.style.borderTopRightRadius =
+            toItemListing.style.borderBottomLeftRadius = toItemListing.style.borderBottomRightRadius = 8;
+        NavButtonColors.Apply(toItemListing, NavButtonColors.Dest.ItemListing);
+        titleBar.Add(toItemListing);
+
         _scaleBtn = new Button { text = string.Empty };
         RuntimeTooltip.Attach(_scaleBtn, "Resize window (normal / large / fill screen)");
         StyleSquareButton(_scaleBtn);
@@ -2786,6 +2799,14 @@ private static void ApplyFont(VisualElement el, bool bold = false, int size = -1
 
         UIKeyBindingManager.Instance?.CloseAll();
         workQueue.Show();
+    }
+
+    private void OpenItemListing()
+    {
+        Hide();
+        UIKeyBindingManager.Instance?.CloseAll();
+        if (BuildMenuUI.Instance == null) { UIToast.Show("Couldn't open the Item Listing - the report windows aren't loaded."); return; }
+        BuildMenuUI.Instance.OpenReport(ReportsPanelController.Tab.ItemListing);
     }
 
     private void OpenPurchasing()

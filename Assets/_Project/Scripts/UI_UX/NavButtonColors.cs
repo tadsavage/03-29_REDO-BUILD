@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 /// </summary>
 public static class NavButtonColors
 {
-    public enum Dest { WorkQueue, Purchasing, Orders, RushOrders }
+    public enum Dest { WorkQueue, Purchasing, Orders, RushOrders, ItemListing, Scheduler }
 
     public static void Apply(Button b, Dest dest)
     {
@@ -22,6 +22,10 @@ public static class NavButtonColors
             case Dest.Purchasing:
                 fill = new Color(0.22f, 0.48f, 0.74f); hover = new Color(0.32f, 0.60f, 0.88f);
                 edge = new Color(0.12f, 0.28f, 0.48f); text = Color.white; break;
+            case Dest.Scheduler: // the original nav orange
+                fill = new Color(0.78f, 0.45f, 0.18f); hover = new Color(0.90f, 0.56f, 0.26f);
+                edge = new Color(0.50f, 0.28f, 0.10f); text = Color.white; break;
+            case Dest.ItemListing:
             case Dest.RushOrders: // baby blue, white text
                 fill = new Color(0.45f, 0.74f, 0.94f); hover = new Color(0.58f, 0.82f, 0.98f);
                 edge = new Color(0.25f, 0.50f, 0.72f); text = Color.white; break;
@@ -34,7 +38,10 @@ public static class NavButtonColors
         b.style.backgroundColor = new StyleColor(fill);
         b.style.borderTopColor = b.style.borderBottomColor =
             b.style.borderLeftColor = b.style.borderRightColor = new StyleColor(edge);
-        b.RegisterCallback<PointerEnterEvent>(_ => b.style.backgroundColor = new StyleColor(hover));
-        b.RegisterCallback<PointerLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(fill));
+        // MouseEnter/MouseLeave, not Pointer*: the panel helpers (StyleOrangeButton) repaint the fill orange on MouseLeaveEvent, which
+        // is dispatched AFTER the pointer event and so used to win, leaving only the border in the nav colour. Same event type,
+        // registered later, runs later and wins.
+        b.RegisterCallback<MouseEnterEvent>(_ => b.style.backgroundColor = new StyleColor(hover));
+        b.RegisterCallback<MouseLeaveEvent>(_ => b.style.backgroundColor = new StyleColor(fill));
     }
 }

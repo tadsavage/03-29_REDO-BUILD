@@ -316,6 +316,20 @@ public class TruckController : MonoBehaviour
     /// use above. -1 while not docked/not applicable.</summary>
     private long _dockedAtSimMinute = -1;
 
+    /// <summary>Sim-clock minute this trailer (inbound OR outbound) docked, for the Scheduler's "time in door" readout. -1 when unknown (e.g. restored from a save).</summary>
+    private long _dockStampSimMinute = -1;
+
+    /// <summary>Game minutes this trailer has been at its door, or -1 if unknown.</summary>
+    public int MinutesInDoor
+    {
+        get
+        {
+            var c = Ctx;
+            if (_dockStampSimMinute < 0 || c == null || c.TimeService == null) return -1;
+            return (int)System.Math.Max(0L, c.TimeService.TotalMinutesElapsed - _dockStampSimMinute);
+        }
+    }
+
     // ── Outbound loading (D1) handoff — mirrors the offload flags above, but for a
     // truck that arrives EMPTY and gets pallets driven ONTO it instead of off of it. Kept as
     // separate fields (not reused) so TrailerLoadController and TrailerOffloadController can never
@@ -3544,6 +3558,8 @@ private DockSlot        _dock;
         _offloadComplete = false;
         _loadClaimed     = false;
         _loadComplete    = false;
+
+        { var stampCtx = Ctx; _dockStampSimMinute = stampCtx != null && stampCtx.TimeService != null ? stampCtx.TimeService.TotalMinutesElapsed : -1; }
 
         // Inbound only — outbound dwell isn't part of the vendor dwell-time stat.
         if (!_isOutbound)

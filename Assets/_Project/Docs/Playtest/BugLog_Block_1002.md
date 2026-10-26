@@ -1,0 +1,128 @@
+# Bug log - block 1002
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 13:19 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 255s while 2 task(s) wait
+- day 1 13:19 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.45, 1.20, 21.35) — walking out to (31.45, 0.04, 21.35) (12.06m to mesh).
+- day 1 14:04 | **NO-TASK** | NO-TASK lane pallet 1B-1 sku=248905 load=2468740140
+- day 1 15:21 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (18.47, 1.11, 37.30) — walking out to (21.47, 0.08, 42.53) (5.14m to mesh).
+- day 1 15:22 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.34, 1.22, 21.31) — walking out to (-4.88, 1.08, 14.00) (12.56m to mesh).
+- day 1 17:04 | **NO-TASK** | NO-TASK lane pallet 2A-1 sku=145982 load=4275491269
+- day 1 17:19 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 240s while 8 task(s) wait
+- day 1 18:33 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (14.57, 1.23, 24.00) — walking out to (27.57, 0.04, 24.00) (12.06m to mesh).
+- day 1 21:34 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 10:52 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 13:19 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 255s while 1 task(s) wait
+- day 1 15:19 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 255s while 8 task(s) wait
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 15:55 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  DockLightController.WriteEmission (UnityEngine.Renderer r, UnityEngine.Color color) (at Assets/_Project/Scripts/Gameplay/DockLightController.cs:66)
+  DockLightController.SetOccupied (System.Boolean occupied) (at Assets/_Project/Scripts/Gameplay/DockLightController.cs:48)
+  TruckController.OnDocked () (at Assets/_Project/Scripts/Actors/TruckController.cs:3549)
+  TruckController.UpdateStraighteningIntoDoor () (at Assets/_Project/Scripts/Actors/TruckController.cs:3243)
+  TruckController.UpdateStateMachine () (at Assets/_Project/Scripts/Actors/TruckController.cs:2640)
+  TruckController.Update () (at Assets/_Project/Scripts/Actors/TruckController.cs:1802)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  DockLightController.WriteEmission (UnityEngine.Renderer r, UnityEngine.Color color) (at Assets/_Project/Scripts/Gameplay/DockLightController.cs:66)
+  DockLightController.SetOccupied (System.Boolean occupied) (at Assets/_Project/Scripts/Gameplay/DockLightController.cs:48)
+  TruckController.OnDocked () (at Assets/_Project/Scripts/Actors/TruckController.cs:3549)
+  TruckController.UpdateStraighteningIntoDoor () (at Assets/_Project/Scripts/Actors/TruckController.cs:3243)
+  TruckController.UpdateStateMachine () (at Assets/_Project/Scripts/Actors/TruckController.cs:2640)
+  TruckController.Update () (at Assets/_Project/Scripts/Actors/TruckController.cs:1802)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  DockLightController.WriteEmission (UnityEngine.Renderer r, UnityEngine.Color color) (at Assets/_Project/Scripts/Gameplay/DockLightController.cs:66)
+  DockLightController.SetOccupied (System.Boolean occupied) (at Assets/_Project/Scripts/Gameplay/DockLightController.cs:48)
+  TruckController.OnDocked () (at Assets/_Project/Scripts/Actors/TruckController.cs:3549)
+  TruckController.UpdateStraighteningIntoDoor () (at Assets/_Project/Scripts/Actors/TruckController.cs:3243)
+  TruckController.UpdateStateMachine () (at Assets/_Project/Scripts/Actors/TruckController.cs:2640)
+  TruckController.Update () (at Assets/_Project/Scripts/Actors/TruckController.cs:1802)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (4.16, 1.25, 26.86) — walking out to (4.46, 1.08, 14.33) (12.43m to mesh).
+- ? | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (4.16, 1.25, 26.86) — walking out to (4.46, 1.08, 14.33) (12.43m to mesh).
+- ? | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (4.16, 1.25, 26.86) — walking out to (4.46, 1.08, 14.33) (12.43m to mesh).
