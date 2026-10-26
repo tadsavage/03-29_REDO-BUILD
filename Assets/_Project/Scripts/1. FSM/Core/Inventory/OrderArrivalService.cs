@@ -128,6 +128,7 @@ namespace GameCore.Inventory
         /// created at runtime is the wrong place for bookkeeping about the board it sits on.
         /// </summary>
         private readonly Dictionary<string, int> _generatedOfferDay = new();
+        private readonly HashSet<string> _warnedMissingContract = new();
 
         private EventManager _eventManager;
         private OrderService _orderService;
@@ -825,8 +826,14 @@ namespace GameCore.Inventory
                 var contract = _catalog.FirstOrDefault(c => c != null && c.ContractId == signed.ContractId);
                 if (contract == null)
                 {
-                    Debug.LogWarning($"[OrderArrivalService] Signed contract '{signed.ContractId}' has no " +
-                                     $"matching asset in the catalog — skipping. (Asset renamed or removed?)");
+                    // A signed runtime bulk deal delivered everything at signing and never generates
+                    // again, so a missing catalog entry (expired offer, older save) is harmless.
+                    if (signed.ContractId.StartsWith("BULK_", System.StringComparison.Ordinal)) continue;
+
+                    // Warn once per contract, not once per hour per contract.
+                    if (_warnedMissingContract.Add(signed.ContractId))
+                        Debug.LogWarning($"[OrderArrivalService] Signed contract '{signed.ContractId}' has no " +
+                                         $"matching asset in the catalog — skipping. (Asset renamed or removed?)");
                     continue;
                 }
                 // A one-off delivered everything it owed at signing. It stays in _signed (and so stays

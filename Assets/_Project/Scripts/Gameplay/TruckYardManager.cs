@@ -267,7 +267,7 @@ public class TruckYardManager : MonoBehaviour
 
         var dock = FindFreeDock();
 
-        var go  = Instantiate(truckPrefab, _spawnPoint.position, _spawnPoint.rotation);
+        var go  = Instantiate(truckPrefab, ClearSpawnPosition(), _spawnPoint.rotation);
         go.name = shipment != null
             ? $"Truck→PO_{shipment.PONumber}"
             : (dock != null ? $"Truck→Door{dock.DoorNumber}" : "Truck→WaitingForDoor");
@@ -351,7 +351,7 @@ public class TruckYardManager : MonoBehaviour
 
         var dock = door.IsOccupied ? null : door;
 
-        var go  = Instantiate(truckPrefab, _spawnPoint.position, _spawnPoint.rotation);
+        var go  = Instantiate(truckPrefab, ClearSpawnPosition(), _spawnPoint.rotation);
         go.name = $"Truck→Outbound_Door{doorNumber}";
 
         var ctrl = go.GetComponent<TruckController>() ?? go.AddComponent<TruckController>();
@@ -480,6 +480,40 @@ public class TruckYardManager : MonoBehaviour
     private void OnTruckExited()
     {
         _activeTrucks = Mathf.Max(0, _activeTrucks - 1);
+    }
+
+    /// <summary>
+    /// Where a newly spawned truck should appear. Several POs/pickups due in the same hour all spawn
+    /// before the first truck has driven off, which stacked 4-5 trucks on the one spawn point
+    /// (TRUCK-OVERLAP at the gate road, block 1001). If a still-queuing truck is within a truck's length
+    /// of the spawn point, step back along the inbound road — the same line the queue slots lie on —
+    /// until there is room.
+    /// </summary>
+    private Vector3 ClearSpawnPosition()
+    {
+        Vector3 pos = _spawnPoint.position;
+        if (_gateStop == null) return pos;
+
+        Vector3 behind = _spawnPoint.position - _gateStop.position;
+        behind.y = 0f;
+        if (behind.sqrMagnitude < 0.0001f) return pos;
+        behind.Normalize();
+
+        float need = queueSpacing * 0.9f;
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            bool blocked = false;
+            foreach (var t in _gateQueue)
+            {
+                if (t == null) continue;
+                Vector3 d = t.transform.position - pos;
+                d.y = 0f;
+                if (d.sqrMagnitude < need * need) { blocked = true; break; }
+            }
+            if (!blocked) break;
+            pos += behind * queueSpacing;
+        }
+        return pos;
     }
 
     // ── Gate queue ──────────────────────────────────────────────────────────────

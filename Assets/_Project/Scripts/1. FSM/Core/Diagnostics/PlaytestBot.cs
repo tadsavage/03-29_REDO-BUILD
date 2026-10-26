@@ -101,7 +101,7 @@ namespace GameCore.Diagnostics
             ["MONEY-DRIFT"] = 4f, ["PARTNERSHIP-RANGE"] = 2f, ["DUPLINK"] = 2f, ["ORPHAN-OUTBOUND"] = 2f,
             ["NO-RECORD"] = 3f, ["NO-TASK"] = 2f, ["FLOATING"] = 3f, ["OVERLAP"] = 3f, ["GHOST-RECORD"] = 3f,
             ["STALE-ASSIGNED"] = 2f, ["REPEATING"] = 2f, ["TRUCK-TILT"] = 2f, ["TRUCK-SUNK"] = 3f, ["TRUCK-STALLED"] = 3f, ["TRUCK-OVERLAP"] = 2f,
-            ["VEHICLE-STATIONARY"] = 2f, ["GHOST-SLOT"] = 3f, ["PO-FAIL"] = 2f, ["BOT-ACTION-FAIL"] = 1f,
+            ["VEHICLE-STATIONARY"] = 2f, ["DOOR-DEADLOCK"] = 4f, ["GHOST-SLOT"] = 3f, ["PO-FAIL"] = 2f, ["BOT-ACTION-FAIL"] = 1f,
         };
 
         // ═════════════════════════════════════ lifecycle ═════════════════════════════════════
@@ -184,6 +184,7 @@ namespace GameCore.Diagnostics
             HalMetrics.Reset();
             _repeatCounts.Clear();
             _recentScore.Clear(); _scoreInit = false; LiveScore = 0f; _startKey = Key(time);
+            _lastLateWhy = _lastShortWhy = _lastDeadlockWhy = _lastRepeatWhy = null; _unclaimedSince.Clear(); _streakBlock = -1;
             _activeBugKeys.Clear(); _incidents.Clear(); _firstSeen.Clear(); _actions.Clear(); _vehicleTrack.Clear();
             _bugLog = new StringBuilder();
             _bugLines = 0;
@@ -791,8 +792,227 @@ namespace GameCore.Diagnostics
 
         // ═════════════════════════════════════ bug monitor ═════════════════════════════════════
 
-        void OnShipped(OrderData o) { if (!Running) return; _shipped++; EvaluateScore("Order " + (o != null ? (o.OrderNumber ?? o.OrderId) : "") + " shipped"); }
-        void OnFined(OrderData o, int amount) { if (!Running) return; _late++; EvaluateScore("Late fine, order " + (o != null ? (o.OrderNumber ?? o.OrderId) : "")); }
+        void OnShipped(OrderData o)
+        {
+            if (!Running) return;
+            _shipped++;
+            if (o != null)
+            {
+                OrderLineItem worst = null;
+                foreach (var li in o.LineItems) if (li.QuantityRemaining > 0 && (worst == null || li.QuantityRemaining > worst.QuantityRemaining)) worst = li;
+                if (worst != null)
+                    _lastShortWhy = $"{o.OrderNumber ?? o.OrderId} ({o.CustomerName}) shipped short: {o.LineItems.Sum(l => l.QuantityRemaining)} cs cut, most on {worst.SkuId} ({worst.QuantityRemaining}).";
+            }
+            EvaluateScore("Order " + (o != null ? (o.OrderNumber ?? o.OrderId) : "") + " shipped");
+        }
+        readonly Dictionary<string, float> _lastPop = new();
+        /// <summary>Purple on-screen headline for an event HAL noticed. One per category per 30 real seconds, so a repeating bug cannot flood the screen.</summary>
+        void HalPop(string category, string text)
+        {
+            if (!Running) return;
+            float now = Time.unscaledTime;
+            if (_lastPop.TryGetValue(category, out float t) && now - t < 30f) return;
+            _lastPop[category] = now;
+            ShippedFanfare.ShowHalEvent(text.Length > 90 ? text.Substring(0, 90) + "..." : text);
+        }
+
+        void OnFined(OrderData o, int amount)
+        {
+            if (!Running) return;
+            _late++;
+            if (o != null) { _lastLateWhy = WhyLate(o); HalPop("LATE", $"LATE ORDER {o.OrderNumber ?? o.OrderId}: fined ${amount:N0}"); }
+            EvaluateScore("Late fine, order " + (o != null ? (o.OrderNumber ?? o.OrderId) : ""));
+        }
+
+        // ═════════════════════════════════════ exit criteria (the HAL window's SUMMARY tab) ═════════════════════════════════════
+        // Step 1 of the roadmap closes when StreakGoal blocks in a row each pass ALL of: on-time >= 80%, no door deadlock,
+        // no REPEATING bug, profit > 0 (cash + stock). Everything else on the tab is shown because it explains those four.
+
+        public const int StreakGoal = 5;
+        public const float OnTimeGoal = 0.80f, FillGoal = 0.90f;
+        public enum GoalState { Pending, Met, Missed }
+        public class GoalRow { public string name, goal, actual, why; public GoalState state; public bool exit; }
+
+        string _lastLateWhy, _lastShortWhy, _lastDeadlockWhy, _lastRepeatWhy;
+        readonly Dictionary<string, long> _unclaimedSince = new();
+        int _streakBlock = -1, _streakCache;
+
+        static string WhyLate(OrderData o)
+        {
+            string s;
+            switch (o.Status)
+            {
+                case OrderData.OrderStatus.Pending when !o.ReleasedToFloor: s = "was never released to the floor"; break;
+                case OrderData.OrderStatus.Pending when o.IsWaitingForLane: s = "sat waiting for a free staging lane"; break;
+                case OrderData.OrderStatus.Pending:
+                case OrderData.OrderStatus.PartiallyPicked:
+                case OrderData.OrderStatus.FullyPicked: s = $"was still being picked ({o.TotalUnitsPicked}/{o.TotalUnits} cs)"; break;
+                case OrderData.OrderStatus.Staged: s = $"was staged but no trailer loaded it (door {o.AssignedDoorNumber})"; break;
+                case OrderData.OrderStatus.Loading: s = "was still loading when it came due"; break;
+                case OrderData.OrderStatus.Loaded: s = "was loaded but the truck had not left"; break;
+                default: s = "came due unfinished"; break;
+            }
+            return $"{o.OrderNumber ?? o.OrderId} ({o.CustomerName}) {s}.";
+        }
+
+        /// <summary>A staged/loading order whose outbound truck has sat docked and unclaimed for 90 game minutes: the block-5 deadlock (staged product, empty truck at the door, no Load task).</summary>
+        void CheckDoorDeadlocks()
+        {
+            if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null || !ServiceLocator.TryGet<SimulationTimeService>(out var time)) return;
+            long now = Key(time);
+            var trucks = FindObjectsByType<TruckController>();
+            var seen = new HashSet<string>();
+            foreach (var o in orders.ActiveOrders)
+            {
+                if (o == null || (o.Status != OrderData.OrderStatus.Staged && o.Status != OrderData.OrderStatus.Loading) || o.AssignedDoorNumber <= 0) continue;
+                var tr = trucks.FirstOrDefault(t => t != null && t.IsOutbound && t.AwaitingLoad && t.OutboundDoorNumber == o.AssignedDoorNumber);
+                if (tr == null) continue;
+                seen.Add(o.OrderId);
+                if (!_unclaimedSince.TryGetValue(o.OrderId, out long since)) { _unclaimedSince[o.OrderId] = now; continue; }
+                if (now - since < 90) continue;
+                _lastDeadlockWhy = $"{o.OrderNumber ?? o.OrderId} is {o.Status} but door {o.AssignedDoorNumber}'s truck has waited {now - since} min with no one loading it.";
+                Note("DOOR-DEADLOCK", _lastDeadlockWhy);
+            }
+            foreach (var k in _unclaimedSince.Keys.Where(k => !seen.Contains(k)).ToList()) _unclaimedSince.Remove(k);
+        }
+
+        static bool BlockPassed(PlaytestBlockResult r) =>
+            r != null && r.ordersShipped > 0 && r.onTime >= OnTimeGoal * 100f
+            && !r.bugKeys.Any(k => k.StartsWith("DOOR-DEADLOCK") || k.StartsWith("REPEATING"))
+            && (r.cashEnd + r.inventoryEnd) - (r.cashStart + r.inventoryStart) > 0;
+
+        /// <summary>Consecutive passing blocks, newest first, in this series (HAL's blocks, or the player's).</summary>
+        public int PassStreak()
+        {
+            if (_streakBlock != _blockNo)
+            {
+                var list = ObserveOnly ? LoadPlayerHistory() : LoadHalHistory();
+                int n = 0;
+                for (int i = list.Count - 1; i >= 0 && BlockPassed(list[i]); i--) n++;
+                _streakCache = n; _streakBlock = _blockNo;
+            }
+            return _streakCache;
+        }
+
+        string BiggestQueue()
+        {
+            if (!ServiceLocator.TryGet<WorkQueueSystem>(out var wq) || wq == null) return null;
+            var g = wq.Tasks.Where(t => t != null && t.Status == WorkTaskStatus.Available && t.Type != WorkTaskType.ChargeMHE)
+                            .GroupBy(t => t.Type).OrderByDescending(x => x.Count()).FirstOrDefault();
+            return g == null ? null : $"{g.Count()} {g.Key} task(s) waiting";
+        }
+
+        string TopBug()
+        {
+            var top = _incidents.OrderByDescending(k => WeightOf(k.Key) * k.Value).FirstOrDefault();
+            if (top.Key == null) return null;
+            string[] p = top.Key.Split('|');
+            string detail = p.Length > 1 ? p[1].Trim() : "";
+            if (detail.Length > 70) detail = detail.Substring(0, 70) + "...";
+            return $"{p[0]} x{top.Value}: {detail}";
+        }
+
+        /// <summary>Goal vs actual for every part of the score, plus a one-line reason for each miss.</summary>
+        public List<GoalRow> GetGoalRows()
+        {
+            var rows = new List<GoalRow>();
+            if (S == null || !ServiceLocator.TryGet<SimulationTimeService>(out var time) || !ServiceLocator.TryGet<MoneyService>(out var money)) return rows;
+            ServiceLocator.TryGet<FulfillmentStatsService>(out var stats);
+            ServiceLocator.TryGet<OrderService>(out var orders);
+            float elapsed = Mathf.Max(0.25f, (Key(time) - _startKey) / 1440f);
+            int done = _shipped + _late;
+
+            // 1. on-time
+            float onT = done > 0 ? (float)_shipped / done : 0f;
+            rows.Add(new GoalRow
+            {
+                exit = true, name = "On-time orders", goal = ">= 80%",
+                actual = done > 0 ? $"{onT * 100f:0}%  ({_shipped} shipped, {_late} late)" : "no orders finished yet",
+                state = done == 0 ? GoalState.Pending : onT >= OnTimeGoal ? GoalState.Met : GoalState.Missed,
+                why = _late == 0 ? "Nothing late so far." : "Last late: " + (_lastLateWhy ?? "unknown")
+            });
+
+            // 2. deadlocks
+            int dead = _incidents.Where(k => k.Key.StartsWith("DOOR-DEADLOCK")).Sum(k => k.Value);
+            rows.Add(new GoalRow
+            {
+                exit = true, name = "Door deadlocks", goal = "0", actual = dead.ToString(),
+                state = dead == 0 ? GoalState.Met : GoalState.Missed,
+                why = dead == 0 ? "No door held by an unloaded truck." : _lastDeadlockWhy
+            });
+
+            // 3. repeating bugs
+            int rep = _incidents.Count(k => k.Key.StartsWith("REPEATING"));
+            rows.Add(new GoalRow
+            {
+                exit = true, name = "Repeating bugs", goal = "0", actual = rep.ToString(),
+                state = rep == 0 ? GoalState.Met : GoalState.Missed,
+                why = rep == 0 ? "No log line has looped 25 times." : (_lastRepeatWhy ?? "unknown")
+            });
+
+            // 4. profit
+            int net = (money.CurrentCapital + InventoryValueNow()) - (_startCash + _startInventory);
+            rows.Add(new GoalRow
+            {
+                exit = true, name = "Profit (cash + stock)", goal = "> $0", actual = (net >= 0 ? "+$" : "-$") + Mathf.Abs(net).ToString("N0"),
+                state = net > 0 ? GoalState.Met : GoalState.Missed,
+                why = net > 0 ? "Ahead of where the block started."
+                              : $"Cash ${money.CurrentCapital:N0} + stock ${InventoryValueNow():N0} is below the start; revenue so far ${money.LifetimeIncome.Values.Sum() - _startIncome:N0}."
+            });
+
+            // supporting parts of the score
+            float fill = _shipped > 0 && stats != null ? Mathf.Clamp01(stats.AvgFillRate) : 0f;
+            rows.Add(new GoalRow
+            {
+                name = "Fill rate", goal = ">= 90%", actual = _shipped > 0 ? $"{fill * 100f:0}%" : "n/a",
+                state = _shipped == 0 ? GoalState.Pending : fill >= FillGoal ? GoalState.Met : GoalState.Missed,
+                why = fill >= FillGoal || _shipped == 0 ? "Orders are shipping complete." : (_lastShortWhy ?? "unknown")
+            });
+
+            int pallets = PalletsShippedTotal(0, time.Day + 1) - _palletsAtStart;
+            float palTarget = S.targetPalletsPerDay * elapsed;
+            rows.Add(new GoalRow
+            {
+                name = "Pallets shipped", goal = $">= {palTarget:0} (pace)", actual = pallets.ToString(),
+                state = pallets >= palTarget ? GoalState.Met : GoalState.Missed,
+                why = pallets >= palTarget ? "On pace." : "Biggest queue: " + (BiggestQueue() ?? "none waiting")
+            });
+
+            int revenue = money.LifetimeIncome.Values.Sum() - _startIncome;
+            float revTarget = S.targetRevenuePerDay * elapsed;
+            int open = orders != null ? orders.ActiveOrders.Count : 0;
+            int overdue = orders != null ? orders.ActiveOrders.Count(x => x != null && x.IsOverdue(time.Day)) : 0;
+            rows.Add(new GoalRow
+            {
+                name = "Revenue", goal = $">= ${revTarget:N0} (pace)", actual = "$" + revenue.ToString("N0"),
+                state = revenue >= revTarget ? GoalState.Met : GoalState.Missed,
+                why = revenue >= revTarget ? "On pace." : $"{open} order(s) open, {overdue} overdue."
+            });
+
+            rows.Add(new GoalRow
+            {
+                name = "Cash health", goal = $"never under ${S.minCashBalance:N0}", actual = "$" + money.CurrentCapital.ToString("N0"),
+                state = _cashDipHours == 0 ? GoalState.Met : GoalState.Missed,
+                why = _cashDipHours == 0 ? "Cash has stayed above the floor." : $"Cash was under the floor for {_cashDipHours} of {_cashSamples} checks."
+            });
+
+            var comps = new float[8]; ScoreNow(comps);
+            rows.Add(new GoalRow
+            {
+                name = "Reliability", goal = ">= 80", actual = $"{comps[6] * 100f:0}  ({IncidentCount} incidents)",
+                state = comps[6] >= 0.8f ? GoalState.Met : GoalState.Missed,
+                why = comps[6] >= 0.8f ? "Few bugs." : "Worst: " + (TopBug() ?? "unknown")
+            });
+
+            int repNow = ServiceLocator.TryGet<ReputationService>(out var rs) ? rs.Score : _startRep;
+            rows.Add(new GoalRow
+            {
+                name = "Reputation", goal = "rising", actual = $"{(repNow >= _startRep ? "+" : "")}{repNow - _startRep}  ({_startRep} to {repNow})",
+                state = repNow >= _startRep ? GoalState.Met : GoalState.Missed,
+                why = repNow >= _startRep ? "Holding or climbing." : "Late and cancelled orders cost reputation."
+            });
+            return rows;
+        }
 
         void OnLog(string msg, string stack, LogType type)
         {
@@ -806,7 +1026,7 @@ namespace GameCore.Diagnostics
                 if (rk.Length > 140) rk = rk.Substring(0, 140);
                 _repeatCounts.TryGetValue(rk, out int rc);
                 _repeatCounts[rk] = ++rc;
-                if (rc == 25) Note("REPEATING", "x25 and counting: " + msg.Split((char)10)[0]);
+                if (rc == 25) { _lastRepeatWhy = msg.Split((char)10)[0]; Note("REPEATING", "x25 and counting: " + _lastRepeatWhy); }
             }
             if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
             {
@@ -856,6 +1076,7 @@ namespace GameCore.Diagnostics
             _lastLogSeen[key] = nowKey;
             _incidents[key] = _incidents.TryGetValue(key, out int n) ? n + 1 : 1;
             WriteBug(category, text, stack);
+            if (category != "WARN") HalPop(category, $"BUG: {category}  {text}");
             EvaluateScore("Bug: " + category);
             if (!_firstSeen.ContainsKey(key))
             {
@@ -883,6 +1104,7 @@ namespace GameCore.Diagnostics
                 newTag ??= tag;
                 _incidents[key] = _incidents.TryGetValue(key, out int n) ? n + 1 : 1;
                 WriteBug(tag, line);
+                HalPop(tag, $"BUG: {line}");
                 if (!_firstSeen.ContainsKey(key))
                 {
                     _firstSeen[key] = $"day {CurrentDay()}";
@@ -891,6 +1113,7 @@ namespace GameCore.Diagnostics
             }
             _activeBugKeys.Clear(); foreach (var k in present) _activeBugKeys.Add(k);
             if (newTag != null) EvaluateScore("Bug: " + newTag);
+            CheckDoorDeadlocks();
 
             // 2) ghost rack slots / records
             string ghosts = QAHealthCheck.Ghosts();

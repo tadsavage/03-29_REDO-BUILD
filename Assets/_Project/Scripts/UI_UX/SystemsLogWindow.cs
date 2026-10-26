@@ -59,7 +59,7 @@ public class SystemsLogWindow : MonoBehaviour
     private static readonly Color WarningColor   = new Color(0.75f, 0.05f, 0.05f, 1f); // blood red
     private static readonly Color RevenueColor   = new Color(0.15f, 1f, 0.25f, 1f);   // bright green
     private const float RevenueFontMultiplier = 1.35f;
-    private static readonly Color HalColor = new Color(0.25f, 0.65f, 1f, 1f);          // bright blue
+    private static readonly Color HalColor = new Color(0.72f, 0.40f, 1f, 1f);          // HAL purple
     private const float HalFontMultiplier = 1f;   // same size as the other lines (Tad); still blue, bold, Orbitron
     private static Font _halFont;
     public static Font HalFont => _halFont != null ? _halFont : (_halFont = Resources.Load<Font>("Resource_Fonts/HalOrbitron"));

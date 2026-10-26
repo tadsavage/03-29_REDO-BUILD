@@ -88,6 +88,9 @@ public class AudioManager : MonoBehaviour
     /// <summary>Current "Music" volume slider level (0-1).</summary>
     public static float MusicVolumeLevel => instance != null ? instance.musicVolume : 1f;
 
+    /// <summary>True when a sound with this name is in the library (lets optional sounds stay silent instead of logging a warning every play).</summary>
+    public static bool Has(string soundName) => instance != null && instance.soundMap.ContainsKey(soundName);
+
     public static void Play(string soundName)
     {
         if (instance == null) return;

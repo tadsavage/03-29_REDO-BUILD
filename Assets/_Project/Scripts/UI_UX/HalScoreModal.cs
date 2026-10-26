@@ -15,10 +15,13 @@ public static class HalScoreModal
     static VisualElement _root, _head, _grip;
     static Label _score, _sub, _title;
     static ScrollView _list;
+    static VisualElement _tabs; static Label _tabChanges, _tabSummary;
+    static int _tab;                       // 0 = last changes, 1 = summary (tabs show only while floating)
+    static string _shownSig;
     static readonly List<Label> _rows = new();
     static bool _floating;
     static int _shownCount = -1; static float _shownTotal = -1f;
-    static readonly Color Blue = new Color(0.25f, 0.65f, 1f), Good = new Color(0.35f, 0.9f, 0.45f), Bad = new Color(1f, 0.4f, 0.35f), Dim = new Color(0.62f, 0.74f, 0.84f);
+    static readonly Color Blue = new Color(0.25f, 0.65f, 1f), Good = new Color(0.35f, 0.9f, 0.45f), Bad = new Color(1f, 0.4f, 0.35f), Dim = new Color(0.62f, 0.74f, 0.84f), Purple = new Color(0.72f, 0.40f, 1f);
 
     /// <summary>Put the modal directly in front of the dock schedule, in whichever bar that currently lives in (unless it is floating).</summary>
     public static void DockBefore(VisualElement timeline)
@@ -65,11 +68,18 @@ public static class HalScoreModal
         _head = new VisualElement();
         _head.style.flexDirection = FlexDirection.Row; _head.style.justifyContent = Justify.SpaceBetween; _head.style.alignItems = Align.Center;
         _head.style.height = HeaderH; _head.style.flexShrink = 0;
-        _title = L(9, Blue, true); _title.text = "HAL SCORE"; _title.style.height = HeaderH;
+        _title = L(9, Purple, true); _title.text = "HAL SCORE"; _title.style.height = HeaderH;
         _sub = L(8, Dim); _sub.style.flexGrow = 1; _sub.style.marginLeft = 8; _sub.style.height = HeaderH;
         _score = L(19, Color.white, true); _score.style.height = HeaderH; _score.style.unityTextAlign = TextAnchor.MiddleRight;
         _head.Add(_title); _head.Add(_sub); _head.Add(_score);
         _root.Add(_head);
+
+        _tabs = new VisualElement();
+        _tabs.style.flexDirection = FlexDirection.Row; _tabs.style.flexShrink = 0; _tabs.style.height = 20; _tabs.style.marginBottom = 2;
+        _tabs.style.display = DisplayStyle.None;
+        _tabChanges = MakeTab("CHANGES", 0); _tabSummary = MakeTab("SUMMARY", 1);
+        _tabs.Add(_tabChanges); _tabs.Add(_tabSummary);
+        _root.Add(_tabs);
 
         _list = new ScrollView(ScrollViewMode.Vertical);
         _list.style.flexGrow = 1; _list.style.flexShrink = 1;
@@ -89,6 +99,26 @@ public static class HalScoreModal
         _root.schedule.Execute(Refresh).Every(400);
     }
 
+    static Label MakeTab(string text, int index)
+    {
+        var t = L(10, Dim, true);
+        t.text = text; t.pickingMode = PickingMode.Position;
+        t.style.height = 20; t.style.paddingLeft = t.style.paddingRight = 12; t.style.marginRight = 4;
+        t.style.borderTopLeftRadius = t.style.borderTopRightRadius = 4;
+        t.RegisterCallback<PointerDownEvent>(e => { if (e.button != 0) return; _tab = index; _shownCount = -1; _shownSig = null; e.StopPropagation(); Refresh(); });
+        return t;
+    }
+
+    static void StyleTabs()
+    {
+        foreach (var (lab, idx) in new[] { (_tabChanges, 0), (_tabSummary, 1) })
+        {
+            bool on = _tab == idx;
+            lab.style.backgroundColor = on ? new Color(0.25f, 0.65f, 1f, 0.35f) : new Color(1f, 1f, 1f, 0.06f);
+            lab.style.color = on ? Color.white : Dim;
+        }
+    }
+
     // ── docked / floating ─────────────────────────────────────────────────────
 
     static void ApplyDockedStyle()
@@ -99,6 +129,7 @@ public static class HalScoreModal
         _root.style.alignSelf = Align.Center; _root.style.marginLeft = StyleKeyword.Auto; _root.style.marginRight = 10;
         _grip.style.display = DisplayStyle.None;
         _title.text = "HAL SCORE";
+        _tab = 0; _tabs.style.display = DisplayStyle.None;
         _shownCount = -1;   // re-render for the 5-row docked view
     }
 
@@ -115,6 +146,7 @@ public static class HalScoreModal
         _root.style.left = wb.x; _root.style.top = Mathf.Max(0f, wb.y - 260f);
         _root.style.width = 460f; _root.style.height = 380f;
         _grip.style.display = DisplayStyle.Flex;
+        _tabs.style.display = DisplayStyle.Flex;
         _title.text = "HAL SCORE  (double-click to dock)";
         _root.BringToFront();
         _shownCount = -1;
@@ -191,12 +223,16 @@ public static class HalScoreModal
     static void Refresh()
     {
         var bot = PlaytestBot.Instance;
-        bool show = bot != null && (bot.Running || bot.BlockNo > 0) && !bot.ObserveOnly;   // in a player's block the top-centre score replaces this
+        bool show = bot != null && (bot.Running || bot.BlockNo > 0);   // also in a player's block: the SUMMARY tab is how you watch the exit criteria
         _root.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
         if (!show) return;
 
         _score.text = bot.LiveScore.ToString("0.0");
         _sub.text = bot.Running ? $"BLOCK {bot.BlockNo}  DAY {Mathf.Min(bot.BlockDay, bot.S.daysPerBlock)}/{bot.S.daysPerBlock}" : $"BLOCK {bot.BlockNo} DONE";
+
+        StyleTabs();
+        if (_floating && _tab == 1) { RenderSummary(bot); return; }
+        _shownSig = null;
 
         var changes = bot.RecentScoreChanges;
         int want = _floating ? changes.Count : Mathf.Min(5, changes.Count);
@@ -217,5 +253,56 @@ public static class HalScoreModal
             r.text = _floating ? $"{c.when}   {(c.delta >= 0 ? "+" : "")}{c.delta:0.0}   {c.cause}   (score {c.total:0.0})" : $"{(c.delta >= 0 ? "+" : "")}{c.delta:0.0}  {c.cause}";
             _list.Add(r);
         }
+    }
+
+    // ── SUMMARY tab: goal / actual / what is pulling it back ──────────────────
+
+    static void RenderSummary(PlaytestBot bot)
+    {
+        var rows = bot.GetGoalRows();
+        int streak = bot.PassStreak();
+        bool exitOk = rows.Count > 0; bool anyPending = false;
+        foreach (var r in rows) if (r.exit) { if (r.state == PlaytestBot.GoalState.Missed) exitOk = false; if (r.state == PlaytestBot.GoalState.Pending) anyPending = true; }
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append(streak).Append('|').Append(exitOk).Append(anyPending);
+        foreach (var r in rows) sb.Append(r.name).Append(r.actual).Append((int)r.state).Append(r.why);
+        string sig = sb.ToString();
+        if (sig == _shownSig) return;
+        _shownSig = sig;
+
+        var keep = _list.scrollOffset;
+        _list.Clear(); _rows.Clear();
+
+        var banner = L(12, exitOk ? Good : Bad, true);
+        banner.text = $"CLOSE-OUT STREAK  {streak} / {PlaytestBot.StreakGoal} blocks     this block: {(anyPending ? "too early" : exitOk ? "PASSING" : "FAILING")}";
+        banner.style.height = 22; _list.Add(banner);
+        var rule = L(9, Dim);
+        rule.text = "A block passes when ALL four hold: on-time >= 80%, no door deadlocks, no repeating bugs, profit > $0.";
+        rule.style.height = 16; rule.style.whiteSpace = WhiteSpace.Normal; _list.Add(rule);
+
+        bool supportHeader = false;
+        foreach (var r in rows)
+        {
+            if (!r.exit && !supportHeader)
+            {
+                supportHeader = true;
+                var h = L(9, Purple, true); h.text = "OTHER PARTS OF THE SCORE"; h.style.height = 20; h.style.marginTop = 6; _list.Add(h);
+            }
+            Color c = r.state == PlaytestBot.GoalState.Met ? Good : r.state == PlaytestBot.GoalState.Missed ? Bad : Dim;
+            var line = new VisualElement(); line.style.flexDirection = FlexDirection.Row; line.style.flexShrink = 0; line.style.height = 18; line.style.marginTop = 3;
+            var dot = L(11, c, true); dot.text = r.state == PlaytestBot.GoalState.Met ? "OK " : r.state == PlaytestBot.GoalState.Missed ? "X  " : "-  "; dot.style.width = 28; dot.style.height = 18;
+            var name = L(11, Color.white, true); name.text = r.name; name.style.width = 150; name.style.height = 18;
+            var goal = L(10, Dim); goal.text = "goal " + r.goal; goal.style.width = 150; goal.style.height = 18;
+            var act = L(11, c, true); act.text = r.actual; act.style.height = 18; act.style.flexShrink = 1;
+            line.Add(dot); line.Add(name); line.Add(goal); line.Add(act);
+            _list.Add(line);
+
+            var why = L(10, Dim); why.text = "    " + (r.why ?? "");
+            why.style.whiteSpace = WhiteSpace.Normal; why.style.height = StyleKeyword.Auto; why.style.minHeight = 14; why.style.marginLeft = 28;
+            why.style.unityTextAlign = TextAnchor.UpperLeft;
+            _list.Add(why);
+        }
+        _list.scrollOffset = keep;
     }
 }

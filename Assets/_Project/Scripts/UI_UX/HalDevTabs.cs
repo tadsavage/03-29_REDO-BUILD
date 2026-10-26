@@ -29,7 +29,7 @@ public static class HalDevTabs
         root.Clear();
         root.style.paddingLeft = root.style.paddingRight = 14; root.style.paddingTop = root.style.paddingBottom = 12;
 
-        var title = Text("HAL 9000", 34, Red, true);
+        var title = Text("HAL 9000", 34, new Color(0.72f, 0.40f, 1f), true);
         root.Add(title);
         root.Add(Text("Playtest bot. It plays the warehouse so we can hunt bugs. Not an AI: a fixed set of rules.", Small, Dim));
 

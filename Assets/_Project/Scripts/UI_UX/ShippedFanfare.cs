@@ -37,6 +37,8 @@ public static class ShippedFanfare
         _playing = false;
         _root = null;
         _confettiStrip = null;
+        _eventQueue.Clear();
+        _eventPlaying = false;
     }
 
     public static void Show(string orderNumber, int amount)
@@ -80,6 +82,59 @@ public static class ShippedFanfare
         ConfettiFx.Play(_root, _confettiStrip);
         label.schedule.Execute(() => ConfettiFx.Play(_root, _confettiStrip)).ExecuteLater(2200);
         label.schedule.Execute(() => label.RemoveFromHierarchy()).ExecuteLater(durationMs + 40);
+    }
+
+    // ── HAL 9000 event pop-ups: same pop-in as the payout, in HAL purple, no confetti ──
+
+    public static readonly Color HalPurple = new Color(0.72f, 0.40f, 1f, 1f);
+    private const string HalAlertSound = "HalAlert";   // add a sound with this name to the SoundLibrary; silent until it exists
+    private static readonly Queue<string> _eventQueue = new();
+    private static bool _eventPlaying;
+
+    /// <summary>A short purple headline for something HAL noticed (a late order, a bug). Queued, at most three waiting.</summary>
+    public static void ShowHalEvent(string text)
+    {
+        if (string.IsNullOrEmpty(text) || _eventQueue.Count >= 3) return;
+        _eventQueue.Enqueue(text);
+        if (!_eventPlaying) PlayNextEvent();
+    }
+
+    private static void PlayNextEvent()
+    {
+        if (_eventQueue.Count == 0) { _eventPlaying = false; return; }
+        if (!EnsureLayer()) { _eventQueue.Clear(); _eventPlaying = false; return; }
+        _eventPlaying = true;
+
+        string text = _eventQueue.Dequeue();
+        int durationMs = _eventQueue.Count > 0 ? 2200 : 3400;
+        if (AudioManager.Has(HalAlertSound)) AudioManager.Play(HalAlertSound);
+
+        var label = new Label(text);
+        label.pickingMode = PickingMode.Ignore;
+        label.style.position = Position.Absolute;
+        label.style.left = 0; label.style.right = 0;
+        label.style.top = Length.Percent(22);
+        label.style.unityTextAlign = TextAnchor.MiddleCenter;
+        label.style.whiteSpace = WhiteSpace.Normal;
+        label.style.fontSize = 48;
+        label.style.unityFontStyleAndWeight = FontStyle.Bold;
+        label.style.color = new StyleColor(HalPurple);
+        label.style.unityTextOutlineWidth = 0.4f;
+        label.style.unityTextOutlineColor = new StyleColor(new Color(0.08f, 0f, 0.14f, 0.95f));
+        label.style.opacity = 0f;
+        ApplyFont(label);
+        _root.Add(label);
+        label.BringToFront();
+
+        label.experimental.animation.Start(0f, 1f, durationMs, (e, t) =>
+        {
+            float pop = t < 0.1f ? Mathf.Sin(t / 0.1f * Mathf.PI * 0.5f) : 1f;
+            float overshoot = t < 0.1f ? 1f + 0.3f * Mathf.Sin(t / 0.1f * Mathf.PI) : 1f;
+            float sc = Mathf.Lerp(0.4f, 1f, pop) * overshoot;
+            e.transform.scale = new Vector3(sc, sc, 1f);
+            e.style.opacity = t < 0.8f ? Mathf.Min(1f, t * 10f) : 1f - Mathf.InverseLerp(0.8f, 1f, t);
+        });
+        label.schedule.Execute(() => { label.RemoveFromHierarchy(); PlayNextEvent(); }).ExecuteLater(durationMs + 40);
     }
 
     /// <summary>The fanfare layer's root, so other full-screen UI (the results modal) can share its panel and stay above everything.</summary>
