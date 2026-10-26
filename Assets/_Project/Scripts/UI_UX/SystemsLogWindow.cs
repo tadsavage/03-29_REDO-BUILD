@@ -638,6 +638,8 @@ public class SystemsLogWindow : MonoBehaviour
             msgLabel.style.fontSize = fontSize * HalFontMultiplier;
             msgLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
             if (HalFont != null) msgLabel.style.unityFontDefinition = FontDefinition.FromFont(HalFont);
+            msgLabel.style.unityTextOutlineWidth = 0.3f;                                   // thick yellow outline so HAL's purple text stands out
+            msgLabel.style.unityTextOutlineColor = new StyleColor(new Color(1f, 0.92f, 0.1f, 1f));
         }
         msgLabel.style.whiteSpace = WhiteSpace.Normal;
         msgLabel.style.flexShrink = 1;

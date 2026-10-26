@@ -126,3 +126,163 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - ? | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (4.16, 1.25, 26.86) — walking out to (4.46, 1.08, 14.33) (12.43m to mesh).
 - ? | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (4.16, 1.25, 26.86) — walking out to (4.46, 1.08, 14.33) (12.43m to mesh).
 - ? | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (4.16, 1.25, 26.86) — walking out to (4.46, 1.08, 14.33) (12.43m to mesh).
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\VehicleGrounding.cs(109,17): warning CS0184: The given expression is never of the provided ('TextMeshPro') type
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\HalScoreModal.cs(167,80): warning CS0219: The variable 'moved' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Inventory\InventoryService.cs(43,43): warning CS0067: The event 'InventoryService.OnInventoryRestored' is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(940,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleDay' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(533,17): warning CS0414: The field 'TopBarUI._lastRevenueToday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(534,17): warning CS0414: The field 'TopBarUI._lastRevenueYesterday' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(42,19): warning CS0414: The field 'AODPreviewStage._yaw' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,17): warning CS0414: The field 'TopBarUI._lastRevenueWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(42,36): warning CS0414: The field 'FreeLookCamera.dofFStop' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(923,19): warning CS0414: The field 'SchedulerPanel._lastHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(929,19): warning CS0414: The field 'SchedulerPanel._lastScheduleHScroll' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\ModularAvatar\AODPreviewStage.cs(43,19): warning CS0414: The field 'AODPreviewStage._pitch' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(9,36): warning CS0414: The field 'Light_Adjustments._lightIntensityAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\TopBarUI.cs(535,40): warning CS0414: The field 'TopBarUI._lastExpensesWeek' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(11,36): warning CS0414: The field 'Light_Adjustments._lightRangeAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Actors\TruckController.cs(269,36): warning CS0414: The field 'TruckController.unloadDuration' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\1. FSM\Core\Diagnostics\PlaytestBot.cs(83,14): warning CS0414: The field 'PlaytestBot._blockDoneAwaitingPlan' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\FreeLookCamera.cs(40,36): warning CS0414: The field 'FreeLookCamera.dofFocalLengthMm' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used
+- day 1 08:49 | **WARN** | Assets\_Project\Scripts\Gameplay\Light_Adjustments.cs(12,36): warning CS0414: The field 'Light_Adjustments._lightSpotAngleAdjustment' is assigned but its value is never used

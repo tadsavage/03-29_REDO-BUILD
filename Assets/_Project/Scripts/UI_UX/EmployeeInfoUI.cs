@@ -97,6 +97,7 @@ public class EmployeeInfoUI : MonoBehaviour
                 _avatarElement.UnregisterCallback<PointerDownEvent>(OnAvatarPointerDown);
             _panel.UnregisterCallback<PointerMoveEvent>(OnPanelPointerMove);
             _panel.UnregisterCallback<PointerUpEvent>(OnPanelPointerUp);
+            _panel.UnregisterCallback<PointerDownEvent>(OnPanelRightClick);
 
             // Drop any actions dropdown from a previous Init/panel so we don't duplicate it.
             if (_actionsDropdown != null)
@@ -107,6 +108,7 @@ public class EmployeeInfoUI : MonoBehaviour
         }
 
         _panel = panel;
+        _panel.RegisterCallback<PointerDownEvent>(OnPanelRightClick);   // right-click anywhere on the card closes it, like the trailer card
         _closeButton = _panel.Q<Button>("employee-close-btn");
         _nameLabel = _panel.Q<Label>("employee-name");
         _idLabel = _panel.Q<Label>("employee-id");
@@ -341,6 +343,13 @@ public class EmployeeInfoUI : MonoBehaviour
     {
         if (EmployeeHighlighter.HasInstance)
             EmployeeHighlighter.Instance.Clear();
+    }
+
+    private void OnPanelRightClick(PointerDownEvent evt)
+    {
+        if (evt.button != 1) return;
+        Hide();
+        evt.StopPropagation();
     }
 
     public void Hide()

@@ -20,7 +20,7 @@ public static class PlayerScoreHud
 {
     const float HudWidth = 260f, HudHeight = 118f;
     static readonly Color Gold = new Color(1f, 0.82f, 0.25f), Green = new Color(0.4f, 0.92f, 0.5f), Ink = new Color(0.93f, 0.96f, 1f),
-                          Dim = new Color(0.62f, 0.74f, 0.84f), Orange = new Color(0.71f, 0.45f, 0.23f), Navy = new Color(0.08f, 0.11f, 0.16f, 0.95f);
+                          Dim = new Color(0.62f, 0.74f, 0.84f), Orange = new Color(0.71f, 0.45f, 0.23f), Purple = new Color(0.72f, 0.40f, 1f), Navy = new Color(0.08f, 0.11f, 0.16f, 0.95f);
 
     static VisualElement _hud, _modal;
     static Label _title, _score, _sub;
@@ -112,7 +112,7 @@ public static class PlayerScoreHud
         _title.text = ahead ? "YOUR SCORE  -  BEATING HAL!" : "YOUR SCORE";
         _title.style.color = ahead ? Gold : Dim;
         _sub.text = _halBest >= 0f ? $"HAL's best: {_halBest:0.0}  (block {_halBestBlock})" : "HAL has no recorded block yet";
-        _hud.style.borderTopColor = _hud.style.borderBottomColor = _hud.style.borderLeftColor = _hud.style.borderRightColor = ahead ? Gold : Orange;
+        _hud.style.borderTopColor = _hud.style.borderBottomColor = _hud.style.borderLeftColor = _hud.style.borderRightColor = ahead ? Gold : Purple;
         Place(layer);
     }
 
@@ -152,7 +152,7 @@ public static class PlayerScoreHud
 
     static void BuildHud(VisualElement layer)
     {
-        _hud = new VisualElement { name = "PlayerScoreHud", pickingMode = PickingMode.Ignore };
+        _hud = new VisualElement { name = "PlayerScoreHud", pickingMode = PickingMode.Position };   // double-click opens the HAL summary window
         _hud.style.position = Position.Absolute;
         _hud.style.width = HudWidth; _hud.style.height = HudHeight;
         _hud.style.backgroundColor = Navy;
@@ -163,6 +163,7 @@ public static class PlayerScoreHud
         _score = L(62, Color.white, true); _score.style.height = 70; _score.style.width = HudWidth - 16;
         _sub = L(12, Dim, false); _sub.style.height = 18;
         _hud.Add(_title); _hud.Add(_score); _hud.Add(_sub);
+        _hud.RegisterCallback<PointerDownEvent>(e => { if (e.button == 0 && e.clickCount == 2) { HalSummaryWindow.Toggle(); e.StopPropagation(); } });
         layer.Add(_hud);
         _hud.BringToFront();
     }

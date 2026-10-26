@@ -67,6 +67,8 @@ public class EquipmentBatteryPanels : MonoBehaviour
     private readonly Dictionary<EquipmentBattery, Card> _cards = new();
     private readonly Dictionary<EquipmentBattery, VisualElement> _bolts = new();
     private readonly List<EquipmentBattery> _scratch = new();
+    // Machines whose auto-shown card (charging) was closed by a right-click; forgotten once they stop charging.
+    private readonly HashSet<EquipmentBattery> _dismissed = new();
     private EmployeeInfoUI _infoUI;
     private Camera _cam;
 
@@ -113,6 +115,9 @@ public class EquipmentBatteryPanels : MonoBehaviour
                               (mouse.leftButton.wasPressedThisFrame && !UIInputGuard.IsPointerOverUIToolkit())))
             CloseMenu();
 
+        // Right-click on a floating battery card closes it (and keeps it closed while the machine keeps charging).
+        if (mouse.rightButton.wasPressedThisFrame && TryDismissCardUnderPointer(mouse.position.ReadValue())) { _rmbDownTime = -10f; return; }
+
         if (mouse.rightButton.wasPressedThisFrame) { _rmbDownPos = mouse.position.ReadValue(); _rmbDownTime = Time.unscaledTime; }
         if (!mouse.rightButton.wasReleasedThisFrame) return;
         if (Time.unscaledTime - _rmbDownTime > 0.4f || (mouse.position.ReadValue() - _rmbDownPos).magnitude > 8f) return;
@@ -123,6 +128,24 @@ public class EquipmentBatteryPanels : MonoBehaviour
         var b = hit.collider.GetComponentInParent<EquipmentBattery>();
         if (b == null) { CloseMenu(); return; }
         OpenMenu(b, mouse.position.ReadValue());
+    }
+
+    private bool TryDismissCardUnderPointer(Vector2 screen)
+    {
+        var host = HudRoot();
+        if (host == null || host.panel == null) return false;
+        Vector2 p = RuntimePanelUtils.ScreenToPanel(host.panel, new Vector2(screen.x, Screen.height - screen.y));
+        foreach (var kv in _cards)
+        {
+            var c = kv.Value;
+            if (c.Root == null || c.Root.resolvedStyle.display == DisplayStyle.None || !c.Root.worldBound.Contains(p)) continue;
+            var b = kv.Key;
+            if (b != null) _dismissed.Add(b);
+            c.Clicked = false;
+            Remove(b);
+            return true;
+        }
+        return false;
     }
 
     private void OpenMenu(EquipmentBattery b, Vector2 screen)
@@ -200,7 +223,8 @@ public class EquipmentBatteryPanels : MonoBehaviour
         foreach (var b in EquipmentBattery.All)
         {
             if (b == null) continue;
-            if (b.IsCharging && !_cards.ContainsKey(b)) GetOrCreate(b);
+            if (!b.IsCharging) _dismissed.Remove(b);
+            if (b.IsCharging && !_cards.ContainsKey(b) && !_dismissed.Contains(b)) GetOrCreate(b);
             SetBolt(b, b.IsLow);
         }
 

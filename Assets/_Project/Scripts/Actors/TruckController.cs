@@ -1793,6 +1793,12 @@ private DockSlot        _dock;
     private static readonly Unity.Profiling.ProfilerMarker _mOut = new("TC.OutboundDwell");
     private static readonly Unity.Profiling.ProfilerMarker _mSwitch = new("TC.StateSwitch");
 
+    // Paint + logo once the spawner has finished setting the truck up (shipment / outbound appointment known by now).
+    private void Start()
+    {
+        TruckLivery.Apply(this);
+    }
+
     private void Update()
     {
         using (_mDoors.Auto()) UpdateDoors();

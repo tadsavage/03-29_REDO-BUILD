@@ -323,6 +323,8 @@ public class EmployeeWorldBanners : MonoBehaviour
 
         // Double-click the banner to close it (no close button: clicking the player again closes it too).
         root.RegisterCallback<ClickEvent>(evt => { if (evt.clickCount >= 2) { Hide(id); evt.StopPropagation(); } });
+        // Right-click anywhere on the banner closes it, like the pinned trailer card.
+        root.RegisterCallback<PointerDownEvent>(evt => { if (evt.button == 1) { Hide(id); evt.StopPropagation(); } });
         return root;
     }
 
