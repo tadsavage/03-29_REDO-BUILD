@@ -1724,7 +1724,19 @@ private void ShowLocation(LocationData location)
                         }
                     }
                 }
-                progress = totalPallets > 0 ? Mathf.Clamp01(loadedPallets / (float)totalPallets) : 0f;
+                // Case-picked pallets MIX several SKUs on one physical pallet, so "pallets aboard / one pallet per order
+                // line" can never reach 100% (19 of 21 with every line Loaded). Measure progress in CASES, and once every
+                // line is fully aboard the pallet total is simply what is aboard.
+                int needCases = 0, haveCases = 0;
+                foreach (var it in items)
+                {
+                    needCases += it.qty;
+                    haveCases += Mathf.Min(it.qty, loadedCasesBySku.TryGetValue(it.skuId, out var lc) ? lc : 0);
+                }
+                bool allAboard = needCases > 0 && haveCases >= needCases && loadedPallets > 0;
+                if (allAboard) totalPallets = loadedPallets;
+                progress = needCases > 0 ? Mathf.Clamp01(haveCases / (float)needCases)
+                         : totalPallets > 0 ? Mathf.Clamp01(loadedPallets / (float)totalPallets) : 0f;
                 totalPalletCount = totalPallets;
             }
             else

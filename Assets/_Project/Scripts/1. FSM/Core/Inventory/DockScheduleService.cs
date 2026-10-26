@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using GameCore.Economy;
 using GameCore.Events;
+using GameCore.Labor;
 using GameCore.Services;
 
 namespace GameCore.Inventory
@@ -253,6 +254,9 @@ namespace GameCore.Inventory
         /// <summary>In-game hours per block. Twelve blocks span a 24-hour day.</summary>
         public const int BlockHours = 2;
         public const int BlocksPerDay = 24 / BlockHours;
+
+        /// <summary>Auto-placed pickups start at least this many in-game hours from now (Tad, 2026-10-26).</summary>
+        public const int MinPickupLeadHours = 4;
 
         /// <summary>How many past days of appointments to keep once a day fully rolls over. Zero —
         /// there's no need to look back at a past day's schedule, so a day's appointments are purged
@@ -980,6 +984,23 @@ namespace GameCore.Inventory
                 return false;
             }
 
+            int oldDoor = appt.DoorNumber;
+            bool doorChanged = !appt.Parked && oldDoor != doorNumber;
+            if (doorChanged && appt.Kind != AppointmentKind.Inbound)
+            {
+                // A trailer that is already docked (or backing in) loads at ITS door; the freight is being
+                // built for it there. Moving the booking now would strand both, so refuse it.
+                foreach (var t in Object.FindObjectsByType<TruckController>())
+                {
+                    if (t == null || t.IsLeaving || t.OutboundAppointmentId != appointmentId) continue;
+                    if (t.AssignedDock != null)
+                    {
+                        failReason = $"That trailer is already at Door {t.AssignedDock.DoorNumber} - it can't change doors now.";
+                        return false;
+                    }
+                }
+            }
+
             appt.Day = day;
             appt.BlockIndex = blockIndex;
             appt.DoorNumber = doorNumber;
@@ -994,7 +1015,51 @@ namespace GameCore.Inventory
             // slot — reading as "already missed" for a delivery that hasn't happened yet. WasLate (see
             // DockAppointment) is the permanent record of that history; this flag is just capacity.
             appt.ClosedOut = false;
+            if (doorChanged && appt.Kind != AppointmentKind.Inbound)
+                PropagateDoorChange(appt, oldDoor, doorNumber);
             return true;
+        }
+
+        /// <summary>
+        /// A door change on the schedule has to reach everything that was already pointed at the old door:
+        /// the orders' dock door, any Load task heading there, and a trailer that was already dispatched
+        /// and is still waiting outside. Without this, work released before the move kept targeting the old
+        /// door, the loader looked for a truck that wasn't there, and the driver left empty.
+        /// The move penalty (EvaluateMove) is unchanged; this is only consistency.
+        /// </summary>
+        private void PropagateDoorChange(DockAppointment appt, int oldDoor, int newDoor)
+        {
+            var laneAddresses = new HashSet<string>();
+            if (appt.OrderIds != null && ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
+            {
+                foreach (var order in orders.ActiveOrders)
+                {
+                    if (order == null || !appt.OrderIds.Contains(order.OrderId) || order.AssignedDoorNumber <= 0) continue;
+                    // Pallets stay where they were staged; only the DOCK door moves.
+                    if (order.StagingDoorNumber <= 0) order.StagingDoorNumber = order.AssignedDoorNumber;
+                    order.AssignedDoorNumber = newDoor;
+                    foreach (var l in order.AllStagingLanes()) laneAddresses.Add($"{l.door}{l.lane}");
+                }
+            }
+
+            int retargeted = 0;
+            if (laneAddresses.Count > 0 && ServiceLocator.TryGet<WorkQueueSystem>(out var wq) && wq != null)
+            {
+                foreach (var t in wq.Tasks)
+                {
+                    if (t.Type != WorkTaskType.Load) continue;
+                    if (t.Status != WorkTaskStatus.Available && t.Status != WorkTaskStatus.Assigned) continue;
+                    if (t.ToLocation != oldDoor.ToString() || !laneAddresses.Contains(t.FromLocation)) continue;
+                    t.AssignToLocation(newDoor.ToString());
+                    retargeted++;
+                }
+            }
+
+            foreach (var truck in Object.FindObjectsByType<TruckController>())
+                if (truck != null && truck.IsOutbound && !truck.IsLeaving && truck.OutboundAppointmentId == appt.Id)
+                    truck.RetargetOutboundDoor(newDoor);
+
+            Debug.Log($"[DockSchedule] {appt.CustomerName} moved Door {oldDoor} -> Door {newDoor}; {retargeted} load task(s) retargeted.");
         }
 
         public enum MoveVerdict
@@ -1417,6 +1482,15 @@ namespace GameCore.Inventory
 
             int block = requestedHour.HasValue ? BlockForHour(requestedHour.Value) : CurrentBlock;
             if (day == CurrentDay && block < CurrentBlock) block = CurrentBlock; // their hour already passed today — can't book into the past
+            // Floor crews need real time to stage and load a trailer. Auto-placement never books a block that
+            // starts sooner than MinPickupLeadHours from now - it would be late through no fault of the player.
+            // (The due day still wins: if nothing later fits before it, the loop below simply finds nothing.)
+            if (day == CurrentDay)
+            {
+                float nowH = (Clock?.Hour ?? 0) + (Clock?.Minute ?? 0) / 60f;
+                int minBlock = Mathf.CeilToInt((nowH + MinPickupLeadHours) / BlockHours);
+                if (block < minBlock) block = minBlock;
+            }
 
             while (day <= lastDay)
             {

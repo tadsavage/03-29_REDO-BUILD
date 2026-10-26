@@ -1580,7 +1580,17 @@ public class WorkQueuePanel : IUIPanel
         // Released, but some (or all) of its work is held back for lack of lane room: its least-advanced
         // task is still Open. That is NOT an unreleased placeholder - it is released work waiting for room.
         if (order.ReleasedToFloor && task != null && task.Status == WorkTaskStatus.Open) return RowPhase.Available;
-        if (task == null) return null;
+        if (task == null)
+        {
+            // Safety net: an order with freight actually picked/built but no live task and none of the
+            // statuses above (e.g. PartiallyPicked with every pick task done, or no lane recorded) used to
+            // have NO row, so the player had no checkbox to Close Route / Close Out from while its truck
+            // sat at the door. Give it the row of the phase it is physically in.
+            if (order.Status == OrderData.OrderStatus.PartiallyPicked || order.Status == OrderData.OrderStatus.FullyPicked)
+                if (order.TotalUnitsPicked > 0 || GetOrderPallets(order).Count > 0)
+                    return order.AssignedDoorNumber > 0 ? RowPhase.Loading : RowPhase.Staged;
+            return null;
+        }
         return task.Status switch
         {
             WorkTaskStatus.Open => RowPhase.Open,

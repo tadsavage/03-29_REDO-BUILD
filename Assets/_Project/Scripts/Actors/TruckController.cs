@@ -357,6 +357,14 @@ public class TruckController : MonoBehaviour
     private int _outboundDoorNumber = -1;
     private string _outboundAppointmentId;
 
+    /// <summary>The player moved this truck's appointment to another door before it docked: wait for that
+    /// door instead. (A docked truck is never retargeted - the schedule refuses that move.)</summary>
+    public void RetargetOutboundDoor(int doorNumber)
+    {
+        if (!_isOutbound || _dock != null) return;
+        _outboundDoorNumber = doorNumber;
+    }
+
     /// <summary>The door an outbound truck is here to load at (-1 if unknown / inbound).</summary>
     public int OutboundDoorNumber => _outboundDoorNumber;
     /// <summary>DockAppointment.Id this outbound truck was dispatched for, or null.</summary>

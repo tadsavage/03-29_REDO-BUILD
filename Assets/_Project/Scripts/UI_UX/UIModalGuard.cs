@@ -11,6 +11,10 @@ using System.Collections.Generic;
 public static class UIModalGuard
 {
     private static readonly HashSet<object> _open = new();
+    // Optional "is this modal really still on screen?" check per holder. A holder whose check returns
+    // false is swept, so a Push that was never matched by a Pop (modal hidden by some other path, or
+    // pushed while it had nothing to show) can't keep every hotkey and world click dead.
+    private static readonly Dictionary<object, System.Func<bool>> _validators = new();
 
     /// <summary>True while any registered text-entry modal is open.</summary>
     public static bool IsCapturing
@@ -22,6 +26,7 @@ public static class UIModalGuard
             // every guarded hotkey AND world click dead for the rest of the run. Unity's == null is true
             // for destroyed objects, so sweep those out before answering.
             _open.RemoveWhere(o => o is UnityEngine.Object uo && uo == null);
+            _open.RemoveWhere(o => _validators.TryGetValue(o, out var v) && v != null && !SafeCheck(v));
             return _open.Count > 0;
         }
     }
@@ -34,8 +39,20 @@ public static class UIModalGuard
         return sb.ToString().Trim();
     }
 
-    public static void Push(object modal) { if (modal != null) _open.Add(modal); }
-    public static void Pop(object modal)  { if (modal != null) _open.Remove(modal); }
+    private static bool SafeCheck(System.Func<bool> v) { try { return v(); } catch { return false; } }
+
+    public static void Push(object modal, System.Func<bool> isStillOpen = null)
+    {
+        if (modal == null) return;
+        _open.Add(modal);
+        if (isStillOpen != null) _validators[modal] = isStillOpen;
+    }
+    public static void Pop(object modal)
+    {
+        if (modal == null) return;
+        _open.Remove(modal);
+        _validators.Remove(modal);
+    }
 
     // Statics survive domain reloads in the Editor, and entries are plain `object` so a destroyed
     // MonoBehaviour can't be detected and swept. Exiting Play with a modal still open would therefore
@@ -45,6 +62,7 @@ public static class UIModalGuard
     private static void ResetOnPlay()
     {
         _open.Clear();
+        _validators.Clear();
         // A build plays MainMenu -> Main in one process; nothing open in the previous scene can still
         // be open in the next one, so start every scene with a clean slate.
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -53,6 +71,6 @@ public static class UIModalGuard
 
     private static void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
-        if (mode == UnityEngine.SceneManagement.LoadSceneMode.Single) _open.Clear();
+        if (mode == UnityEngine.SceneManagement.LoadSceneMode.Single) { _open.Clear(); _validators.Clear(); }
     }
 }

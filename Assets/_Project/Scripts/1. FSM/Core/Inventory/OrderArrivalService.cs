@@ -1076,6 +1076,9 @@ namespace GameCore.Inventory
                 _catalog.RemoveAll(c => c != null && c.ContractId == id);
                 _generatedOfferDay.Remove(id);
             }
+            // Nothing should vanish silently: say so when offers lapse unanswered at midnight.
+            if (stale.Count > 0)
+                SystemsLogWindow.LogGuard($"{stale.Count} bulk offer(s) expired unanswered at midnight. New offers arrive each day - take one the same day.");
         }
 
         /// <summary>
