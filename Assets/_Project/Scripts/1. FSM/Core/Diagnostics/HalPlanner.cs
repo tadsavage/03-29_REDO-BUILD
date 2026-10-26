@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -107,7 +106,7 @@ namespace GameCore.Diagnostics
     /// </summary>
     public static class HalPlanner
     {
-        static string LedgerPath(PlaytestBotSettings s) => Path.Combine(Path.GetFullPath(Path.Combine(Application.dataPath, "..", s.ReportDir)), "changes.json");
+        static string LedgerPath(PlaytestBotSettings s) => Path.Combine(s.ResolveReportDir(), "changes.json");
 
         public static HalLedger LoadLedger(PlaytestBotSettings s)
         {
@@ -320,4 +319,3 @@ namespace GameCore.Diagnostics
         }
     }
 }
-#endif

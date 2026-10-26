@@ -620,9 +620,7 @@ public class BuildMenuUI : MonoBehaviour
             if (bar.childCount > 0 && bar[bar.childCount - 1].ClassListContains("buildmenu-utility-row")) index = bar.childCount - 1;
             bar.Insert(index, el);
         }
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         HalScoreModal.DockBefore(el);   // HAL 9000's running score sits just left of the dock schedule
-#endif
     }
 
     // EnableInClassList rather than Add/RemoveFromClassList: the classes are also set in the UXML, and

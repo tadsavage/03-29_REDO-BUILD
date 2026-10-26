@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using UnityEngine;
 
 namespace GameCore.Diagnostics
@@ -88,6 +87,16 @@ namespace GameCore.Diagnostics
         /// <summary>Where reports go. Never null or empty even if the settings asset lost the field (it did once, mid-run, and the block report failed to save).</summary>
         public string ReportDir => string.IsNullOrWhiteSpace(reportFolder) ? "Assets/_Project/Docs/Playtest" : reportFolder;
 
+        /// <summary>Absolute report folder: project-relative in the Editor, under the persistent data path in a build (the install folder may be read-only).</summary>
+        public string ResolveReportDir()
+        {
+#if UNITY_EDITOR
+            return System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", ReportDir));
+#else
+            return System.IO.Path.Combine(Application.persistentDataPath, "Playtest");
+#endif
+        }
+
         public int TotalWeight => wOnTime + wFill + wThroughput + wRevenue + wProfit + wCash + wReliability + wReputation;
 
         public void ResetWeightsToBaseline()
@@ -96,4 +105,3 @@ namespace GameCore.Diagnostics
         }
     }
 }
-#endif

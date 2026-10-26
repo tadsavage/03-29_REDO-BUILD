@@ -293,12 +293,9 @@ public class MainMenuManager : MonoBehaviour
 
         // Resolution dropdown
         BuildResolutionDropdown();
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         AddHalMenu();
-#endif
     }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
     // ── HAL 9000 (dev builds only): INITIATE above the normal buttons, HAL 9000 + BALANCE settings under SETTINGS ──
     private VisualElement _halPopup;
     private ScrollView _halScroll;
@@ -376,7 +373,6 @@ public class MainMenuManager : MonoBehaviour
         PlayerPrefs.Save();
         LoadGameScene();
     }
-#endif
 
     // ─────────────────────────────────────────────────────────────────────────
     // Button Handlers
@@ -910,9 +906,7 @@ public class MainMenuManager : MonoBehaviour
         SetVisible(_namePopup,               false);
         SetVisible(_loadPopup,               false);
         SetVisible(_settingsPopup,           false);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         SetVisible(_halPopup,                false);
-#endif
         SetVisible(_resolutionConfirmOverlay, false);
         _pendingResolutionIndex = -1;
     }

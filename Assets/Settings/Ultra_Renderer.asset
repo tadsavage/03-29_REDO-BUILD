@@ -18,8 +18,8 @@ MonoBehaviour:
     worldRidge: 2
     worldValley: 3
     worldAttenuation: 0.05
-    worldSampleCount: 16
-    maxWorldPixelRadius: 24
+    worldSampleCount: 8
+    maxWorldPixelRadius: 12
     injectionPoint: 600
     showInSceneView: 1
   m_Shader: {fileID: 4800000, guid: 75efcb75f5431d5449529819182f4261, type: 3}
@@ -160,13 +160,13 @@ MonoBehaviour:
   m_Settings:
     AOMethod: 0
     Downsample: 1
-    AfterOpaque: 1
+    AfterOpaque: 0
     Source: 1
-    NormalSamples: 2
-    Intensity: 0.35
-    DirectLightingStrength: 1
-    Radius: 1
-    Samples: 0
-    BlurQuality: 0
-    Falloff: 20
+    NormalSamples: 1
+    Intensity: 0.6
+    DirectLightingStrength: 0
+    Radius: 0.3
+    Samples: 1
+    BlurQuality: 1
+    Falloff: 100
     SampleCount: -1

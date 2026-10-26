@@ -411,11 +411,9 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         if (_tabIter    != null) SetTabActive(_tabIter,    tab == "iter");
         if (_tabHal     != null) SetTabActive(_tabHal,     tab == "hal");
         if (_tabBalance != null) SetTabActive(_tabBalance, tab == "balance");
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         if (tab == "hal"     && _contentHal     != null) HalDevTabs.BuildHal(_contentHal);
         if (tab == "balance" && _contentBalance != null) HalDevTabs.BuildBalance(_contentBalance);
         if (tab == "iter"    && _contentIter    != null) HalDevTabs.BuildIterations(_contentIter);
-#endif
 
         if (_tabDev      != null) SetTabActive(_tabDev,      isDev);
         if (_tabSettings != null) SetTabActive(_tabSettings, isSettings);

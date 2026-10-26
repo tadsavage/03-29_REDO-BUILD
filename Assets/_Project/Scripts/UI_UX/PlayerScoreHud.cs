@@ -1,10 +1,11 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 using GameCore.Diagnostics;
+using GameCore.Economy;
+using GameCore.Services;
 
 /// <summary>
 /// The score display for a block the PLAYER is playing (HAL 9000 in observe-only mode, started from the Dev Console's HAL tab with
@@ -33,12 +34,22 @@ public static class PlayerScoreHud
     static void Boot()
     {
         _hud = null; _modal = null; _timeLabel = null; _bestForBlockNo = -1;   // statics outlive Play sessions (domain reload is off)
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
         PlaytestBot.BlockFinished -= OnBlockFinished;
         PlaytestBot.BlockFinished += OnBlockFinished;
         if (_driver != null) UnityEngine.Object.Destroy(_driver);
         _driver = new GameObject("[PlayerScoreHud]") { hideFlags = HideFlags.HideInHierarchy };
         _driver.AddComponent<Ticker>();
         UnityEngine.Object.DontDestroyOnLoad(_driver);
+    }
+
+    static void OnSceneLoaded(UnityEngine.SceneManagement.Scene s, UnityEngine.SceneManagement.LoadSceneMode m)
+    {
+        PlaytestBot.AutoObserveSuppressed = false;   // a fresh scene (new game / load / back to menu) gets the observer again
+        _autoReadyAt = -1f;
+        var b = PlaytestBot.Instance;
+        if (b != null && b.Running && b.ObserveOnly) b.DropObserverForLoad();
     }
 
     class Ticker : MonoBehaviour
@@ -52,10 +63,31 @@ public static class PlayerScoreHud
         }
     }
 
+    // ── always-on observer ────────────────────────────────────────────────────
+
+    static float _autoReadyAt = -1f;
+
+    /// <summary>HAL 9000 watches every game by default (observe only): once a game is running with its services up, a block starts by itself, and the next
+    /// one starts when a block ends. It stays out of the way once HAL is asked to drive or the bot is stopped by hand, until the next scene load.</summary>
+    static void TryAutoObserve()
+    {
+        if (PlaytestBot.AutoObserveSuppressed) return;
+        var bot = PlaytestBot.Instance;
+        if (bot != null && bot.Running) return;
+        if (!Application.isPlaying) return;
+        if (!ServiceLocator.TryGet<SimulationTimeService>(out _) || !ServiceLocator.TryGet<MoneyService>(out _)) { _autoReadyAt = -1f; return; }
+        if (UnityEngine.Object.FindFirstObjectByType<GameContext>() == null) { _autoReadyAt = -1f; return; }
+        if (_autoReadyAt < 0f) _autoReadyAt = Time.unscaledTime + 5f;   // let a save finish loading first
+        if (Time.unscaledTime < _autoReadyAt) return;
+        _autoReadyAt = -1f;
+        PlaytestBot.Ensure().StartBlock(true);
+    }
+
     // ── the live score ────────────────────────────────────────────────────────
 
     static void Tick()
     {
+        TryAutoObserve();
         var bot = PlaytestBot.Instance;
         bool show = bot != null && bot.Running && bot.ObserveOnly;
         if (!show) { if (_hud != null) _hud.style.display = DisplayStyle.None; return; }
@@ -240,4 +272,3 @@ public static class PlayerScoreHud
         return row;
     }
 }
-#endif
