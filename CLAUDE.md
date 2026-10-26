@@ -3119,3 +3119,25 @@ Honest assessment given to Tad: mechanics ~80% built, reliability not there; one
 - A Rigify rig for the Betty mesh was also made in Blender (`BettyTest.blend`, was unsaved at the time: check it).
 
 **Tooling gotchas (cost time again):** the Unity MCP bridge drops on every recompile and Unity needs OS focus to compile; compile gate = newest `Library/ScriptAssemblies/*.dll` mtime newer than the edited .cs, then `grep "error CS" Logs/Editor.log` (old log lines can be stale, check they are recent); shell/python escapes mangle C# char literals like backslash - use the Edit tool; `execute_code` blocks `File.Delete`; `Object` is ambiguous in `execute_code` (use `UnityEngine.Object`); `read_console` is unreliable.
+
+### Addendum 2026-10-25 — STEP 1 EXIT CRITERIA (the objective until the tutorial starts)
+
+**Assessment (Claude, 2026-10-25, from commits + HAL scoreboard + BugLog_Block_1001; not a hands-on run):** the loop is FEATURE-COMPLETE but NOT TIGHT. Every stage runs end to end, but reliability is poor. Best observed run (block 1001, player observer): score 55.1, $115.9k revenue, rep 20->49, 15 orders shipped but **13 late**, on-time 54%, fill 61%, reliability 15/100, putaway backlog ~2. HAL blocks 1-10 scored 9.8 / 51 / 23 / 15 / 36 / 16 / 42 / 24 / 13 / 27: no trend, because code, crew and buying rules changed together every block. Tad's own commit on 2026-10-18: "core game loop still buggy and boring but working nonetheless."
+
+**Step 1 is CLOSED only when** (same layout, NO code changes between blocks) three 7-day blocks in a row each show:
+- >= 80% of orders on time
+- zero deadlocked doors/lanes (no empty trucks parked at doors, no staged product waiting on a Load task that never comes)
+- zero `REPEATING` bugs in the block's bug log
+- positive profit
+- no manual intervention from Tad
+
+Only then does step 2 (Tutorial) start. The tutorial would hit every one of these jams in its first ten minutes.
+
+**Plan until then (Tad: play-test all weekend and iron it out):** stop adding features (no new HAL tooling, no Betty-style detours, nothing from FUTURE_IDEAS.md). Fix the DETERMINISTIC bugs from the block 1001 log one at a time, in this order, and run ONE block after each fix with nothing else changed so the score is comparable:
+1. Inbound trucks stacking at the gate at (6.2, 0, -60.1) (TRUCK-OVERLAP, 4-5 at once).
+2. Reach truck stuck near (1.7, 1.16, 32) every time (walks out 8-12 m): a location-specific NavMesh problem.
+3. Pallet jack with a driver not moving for 4+ min while 10-29 tasks wait (VEHICLE-STATIONARY); also "Pallet jack never got within 3m of bay 01-07".
+4. Two outbound pallets in one lane slot ("No free slot in lane 1A ... something claimed a slot mid-drop" then OVERLAP at 1A-5).
+5. NO-TASK lane pallets (received pallets with no putaway task).
+6. Block 5's deadlock (staged product + empty trucks at both doors, no Load task) if it recurs; the stale-claim watchdog is untested.
+Rank anything else by its contribution to LATE ORDERS, not by how annoying it looks. Rule carried over: change one thing per block; never edit scripts while Play is running.
