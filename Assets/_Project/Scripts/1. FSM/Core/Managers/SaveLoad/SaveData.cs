@@ -68,6 +68,8 @@ public class SaveData
     /// <summary>The player's standing in the trade. Score 0 in a save written before reputation
     /// existed, which is exactly right — that player hasn't earned anything yet.</summary>
     public ReputationSnapshot reputation = new();
+    /// <summary>The player's running observe-mode block (HAL scoring), so a reload resumes it. Empty when none.</summary>
+    public string playtestState;
 
     /// <summary>Live salvage offers AND their hidden contents. The contents must persist or a
     /// reload would reroll the trailer, turning a sight-unseen gamble into a save-scum.</summary>

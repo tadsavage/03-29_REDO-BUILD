@@ -179,6 +179,61 @@ namespace GameCore.Diagnostics
 
         public void StopBot() { Running = false; _status = "stopped"; Debug.LogWarning("[PlaytestBot] Stopped."); }
 
+        // ── a human's block lives in the SAVE ──
+        // The block's counters are plain fields, so stopping Play, reloading a save or an editor hiccup used to wipe a
+        // player's score mid-run and the next "I'll play" started a fresh block from the loaded day. They now ride along in
+        // every save (SaveData.playtestState) and a load of that save resumes the same block.
+        [Serializable]
+        class BotState
+        {
+            public int blockNo, startDay, startCash, startIncome, startRep, shipped, late, palletsAtStart, cashDipHours, cashSamples, errors;
+            public long startKey;
+            public List<string> incKeys = new(); public List<int> incCounts = new();
+            public List<string> seenKeys = new(); public List<string> seenVals = new();
+            public List<string> activeKeys = new();
+        }
+
+        /// <summary>JSON of the running player block, or null when no player block is running (HAL's own blocks are not saved).</summary>
+        public string ExportState()
+        {
+            if (!Running || !ObserveOnly) return null;
+            var st = new BotState
+            {
+                blockNo = _blockNo, startDay = _startDay, startCash = _startCash, startIncome = _startIncome, startRep = _startRep,
+                shipped = _shipped, late = _late, palletsAtStart = _palletsAtStart, cashDipHours = _cashDipHours, cashSamples = _cashSamples,
+                errors = _errors, startKey = _startKey,
+            };
+            foreach (var kv in _incidents) { st.incKeys.Add(kv.Key); st.incCounts.Add(kv.Value); }
+            foreach (var kv in _firstSeen) { st.seenKeys.Add(kv.Key); st.seenVals.Add(kv.Value); }
+            st.activeKeys.AddRange(_activeBugKeys);
+            return JsonUtility.ToJson(st);
+        }
+
+        /// <summary>Resumes a player block from <see cref="ExportState"/> output (a save load).</summary>
+        public void ImportState(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return;
+            BotState st;
+            try { st = JsonUtility.FromJson<BotState>(json); } catch (Exception e) { Debug.LogWarning("[PlaytestBot] Couldn't read saved block state: " + e.Message); return; }
+            if (st == null) return;
+            S = LoadSettings();
+            ObserveOnly = true;
+            _blockNo = st.blockNo; _startDay = st.startDay; _startCash = st.startCash; _startIncome = st.startIncome; _startRep = st.startRep;
+            _shipped = st.shipped; _late = st.late; _palletsAtStart = st.palletsAtStart; _cashDipHours = st.cashDipHours; _cashSamples = st.cashSamples;
+            _errors = st.errors; _startKey = st.startKey;
+            _purchases = _rushes = _signed = _booked = _released = 0;
+            _incidents.Clear(); for (int i = 0; i < st.incKeys.Count && i < st.incCounts.Count; i++) _incidents[st.incKeys[i]] = st.incCounts[i];
+            _firstSeen.Clear(); for (int i = 0; i < st.seenKeys.Count && i < st.seenVals.Count; i++) _firstSeen[st.seenKeys[i]] = st.seenVals[i];
+            _activeBugKeys.Clear(); foreach (var k in st.activeKeys) _activeBugKeys.Add(k);
+            _actions.Clear(); _vehicleTrack.Clear(); _repeatCounts.Clear();
+            HalMetrics.Reset();
+            _recentScore.Clear(); _scoreInit = false;
+            _bugLog = new StringBuilder(); _bugLines = 0;
+            _nextDecision = 0; _nextHealth = 0;
+            Running = true; _status = $"block {_blockNo} running";
+            Debug.LogWarning($"[PlaytestBot] PLAYER block {_blockNo} RESUMED from the save (started day {_startDay}, {_shipped} shipped, {_late} late, {_incidents.Values.Sum()} incidents).");
+        }
+
         static long Key(SimulationTimeService t) => (long)t.Day * 1440 + t.Hour * 60 + t.Minute;
 
         void Update()
