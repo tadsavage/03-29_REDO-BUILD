@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -291,7 +290,7 @@ public static class HalDevTabs
     {
         try
         {
-            string dir = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", S.ReportDir));
+            string dir = S.ResolveReportDir();
             string f = System.IO.Path.Combine(dir, "scoreboard.json");
             if (System.IO.File.Exists(f)) return JsonUtility.FromJson<PlaytestScoreboard>(System.IO.File.ReadAllText(f)).blocks.OrderBy(b => b.block).ToList();
         }
@@ -437,4 +436,3 @@ public static class HalDevTabs
 #endif
     }
 }
-#endif

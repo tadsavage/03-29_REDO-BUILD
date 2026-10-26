@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -293,7 +292,7 @@ namespace GameCore.Diagnostics
         {
             try
             {
-                string dir = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", PlaytestBot.Ensure().S.ReportDir));
+                string dir = PlaytestBot.Ensure().S.ResolveReportDir();
                 System.IO.Directory.CreateDirectory(dir);
                 string line = $"{System.DateTime.Now:yyyy-MM-dd HH:mm},{cashStart},{spent},{_placed},{_failed},{PlacedObjectRegistry.All.Count()}\n";
                 string f = System.IO.Path.Combine(dir, "builds.csv");
@@ -304,4 +303,3 @@ namespace GameCore.Diagnostics
         }
     }
 }
-#endif

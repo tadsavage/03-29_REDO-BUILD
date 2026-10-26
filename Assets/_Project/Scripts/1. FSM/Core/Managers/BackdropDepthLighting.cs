@@ -39,7 +39,7 @@ public class BackdropDepthLighting : MonoBehaviour
         if (_lastApplied == preset) return;
         _lastApplied = preset;
 
-        bool active = preset == GraphicsPresetManager.Preset.Ultra;
+        bool active = false;   // 2026-10-26: 24 range-150 point lights cost the Forward+ cluster pass dearly and darkened Ultra; Ultra now matches Good/Toaster ambience
         foreach (var rig in lightRigs)
         {
             if (rig != null) rig.SetActive(active);

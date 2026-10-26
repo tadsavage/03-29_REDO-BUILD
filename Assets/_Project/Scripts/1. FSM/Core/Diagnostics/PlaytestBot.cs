@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -167,6 +166,7 @@ namespace GameCore.Diagnostics
         public void StartBlock(bool observeOnly = false)
         {
             ObserveOnly = observeOnly;
+            if (!observeOnly) AutoObserveSuppressed = true;   // HAL is driving this session
             S = LoadSettings();   // always the live asset: a stale or blank copy ended a block the moment it started
             if (!ServiceLocator.TryGet<SimulationTimeService>(out var time) || !ServiceLocator.TryGet<MoneyService>(out var money))
             { Debug.LogWarning("[PlaytestBot] Services not ready - enter Play mode and load a save first."); return; }
@@ -201,7 +201,14 @@ namespace GameCore.Diagnostics
             Debug.LogWarning($"[PlaytestBot] Block {_blockNo} started on day {_startDay} at {S.gameSpeed}x, cash ${_startCash:N0}.");
         }
 
-        public void StopBot() { Running = false; _status = "stopped"; Debug.LogWarning("[PlaytestBot] Stopped."); }
+        public void StopBot() { Running = false; AutoObserveSuppressed = true; _status = "stopped"; Debug.LogWarning("[PlaytestBot] Stopped."); }
+
+        /// <summary>True once HAL has been asked to drive (a self-propelled block started) or the bot was stopped by hand: the always-on observer then stays out of the way
+        /// until the next scene load (PlayerScoreHud clears it).</summary>
+        public static bool AutoObserveSuppressed;
+
+        /// <summary>A save was just loaded without a saved block: end any observer block begun before the load so the auto-observer starts a fresh one from the loaded state.</summary>
+        public void DropObserverForLoad() { if (Running && ObserveOnly) { Running = false; _status = "reloaded"; } }
 
         // ── a human's block lives in the SAVE ──
         // The block's counters are plain fields, so stopping Play, reloading a save or an editor hiccup used to wipe a
@@ -927,7 +934,7 @@ namespace GameCore.Diagnostics
 
         string Folder()
         {
-            string root = Path.GetFullPath(Path.Combine(Application.dataPath, "..", S.ReportDir));
+            string root = S.ResolveReportDir();
             Directory.CreateDirectory(root);
             return root;
         }
@@ -1155,4 +1162,3 @@ namespace GameCore.Diagnostics
     }
 #endif
 }
-#endif

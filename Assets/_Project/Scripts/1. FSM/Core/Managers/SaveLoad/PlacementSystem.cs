@@ -378,11 +378,9 @@ public class PlacementSystem : MonoBehaviour
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.ReputationService reputationService))
             save.reputation = reputationService.Export();
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         // A running player block (HAL scoring) travels with the save so a reload resumes the same score.
         if (GameCore.Diagnostics.PlaytestBot.Instance != null)
             save.playtestState = GameCore.Diagnostics.PlaytestBot.Instance.ExportState();
-#endif
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.BrokerService brokerService))
             save.broker = brokerService.Export();
@@ -910,10 +908,10 @@ public class PlacementSystem : MonoBehaviour
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.ReputationService reputationRestore))
             reputationRestore.Import(save.reputation);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         if (!string.IsNullOrEmpty(save.playtestState))
             GameCore.Diagnostics.PlaytestBot.Ensure().ImportState(save.playtestState);
-#endif
+        else
+            GameCore.Diagnostics.PlaytestBot.Instance?.DropObserverForLoad();   // a loaded game starts a fresh observed block (HAL auto-observer)
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.BrokerService brokerRestore))
             brokerRestore.Import(save.broker);
