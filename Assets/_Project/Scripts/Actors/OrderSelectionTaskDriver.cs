@@ -147,6 +147,7 @@ namespace GameCore.Actors
                 CompleteCurrentOrder();
                 return;
             }
+            if (PlanTripDone()) { FinishPlanTrip(); return; }
 
             if (!TryFindBestPickLocation(_currentOrder, out var location, out var lineItem, out int takeQty))
             {
@@ -278,7 +279,7 @@ namespace GameCore.Actors
                 location.Pick(1);
 
                 lineItem.QuantityPicked++;
-                _orderService.NotePickedCase(_currentTask?.TaskId);
+                _orderService.NotePickedCase(_currentTask?.TaskId, lineItem.SkuId);
                 var activePallet = _pallets[_pallets.Count - 1];
                 activePallet.AddCase(lineItem.SkuId, sku.Prefab, caseDim, ti, hi, location.Address);
 
@@ -291,7 +292,14 @@ namespace GameCore.Actors
                     yield break;
                 }
 
-                if (activePallet.IsCubedOut)
+                // A planned pallet is finished when its planned cases are on it, not when the visual stack looks full.
+                if (PlanTripDone())
+                {
+                    FinishPlanTrip();
+                    yield break;
+                }
+
+                if (!(_currentTask != null && _currentTask.HasPlan) && activePallet.IsCubedOut)
                 {
                     if (_pallets.Count < MaxPalletsPerOrder)
                     {
@@ -804,7 +812,21 @@ namespace GameCore.Actors
             if (order.Status == OrderData.OrderStatus.Loading || order.Status == OrderData.OrderStatus.Loaded)
                 return OrderData.OrderStatus.Loading;
             if (_orderService.OtherSelectorsOnOrder(order, mine) > 0) return OrderData.OrderStatus.PartiallyPicked;
+            // Planned pallets still waiting for a selector (or full-pallet picks still on the road): the order is not staged yet.
+            if (order.UsesPalletPlan && _orderService.OtherLivePlanWork(order, mine)) return OrderData.OrderStatus.PartiallyPicked;
             return wanted;
+        }
+
+        /// <summary>True when this trip carries a pallet plan and every planned case is on its pallet.</summary>
+        private bool PlanTripDone() => _currentTask != null && _currentTask.HasPlan && _orderService.PlanComplete(_currentTask);   // visual cubing is ignored on purpose: the plan decides
+
+        /// <summary>The planned pallet is finished: deliver it to staging like any other trip. The order only reads Staged
+        /// once nothing else (other planned pallets, full-pallet picks) is still owed.</summary>
+        private void FinishPlanTrip()
+        {
+            Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) pallet {_currentTask.PlanNumber} of {_currentTask.PlanTotal} built - {_pallets.Sum(p => p != null ? p.TotalCases : 0)} case(s). Delivering to staging.");
+            if (_currentOrder.IsFullyPicked) _orderService.MarkOrderFulfilled(_currentOrder.OrderId);
+            FinishOrder();
         }
 
         /// <summary>Marks picking as partial without knocking a loading order back out of Loading.</summary>

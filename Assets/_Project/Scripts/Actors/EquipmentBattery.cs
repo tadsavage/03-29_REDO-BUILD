@@ -463,19 +463,13 @@ public class EquipmentBattery : MonoBehaviour
         }
     }
 
-    private void AnnounceLow()
-    {
-        SystemsLogWindow.LogWarning($"{LogLinks.Equipment(LinkId, Label)} battery is low: {HoursLeft:0.0} hrs left. " +
-                                    "Use Change Battery on its driver (or right-click it when it is free).");
-    }
+    // Battery chatter (low / flat / fully charged) is kept OUT of the Systems Log on purpose (Tad, 2026-10-26): the bolt icon over
+    // the machine and the battery card already say it, and the log was drowning in it.
+    private void AnnounceLow() { }
 
     private void OnBatteryDied()
     {
         NeedsCharge = true;
-        bool driven = Slot != null && Slot.IsOccupied;
-        SystemsLogWindow.LogWarning(driven
-            ? $"{LogLinks.Equipment(LinkId, Label)} ran out of battery - its driver is taking it to a charger."
-            : $"{LogLinks.Equipment(LinkId, Label)} ran out of battery - it is heading to a charger.");
         // Pallet jacks: the selector driving it notices (OrderSelectionTaskDriver) and climbs off itself.
         // Reach trucks / dock stockers: the operator stays aboard and drives it there (see ChargeTrip).
     }
@@ -1107,7 +1101,7 @@ public class EquipmentBattery : MonoBehaviour
     {
         string letter = Station != null ? Station.GetComponent<MHEStationLetter>()?.Letter : null;
         string where = string.IsNullOrEmpty(letter) ? "on its charger" : $"at Station {letter}";
-        UIToast.Show($"{KindLower} {where} is fully charged.");   // the toast also writes the Systems Log
+        // no toast / log line: every toast is also written to the Systems Log, and "fully charged" is not worth a log entry
     }
 
     private void LoadCharge()

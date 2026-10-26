@@ -501,7 +501,10 @@ public class PlacementSystem : MonoBehaviour
                     area = (int)task.Area,
                     priority = task.Priority,
                     orderId = task.OrderId,
-                    skuId = task.SkuId
+                    skuId = task.SkuId,
+                    planText = task.PlanText,
+                    planNumber = task.PlanNumber,
+                    planTotal = task.PlanTotal
                 });
             }
         }
@@ -815,6 +818,9 @@ public class PlacementSystem : MonoBehaviour
                     task.AssignedToEmployeeGuid = snapshot.assignedToEmployeeGuid;
                     task.OrderId = snapshot.orderId;
                     task.SkuId = snapshot.skuId;
+                    task.PlanText = snapshot.planText;
+                    task.PlanNumber = snapshot.planNumber;
+                    task.PlanTotal = snapshot.planTotal;
 
                     workQueueSystem.RegisterRestoredTask(task);
                 }

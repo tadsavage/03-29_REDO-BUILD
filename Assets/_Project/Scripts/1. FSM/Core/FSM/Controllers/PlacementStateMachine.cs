@@ -393,6 +393,35 @@ private void HandleIdleHover(bool tickRaycast = true)
 
             GameObject fallbackBuildingHit = null;
 
+            // CLICKING A TRUCK: anything that is part of the truck - its body, a bumper, or a pallet riding in its trailer - is
+            // the truck. The loop below returns at the FIRST pallet it meets (hover readout), and a loaded trailer's cargo
+            // pallets sit in front of the body collider from most angles, so a click on a loaded truck showed a pallet card
+            // and never reached the pin. Resolve the truck first: walk the hits nearest-first and, if the first thing that is
+            // not part of one truck is farther than that truck's first hit, the click was on the truck.
+            if (!_raycast.IsPointerOverUI && Mouse.current.leftButton.wasPressedThisFrame)
+            {
+                TruckController clickedTruck = null;
+                for (int i = 0; i < count; i++)
+                {
+                    var hc = _hoverHitsBuffer[i].collider;
+                    var tc = hc.GetComponentInParent<TruckController>();
+                    if (tc == null)
+                    {
+                        // a solid thing in front, or a person / machine standing in front (their click colliders are triggers): not a truck click
+                        if (!hc.isTrigger || hc.GetComponentInParent<EmployeeClickHandler>() != null || hc.GetComponentInParent<MHEOperatorSlot>() != null) break;
+                        continue;
+                    }
+                    clickedTruck = tc;
+                    break;
+                }
+                if (clickedTruck != null)
+                {
+                    _hoverUI.ToggleTruckPin(clickedTruck);
+                    _hoverUI.TickHoverTruckSummary(true, clickedTruck, _hoverHitsBuffer[0].point, Camera.main);
+                    return;
+                }
+            }
+
             for (int i = 0; i < count; i++)
             {
                 var go = _hoverHitsBuffer[i].collider.gameObject;

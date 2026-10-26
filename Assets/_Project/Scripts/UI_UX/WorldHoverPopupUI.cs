@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using GameCore.Inventory;
+using GameCore.Labor;
 using GameCore.Services;
 using System.Linq;
 using System.Collections.Generic;
@@ -1501,6 +1502,8 @@ private void ShowLocation(LocationData location)
         float progress = 0f;
         int totalPalletCount = 0;
         int loadedPalletCount = -1;                                   // outbound only: pallets already aboard
+        string outboundPalletText = null;                             // outbound only: exact pallet status (replaces the old guessed "x out of y")
+        var cardOrderIds = new List<string>();
         var loadedCasesBySku = new Dictionary<string, int>();        // outbound only: cases aboard per SKU
         var items = new List<(string desc, int qty, int pallets, int criticalCases, int casesPerPallet, string skuId)>();
 
@@ -1676,6 +1679,7 @@ private void ShowLocation(LocationData location)
                              ?? orderService?.OrderHistory.FirstOrDefault(o => o.OrderId == orderId);
                     if (order == null) continue;
                     if (!string.IsNullOrEmpty(order.OrderNumber)) orderNumbers.Add(order.OrderNumber);
+                    cardOrderIds.Add(order.OrderId);
 
                     foreach (var li in order.LineItems)
                     {
@@ -1738,6 +1742,61 @@ private void ShowLocation(LocationData location)
                 progress = needCases > 0 ? Mathf.Clamp01(haveCases / (float)needCases)
                          : totalPallets > 0 ? Mathf.Clamp01(loadedPallets / (float)totalPallets) : 0f;
                 totalPalletCount = totalPallets;
+
+                // EXACT pallet status, no guessing. A case-picked pallet mixes SKUs, so how many pallets an order will end up as is
+                // only knowable once everything is picked; until then show what exists and what is still to pick, as plain facts.
+                int staged = 0, onForks = 0;
+                foreach (var ob in Object.FindObjectsByType<OutboundPalletBuilder>())
+                {
+                    if (ob == null || string.IsNullOrEmpty(ob.OrderId) || !cardOrderIds.Contains(ob.OrderId)) continue;
+                    if (truck.LoadContainer != null && ob.transform.IsChildOf(truck.LoadContainer)) continue;   // already aboard
+                    if (ob.IsOnFloor) staged++; else onForks++;
+                }
+                int picksLeft = 0, casesLeft = 0;
+                IReadOnlyList<WorkTask> wqCardTasks = null;
+                if (ServiceLocator.TryGet<WorkQueueSystem>(out var wqCard) && wqCard != null)
+                    wqCardTasks = wqCard.Tasks;
+                if (wqCard != null)
+                    picksLeft = wqCard.Tasks.Count(t => t.Type == WorkTaskType.PalletPick && !string.IsNullOrEmpty(t.OrderId) && cardOrderIds.Contains(t.OrderId)
+                                                     && t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled);
+                if (orderService != null)
+                    foreach (var id in cardOrderIds)
+                    {
+                        var oo = orderService.ActiveOrders.FirstOrDefault(x => x.OrderId == id);
+                        if (oo != null) casesLeft += Mathf.Max(0, oo.TotalUnits - oo.CancelledCases - oo.TotalUnitsPicked);
+                    }
+                int waiting = staged + onForks;
+
+                // PLANNED order(s): every loose pallet is its own task with a fixed plan, so the TOTAL is exact from release:
+                // pallets aboard + waiting + the planned pallets nobody has built yet + the full-pallet picks still coming.
+                if (wqCardTasks != null)
+                {
+                    var selects = wqCardTasks.Where(t => t.Type == WorkTaskType.OrderSelect && !string.IsNullOrEmpty(t.OrderId) && cardOrderIds.Contains(t.OrderId)
+                                                      && t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled).ToList();
+                    bool exact = selects.All(t => t.HasPlan && !t.IsScratch);
+                    if (exact)
+                    {
+                        int building = 0;
+                        foreach (var ob in Object.FindObjectsByType<OutboundPalletBuilder>())
+                            if (ob != null && !string.IsNullOrEmpty(ob.OrderId) && cardOrderIds.Contains(ob.OrderId) && ob.Stage == OutboundPalletBuilder.PalletStage.Staged
+                                && !ob.IsOnFloor && !(truck.LoadContainer != null && ob.transform.IsChildOf(truck.LoadContainer))) building++;
+                        int assignedSel = selects.Count(t => t.Status == WorkTaskStatus.Assigned);
+                        int toPick = (selects.Count - assignedSel) + Mathf.Max(0, assignedSel - building) + picksLeft;
+                        int total = loadedPallets + waiting + toPick;
+                        outboundPalletText = $"PALLETS: {loadedPallets} of {total} aboard" + System.Environment.NewLine +
+                            (waiting > 0 ? $"{waiting} waiting" : "") + (waiting > 0 && toPick > 0 ? " · " : "") + (toPick > 0 ? $"{toPick} still to pick" : (waiting == 0 ? "all picked" : ""));
+                        totalPalletCount = total;
+                        goto planDone;
+                    }
+                }
+                string line1 = $"PALLETS: {loadedPallets} aboard" + (waiting > 0 ? $" · {waiting} waiting" : "");
+                // The total is exact the moment no LOOSE cases remain to be picked: every pallet that will ever exist is either built
+                // (aboard / waiting) or is a full-pallet pick still being fetched, and each of those is exactly one pallet.
+                string line2 = casesLeft == 0
+                    ? $"TOTAL: {loadedPallets + waiting + picksLeft} pallet(s)" + (picksLeft > 0 ? $" - {picksLeft} still being fetched" : " - all picked")
+                    : "STILL TO PICK: "+ string.Join(" + ", new[] { picksLeft > 0 ? $"{picksLeft} full pallet(s)" : null, casesLeft > 0 ? $"{casesLeft} loose case(s)" : null }.Where(x => x != null));
+                outboundPalletText = line1 + System.Environment.NewLine + line2;
+            planDone:;
             }
             else
             {
@@ -1810,7 +1869,8 @@ private void ShowLocation(LocationData location)
         ui.LoadFill.style.width = new Length(progress * 100f, LengthUnit.Percent);
         ui.LoadPercentLabel.text = $"{Mathf.RoundToInt(progress * 100f)}%";
 
-        ui.TotalPalletsLabel.text = loadedPalletCount >= 0 ? $"TOTAL PALLETS: {loadedPalletCount} out of {totalPalletCount}" : $"TOTAL PALLETS: {totalPalletCount}";
+        ui.TotalPalletsLabel.text = outboundPalletText ?? (loadedPalletCount >= 0 ? $"PALLETS: {loadedPalletCount} aboard" : $"TOTAL PALLETS: {totalPalletCount}");
+        ui.TotalPalletsLabel.style.whiteSpace = WhiteSpace.Normal;
         ui.Popup.style.width = loadedPalletCount >= 0 ? 480 : 300;   // outbound cards carry a per-item progress bar
 
         ui.ItemsList.Clear();

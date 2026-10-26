@@ -199,6 +199,15 @@ namespace GameCore.Inventory
             int palletTasks = 0;
             int unreservedPallets = 0;
             int looseCases = 0;
+            var looseBySku = new List<KeyValuePair<string, int>>();   // the case-picked share of each line, for the pallet plan
+
+            void AddLoose(string skuId, int qty)
+            {
+                if (qty <= 0) return;
+                int at = looseBySku.FindIndex(k => k.Key == skuId);
+                if (at >= 0) looseBySku[at] = new KeyValuePair<string, int>(skuId, looseBySku[at].Value + qty);
+                else looseBySku.Add(new KeyValuePair<string, int>(skuId, qty));
+            }
 
             foreach (var li in order.LineItems)
             {
@@ -208,11 +217,13 @@ namespace GameCore.Inventory
                     Debug.LogWarning($"[OrderService] SKU {li.SkuId} on order {order.OrderNumber} has no " +
                                      $"committed Ti/Hi — its {li.QuantityNeeded} case(s) fall back to a case pick.");
                     looseCases += li.QuantityNeeded;
+                    AddLoose(li.SkuId, li.QuantityNeeded);
                     continue;
                 }
 
                 int pallets = li.QuantityNeeded / fullPallet;
                 looseCases += li.QuantityNeeded % fullPallet;
+                AddLoose(li.SkuId, li.QuantityNeeded % fullPallet);
 
                 var area = _inventoryService?.GetSkuData(li.SkuId)?.StorageArea ?? PalletData.AreaCategory.Grocery;
                 for (int i = 0; i < pallets; i++)
@@ -266,13 +277,27 @@ namespace GameCore.Inventory
 
             if (looseCases > 0)
             {
-                var st = _workQueue?.CreateTask(
-                    WorkTaskType.OrderSelect,
-                    EmployeeRole.OrderSelector,
-                    palletId: null,
-                    description: $"Select {looseCases} loose case(s) for {order.CustomerName}",
-                    orderId: order.OrderId);
-                if (st != null) st.Status = hasLane ? WorkTaskStatus.Available : WorkTaskStatus.Open;
+                // PALLET PLAN (Tad, 2026-10-26): the loose cases are divided into exact pallets NOW, by the same cube rule the
+                // selector's pallet uses, and each pallet is its own task. The number of pallets - and what is on each - is
+                // known from release, the Work Queue and the truck card show it 1:1, and a pallet is done when its planned
+                // cases are on it (whatever the visual stacking looks like).
+                var plan = PlanLoosePallets(looseBySku);
+                order.UsesPalletPlan = true;
+                for (int i = 0; i < plan.Count; i++)
+                {
+                    int cases = plan[i].Sum(k => k.Value);
+                    var st = _workQueue?.CreateTask(
+                        WorkTaskType.OrderSelect,
+                        EmployeeRole.OrderSelector,
+                        palletId: null,
+                        description: $"Select pallet {i + 1} of {plan.Count} for {order.CustomerName} ({cases} cs)",
+                        orderId: order.OrderId);
+                    if (st == null) continue;
+                    st.PlanText = string.Join(",", plan[i].Select(k => $"{k.Key}:{k.Value}"));
+                    st.PlanNumber = i + 1;
+                    st.PlanTotal = plan.Count;
+                    st.Status = hasLane ? WorkTaskStatus.Available : WorkTaskStatus.Open;
+                }
             }
 
             Debug.Log($"[OrderService] Order {order.OrderNumber} released to {toLocation ?? "(no lane yet)"}: filed {palletTasks} " +
@@ -430,6 +455,7 @@ namespace GameCore.Inventory
         {
             if (order == null || _workQueue == null) return false;
             if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return false;
+            if (order.UsesPalletPlan) return false;   // the plan already files every pallet; a short pick becomes SCRATCHES instead
             if (LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect)) return false;
 
             int remaining = 0;
@@ -610,7 +636,10 @@ namespace GameCore.Inventory
                 if (o.Status == OrderData.OrderStatus.Shipped || o.Status == OrderData.OrderStatus.Cancelled) continue;
                 bool selectorPending = LiveTasksForOrder(o.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect &&
                     (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned));
-                if (selectorPending) committed += LoosePalletsNeeded(o);
+                if (selectorPending) committed += o.UsesPalletPlan
+                    ? Mathf.Min(SelectorPalletsPerTrip, LiveTasksForOrder(o.OrderId).Count(t => t.Type == WorkTaskType.OrderSelect && t.HasPlan &&
+                        (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned)))
+                    : LoosePalletsNeeded(o);
             }
             return committed;
         }
@@ -652,6 +681,77 @@ namespace GameCore.Inventory
             return tasks * fullPallet;
         }
 
+        /// <summary>
+        /// Divides an order's loose (case-picked) cases into pallets, exactly as a selector's pallet fills: every case adds
+        /// 1/(Ti x Hi) of ITS OWN SKU's full pallet and a pallet is full once the sum reaches 1 (the case that crosses the line
+        /// still goes on it). Lines are taken in walking order (the serpentine pick sequence) so a pallet is built along the
+        /// route. Returns the pallets, each a list of (sku, cases).
+        /// </summary>
+        public List<List<KeyValuePair<string, int>>> PlanLoosePallets(List<KeyValuePair<string, int>> loose)
+        {
+            var pallets = new List<List<KeyValuePair<string, int>>>();
+            if (loose == null || loose.Count == 0) return pallets;
+
+            var ordered = loose.Select((kv, idx) =>
+            {
+                var slot = OrderPickPath.ChooseSlot(kv.Key, kv.Value, out _);
+                long key = slot != null ? OrderPickPath.SequenceKey(slot.Address) : long.MaxValue;
+                return (kv, idx, key);
+            }).OrderBy(x => x.key).ThenBy(x => x.idx).ToList();
+
+            float fill = 0f;
+            var current = new List<KeyValuePair<string, int>>();
+            foreach (var (kv, _, _) in ordered)
+            {
+                var sku = _inventoryService?.GetSkuData(kv.Key);
+                int perPallet = sku != null ? Mathf.Max(1, sku.Ti * sku.Hi) : 48;
+                float cost = 1f / perPallet;
+                int left = kv.Value, onThisPallet = 0;
+                while (left > 0)
+                {
+                    fill += cost; left--; onThisPallet++;
+                    if (fill >= 1f)
+                    {
+                        current.Add(new KeyValuePair<string, int>(kv.Key, onThisPallet));
+                        pallets.Add(current);
+                        current = new List<KeyValuePair<string, int>>();
+                        fill = 0f; onThisPallet = 0;
+                    }
+                }
+                if (onThisPallet > 0) current.Add(new KeyValuePair<string, int>(kv.Key, onThisPallet));
+            }
+            if (current.Count > 0) pallets.Add(current);
+            return pallets;
+        }
+
+        // Cases of each SKU a plan task has already put on its pallet (this session; an interrupted trip re-releases).
+        private readonly Dictionary<string, Dictionary<string, int>> _planPicked = new Dictionary<string, Dictionary<string, int>>();
+
+        /// <summary>Cases of this SKU the task's planned pallet still needs. Int.MaxValue when the task has no plan.</summary>
+        public int PlanRemaining(WorkTask task, string skuId)
+        {
+            if (task == null || !task.HasPlan) return int.MaxValue;
+            int planned = 0;
+            foreach (var kv in task.PlanLines()) if (kv.Key == skuId) planned += kv.Value;
+            _planPicked.TryGetValue(task.TaskId, out var picked);
+            int got = picked != null && picked.TryGetValue(skuId, out int g) ? g : 0;
+            return Mathf.Max(0, planned - got);
+        }
+
+        /// <summary>True once every case of the task's planned pallet is on it.</summary>
+        public bool PlanComplete(WorkTask task)
+        {
+            if (task == null || !task.HasPlan) return false;
+            foreach (var kv in task.PlanLines())
+                if (PlanRemaining(task, kv.Key) > 0) return false;
+            return true;
+        }
+
+        /// <summary>Tasks other than <paramref name="mine"/> that still owe this order a pallet (unclaimed, held or in someone's hands).</summary>
+        public bool OtherLivePlanWork(OrderData order, WorkTask mine)
+            => order != null && LiveTasksForOrder(order.OrderId).Any(t => t != mine && !t.IsScratch &&
+                (t.Type == WorkTaskType.OrderSelect || t.Type == WorkTaskType.PalletPick));
+
         /// <summary>How many cases of this line a case picker may still take — what's left after both
         /// what's already picked and what the Reach Trucks still owe.</summary>
         public int SelectableRemaining(OrderData order, OrderLineItem line)
@@ -685,8 +785,13 @@ namespace GameCore.Inventory
         }
 
         /// <summary>One reserved case landed on the selector's pallet (it now counts in QuantityPicked instead).</summary>
-        public void NotePickedCase(string taskId)
+        public void NotePickedCase(string taskId, string skuId = null)
         {
+            if (!string.IsNullOrEmpty(taskId) && !string.IsNullOrEmpty(skuId))
+            {
+                if (!_planPicked.TryGetValue(taskId, out var picked)) _planPicked[taskId] = picked = new Dictionary<string, int>();
+                picked[skuId] = (picked.TryGetValue(skuId, out int n) ? n : 0) + 1;
+            }
             if (string.IsNullOrEmpty(taskId) || !_pickReservations.TryGetValue(taskId, out var r)) return;
             if (r.Qty <= 1) _pickReservations.Remove(taskId);
             else _pickReservations[taskId] = (r.OrderId, r.SkuId, r.Qty - 1);
@@ -694,7 +799,9 @@ namespace GameCore.Inventory
 
         public void ReleasePick(string taskId)
         {
-            if (!string.IsNullOrEmpty(taskId)) _pickReservations.Remove(taskId);
+            if (string.IsNullOrEmpty(taskId)) return;
+            _pickReservations.Remove(taskId);
+            _planPicked.Remove(taskId);
         }
 
         /// <summary>Cases of a line other selectors are walking to right now. A reservation whose task is no
@@ -718,7 +825,13 @@ namespace GameCore.Inventory
         public int SelectableRemaining(OrderData order, OrderLineItem line, string forTaskId)
         {
             if (order == null || line == null) return 0;
-            return Mathf.Max(0, SelectableRemaining(order, line) - ReservedByOthers(order.OrderId, line.SkuId, forTaskId));
+            int general = Mathf.Max(0, SelectableRemaining(order, line) - ReservedByOthers(order.OrderId, line.SkuId, forTaskId));
+            if (!string.IsNullOrEmpty(forTaskId) && _workQueue != null)
+            {
+                var task = _workQueue.Tasks.FirstOrDefault(t => t.TaskId == forTaskId);
+                if (task != null && task.HasPlan) return Mathf.Min(general, PlanRemaining(task, line.SkuId));   // only what THIS pallet is planned to carry
+            }
+            return general;
         }
 
         /// <summary>Selectors currently working this order, other than <paramref name="except"/>.</summary>
@@ -735,6 +848,7 @@ namespace GameCore.Inventory
         public bool FileHelperSelectIfWorthwhile(OrderData order)
         {
             if (order == null || _workQueue == null || !order.ReleasedToFloor || string.IsNullOrEmpty(order.AssignedLane)) return false;
+            if (order.UsesPalletPlan) return false;   // every pallet already has its own task
             if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return false;
 
             var selects = LiveTasksForOrder(order.OrderId).Where(t => t.Type == WorkTaskType.OrderSelect).ToList();
@@ -1120,12 +1234,16 @@ namespace GameCore.Inventory
                 if (order == null) continue;
                 var held = HeldTasks(order).ToList();
                 var picks = held.Where(t => t.Type == WorkTaskType.PalletPick).ToList();
-                var select = held.FirstOrDefault(t => t.Type == WorkTaskType.OrderSelect);
+                // PLANNED orders have one case-pick task per pallet, and each needs one lane tier like a pallet pick does.
+                var plannedSelects = order.UsesPalletPlan
+                    ? held.Where(t => t.Type == WorkTaskType.OrderSelect && t.HasPlan).OrderBy(t => t.PlanNumber).ToList()
+                    : new List<WorkTask>();
+                var select = order.UsesPalletPlan ? null : held.FirstOrDefault(t => t.Type == WorkTaskType.OrderSelect);
                 int loose = LoosePalletsNeeded(order);
 
                 foreach (var l in lanes)
                 {
-                    if (picks.Count == 0 && select == null) break;
+                    if (picks.Count == 0 && select == null && plannedSelects.Count == 0) break;
                     if (!room.TryGetValue(l, out int r) || r <= 0) continue;
 
                     bool hasPrimary = !string.IsNullOrEmpty(order.AssignedLane);
@@ -1145,6 +1263,14 @@ namespace GameCore.Inventory
                         used += loose;
                         tasksReleased++;
                     }
+
+                    // Planned case-pick pallets first (they take longest), one tier each.
+                    int takeSel = Mathf.Min(r, plannedSelects.Count);
+                    for (int i = 0; i < takeSel; i++) plannedSelects[i].Status = WorkTaskStatus.Available;
+                    if (takeSel > 0) plannedSelects.RemoveRange(0, takeSel);
+                    r -= takeSel;
+                    used += takeSel;
+                    tasksReleased += takeSel;
 
                     int n = Mathf.Min(r, picks.Count);
                     string address = $"{l.door}{l.lane}";
@@ -1176,7 +1302,7 @@ namespace GameCore.Inventory
                 }
 
                 pickHeld += picks.Count;
-                if (select != null) caseHeld = true;
+                if (select != null || plannedSelects.Count > 0) caseHeld = true;
             }
             return tasksReleased;
         }
@@ -1406,7 +1532,8 @@ namespace GameCore.Inventory
                 {
                     var held = HeldTasks(o).ToList();
                     needed += held.Count(t => t.Type == WorkTaskType.PalletPick);
-                    if (held.Any(t => t.Type == WorkTaskType.OrderSelect)) needed += LoosePalletsNeeded(o);
+                    if (o.UsesPalletPlan) needed += held.Count(t => t.Type == WorkTaskType.OrderSelect && t.HasPlan);
+                    else if (held.Any(t => t.Type == WorkTaskType.OrderSelect)) needed += LoosePalletsNeeded(o);
                 }
 
                 // Lanes the batch already uses first (primary before overflow), then any empty lane.
@@ -2406,6 +2533,12 @@ namespace GameCore.Inventory
                 return false;
             }
 
+            if (AnyPalletInHand(order))
+            {
+                whyNot = "still has a pallet being moved - it will be closable once that pallet is down";
+                return false;
+            }
+
             if (order.Status == OrderData.OrderStatus.Loaded)
             {
                 // An order staged across several lanes is marked Loaded after the FIRST lane's pass; the
@@ -2543,11 +2676,23 @@ namespace GameCore.Inventory
 
         private readonly HashSet<string> _readyForCloseNotified = new HashSet<string>();
 
+        /// <summary>True while any pallet of the order is still being carried: on a selector, a pallet jack, a reach truck's or a dock
+        /// stocker's forks. It is neither in a lane nor on the trailer yet, so no lane scan sees it - closing out then ships (and
+        /// pays for) the order while freight is still moving, and the late pallet is left behind.</summary>
+        public bool AnyPalletInHand(OrderData order)
+        {
+            if (order == null) return false;
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
+                if (p != null && p.OrderId == order.OrderId && !p.IsOnFloor && p.Lifecycle != PalletLifecycle.Shipped) return true;
+            return false;
+        }
+
         public int AutoCloseLoadedOrders()
         {
             var ready = _activeOrders
                 .Where(o => o.Status == OrderData.OrderStatus.Loaded
                             && CanCloseOut(o, out _)
+                            && !AnyPalletInHand(o)
                             && StagedPalletsRemainingInLane(o) == 0
                             // Nothing still being picked or delivered: a pass can finish while reach
                             // trucks are still carrying this order's pallets to the lane.
@@ -2946,7 +3091,8 @@ namespace GameCore.Inventory
                     palletsShipped = o.PalletsShipped,
                     pickFeePerCase = o.PickFeePerCase,
                     palletFee = o.PalletFee,
-                    shortNoticeFee = o.ShortNoticeFee
+                    shortNoticeFee = o.ShortNoticeFee,
+                    usesPalletPlan = o.UsesPalletPlan
                 };
                 foreach (var li in o.LineItems)
                 {
@@ -3007,7 +3153,8 @@ namespace GameCore.Inventory
                     PalletsShipped = snap.palletsShipped,
                     PickFeePerCase = snap.pickFeePerCase,
                     PalletFee = snap.palletFee,
-                    ShortNoticeFee = snap.shortNoticeFee
+                    ShortNoticeFee = snap.shortNoticeFee,
+                    UsesPalletPlan = snap.usesPalletPlan
                 };
                 order.CancelledCases = snap.cancelledCases;
                 if (snap.overflowLanes != null)

@@ -227,6 +227,10 @@ namespace GameCore.Inventory
         /// <summary>Flat fee the customer owes because this order broke the account's advance-notice rule. 0 = it didn't.</summary>
         public int ShortNoticeFee { get; set; }
 
+        /// <summary>True once this order's loose cases were planned into exact pallets at release (one OrderSelect task per pallet,
+        /// each with its fixed contents). Such an order has no helper / continuation trips: the plan IS the work.</summary>
+        public bool UsesPalletPlan { get; set; }
+
         public OrderData(string customerId, string customerName, string deliveryAddress, int createdDay, int dueDay, int createdMinute)
         {
             OrderId = System.Guid.NewGuid().ToString();
@@ -444,6 +448,7 @@ namespace GameCore.Inventory
         public float pickFeePerCase;
         public int palletFee;
         public int shortNoticeFee;
+        public bool usesPalletPlan;
         public List<OrderLineItemSnapshot> lineItems = new();
     }
 

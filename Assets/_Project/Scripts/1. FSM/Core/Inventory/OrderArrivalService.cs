@@ -1332,10 +1332,11 @@ namespace GameCore.Inventory
             // One order = one trailer. Trim the lines until the whole order fits a single trailer, so a
             // customer never asks for more than the dock can ship in one go. Measured the way the order is
             // really built (mixed case-picked pallets take a floor spot each), with room for the part-built
-            // last pallet of every selector that may work it (OrderService.MaxSelectorsPerOrder).
+            // last pallet of every selector that may work it. With PLANNED pallets (OrderService.PlanLoosePallets) the pallet count
+            // is exact, so no slack is held back any more.
             var fittedLines = TrailerCapacity.TrimOrderToFit(order.LineItems
                 .Select(li => (sku: _inventoryService.GetSkuData(li.SkuId), cases: li.QuantityNeeded)),
-                OrderService.MaxSelectorsPerOrder - 1);
+                0);
             if (fittedLines.Count > 0)
             {
                 var keep = new Dictionary<string, int>();

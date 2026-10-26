@@ -37,6 +37,30 @@ namespace GameCore.Labor
         public string PalletId { get; set; }
         public string Description { get; }
 
+        // ── Pallet plan (OrderSelect tasks) ──
+        // Each case-pick task builds ONE pallet whose exact contents were fixed when the order was released ("sku:qty,sku:qty").
+        // The pallet is done when those cases are on it - whatever the visual cubing says - so the number of pallets an order
+        // ends as is known, and shown, from the moment it is released.
+        public string PlanText { get; set; }
+        /// <summary>1-based position of this pallet among the order's planned loose pallets, and how many there are.</summary>
+        public int PlanNumber { get; set; }
+        public int PlanTotal { get; set; }
+        public bool HasPlan => !string.IsNullOrEmpty(PlanText);
+
+        /// <summary>The planned lines of this pallet (sku, cases).</summary>
+        public System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, int>> PlanLines()
+        {
+            var list = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, int>>();
+            if (!HasPlan) return list;
+            foreach (var part in PlanText.Split(','))
+            {
+                int i = part.LastIndexOf(':');
+                if (i <= 0 || !int.TryParse(part.Substring(i + 1), out int q) || q <= 0) continue;
+                list.Add(new System.Collections.Generic.KeyValuePair<string, int>(part.Substring(0, i), q));
+            }
+            return list;
+        }
+
         /// <summary>The Description prefix that marks a SCRATCHES pick list (see OrderService.FileScratchSelect). Carried in the
         /// description, which is already saved, so it survives save/load without a new snapshot field.</summary>
         public const string ScratchPrefix = "SCRATCHES";

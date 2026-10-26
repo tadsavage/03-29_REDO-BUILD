@@ -62,3 +62,6 @@ Cancel Selected (whole orders, only while nothing is claimed) and Cancel Remaini
 
 ## Per-pallet stage (2026-10-14)
 Staged / Loading / Loaded orders draw ONE ROW PER PALLET, and each row's Status is that pallet's own `OutboundPalletBuilder.Stage` (`Staged, Moving, Loading, Loaded, Shipped`), not the order's. `TrailerLoadController` sets Loading when the dock stocker lifts a pallet (and at the top of `PlaceCarriedInTrailer`) and Loaded when it is set down in the trailer; `OrderService.ShipOrder` sets Shipped (pallets then drop out of the panel with the archived order). `BuildLiveSignature` includes per-order stage counts so a stage change redraws. `Moving` is reserved for the planned reach-truck MOVE task (relocate a staged pallet to another lane via the bottom dropdown) and currently displays as Staged. Stage is not persisted (staged pallets aren't either).
+
+## Planned case-pick rows (2026-10-26)
+OrderSelect tasks of a planned order are one-per-pallet ("Select pallet i of N ..."). `WorkQueuePanel.AddUnifiedOrderRows` shows one row per planned pallet still to come; a task a selector is already building shows as the pallet itself (no double row). Plan data persists in `WorkTaskSnapshot.planText/planNumber/planTotal`.

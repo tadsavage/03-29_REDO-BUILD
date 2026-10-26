@@ -26,6 +26,7 @@ namespace GameCore.Diagnostics
         public float shipFrac;
         public int ordersShipped, ordersLate, palletsShipped, bugIncidents, errors;
         public int cashStart, cashEnd;
+        public int inventoryStart, inventoryEnd;   // stock on hand at cost: a liquid asset, counted as if it were cash in the Profit part (from block 1001's rescore on)
         public List<string> bugKeys = new();
         public List<int> bugCounts = new();
     }
@@ -53,7 +54,30 @@ namespace GameCore.Diagnostics
         public int ActionsTaken => _actions.Count;
         public int ShippedThisBlock => _shipped;
         public int LateThisBlock => _late;
-        int _blockNo, _startDay, _startCash, _startIncome, _startRep;
+        int _blockNo, _startDay, _startCash, _startIncome, _startRep, _startInventory;
+
+        /// <summary>Stock on hand valued at cost (cases x SKU cost). Counted with cash as the business's liquid worth.</summary>
+        public static int InventoryValueNow()
+        {
+            if (!ServiceLocator.TryGet<InventoryService>(out var inv) || inv == null) return 0;
+            double sum = 0;
+            foreach (var rec in inv.AllPallets.Values)
+            {
+                if (rec == null || rec.Quantity <= 0) continue;
+                var sku = inv.GetSkuData(rec.SkuId);
+                if (sku != null) sum += rec.Quantity * (double)sku.BuyValue;
+            }
+            // Freight already paid for but still on the road is stock too - without it every purchase reads as money gone until the truck arrives.
+            if (ServiceLocator.TryGet<ShipmentService>(out var ship) && ship != null)
+                foreach (var sh in ship.PendingShipments)
+                {
+                    if (sh == null || !sh.PlayerOrdered) continue;
+                    if (sh.Status != ShipmentData.ShipmentStatus.InTransit && sh.Status != ShipmentData.ShipmentStatus.Delayed && sh.Status != ShipmentData.ShipmentStatus.Receiving) continue;
+                    foreach (var li in sh.LineItems)
+                        if (!li.Dropped) sum += Mathf.Max(0, li.Quantity - li.ReceivedQuantity) * (double)li.UnitCost;
+                }
+            return (int)sum;
+        }
         long _nextDecision, _nextHealth;
         int _lastBulkDay = -1, _bulkSignedToday, _spendDay = -1, _spentToday, _rushToday;
         string _status = "idle";
@@ -153,7 +177,7 @@ namespace GameCore.Diagnostics
             _blockNo = (_history.Count > 0 ? _history.Max(b => b.block) : 0) + 1;
             if (observeOnly) _blockNo = 1001 + LoadPlayerHistory().Count;               // a human's run: its own number series
             else if (_history.Count > 0) HalPlanner.PlanAndApply(S, _history, _blockNo);   // the one change for this block
-            _startDay = time.Day; _startCash = money.CurrentCapital; _startIncome = money.LifetimeIncome.Values.Sum();
+            _startDay = time.Day; _startCash = money.CurrentCapital; _startIncome = money.LifetimeIncome.Values.Sum(); _startInventory = InventoryValueNow();
             _startRep = ServiceLocator.TryGet<ReputationService>(out var rs0) ? rs0.Score : 0;
             _shipped = _late = _cashDipHours = _cashSamples = _purchases = _rushes = _signed = _booked = _released = _errors = 0;
             _palletsAtStart = PalletsShippedTotal(0, time.Day);
@@ -186,7 +210,7 @@ namespace GameCore.Diagnostics
         [Serializable]
         class BotState
         {
-            public int blockNo, startDay, startCash, startIncome, startRep, shipped, late, palletsAtStart, cashDipHours, cashSamples, errors;
+            public int blockNo, startDay, startCash, startIncome, startRep, startInventory, shipped, late, palletsAtStart, cashDipHours, cashSamples, errors;
             public long startKey;
             public List<string> incKeys = new(); public List<int> incCounts = new();
             public List<string> seenKeys = new(); public List<string> seenVals = new();
@@ -199,7 +223,7 @@ namespace GameCore.Diagnostics
             if (!Running || !ObserveOnly) return null;
             var st = new BotState
             {
-                blockNo = _blockNo, startDay = _startDay, startCash = _startCash, startIncome = _startIncome, startRep = _startRep,
+                blockNo = _blockNo, startDay = _startDay, startCash = _startCash, startIncome = _startIncome, startRep = _startRep, startInventory = _startInventory,
                 shipped = _shipped, late = _late, palletsAtStart = _palletsAtStart, cashDipHours = _cashDipHours, cashSamples = _cashSamples,
                 errors = _errors, startKey = _startKey,
             };
@@ -218,7 +242,7 @@ namespace GameCore.Diagnostics
             if (st == null) return;
             S = LoadSettings();
             ObserveOnly = true;
-            _blockNo = st.blockNo; _startDay = st.startDay; _startCash = st.startCash; _startIncome = st.startIncome; _startRep = st.startRep;
+            _blockNo = st.blockNo; _startDay = st.startDay; _startCash = st.startCash; _startIncome = st.startIncome; _startRep = st.startRep; _startInventory = st.startInventory;
             _shipped = st.shipped; _late = st.late; _palletsAtStart = st.palletsAtStart; _cashDipHours = st.cashDipHours; _cashSamples = st.cashSamples;
             _errors = st.errors; _startKey = st.startKey;
             _purchases = _rushes = _signed = _booked = _released = 0;
@@ -278,7 +302,7 @@ namespace GameCore.Diagnostics
             float elapsed = Mathf.Max(0.25f, (Key(time) - _startKey) / 1440f);
             int pallets = PalletsShippedTotal(0, time.Day + 1) - _palletsAtStart;
             int revenue = money.LifetimeIncome.Values.Sum() - _startIncome;
-            int net = money.CurrentCapital - _startCash;
+            int net = (money.CurrentCapital + InventoryValueNow()) - (_startCash + _startInventory);   // stock counts as money in the pocket
             float penalty = _incidents.Sum(kv => WeightOf(kv.Key) * (1f + Mathf.Log(kv.Value, 2f)));
             int rep = ServiceLocator.TryGet<ReputationService>(out var rs) ? rs.Score : _startRep;
             c[0] = _shipped + _late > 0 ? Mathf.Clamp01((float)_shipped / (_shipped + _late)) : 0f;
@@ -940,7 +964,8 @@ namespace GameCore.Diagnostics
             float throughput = Mathf.Clamp01(pallets / Mathf.Max(1f, S.targetPalletsPerDay * days));
             int revenueTotal = (money != null ? money.LifetimeIncome.Values.Sum() : 0) - _startIncome;
             float revenue = Mathf.Clamp01(revenueTotal / Mathf.Max(1f, S.targetRevenuePerDay * days));
-            int net = cashEnd - _startCash;
+            int inventoryEnd = InventoryValueNow();
+            int net = (cashEnd + inventoryEnd) - (_startCash + _startInventory);   // stock counts as money in the pocket
             float profit = Mathf.Clamp01(0.5f + 0.5f * net / Mathf.Max(1f, S.targetProfitPerDay * days));
             float cash = _cashSamples > 0 ? 1f - (float)_cashDipHours / _cashSamples : 1f;
             float penalty = _incidents.Sum(kv => WeightOf(kv.Key) * (1f + Mathf.Log(kv.Value, 2f)));
@@ -968,7 +993,7 @@ namespace GameCore.Diagnostics
                 backlogPick = HalMetrics.Avg(HalMetrics.BacklogPick), backlogLoad = HalMetrics.Avg(HalMetrics.BacklogLoad),
                 backlogOrders = HalMetrics.Avg(HalMetrics.BacklogOrders), waitingTrucks = HalMetrics.Avg(HalMetrics.WaitingTrucks),
                 ordersShipped = _shipped, ordersLate = _late, palletsShipped = pallets, bugIncidents = _incidents.Values.Sum(), errors = _errors,
-                cashStart = _startCash, cashEnd = cashEnd,
+                cashStart = _startCash, cashEnd = cashEnd, inventoryStart = _startInventory, inventoryEnd = inventoryEnd,
             };
             foreach (var kv in _incidents.OrderByDescending(k => WeightOf(k.Key) * k.Value)) { res.bugKeys.Add(kv.Key); res.bugCounts.Add(kv.Value); }
 
@@ -1041,12 +1066,12 @@ namespace GameCore.Diagnostics
             sb.AppendLine($"| Fill rate | {S.wFill}% | {D(r.fill, prev?.fill)} |");
             sb.AppendLine($"| Throughput ({r.palletsShipped} plt vs target {S.targetPalletsPerDay * Mathf.Max(1, r.endDay - r.startDay):F0}) | {S.wThroughput}% | {D(r.throughput, prev?.throughput)} |");
             sb.AppendLine($"| Revenue (${r.revenueTotal:N0}) | {S.wRevenue}% | {D(r.revenue, prev?.revenue)} |");
-            sb.AppendLine($"| Profit (cash {r.cashEnd - r.cashStart:+#,0;-#,0;0}) | {S.wProfit}% | {D(r.profit, prev?.profit)} |");
+            sb.AppendLine($"| Profit (cash + stock {(r.cashEnd + r.inventoryEnd) - (r.cashStart + r.inventoryStart):+#,0;-#,0;0}) | {S.wProfit}% | {D(r.profit, prev?.profit)} |");
             sb.AppendLine($"| Cash health (floor ${S.minCashBalance:N0}) | {S.wCash}% | {D(r.cash, prev?.cash)} |");
             sb.AppendLine($"| Reliability (bugs) | {S.wReliability}% | {D(r.reliability, prev?.reliability)} |");
             sb.AppendLine($"| Reputation ({r.repStart} to {r.repEnd}) | {S.wReputation}% | {D(r.reputation, prev?.reputation)} |");
             sb.AppendLine();
-            sb.AppendLine($"Orders shipped **{r.ordersShipped}**, late/fined **{r.ordersLate}**, pallets shipped **{r.palletsShipped}**. Cash ${r.cashStart:N0} → ${r.cashEnd:N0} ({r.cashEnd - r.cashStart:+#,0;-#,0;0}).");
+            sb.AppendLine($"Orders shipped **{r.ordersShipped}**, late/fined **{r.ordersLate}**, pallets shipped **{r.palletsShipped}**. Cash ${r.cashStart:N0} → ${r.cashEnd:N0} ({r.cashEnd - r.cashStart:+#,0;-#,0;0}). Stock at cost ${r.inventoryStart:N0} → ${r.inventoryEnd:N0}; cash + stock {(r.cashEnd + r.inventoryEnd) - (r.cashStart + r.inventoryStart):+#,0;-#,0;0}.");
             sb.AppendLine($"Bot did: {_signed} contracts signed, {_booked} dock bookings, {_released} orders released, {_purchases} POs, {_rushes} rush POs.");
             sb.AppendLine();
 

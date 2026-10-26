@@ -236,6 +236,12 @@ namespace GameCore.Actors
                     break;
                 }
 
+                if (!_currentOrder.IsFullyPicked && PlanTripDone())
+                {
+                    Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) pallet {_currentTask.PlanNumber} of {_currentTask.PlanTotal} built on the pallet jack. Driving to staging.");
+                    break;
+                }
+
                 if (_currentOrder.IsFullyPicked)
                 {
                     if (HelperNotNeeded()) break;   // nothing of ours aboard: JackStageRoutine just parks + finishes
@@ -456,10 +462,17 @@ namespace GameCore.Actors
                 SetAnimBool("CarryCase", false);
 
                 lineItem.QuantityPicked++;
-                _orderService.NotePickedCase(_currentTask?.TaskId);
+                _orderService.NotePickedCase(_currentTask?.TaskId, lineItem.SkuId);
                 activePallet.AddCase(lineItem.SkuId, sku.Prefab, caseDim, ti, hi, location.Address);
 
                 if (_currentOrder.IsFullyPicked) yield break;
+
+                // A planned pallet is finished when its planned cases are on it (the loop above then drives it to staging).
+                if (_currentTask != null && _currentTask.HasPlan)
+                {
+                    if (PlanTripDone()) yield break;
+                    continue;
+                }
 
                 if (activePallet.IsCubedOut)
                 {

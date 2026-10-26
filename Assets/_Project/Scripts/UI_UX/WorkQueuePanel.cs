@@ -1633,7 +1633,20 @@ public class WorkQueuePanel : IUIPanel
             string id = string.IsNullOrEmpty(pick.PalletId) ? "—" : GetPalletLoadId(pick.PalletId);
             _rowScroll.Add(BuildRow(order, TaskPhase(pick), pick, _rowScroll.childCount, id));
         }
-        if (selects.Count > 0)
+        if (selects.Count > 0 && selects.All(t => t.HasPlan))
+        {
+            // PLANNED pallets: one row per planned pallet still to come, exactly. A task someone is already building shows as the
+            // pallet itself (above), so only the tasks beyond the pallets being built get their own row.
+            int building = pallets.Count(p => p != null && !p.IsOnFloor && p.Stage == OutboundPalletBuilder.PalletStage.Staged);
+            var assigned = selects.Where(t => t.Status == WorkTaskStatus.Assigned).OrderBy(t => t.PlanNumber).ToList();
+            var queued = selects.Where(t => t.Status != WorkTaskStatus.Assigned).OrderBy(t => t.PlanNumber).ToList();
+            foreach (var sel in assigned.Skip(building).Concat(queued))
+            {
+                n++;
+                _rowScroll.Add(BuildRow(order, TaskPhase(sel), sel, _rowScroll.childCount, $"Pallet {n}"));
+            }
+        }
+        else if (selects.Count > 0)
         {
             int planned = 1;
             if (ServiceLocator.TryGet<OrderService>(out var os) && os != null) planned = os.PalletsNeeded(order);

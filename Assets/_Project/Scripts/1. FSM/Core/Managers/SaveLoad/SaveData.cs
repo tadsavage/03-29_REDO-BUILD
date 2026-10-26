@@ -210,6 +210,9 @@ public class WorkTaskSnapshot
     public int priority = GameCore.Labor.WorkTask.DefaultPriority; // older saves lack this key; field initializer covers it
     public string orderId;                   // OrderSelect/PalletPick tasks only; null for everything else (older saves lack this key, deserializes to null either way)
     public string skuId;                     // PalletPick tasks only — the SKU whose full pallet is wanted; null for everything else
+    public string planText;                  // OrderSelect tasks: the exact cases of this task's one pallet ("sku:qty,..."); empty for legacy tasks
+    public int planNumber;
+    public int planTotal;
 }
 
 [System.Serializable]

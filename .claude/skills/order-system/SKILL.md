@@ -91,3 +91,13 @@ A selector picks whatever a pick face holds down to zero (`OrderPickPath.ChooseS
 - **PICKING** = the Work Queue phase of an order whose OrderSelect task is Assigned (`OrderService.IsPicking`). Display only; the task is still Assigned.
 - **Mid-pick close:** sets `OrderData.ReturnsMode` (persisted `returnsMode`), cancels unclaimed tasks. The selector checks `ReturnsRequested` (jack loop top, `PickCasesFromSlot`, `AdvanceToNextPick`, `PickRoutine`), shows "Now I gotta put it all back???" for 5 s, reverse-picks every pallet it carries (`ReverseCasesOnJack` / `FootReverseCases`), parks the jack, then `CompleteReturnedOrder` purges the order (waits for other selectors on it). A trip already heading to the lane stages normally and the staged pallets become RETURNS tasks. Work Queue phase reads **Returns**.
 - Known edge: a dock stocker mid-carry when the route closes may set a pallet of the archived order in the trailer (unbilled cargo blocks departure).
+
+## Pallet plan - exact case-pick pallets (2026-10-26)
+At RELEASE (`OrderService.FileReleasedOrderTasks`) an order's loose (case-picked) cases are divided into exact pallets by `OrderService.PlanLoosePallets` (each case adds 1/(Ti x Hi) of its own SKU's full pallet; a pallet is full once the sum reaches 1; lines taken in serpentine pick order). One `OrderSelect` task per planned pallet, each carrying `WorkTask.PlanText` ("sku:qty,sku:qty"), `PlanNumber`/`PlanTotal`; `OrderData.UsesPalletPlan` marks the order. Rules that follow:
+- A selector builds exactly its task's pallet: `SelectableRemaining(order, line, taskId)` is capped by the plan; the pallet is DONE when the plan is complete (`PlanComplete`), NOT when the visual stack looks full (`IsCubedOut` is ignored for plan tasks).
+- Planned orders have NO helper/continuation trips (`FileHelperSelectIfWorthwhile` / `FileContinuationSelect` return false). A short pick still becomes a SCRATCHES list.
+- `AllocateHeldWork` releases planned selects one lane tier each (before pallet picks); `CommittedTiers` counts at most `SelectorPalletsPerTrip` of them.
+- `TripEndStatus` keeps the order PartiallyPicked while any other pallet task (select or pallet pick) is still live.
+- Truck card (WorldHoverPopupUI) total is exact from release: aboard + waiting + unbuilt planned tasks + pallet picks. Legacy/SCRATCHES tasks fall back to the "STILL TO PICK" text.
+- `AnyPalletInHand(order)` blocks close-out while a pallet of the order is still on a selector/jack/forks.
+- Order sizing (`OrderArrivalService`) no longer holds back slack pallets for part-built selector pallets.
