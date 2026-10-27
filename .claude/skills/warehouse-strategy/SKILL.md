@@ -119,3 +119,20 @@ changes nothing, and the game speed is the player's. Score, bug monitor and repo
 - Pick time per picklist should come from **measured** data (the Work Queue's actual pick durations) instead of a constant.
 - Wholesale/bulk full-pallet orders: the mechanic that moves whole pallets reserve -> staging (see order-system skill KNOWN GAP).
 - Tune `pickHoursPerPicklist` down (and check selector speed) after the core loop is bug-free - Tad flagged 6-7 h as too long.
+
+## Door rules a human player follows (Tad, 2026-10-27, after block 14 collapsed) - NOT yet built into HAL
+
+- **Never two outbound case-pick orders at once on two doors.** Two big case-pick trailers booked in the same block took both doors, work was released
+  only as the drivers arrived, and one selector could not pick both: the dock shut down and the drivers left. Keep AT LEAST ONE DOOR FREE FOR INBOUND.
+  With N outbound-capable doors, at most N-1 outbound trailers may overlap in time; a second case-pick booking waits for a later block.
+- **Release by pick time, not a flat lead.** Release an order at least its estimated pick time (plus the usual buffer) before the trailer arrives.
+- **Scale with trouble.** A human whose doors are blocked builds a door and hires people; HAL can only change crew once per block and has no
+  "add a door" action. Ideas: hire a selector immediately when picklists queue behind busy selectors; an add-door builder step.
+- Planned order of changes (one per block): block 15 = door-reserve + release-by-pick-time booking rules and darker outbound cab paints;
+  block 16 = immediate selector hire; later = add-a-door action.
+- **The one exception (Tad, 2026-10-27): two outbound trailers may overlap only when the product is already in hand.** All of both orders'
+  cases are on the shelves or already in the staging lanes (100% fill, no possible scratches) AND there is enough time before both appointments
+  to pick/stage/load them. If any line could be short, or stock is still on an inbound PO, do NOT gamble the second door: keep it free for inbound
+  and book the second outbound later. Implementation sketch: in `BookDock`, allow an extra overlapping outbound only if `TryStockReadyHour` says the
+  stock is on hand now (readyHour <= nowHours) for every line, and `nowHours + combined turn hours` (all overlapping orders' picklists divided by selectors)
+  is before the earlier trailer's start.

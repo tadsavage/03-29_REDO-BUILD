@@ -99,3 +99,11 @@ Claude's thoughts for when this is built (not a decision): the static/dynamic sw
 
 ## Decision log
 - 2026-10-13: ideas captured; none scheduled. Suggested order recorded in section 0.
+
+## Polish: Ultra depth of field looks like Vaseline on the lens (Tad, 2026-10-27)
+Ultra uses URP **Bokeh** DoF (`FreeLookCamera.dofUltraFocalLengthMm`/`dofUltraFStop`, driven at runtime by a private-layer Volume). Foreground blur smears a translucent
+halo over sharp edges (racks in front of the focus plane). Options to try, in order: raise the f-stop / lower focal length (less blur radius), switch
+Ultra to **Gaussian** DoF (cleaner, no bokeh halo, less physical), or shrink the near-blur range. Compare in a screenshot at the same camera spot.
+- Update (Tad, 2026-10-27): rack-label text is unreadable at low camera angles, "smeared, not out of focus". Try first: (1) blur only BEYOND the focus point
+  (no near-field blur, so close labels/rack faces stay sharp); (2) focus follows the camera's look point (screen centre), not a fixed distance;
+  then Gaussian DoF if a halo remains.

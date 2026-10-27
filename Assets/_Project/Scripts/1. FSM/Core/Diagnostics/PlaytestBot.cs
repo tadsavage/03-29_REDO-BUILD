@@ -490,7 +490,7 @@ namespace GameCore.Diagnostics
                 // The trailer must not arrive before the work of getting this order onto it can be done, counted from when the stock
                 // is in the building. Pallet-only orders are a straight roll-on / roll-off (stage + load); case-pick orders take as long
                 // as their selector trips do; rush orders are off, so there is no last-minute scratch run to catch up with.
-                float turnHours = TurnHoursFor(g, orders, cpp, out string kind);
+                float turnHours = TurnHoursFor(g.OrderIds, orders, cpp, out string kind);
                 int earliestStart = Mathf.Max(nowHours + Mathf.Max(0, S.outboundLeadHours), Mathf.CeilToInt(readyHour + turnHours));
                 int earliestDay = earliestStart / 24 + 1;
                 bool done = false;
@@ -498,6 +498,20 @@ namespace GameCore.Diagnostics
                 {
                     if ((d - 1) * 24 + b * DockScheduleService.BlockHours < earliestStart) continue;
                     if (!schedule.HasRoom(d, b, DockScheduleService.SpanFor(g.Kind))) continue;
+                    // DOOR RESERVE (Tad, 2026-10-27): never let case-pick outbound trailers take every door at once; one door stays free for inbound.
+                    // Only when all the product is already in hand and there is time to pick it all may a trailer overlap another.
+                    if (kind.StartsWith("case-pick") && doors.Count > 0)
+                    {
+                        int span = DockScheduleService.SpanFor(g.Kind);
+                        int overlapping = schedule.Appointments.Count(a => a != null && a.Kind != AppointmentKind.Inbound && a.Day == d &&
+                                                                          a.BlockIndex < b + span && a.LastBlockIndex >= b);
+                        if (overlapping >= doors.Count - 1)
+                        {
+                            int startHour = (d - 1) * 24 + b * DockScheduleService.BlockHours;
+                            bool inHand = readyHour <= nowHours && startHour - nowHours >= turnHours * (overlapping + 1);
+                            if (!inHand) continue;
+                        }
+                    }
                     foreach (int door in doors)
                         if (schedule.TryBookGroupAtDoor(d, b, door, g, out _, out _)) { done = true; _booked++; Act($"booked {g.CustomerName} day {d} block {b} door {door} ({kind}: stock ready hour {readyHour} + {turnHours:F1}h of work)"); break; }
                     if (done) break;
@@ -548,10 +562,10 @@ namespace GameCore.Diagnostics
         //  - Case-pick order: every selector trip is a picklist (~2-2.5 h, two pallets a trip); the selectors work in parallel, so the time is
         //    the number of rounds the picklists need. Pallet picks run on another role and always finish first, so they add nothing.
         // The order is a case-pick order when any line leaves loose cases (a quantity that is not a whole number of pallets).
-        float TurnHoursFor(UnscheduledGroup g, OrderService orders, Dictionary<string, int> cpp, out string kind)
+        float TurnHoursFor(IEnumerable<string> orderIds, OrderService orders, Dictionary<string, int> cpp, out string kind)
         {
             float loosePalletEquivalents = 0f;
-            foreach (var id in g.OrderIds)
+            foreach (var id in orderIds)
             {
                 var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
                 if (o == null) continue;
@@ -620,10 +634,19 @@ namespace GameCore.Diagnostics
             return true;
         }
 
+        Dictionary<string, int> _cppCache;
+        static Dictionary<string, int> BuildCpp()
+        {
+            var cpp = new Dictionary<string, int>();
+            foreach (var r in ItemAvailability.Build()) if (r.CasesPerPallet > 0) cpp[r.SkuId] = r.CasesPerPallet;
+            return cpp;
+        }
+
         void ReleaseOrders(OrderService orders, DockScheduleService schedule, SimulationTimeService time)
         {
             // Only orders whose trailer arrives within the lead window (or is already due): the rest wait, so lanes stay free.
             int nowHours = (time.Day - 1) * 24 + time.Hour;
+            _cppCache = null;
             int lead = Mathf.Max(0, S.releaseLeadHours);
             var ready = orders.ActiveOrders.Where(o =>
             {
@@ -631,7 +654,9 @@ namespace GameCore.Diagnostics
                 var appt = schedule.FindForOrder(o.OrderId);
                 if (appt == null) return false;
                 int startHours = (appt.Day - 1) * 24 + appt.StartHour;
-                return startHours - nowHours <= lead;
+                // Release early enough for the work itself: this order's own estimated pick time plus the usual buffer.
+                float pick = TurnHoursFor(new[] { o.OrderId }, orders, _cppCache ??= BuildCpp(), out _);
+                return startHours - nowHours <= lead + Mathf.CeilToInt(pick);
             }).ToList();
             if (ready.Count == 0) return;
             if (orders.ReleaseOrdersToStages(ready.Select(o => o.OrderId).ToList(), out string why, out bool waiting, out _))
@@ -1132,6 +1157,8 @@ namespace GameCore.Diagnostics
             // Unity logs this at every NavMesh rebuild for meshes that are not marked readable. It does nothing in play and is not a bug.
             if (type == LogType.Error && msg.Contains("RuntimeNavMeshBuilder: Source mesh")) return;
             // The same line over and over is a bug by itself (a stuck loop), even when each copy is only a warning or an info line.
+            // Compiler warnings/errors ("Foo.cs(12,3): warning CS0414: ...") are not game events; they logged "never used" as a bug at the start of block 12.
+            if (msg.Contains("): warning CS") || msg.Contains("): error CS")) return;
             if (type != LogType.Log)
             {
                 string rk = Digits.Replace(msg.Split((char)10)[0], "#");
@@ -1241,11 +1268,21 @@ namespace GameCore.Diagnostics
                     if (slot == null || !slot.IsOccupied) continue;
                     // A selector who stepped off to pick cases leaves the jack parked on purpose; only a driver actually aboard can be "stuck".
                     if (!slot.OperatorAboard) { _vehicleTrack.Remove(slot); continue; }
+                    var batt = slot.GetComponent<EquipmentBattery>();
+                    if (batt != null && batt.StandingStillOnPurpose) { _vehicleTrack.Remove(slot); continue; }
+                    // Only work this vehicle's OWN role can claim counts as "waiting" (Tad, 2026-10-27): a reach truck beside a pile of Load
+                    // tasks, or a dock stocker beside cancelled putaways, is correctly idle. Idle machines park and take laps on purpose.
+                    int mine = wq.Tasks.Count(t => t.Status == WorkTaskStatus.Available && (slot.IsPalletJack
+                        ? t.Type == WorkTaskType.OrderSelect
+                        : slot.GetComponent<GameCore.Actors.ReachTruckOperator>() != null
+                            ? (t.Type == WorkTaskType.Putaway || t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.Replenish)
+                            : t.Type == WorkTaskType.Load));
+                    if (mine == 0) { _vehicleTrack.Remove(slot); continue; }
                     var p = slot.transform.position;
                     if (_vehicleTrack.TryGetValue(slot, out var tr) && Vector3.Distance(tr.pos, p) < 0.3f)
                     {
-                        if (waiting > 0 && Time.time - tr.movedAt > S.stationarySeconds)
-                        { Note("VEHICLE-STATIONARY", $"{slot.name} has a driver, hasn't moved in {(Time.time - tr.movedAt):F0}s while {waiting} task(s) wait"); _vehicleTrack[slot] = (p, Time.time); }
+                        if (Time.time - tr.movedAt > S.stationarySeconds)
+                        { Note("VEHICLE-STATIONARY", $"{slot.name} has a driver, hasn't moved in {(Time.time - tr.movedAt):F0}s while {mine} task(s) it could take wait"); _vehicleTrack[slot] = (p, Time.time); }
                     }
                     else _vehicleTrack[slot] = (p, Time.time);
                 }

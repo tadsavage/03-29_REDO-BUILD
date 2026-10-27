@@ -26,6 +26,7 @@ namespace GameCore.Diagnostics
         private static readonly List<string> _repLog = new();
         private static int _lastRepScore = int.MinValue;
         private static int? _moneyBaseline;
+        private static MoneyService _moneyRef; private static int _moneyEpoch = -1;
         private static readonly Dictionary<string, float> _lastSatisfaction = new();
         private static readonly Dictionary<TruckController, (Vector3 pos, float movedAt)> _truckTrack = new();
 
@@ -152,7 +153,10 @@ namespace GameCore.Diagnostics
             if (money != null)
             {
                 int offset = money.CurrentCapital - LedgerNet(money);
-                if (_moneyBaseline == null) _moneyBaseline = offset;
+                // Statics outlive a Play session (no domain reload): a NEW game's MoneyService, or a save load that restored the balance, starts a
+                // new baseline instead of being reported as capital that moved with no ledger entry (a +$417,832 false alarm opened block 12).
+                if (!ReferenceEquals(money, _moneyRef) || money.RestoreEpoch != _moneyEpoch) { _moneyRef = money; _moneyEpoch = money.RestoreEpoch; _moneyBaseline = offset; }
+                else if (_moneyBaseline == null) _moneyBaseline = offset;
                 else if (offset != _moneyBaseline)
                 {
                     sb.Append($"MONEY-DRIFT capital moved {offset - _moneyBaseline.Value:+#;-#;0} without a ledger entry\n");

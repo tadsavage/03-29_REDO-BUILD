@@ -349,12 +349,17 @@ public class FreeLookCamera : MonoBehaviour
         _dofPalletBlend = Mathf.MoveTowards(_dofPalletBlend, palletFocus ? 1f : 0f, Time.unscaledDeltaTime * 4f);
         fStop = Mathf.Lerp(fStop, Mathf.Max(fStop, dofFStopPalletFocus), _dofPalletBlend);
 
-        _dof.mode.Override(DepthOfFieldMode.Bokeh);
-        _dof.focusDistance.Override(_dofFocus);
-        _dof.focalLength.Override(dofUltraFocalLengthMm);
-        _dof.aperture.Override(fStop);
-        _dof.bladeCount.Override(Mathf.Clamp(dofBladeCount, 3, 9));
-        _dof.bladeCurvature.Override(1f);
+        // GAUSSIAN, far-field only (Tad, 2026-10-27): Bokeh smeared a translucent halo over the racks in front of the focus plane and made
+        // rack-label text unreadable at low angles. Gaussian blurs only BEYOND gaussianStart, so everything nearer than the focus point
+        // (labels, rack faces, the things being read) stays sharp, and it has no bokeh halo. The blur begins a little behind the focus
+        // point and ramps up over a long distance; an employee / pallet in focus pushes it further back so they are never blurred.
+        float extra = 1f + _dofFocusedBlend * 0.5f + _dofPalletBlend * 1f;
+        float start = _dofFocus + 18f * extra;
+        _dof.mode.Override(DepthOfFieldMode.Gaussian);
+        _dof.gaussianStart.Override(start);
+        _dof.gaussianEnd.Override(start + 110f);
+        _dof.gaussianMaxRadius.Override(1.0f);
+        _dof.highQualitySampling.Override(true);
     }
 
     private void OnDestroy()

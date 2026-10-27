@@ -193,6 +193,10 @@ public class EquipmentBattery : MonoBehaviour
     private float _idleMinutes;
     private float _lapAfter = 8f;
 
+    /// <summary>True while standing still is part of the plan: on a charge trip, waiting for / sitting on a charger, or flat. The playtest
+    /// bot must not call that "stuck".</summary>
+    public bool StandingStillOnPurpose => _trip != null || WaitingForCharger || NeedsCharge || _vacate != null || _helperTrip || _switchTrip;
+
     /// <summary>The driver is bored and patrolling for a few minutes ("I'm bored... doing a lap").</summary>
     public bool IsDoingLap { get; private set; }
 
@@ -394,9 +398,13 @@ public class EquipmentBattery : MonoBehaviour
         if (riderAboard && _trip == null && _vacate == null && !_helperTrip && !_switchTrip && !NeedsCharge && !(Slot.IsPalletJack && IsBusy))
         {
             var rider = Slot.CurrentOperator;
-            bool wrong = rider != null && rider.Record != null && rider.Record.role != HelperRole;
+            bool wrongRole = rider != null && rider.Record != null && rider.Record.role != HelperRole;
+            // The right person, but no pick holds this jack: a selector left sitting on a parked jack (block 12/13: a jack with a driver
+            // aboard that never moved for hours while tasks waited). Step them off after a longer grace so they go back to work.
+            bool idleSelectorOnJack = !wrongRole && rider != null && Slot.IsPalletJack && Slot.OperatorAboard;
+            bool wrong = wrongRole || idleSelectorOnJack;
             _wrongRiderTime = wrong ? _wrongRiderTime + Time.deltaTime : 0f;
-            if (wrong && _wrongRiderTime > 8f)
+            if (wrong && _wrongRiderTime > (wrongRole ? 8f : 45f))
             {
                 _wrongRiderTime = 0f;
                 _ejectedOperator = null;

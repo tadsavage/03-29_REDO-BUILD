@@ -417,8 +417,13 @@ namespace GameCore.Economy
         ///
         /// Restoring a balance is not a transaction. It's the same money, remembered.
         /// </summary>
+        /// <summary>Bumped every time the balance is RESTORED (a save load): the balance then jumps with no ledger entry on purpose, so the
+        /// playtest health check re-baselines instead of reporting it as drift.</summary>
+        public int RestoreEpoch { get; private set; }
+
         public void RestoreCapital(int amount)
         {
+            RestoreEpoch++;
             _currentCapital = amount;
 
             // Still announces the change — the TopBar and every listener must repaint — but records

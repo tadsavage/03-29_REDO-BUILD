@@ -22,12 +22,13 @@ public static class TruckLivery
     private const int PaintTolerance = 2;
 
     private static readonly Color32 Inbound  = new Color32(246, 247, 249, 255);   // white
-    // Muted, chalky pastels: a light grey base with only a touch of colour mixed in, so they read as subtle variety, not as paint.
+    // Muted pastels: a mid-light grey base with a touch of colour. They are deliberately DARKER than "light" looks on paper: the Ultra grade
+    // adds about +1 EV, which pushes anything above ~175 grey straight to white on screen (the first set read as plain white in game).
     private static readonly Color32[] OutboundPaints =
     {
-        new Color32(204, 206, 209, 255),   // light grey
-        new Color32(192, 204, 217, 255),   // pale dusty blue
-        new Color32(194, 210, 199, 255),   // pale sage green
+        new Color32(132, 136, 144, 255),   // grey
+        new Color32(96, 140, 200, 255),   // dusty blue
+        new Color32(104, 168, 128, 255),   // sage green
     };
 
     private const int LogoSize = 256;

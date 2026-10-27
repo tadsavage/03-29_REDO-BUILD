@@ -1339,11 +1339,13 @@ namespace GameCore.Inventory
         public bool FitsOneTrailer(IEnumerable<string> orderIds)
         {
             if (!ServiceLocator.TryGet(out OrderService orders) || !ServiceLocator.TryGet(out InventoryService inv)) return true;
+            int orderCount = 0;
             var totals = new Dictionary<string, int>();
             foreach (var id in orderIds)
             {
                 var o = orders.ActiveOrders.FirstOrDefault(x => x.OrderId == id);
                 if (o == null) continue;
+                orderCount++;
                 foreach (var li in o.LineItems)
                 {
                     if (li == null || string.IsNullOrEmpty(li.SkuId)) continue;
@@ -1353,7 +1355,7 @@ namespace GameCore.Inventory
             }
             var lines = new List<(SkuData sku, int cases)>();
             foreach (var kv in totals) { var sku = inv.GetSkuData(kv.Key); if (sku != null) lines.Add((sku, kv.Value)); }
-            return TrailerCapacity.OrderFloorSlots(lines, 1) <= TrailerCapacity.FloorSlots;
+            return TrailerCapacity.OrderFloorSlots(lines, Mathf.Max(1, orderCount)) <= TrailerCapacity.FloorSlots;
         }
 
         private bool FitsWith(DockAppointment a, OrderData order)
@@ -1922,7 +1924,7 @@ namespace GameCore.Inventory
             }
 
             appt.ClosedOut = true;
-            Debug.LogWarning($"[DockSchedule] Door {appt.DoorNumber}'s {BlockLabel(appt.BlockIndex)} slot on day " +
+            Debug.Log($"[DockSchedule] Door {appt.DoorNumber}'s {BlockLabel(appt.BlockIndex)} slot on day " +
                              $"{appt.Day} elapsed for PO {appt.ShipmentPoNumber} (status={po?.Status.ToString() ?? "not found"}) — " +
                              "door freed for rebooking, kept on the grid (IsComplete decides finished vs missed).");
         }

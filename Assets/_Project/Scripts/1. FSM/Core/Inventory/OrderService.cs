@@ -1406,11 +1406,73 @@ namespace GameCore.Inventory
             ReconcileStagedOrdersAgainstScene(phantom);
         }
 
+        /// <summary>A docked outbound trailer whose cargo is ALL shipped (and which holds something) is cleared to leave, whatever door number its
+        /// orders carry. An order's dock door can disagree with the door its trailer is really at (the appointment moved), so the release by
+        /// "orders at this door" never reached the truck and the driver sat there with nothing left to do (block 14).</summary>
+        private void ReleaseFullyShippedTrucks()
+        {
+            foreach (var truck in Object.FindObjectsByType<TruckController>())
+            {
+                if (truck == null || !truck.IsOutbound || truck.DockedAt == null || truck.LoadContainer == null) continue;
+                var pallets = truck.LoadContainer.GetComponentsInChildren<OutboundPalletBuilder>(true);
+                if (pallets.Length == 0) continue;
+                bool allShipped = true;
+                foreach (var p in pallets) if (p != null && p.Stage != OutboundPalletBuilder.PalletStage.Shipped) { allShipped = false; break; }
+                if (!allShipped) continue;
+                int door = truck.DockedAt.DoorNumber;
+                bool openOrderHere = _activeOrders.Any(o => (o.AssignedDoorNumber == door &&
+                    (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded)) ||
+                    pallets.Any(p => p != null && p.OrderId == o.OrderId));
+                if (openOrderHere) continue;
+                truck.CompleteLoad();
+                Debug.Log($"[OrderService] Door {door}'s trailer cleared to depart - everything aboard is shipped.");
+            }
+        }
+
+        /// <summary>Safety net for outbound pallets left hanging in mid-air in a lane (a stack whose lower pallet was removed, or a
+        /// drop measured against a pallet that has since gone): a floor-standing outbound pallet with nothing under it is lowered
+        /// onto the lane surface or onto whatever is actually beneath it.</summary>
+        private void SettleFloatingOutboundPallets()
+        {
+            const float LaneSurface = 1.15f, Tolerance = 0.12f;
+            var all = Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsInactive.Exclude);
+            if (all.Length == 0) return;
+            foreach (var p in all)
+            {
+                if (p == null || !p.IsOnFloor) continue;
+                if (p.GetComponentInParent<MHEOperatorSlot>() != null) continue;
+                var rs = p.GetComponentsInChildren<Renderer>();
+                if (rs.Length == 0) continue;
+                var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+                if (b.min.y < LaneSurface + 0.3f || b.min.y > LaneSurface + 6f) continue;   // on the floor, or not a lane pallet at all
+
+                // Highest top of any other pallet overlapping this one in plan and sitting below it.
+                float support = LaneSurface;
+                foreach (var q in all)
+                {
+                    if (q == null || q == p || q.GetComponentInParent<MHEOperatorSlot>() != null) continue;
+                    var qr = q.GetComponentsInChildren<Renderer>();
+                    if (qr.Length == 0) continue;
+                    var qb = qr[0].bounds; foreach (var r in qr) qb.Encapsulate(r.bounds);
+                    if (qb.max.x < b.min.x + 0.2f || qb.min.x > b.max.x - 0.2f || qb.max.z < b.min.z + 0.2f || qb.min.z > b.max.z - 0.2f) continue;
+                    if (qb.max.y <= b.min.y + Tolerance && qb.max.y > support) support = qb.max.y;
+                }
+                float drop = b.min.y - (support + 0.02f);
+                if (drop > Tolerance)
+                {
+                    p.transform.position += Vector3.down * drop;
+                    Debug.LogWarning($"[OrderService] Settled a floating outbound pallet down {drop:0.00} m (it had nothing under it).");
+                }
+            }
+        }
+
         // Every few in-game minutes; AssignWaitingLanes is a no-op (one LINQ pass) when nothing waits.
         private void OnMinuteForLanes(string eventId, GameCore.Events.Payloads.SimulationTimeData _)
         {
             if (++_waitingLaneTick % 3 != 0) return;
             AssignWaitingLanes();
+            ReleaseFullyShippedTrucks();
+            SettleFloatingOutboundPallets();
             AssignLanesToScratchPicks();
             PromoteScratches();
             ReclaimOrphanedFreight();
@@ -2721,10 +2783,15 @@ namespace GameCore.Inventory
                 int door = grp.Key;
                 var truck = trucks.FirstOrDefault(t => t != null && t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == door);
                 if (truck == null) continue;
+                // Only the orders booked on THIS trailer's appointment count; another order merely staged at the same door must not.
+                var apptSvc = ServiceLocator.TryGet(out DockScheduleService ds) ? ds : null;
+                var truckAppt = apptSvc != null && !string.IsNullOrEmpty(truck.OutboundAppointmentId) ? apptSvc.FindById(truck.OutboundAppointmentId) : null;
+                var grpOrders = truckAppt != null ? grp.Where(x => truckAppt.OrderIds.Contains(x.OrderId)).ToList() : grp.ToList();
+                if (grpOrders.Count == 0) continue;
 
                 var info = new ReadyToCloseInfo { Door = door, Truck = truck };
                 bool blocked = false;
-                foreach (var o in grp)
+                foreach (var o in grpOrders)
                 {
                     var live = LiveTasksForOrder(o.OrderId).ToList();
                     if (live.Any(t => !t.IsScratch)) { blocked = true; break; }                              // real work still going on
@@ -2865,6 +2932,7 @@ namespace GameCore.Inventory
             if (revenueJustBilled > 0 && truck != null)
                 FloatingMoneyText.Show(truck.DockedAt.transform.position + Vector3.up * 2.5f, revenueJustBilled);
 
+            ReleaseFullyShippedTrucks();
             bool stillPending = _activeOrders.Any(o => o.AssignedDoorNumber == doorNumber &&
                 (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded));
             if (stillPending || truck == null) return;

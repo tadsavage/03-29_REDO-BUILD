@@ -583,10 +583,21 @@ namespace GameCore.Actors
                 // this pallet into a neighbouring lane that the order has no way to record. FinishOrder
                 // already picked a lane with room for every pallet, so this lookup is expected to
                 // succeed for all of them.
-                if (order != null && _inventoryService != null &&
-                    _inventoryService.TryFindStagingSlotInLane(door, lane,
-                                                               out var slot) &&
-                    LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var slotPos))
+                LaneNamingService.LaneSlot slot = default;
+                Vector3 slotPos = default;
+                bool found = order != null && _inventoryService != null &&
+                             _inventoryService.TryFindStagingSlotInLane(door, lane, out slot) &&
+                             LaneNamingService.TryGetSlotWorldPos(slot.Cell, out slotPos);
+                // The lane filled mid-drop (another vehicle claimed a tier): move on to any lane with room
+                // instead of leaving the pallet where the loader will not look.
+                if (!found && order != null && _inventoryService != null && _orderService != null &&
+                    StagingLaneAssignmentService.TryFindTripLane(_orderService, _inventoryService, order, Mathf.Max(1, _pallets.Count - i), out int altDoor, out string altLane) &&
+                    _inventoryService.TryFindStagingSlotInLane(altDoor, altLane, out slot) &&
+                    LaneNamingService.TryGetSlotWorldPos(slot.Cell, out slotPos))
+                {
+                    door = altDoor; lane = altLane; found = true;
+                }
+                if (found)
                 {
                     // Same stacking rule the reach trucks and the inbound offload use: XZ from the
                     // slot, Y from the measured top of whatever is already in that cell. The previous

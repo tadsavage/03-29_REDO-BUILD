@@ -1283,3 +1283,607 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
 - day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
 - day 1 08:00 | **MONEY-DRIFT** | MONEY-DRIFT capital moved +417832 without a ledger entry
+- day 1 08:00 | **MONEY-DRIFT** | MONEY-DRIFT capital moved +417832 without a ledger entry
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 12:04 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1606 & Truck→PO_IG1605 at (3.6, 0.0, -2.0)
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 14:10 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 1 20:20 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=864209 load=7173993645
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 06:50 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2615 & Truck→PO_IG2617 at (3.6, 0.0, -2.0)
+- day 2 11:19 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 2 11:20 | **NO-TASK** | NO-TASK lane pallet 1C-5 sku=659083 load=8273443677
+- day 3 04:19 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.4, 0.0, -18.5)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 04:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2619 & Truck→PO_IG2618 at (-7.6, 0.0, -24.0)
+- day 3 12:34 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 12:35 | **DOOR-DEADLOCK** | OG2443 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 3 16:19 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.2, 0.0, -18.1)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 16:20 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG3627 & Truck→PO_IG3626 at (-7.6, 0.0, -23.7)
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 3 23:11 | **REPEATING** | x25 and counting: [AiNavigation] ReachTruck: stranded on an isolated NavMesh island at (-23.71, 1.11, 34.16) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 06:19 | **REPEATING** | x25 and counting: [AiNavigation] Dockstocker: stranded on an isolated NavMesh island at (-8.61, 1.11, 40.10) (no waypoint reachable for 8s) — warping to (1.94, 0.01, 39.04) to rejoin patrol.
+- day 4 16:19 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 16:20 | **DOOR-DEADLOCK** | OG3444 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:16 | **WARN** | [OrderService] Order OG3444 closed with a STAGED pallet (26 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 17:19 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 4 17:20 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 78321068-a89c-4fe6-98a0-322d23810771 gone)
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:06 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 03:19 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=482913 load=3229705121
+- day 5 04:04 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 04:06 | **NO-TASK** | NO-TASK lane pallet 1B-3 sku=482913 load=6054209082
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 10 task(s) wait
+- day 5 15:19 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 10 task(s) wait
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 15:51 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 16:04 | **NO-TASK** | NO-TASK lane pallet 1C-2 sku=304759 load=5466466056
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:21 | **DOOR-DEADLOCK** | OG5452 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 17:34 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 5 19:19 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 6 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 5 23:34 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 01:04 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 01:06 | **DOOR-DEADLOCK** | OG5447 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 03:34 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 07:49 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 11:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 3 task(s) wait
+- day 6 12:04 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 3 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 15:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 16:19 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 19:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 6 20:19 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 6 23:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 00:34 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 03:51 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 04:49 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 08:06 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 09:04 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 12:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 5 task(s) wait
+- day 7 13:04 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 5 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 16:21 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 7 17:19 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
+- day 7 21:19 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
