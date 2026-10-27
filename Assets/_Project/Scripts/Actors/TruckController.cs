@@ -409,11 +409,18 @@ public class TruckController : MonoBehaviour
     public void ClaimForOffload()
     {
         _offloadClaimed = true;
+        _metOffloadT = OpsMetrics.Now;
         TotalPalletsAtDock = LoadContainer != null ? LoadContainer.childCount : 0;
     }
 
     /// <summary>Called by the offload controller once every pallet is off — lets the truck depart.</summary>
-    public void CompleteOffload() => _offloadComplete = true;
+    public void CompleteOffload()
+    {
+        if (_metOffloadT >= 0f && !_offloadComplete)
+            OpsMetrics.Record(OpsMetrics.Kind.Offload, OpsMetrics.Now - _metOffloadT, TotalPalletsAtDock);
+        _metOffloadT = -1f;
+        _offloadComplete = true;
+    }
 
     /// <summary>Called by the offload controller when it has to abandon an in-progress offload (e.g.
     /// its dock stocker operator was fired/vacated mid-run) with pallets still on the trailer. Un-claims
@@ -1799,8 +1806,20 @@ private DockSlot        _dock;
         TruckLivery.Apply(this);
     }
 
+    // Time study: guard shack -> door, only for trucks that never had to wait at the side lot / door-wait spot.
+    private float _metGateT = -1f;
+    private bool _metWaited;
+    private float _metOffloadT = -1f;
+
+    private void TrackGateMetric()
+    {
+        if (_state == TruckState.GuardCheck && _metGateT < 0f) _metGateT = OpsMetrics.Now;
+        if (_state == TruckState.ToDoorWait || _state == TruckState.WaitingForDoor || IsSideLotState(_state)) _metWaited = true;
+    }
+
     private void Update()
     {
+        TrackGateMetric();
         using (_mDoors.Auto()) UpdateDoors();
         using (_mCab.Auto()) UpdateCabSteering();
         using (_mIn.Auto()) UpdateInboundDwellClock();
@@ -3552,6 +3571,8 @@ private DockSlot        _dock;
 
     private void OnDocked()
     {
+        if (_metGateT >= 0f && !_metWaited) OpsMetrics.Record(OpsMetrics.Kind.GateToDoor, OpsMetrics.Now - _metGateT);
+        _metGateT = -1f;
         _dock.LightController?.SetOccupied(true);
 
         // Docked and being offloaded/loaded now — the "Heading to Door X" banner has done its job.

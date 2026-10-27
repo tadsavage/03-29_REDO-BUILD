@@ -221,6 +221,7 @@ namespace GameCore.Labor
             }
 
             _currentTask = task;
+            _metTaskStart = OpsMetrics.Now;
             _targetPallet = palletTransform;
 
             // The arrival callback that leads here (AiNavigation.SeekPosition's onArrived) has a
@@ -474,8 +475,23 @@ namespace GameCore.Labor
                 orderService.TryAssignInboundPalletToPendingPick(_palletMasterRecord.PalletId);
         }
 
+        // Time study: a pallet's receive time INCLUDES the gap since the last one while the receiver is working
+        // continuously (10 pallets in 100 min = 10 min each). After a long idle gap the clock starts at the claim instead.
+        private float _metTaskStart = -1f, _metLastDone = -1f;
+        private const float MetContinuousGapMinutes = 30f;
+
+        private void RecordReceiveMetric()
+        {
+            float now = OpsMetrics.Now;
+            float from = _metTaskStart;
+            if (_metLastDone >= 0f && now - _metLastDone <= MetContinuousGapMinutes) from = _metLastDone;
+            if (from >= 0f) OpsMetrics.Record(OpsMetrics.Kind.Receive, now - from);
+            _metLastDone = now;
+        }
+
         private void CompleteWorkflow()
         {
+            RecordReceiveMetric();
             _state = ReceivingState.Idle;
             _currentTask = null;
             _targetPallet = null;

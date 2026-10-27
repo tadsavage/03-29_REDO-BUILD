@@ -242,6 +242,7 @@ namespace GameCore.Labor
             var run = new OffloadRunState();
             bool completedAllPallets = true;
             int stoppedAtIndex = pallets.Count;
+            float lapStart = -1f;
             for (int i = 0; i < pallets.Count; i++)
             {
                 var pallet = pallets[i];
@@ -262,15 +263,21 @@ namespace GameCore.Labor
                     stoppedAtIndex = i;
                     break;
                 }
+                // Full lap per pallet: from picking this one up in the trailer to picking the next one up (the drive back included).
+                if (lapStart >= 0f) OpsMetrics.Record(OpsMetrics.Kind.OffloadCycle, OpsMetrics.Now - lapStart);
+                lapStart = OpsMetrics.Now;
                 yield return OffloadOnePallet(ds, nav, agent, forks, forkRestY, truck, pallet, into, openingLong, doorNumber, doorPos, inv, queue, i, run);
                 if (run.AbortNoRoom)
                 {
+                    lapStart = -1f;
                     // The pallet went back on the trailer; stop here rather than hauling the rest to nowhere.
                     completedAllPallets = false;
                     stoppedAtIndex = i;
                     break;
                 }
             }
+
+            if (lapStart >= 0f && ds != null) OpsMetrics.Record(OpsMetrics.Kind.OffloadCycle, OpsMetrics.Now - lapStart);
 
             // ── Restore the DS to patrol ──
             if (forks != null) SetForkLocalY(forks, forkRestY);

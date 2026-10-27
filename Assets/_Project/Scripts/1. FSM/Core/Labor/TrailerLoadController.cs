@@ -462,6 +462,7 @@ namespace GameCore.Labor
         {
             truck.ClaimForLoad();
             DockEquipmentCommandeerRegistry.Commandeer(slot);
+            float loadStartT = OpsMetrics.Now;
 
             Transform ds = slot.transform;
             // Where the DS stood BEFORE we took it over — a valid, patrol-reachable spot on the working
@@ -522,7 +523,10 @@ namespace GameCore.Labor
                     loadedPalletsByOrder[pallet.OrderId] = soFar + 1;
                 }
 
+                float cycleStart = OpsMetrics.Now;
                 yield return LoadOnePallet(ds, forks, forkRestY, truck, pallet, slotIndex, stackBaseY);
+                if (pallet != null && pallet.Stage == OutboundPalletBuilder.PalletStage.Loaded)
+                    OpsMetrics.Record(OpsMetrics.Kind.LoadCycle, OpsMetrics.Now - cycleStart);
             }
 
             if (batteryDied)
@@ -580,6 +584,8 @@ namespace GameCore.Labor
             // orders stuck in Loading, which the panel gives the player no way to act on.
             truck.ReleaseLoadClaim();
             workQueue?.CompleteTask(task.TaskId);
+            int loadedCount = loadedPalletsByOrder.Values.Sum();
+            if (loadedCount > 0) OpsMetrics.Record(OpsMetrics.Kind.LoadTotal, OpsMetrics.Now - loadStartT, loadedCount);
             Debug.Log($"[TrailerLoad] {truck.name} fully loaded — released dock stocker to patrol.");
 
             // FULL TRAILER (2026-10-17 playtest): nothing more fits, and no second truck comes, so waiting for the lanes

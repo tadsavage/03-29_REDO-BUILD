@@ -253,8 +253,20 @@ namespace GameCore.Actors
         /// both the pick face's local stock and the master pallet record, then adds each case to the
         /// active outbound pallet. Stops early — mid-line-item if need be — the instant the order
         /// finishes or both pallets cube out, per Tad's "whichever occurs first" spec.</summary>
+        // Time study: first pick face reached -> pallet staged, over the cases picked on the trip.
+        private float _metTripStart = -1f;
+        private int _metTripCases;
+
+        private void RecordCasePickTrip()
+        {
+            if (_metTripStart >= 0f && _metTripCases > 0)
+                OpsMetrics.Record(OpsMetrics.Kind.CasePick, OpsMetrics.Now - _metTripStart, _metTripCases);
+            _metTripStart = -1f; _metTripCases = 0;
+        }
+
         private IEnumerator PickRoutine(LocationData location, OrderLineItem lineItem, int takeQty)
         {
+            if (_metTripStart < 0f) _metTripStart = OpsMetrics.Now;
             EnsurePallet();
 
             var sku = _inventoryService.GetSkuData(lineItem.SkuId);
@@ -279,6 +291,7 @@ namespace GameCore.Actors
                 location.Pick(1);
 
                 lineItem.QuantityPicked++;
+                _metTripCases++;
                 _orderService.NotePickedCase(_currentTask?.TaskId, lineItem.SkuId);
                 var activePallet = _pallets[_pallets.Count - 1];
                 activePallet.AddCase(lineItem.SkuId, sku.Prefab, caseDim, ti, hi, location.Address);
@@ -685,6 +698,7 @@ namespace GameCore.Actors
 
         private void FinishOrderCleanup(WorkTask task)
         {
+            RecordCasePickTrip();
             _orderService.ReleasePick(task?.TaskId);
             _workQueue.CompleteTask(task.TaskId);
 

@@ -47,6 +47,9 @@ public class WorldHoverPopupUI : MonoBehaviour
         public Label DoorLabel;
         public VisualElement LoadFill;
         public Label LoadPercentLabel;
+        public VisualElement PickBars;                 // outbound only: pallet-pick (orange) and case-pick (yellow) progress
+        public VisualElement PalletPickFill, CasePickFill;
+        public Label PalletPickLabel, CasePickLabel;
         public Label TotalPalletsLabel;
         public VisualElement ItemsList;
     }
@@ -91,6 +94,8 @@ public class WorldHoverPopupUI : MonoBehaviour
     private static readonly Color TruckInboundColor   = TruckOrderColors.Inbound;   // orange
     // "Make the fill bar the same color as the receiving progress bar" — ReceivingFillBarCanvas's
     // fill sprite is a blue button graphic (button_blue_default_2), so this matches that family.
+    private static readonly Color TruckPalletPickColor = new Color(0.96f, 0.55f, 0.12f, 1f);   // orange
+    private static readonly Color TruckCasePickColor   = new Color(0.98f, 0.85f, 0.15f, 1f);   // yellow
     private static readonly Color TruckLoadFillColor  = new Color(0x4A / 255f, 0x90 / 255f, 0xD9 / 255f, 1f);
 
     // Hover timing
@@ -1410,6 +1415,36 @@ private void ShowLocation(LocationData location)
         iconRow.Add(body);
         popup.Add(iconRow);
 
+        // ── Pick progress (outbound only): orange = pallet picks, yellow = case picks ──
+        var pickBars = new VisualElement { pickingMode = PickingMode.Ignore };
+        pickBars.style.marginBottom = 6;
+        pickBars.style.display = DisplayStyle.None;
+        VisualElement MakePickBar(Color fillColor, out VisualElement fillOut, out Label labelOut)
+        {
+            var bar = new VisualElement { pickingMode = PickingMode.Ignore };
+            bar.style.height = 22; bar.style.marginBottom = 3;
+            bar.style.position = Position.Relative; bar.style.overflow = Overflow.Hidden;
+            bar.style.backgroundColor = new Color(0.06f, 0.07f, 0.09f, 1f);
+            bar.style.borderTopWidth = bar.style.borderBottomWidth = bar.style.borderLeftWidth = bar.style.borderRightWidth = 1;
+            bar.style.borderTopColor = bar.style.borderBottomColor = bar.style.borderLeftColor = bar.style.borderRightColor = cabBorderColor;
+            var f = new VisualElement { pickingMode = PickingMode.Ignore };
+            f.style.position = Position.Absolute; f.style.left = 0; f.style.top = 0; f.style.bottom = 0;
+            f.style.width = new Length(0, LengthUnit.Percent); f.style.backgroundColor = fillColor;
+            bar.Add(f);
+            var l = new Label { pickingMode = PickingMode.Ignore };
+            l.style.position = Position.Absolute; l.style.left = 0; l.style.right = 0; l.style.top = 0; l.style.bottom = 0;
+            l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.fontSize = 13;
+            l.style.unityFontStyleAndWeight = FontStyle.Bold; l.style.color = Color.white;
+            l.style.marginLeft = l.style.marginRight = l.style.marginTop = l.style.marginBottom = 0;
+            bar.Add(l);
+            fillOut = f; labelOut = l;
+            return bar;
+        }
+        pickBars.Add(MakePickBar(TruckPalletPickColor, out var ppFill, out var ppLabel));
+        pickBars.Add(MakePickBar(TruckCasePickColor, out var cpFill, out var cpLabel));
+        ui.PickBars = pickBars; ui.PalletPickFill = ppFill; ui.PalletPickLabel = ppLabel; ui.CasePickFill = cpFill; ui.CasePickLabel = cpLabel;
+        popup.Add(pickBars);
+
         // ── Total pallet count — heads the manifest, right under the progress bar ──
         var totalPalletsLabel = new Label { text = "" };
         ui.TotalPalletsLabel = totalPalletsLabel;
@@ -1500,6 +1535,10 @@ private void ShowLocation(LocationData location)
         string apptDayInfo = null;
         int doorNumber = 0;
         float progress = 0f;
+        float ppProgress = 0f, cpProgress = 0f;                       // outbound only: pallet-pick / case-pick progress
+        int ppTotal = 0, ppDoneCount = 0, cpRemainingCases = 0, cpTotalCases = 0;
+        var ppSkus = new HashSet<string>();                           // outbound only: SKUs fed by pallet picks
+        var cpSkus = new HashSet<string>();                           // outbound only: SKUs fed by case picks
         int totalPalletCount = 0;
         int loadedPalletCount = -1;                                   // outbound only: pallets already aboard
         string outboundPalletText = null;                             // outbound only: exact pallet status (replaces the old guessed "x out of y")
@@ -1767,6 +1806,44 @@ private void ShowLocation(LocationData location)
                     }
                 int waiting = staged + onForks;
 
+                // Pick progress: pallet picks by task count, case picks by cases (what the plans cover vs what is still unpicked).
+                if (wqCardTasks != null)
+                {
+                    foreach (var wt in wqCardTasks)
+                    {
+                        if (wt == null || string.IsNullOrEmpty(wt.OrderId) || !cardOrderIds.Contains(wt.OrderId) || wt.Status == WorkTaskStatus.Cancelled) continue;
+                        if (wt.Type == WorkTaskType.PalletPick)
+                        {
+                            ppTotal++;
+                            if (wt.Status == WorkTaskStatus.Complete) ppDoneCount++;
+                            if (!string.IsNullOrEmpty(wt.SkuId)) ppSkus.Add(wt.SkuId);
+                        }
+                        else if (wt.Type == WorkTaskType.OrderSelect)
+                        {
+                            foreach (var pl in wt.PlanLines())
+                            {
+                                cpSkus.Add(pl.Key);
+                                if (wt.Status == WorkTaskStatus.Complete) cpTotalCases += pl.Value;
+                            }
+                        }
+                    }
+                }
+                if (orderService != null)
+                    foreach (var id in cardOrderIds)
+                    {
+                        var oo = orderService.ActiveOrders.FirstOrDefault(x => x.OrderId == id);
+                        if (oo == null) continue;
+                        foreach (var li2 in oo.LineItems)
+                        {
+                            int loose = orderService.SelectableRemaining(oo, li2);
+                            cpRemainingCases += loose;
+                            if (loose > 0) cpSkus.Add(li2.SkuId);
+                        }
+                    }
+                cpTotalCases += cpRemainingCases;
+                ppProgress = ppTotal > 0 ? Mathf.Clamp01(ppDoneCount / (float)ppTotal) : 0f;
+                cpProgress = cpTotalCases > 0 ? Mathf.Clamp01(1f - cpRemainingCases / (float)cpTotalCases) : 0f;
+
                 // PLANNED order(s): every loose pallet is its own task with a fixed plan, so the TOTAL is exact from release:
                 // pallets aboard + waiting + the planned pallets nobody has built yet + the full-pallet picks still coming.
                 if (wqCardTasks != null)
@@ -1869,6 +1946,16 @@ private void ShowLocation(LocationData location)
         ui.LoadFill.style.width = new Length(progress * 100f, LengthUnit.Percent);
         ui.LoadPercentLabel.text = $"{Mathf.RoundToInt(progress * 100f)}%";
 
+        bool showPickBars = loadedPalletCount >= 0;
+        ui.PickBars.style.display = showPickBars ? DisplayStyle.Flex : DisplayStyle.None;
+        if (showPickBars)
+        {
+            ui.PalletPickFill.style.width = new Length(ppProgress * 100f, LengthUnit.Percent);
+            ui.PalletPickLabel.text = ppTotal > 0 ? $"Pallet picks {ppDoneCount}/{ppTotal}" : "Pallet picks: none";
+            ui.CasePickFill.style.width = new Length(cpProgress * 100f, LengthUnit.Percent);
+            ui.CasePickLabel.text = cpTotalCases > 0 ? $"Case picks {cpTotalCases - cpRemainingCases}/{cpTotalCases} cs" : "Case picks: none";
+        }
+
         ui.TotalPalletsLabel.text = outboundPalletText ?? (loadedPalletCount >= 0 ? $"PALLETS: {loadedPalletCount} aboard" : $"TOTAL PALLETS: {totalPalletCount}");
         ui.TotalPalletsLabel.style.whiteSpace = WhiteSpace.Normal;
         ui.Popup.style.width = loadedPalletCount >= 0 ? 480 : 300;   // outbound cards carry a per-item progress bar
@@ -1963,7 +2050,10 @@ private void ShowLocation(LocationData location)
 
                     row.style.marginBottom = 0;
                     row.style.flexGrow = 1; row.style.flexShrink = 1;
-                    row.text = $"{desc} x{casesPerPallet}";
+                    bool isPp = !string.IsNullOrEmpty(skuId) && ppSkus.Contains(skuId);
+                    bool isCp = !string.IsNullOrEmpty(skuId) && cpSkus.Contains(skuId);
+                    string pickTag = isPp && isCp ? "  [PALLET + CASE PICK]" : isPp ? "  [PALLET PICK]" : isCp ? "  [CASE PICK]" : "";
+                    row.text = $"{desc} x{casesPerPallet}{pickTag}";
                     row.style.color = done ? new Color(0.55f, 0.9f, 0.62f, 1f) : row.style.color;
 
                     line.Add(track);

@@ -2377,6 +2377,8 @@ namespace GameCore.Actors
 
         private void Restore()
         {
+            if (_activeTask != null && _activeTask.Type == WorkTaskType.PalletPick && _activeTask.Status == WorkTaskStatus.Complete)
+                OpsMetrics.Record(OpsMetrics.Kind.PalletPick, Time.time - _activeTaskStart);
             ReleaseStagingReservation();
             ReleaseLaneLock();
             SetDriveMode(DriveMode.Ai, "task complete — resuming patrol");

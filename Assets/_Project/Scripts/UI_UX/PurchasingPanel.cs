@@ -178,6 +178,13 @@ public class PurchasingPanel : IUIPanel
 
     private enum MultiVendorSortMode { NameAZ, PartnershipHighToLow, PartnershipLowToHigh, ScratchesHighToLow, ScratchesLowToHigh }
 
+    /// <summary>Profit-margin ordering, independent of the Sort dropdown: 0 = off, 1 = high to low, 2 = low to high.
+    /// When on it orders both the vendors (by their best item) and the items inside each vendor.</summary>
+    private int _marginDir = 0;
+
+    /// <summary>The bar of filter/sort controls, pinned above the scrolling vendor list so it never scrolls away.</summary>
+    private VisualElement _multiVendorBarHost;
+
     /// <summary>Sort order for the vendor groups on Inbound Order Creation. Defaults to alphabetical
     /// so the list reads the same way it always has until the player deliberately asks for a
     /// partnership-driven order.</summary>
@@ -190,7 +197,7 @@ public class PurchasingPanel : IUIPanel
     /// one SKU, so "the same item can appear under several vendors at different prices" (see the hint
     /// label) becomes something the player can actually line up side by side instead of expanding
     /// every vendor and hunting for it. Null = "All Items".</summary>
-    private string _multiVendorItemFilterSkuId = null;
+    private readonly HashSet<string> _multiVendorItemFilterSkuIds = new();
 
     /// <summary>Whether the item filter dropdown's popout panel is currently open.</summary>
     private bool _multiVendorItemFilterOpen = false;
@@ -699,6 +706,12 @@ public class PurchasingPanel : IUIPanel
         // MULTI-VENDOR tab layout — same "sibling pane, own scroll view" reasoning as VENDORS above:
         // each vendor group nests its own detail ScrollView, and nesting that inside `content` (itself
         // a ScrollView) fights Yoga's auto-height sizing the same way.
+        // The filter/sort bar sits ABOVE the scroll view so it stays put while the vendor list scrolls.
+        _multiVendorBarHost = new VisualElement();
+        _multiVendorBarHost.style.flexShrink = 0;
+        _multiVendorBarHost.style.display = DisplayStyle.None;
+        modal.Add(_multiVendorBarHost);
+
         var multiVendorPane = new ScrollView(ScrollViewMode.Vertical);
         multiVendorPane.style.flexGrow = 1;
         multiVendorPane.style.display = DisplayStyle.None;
@@ -764,6 +777,7 @@ public class PurchasingPanel : IUIPanel
         _content.style.display = (_tab == Tab.Vendors || _tab == Tab.MultiVendor) ? DisplayStyle.None : DisplayStyle.Flex;
         _vendorsPane.style.display = _tab == Tab.Vendors ? DisplayStyle.Flex : DisplayStyle.None;
         _multiVendorPane.style.display = _tab == Tab.MultiVendor ? DisplayStyle.Flex : DisplayStyle.None;
+        _multiVendorBarHost.style.display = _tab == Tab.MultiVendor ? DisplayStyle.Flex : DisplayStyle.None;
 
         if (_tab == Tab.Vendors)
         {
@@ -1863,8 +1877,9 @@ public class PurchasingPanel : IUIPanel
         // belongs here rather than on the vendor roster. Collapses to nothing when empty (see its own
         // doc comment), so this costs nothing on a day with no live offers. The Spot Deals board that
         // used to sit here too is gone per Tad's explicit request.
+        _multiVendorBarHost.Clear();
+        _multiVendorBarHost.Add(BuildMultiVendorFilterBar());
         _multiVendorPane.Add(BuildSalvageStrip());
-        _multiVendorPane.Add(BuildMultiVendorFilterBar());
 
         var registry = VendorRegistry.Load();
         var vendors = registry?.AllVendors ?? new List<VendorData>();
@@ -1872,8 +1887,8 @@ public class PurchasingPanel : IUIPanel
             vendors = vendors.Where(v => v != null && _multiVendorFilterVendorIds.Contains(v.VendorId)).ToList();
         if (_multiVendorFilterCriticalOnly)
             vendors = vendors.Where(v => v != null && TotalCriticalShortfall(v.VendorId) > 0).ToList();
-        if (!string.IsNullOrEmpty(_multiVendorItemFilterSkuId))
-            vendors = vendors.Where(v => v != null && VendorCarries(v.VendorId, _multiVendorItemFilterSkuId)).ToList();
+        if (_multiVendorItemFilterSkuIds.Count > 0)
+            vendors = vendors.Where(v => v != null && _multiVendorItemFilterSkuIds.Any(s => VendorCarries(v.VendorId, s))).ToList();
 
         if (vendors.Count == 0)
         {
@@ -1901,6 +1916,13 @@ public class PurchasingPanel : IUIPanel
             _ => vendors.Where(v => v != null)
                 .OrderBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
         };
+        // Profit margin ordering (its own control) takes precedence over the Sort dropdown when it is on.
+        if (_marginDir == 1)
+            ordered = vendors.Where(v => v != null).OrderByDescending(v => VendorBestMargin(v.VendorId))
+                .ThenBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase);
+        else if (_marginDir == 2)
+            ordered = vendors.Where(v => v != null).OrderBy(v => VendorBestMargin(v.VendorId))
+                .ThenBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase);
         foreach (var vendor in ordered)
             _multiVendorPane.Add(BuildMultiVendorGroup(vendor));
     }
@@ -2155,7 +2177,32 @@ public class PurchasingPanel : IUIPanel
             else { _multiVendorSortAutoClose?.Pause(); _multiVendorSortAutoClose = null; }
         };
 
-        // Item filter — same custom-popout pattern as Sort (single-select, picking an item applies
+        // Profit margin ordering: its own button, cycles Off -> High to Low -> Low to High. Orders vendors by their
+        // best item and the items inside each vendor.
+        var marginBtn = new Button();
+        marginBtn.name = "MultiVendorMarginButton";
+        marginBtn.text = _marginDir == 1 ? "Margin: High to Low ▾" : _marginDir == 2 ? "Margin: Low to High ▴" : "Margin: Off";
+        marginBtn.style.marginLeft = 10;
+        marginBtn.style.width = 190;
+        marginBtn.style.height = 32;
+        ApplyFont(marginBtn, bold: true, size: 13);
+        marginBtn.style.backgroundColor = new StyleColor(_marginDir == 0 ? ColStat : ColCardEven);
+        marginBtn.style.color = new StyleColor(_marginDir == 0 ? ColTitleText : ColOrangeText);
+        marginBtn.style.borderTopWidth = marginBtn.style.borderBottomWidth =
+            marginBtn.style.borderLeftWidth = marginBtn.style.borderRightWidth = 2;
+        marginBtn.style.borderTopColor = marginBtn.style.borderBottomColor =
+            marginBtn.style.borderLeftColor = marginBtn.style.borderRightColor = new StyleColor(ColBlueEdge);
+        marginBtn.style.borderTopLeftRadius = marginBtn.style.borderTopRightRadius =
+            marginBtn.style.borderBottomLeftRadius = marginBtn.style.borderBottomRightRadius = 6;
+        marginBtn.clicked += () =>
+        {
+            _marginDir = (_marginDir + 1) % 3;
+            Rebuild();
+            _multiVendorPane.scrollOffset = Vector2.zero;
+        };
+        bar.Add(marginBtn);
+
+        // Item filter — same custom-popout pattern as Sort (multi-select checkboxes now; picking an item applies
         // immediately and closes). Narrows every vendor group down to one SKU so the same item can be
         // compared across vendors without expanding each one and hunting for it.
         var itemWrap = new VisualElement();
@@ -2236,32 +2283,22 @@ public class PurchasingPanel : IUIPanel
         criticalRule.style.backgroundColor = new StyleColor(ColBorder);
         itemScroll.Add(criticalRule);
 
-        void AddItemOption(string optionLabel, string skuId)
+        // "All Items" clears every tick; each item below is a checkbox, so several can be on at once.
+        var allBtn = new Button { text = _multiVendorItemFilterSkuIds.Count == 0 ? "✓ All Items" : "    All Items (clear)" };
+        allBtn.style.height = 28;
+        allBtn.style.marginLeft = allBtn.style.marginRight = allBtn.style.marginTop = allBtn.style.marginBottom = 0;
+        allBtn.style.borderTopWidth = allBtn.style.borderBottomWidth = allBtn.style.borderLeftWidth = allBtn.style.borderRightWidth = 0;
+        allBtn.style.backgroundColor = new StyleColor(_multiVendorItemFilterSkuIds.Count == 0 ? ColCardEven : Color.clear);
+        allBtn.style.color = new StyleColor(_multiVendorItemFilterSkuIds.Count == 0 ? ColOrangeText : ColTitleText);
+        ApplyFont(allBtn, bold: _multiVendorItemFilterSkuIds.Count == 0, size: 13);
+        allBtn.style.unityTextAlign = TextAnchor.MiddleLeft;
+        allBtn.clicked += () =>
         {
-            bool selected = _multiVendorItemFilterSkuId == skuId;
-            var opt = new Button { text = (selected ? "✓ " : "    ") + optionLabel };
-            opt.style.width = new StyleLength(StyleKeyword.Auto);
-            opt.style.height = 28;
-            opt.style.marginLeft = 0; opt.style.marginRight = 0; opt.style.marginTop = 0; opt.style.marginBottom = 0;
-            opt.style.borderTopWidth = opt.style.borderBottomWidth =
-                opt.style.borderLeftWidth = opt.style.borderRightWidth = 0;
-            opt.style.backgroundColor = new StyleColor(selected ? ColCardEven : Color.clear);
-            opt.style.color = new StyleColor(selected ? ColOrangeText : ColTitleText);
-            ApplyFont(opt, bold: selected, size: 13);
-            opt.style.unityTextAlign = TextAnchor.MiddleLeft;
-            opt.style.whiteSpace = WhiteSpace.NoWrap;
-            opt.clicked += () =>
-            {
-                ApplyItemFilterSelection(skuId);
-                _multiVendorItemFilterOpen = false;
-                _multiVendorItemAutoClose?.Pause(); _multiVendorItemAutoClose = null;
-                Rebuild();
-                // See the matching comment on the sort-option handler above.
-                _multiVendorPane.scrollOffset = Vector2.zero;
-            };
-            itemScroll.Add(opt);
-        }
-        AddItemOption("All Items", null);
+            ApplyItemFilterSelection(null, false);
+            Rebuild();
+            _multiVendorPane.scrollOffset = Vector2.zero;
+        };
+        itemScroll.Add(allBtn);
 
         var itemRule = new VisualElement();
         itemRule.style.height = 1;
@@ -2270,7 +2307,20 @@ public class PurchasingPanel : IUIPanel
         itemScroll.Add(itemRule);
 
         foreach (var (skuId, displayName) in AllCataloguedItems())
-            AddItemOption(displayName, skuId);
+        {
+            string id = skuId;
+            var cb = new Toggle(displayName) { value = _multiVendorItemFilterSkuIds.Contains(id) };
+            cb.style.marginTop = 1; cb.style.marginBottom = 1;
+            cb.style.color = new StyleColor(cb.value ? ColOrangeText : ColTitleText);
+            ApplyFont(cb, bold: cb.value, size: 13);
+            cb.RegisterValueChangedCallback(evt =>
+            {
+                ApplyItemFilterSelection(id, evt.newValue);
+                Rebuild();
+                _multiVendorPane.scrollOffset = Vector2.zero;
+            });
+            itemScroll.Add(cb);
+        }
 
         itemBtn.clicked += () =>
         {
@@ -2312,11 +2362,14 @@ public class PurchasingPanel : IUIPanel
     {
         var parts = new List<string>();
         if (_multiVendorFilterCriticalOnly) parts.Add("Potential Scratches");
-        if (!string.IsNullOrEmpty(_multiVendorItemFilterSkuId))
+        if (_multiVendorItemFilterSkuIds.Count == 1)
         {
-            var name = AllCataloguedItems().FirstOrDefault(i => i.skuId == _multiVendorItemFilterSkuId).displayName;
-            parts.Add(name ?? _multiVendorItemFilterSkuId);
+            string only = _multiVendorItemFilterSkuIds.First();
+            var name = AllCataloguedItems().FirstOrDefault(i => i.skuId == only).displayName;
+            parts.Add(name ?? only);
         }
+        else if (_multiVendorItemFilterSkuIds.Count > 1)
+            parts.Add($"{_multiVendorItemFilterSkuIds.Count} items");
         if (parts.Count == 0) return "Item: All ▾";
         return $"Item: {string.Join(" + ", parts)} ▾";
     }
@@ -2736,10 +2789,14 @@ public class PurchasingPanel : IUIPanel
             catalogue = catalogue.Where(e => e?.Sku != null).OrderByDescending(e => ScratchCases(e.Sku.SkuId)).ToList();
         else if (_multiVendorSortMode == MultiVendorSortMode.ScratchesLowToHigh)
             catalogue = catalogue.Where(e => e?.Sku != null).OrderBy(e => ScratchCases(e.Sku.SkuId)).ToList();
+        if (_marginDir == 1)
+            catalogue = catalogue.Where(e => e?.Sku != null).OrderByDescending(e => ItemMargin(vendorId, e.Sku)).ToList();
+        else if (_marginDir == 2)
+            catalogue = catalogue.Where(e => e?.Sku != null).OrderBy(e => ItemMargin(vendorId, e.Sku)).ToList();
         foreach (var entry in catalogue)
         {
             if (entry?.Sku == null) continue;
-            if (!string.IsNullOrEmpty(_multiVendorItemFilterSkuId) && entry.Sku.SkuId != _multiVendorItemFilterSkuId) continue;
+            if (_multiVendorItemFilterSkuIds.Count > 0 && !_multiVendorItemFilterSkuIds.Contains(entry.Sku.SkuId)) continue;
             detail.Add(BuildMultiVendorItemRow(vendor, entry.Sku, shown, RefreshHeader,
                 () => PulsePalletAdded(costLabel)));
             shown++;
@@ -2747,7 +2804,7 @@ public class PurchasingPanel : IUIPanel
         if (shown == 0)
         {
             var noneLabel = MakeText(
-                !string.IsNullOrEmpty(_multiVendorItemFilterSkuId)
+                _multiVendorItemFilterSkuIds.Count > 0
                     ? "This vendor doesn't carry that item."
                     : "This vendor has nothing orderable yet.", 13, ColEmptyText);
             noneLabel.style.marginTop = 8;
@@ -2969,16 +3026,20 @@ public class PurchasingPanel : IUIPanel
     /// puts every group back exactly how it was before searching (see _expandedBeforeItemFilter).
     /// Switching directly from one SKU to another re-expands for the new item without touching the
     /// saved pre-search snapshot, so the ORIGINAL state is still what comes back at the end.</summary>
-    private void ApplyItemFilterSelection(string skuId)
+    private void ApplyItemFilterSelection(string skuId, bool on)
     {
-        if (!string.IsNullOrEmpty(skuId))
+        if (string.IsNullOrEmpty(skuId)) _multiVendorItemFilterSkuIds.Clear();   // "All Items"
+        else if (on) _multiVendorItemFilterSkuIds.Add(skuId);
+        else _multiVendorItemFilterSkuIds.Remove(skuId);
+
+        if (_multiVendorItemFilterSkuIds.Count > 0)
         {
             if (_expandedBeforeItemFilter == null)
                 _expandedBeforeItemFilter = new HashSet<string>(_expandedMultiVendors);
 
             var vendors = VendorRegistry.Load()?.AllVendors ?? new List<VendorData>();
             foreach (var vendor in vendors)
-                if (vendor != null && VendorCarries(vendor.VendorId, skuId))
+                if (vendor != null && _multiVendorItemFilterSkuIds.Any(s => VendorCarries(vendor.VendorId, s)))
                     _expandedMultiVendors.Add(vendor.VendorId);
         }
         else if (_expandedBeforeItemFilter != null)
@@ -2987,8 +3048,6 @@ public class PurchasingPanel : IUIPanel
             foreach (var id in _expandedBeforeItemFilter) _expandedMultiVendors.Add(id);
             _expandedBeforeItemFilter = null;
         }
-
-        _multiVendorItemFilterSkuId = skuId;
     }
 
     /// <summary>True if this vendor's catalogue includes the given SKU — the gate the item filter uses
@@ -3129,6 +3188,24 @@ public class PurchasingPanel : IUIPanel
     /// old tab's single `_vendorId` currently points at. Applies a claimed multi-vendor-tab deal
     /// discount (see _multiDealDiscountByKey) on top of the vendor's own Partnership-driven price —
     /// this tab has its own DEALS button per vendor group now, separate from the old tab's.</summary>
+    /// <summary>Profit margin of buying this SKU from this vendor and selling it at its sell value: (sell - buy) / sell.</summary>
+    private float ItemMargin(string vendorId, SkuData sku)
+    {
+        if (sku == null || sku.SellValue <= 0f) return 0f;
+        return (sku.SellValue - UnitPriceForVendor(vendorId, sku)) / sku.SellValue;
+    }
+
+    /// <summary>The best margin any orderable item of this vendor offers - how vendors rank when sorting by margin.</summary>
+    private float VendorBestMargin(string vendorId)
+    {
+        var cat = Economy()?.GetAvailableCatalogue(vendorId);
+        if (cat == null || cat.Count == 0) return -1f;
+        float best = -1f;
+        foreach (var e in cat)
+            if (e?.Sku != null) best = Mathf.Max(best, ItemMargin(vendorId, e.Sku));
+        return best;
+    }
+
     private int UnitPriceForVendor(string vendorId, SkuData sku)
     {
         if (sku == null) return 0;

@@ -64,8 +64,22 @@ public class TruckHighlighter : MonoBehaviour
         // The highlighted truck may have driven off and been destroyed — clones are parented
         // under it, so Unity removes them automatically; just drop our stale reference.
         if (_current == null && _clones.Count > 0)
+        {
             _clones.Clear();
+            return;
+        }
+
+        // The outline is a snapshot, but a truck changes while it is pinned (trailer doors swing, the docked
+        // ghost swap, parts enabled late). Re-scan twice a second and outline any renderer that has no clone yet.
+        if (_current != null && Time.unscaledTime >= _nextRescan)
+        {
+            _nextRescan = Time.unscaledTime + 0.5f;
+            _clones.RemoveAll(c => c == null);
+            BuildOutline(_current, onlyMissing: true);
+        }
     }
+
+    private float _nextRescan;
 
     /// <summary>Outline a single truck (replaces any existing highlight).</summary>
     public void Highlight(TruckController truck)
@@ -112,7 +126,7 @@ public class TruckHighlighter : MonoBehaviour
         return true;
     }
 
-    private void BuildOutline(TruckController truck)
+    private void BuildOutline(TruckController truck, bool onlyMissing = false)
     {
         if (!EnsureMaterials()) return;
 
@@ -126,13 +140,17 @@ public class TruckHighlighter : MonoBehaviour
         // spawning thousands of extra outline-clone GameObjects just to highlight one truck.
         Transform loadContainer = truck.LoadContainer;
 
-        var renderers = truck.GetComponentsInChildren<Renderer>(includeInactive: false);
+        // includeInactive: the trailer body/doors can be under objects that are toggled while docked; an
+        // inactive renderer's clone is inactive too (it is parented to it) and lights up when the source does.
+        var renderers = truck.GetComponentsInChildren<Renderer>(includeInactive: true);
         foreach (var r in renderers)
         {
             if (r == null) continue;
+            if (r is ParticleSystemRenderer || r is LineRenderer || r is TrailRenderer) continue;
             if (r is SpriteRenderer) continue;
             if (r.name == CloneName) continue;
             if (loadContainer != null && r.transform.IsChildOf(loadContainer)) continue;
+            if (onlyMissing && HasClone(r)) continue;
 
             if (r is SkinnedMeshRenderer smr && smr.sharedMesh != null)
             {
@@ -149,6 +167,13 @@ public class TruckHighlighter : MonoBehaviour
                 }
             }
         }
+    }
+
+    private static bool HasClone(Renderer src)
+    {
+        foreach (Transform child in src.transform)
+            if (child.name == CloneName) return true;
+        return false;
     }
 
     private static Material[] FillArray(Material mat, int subMeshCount)

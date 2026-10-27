@@ -44,3 +44,11 @@ positive profit, no manual intervention.
 
 ## Warehouse-strategy rules (Tad) - see `.claude/skills/warehouse-strategy/SKILL.md`
 Never fill every door with outbound case-pick trailers; keep one door free for inbound unless all product is already in hand with time to pick it. Release work by its pick time.
+
+## Session 2026-10-27 (later) - metrics, truck bars, Inbound filters, glow (all compiled, none play-tested)
+Full detail is the last addendum in `CLAUDE.md` ("Addendum 2026-10-27 (later)"). Short version:
+1. New `OpsMetrics` time-study recorder + METRICS tab (4th tab of `HalSummaryWindow`): gate-to-door, offload, offload lap, receiving (incl. gaps), load cycle/total, pallet pick, case pick. Standard = avg x 1.15. Samples persist in `ops_metrics.json`.
+2. Truck modal: pallet-pick (orange) and case-pick (yellow) bars + per-item tags.
+3. Inbound Order Creation: filter bar pinned above the scroll, margin ordering button, multi-select item checkboxes.
+4. Glow: `TruckHighlighter` rescans for missed renderers; `OrderFreightHighlighter` rebuilds stale pallet boxes.
+Next: play-test these, then smoking area + ashtray, then turn the METRICS standards into scoring goals once they settle. Still step 1 of the roadmap (close the core loop).

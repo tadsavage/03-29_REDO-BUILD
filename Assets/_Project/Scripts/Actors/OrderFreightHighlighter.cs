@@ -141,23 +141,46 @@ public class OrderFreightHighlighter : MonoBehaviour
             if (kv.Key == null) continue;
             if (_boxes.TryGetValue(kv.Key, out var existing) && existing != null)
             {
-                existing.startColor = existing.endColor = _color;
-                continue;
+                // A pallet's cases are built after the pallet exists, so a box made too early is tiny or stale:
+                // rebuild it whenever the pallet's renderer count has changed since the box was drawn.
+                if (kv.Value || !_rendererCounts.TryGetValue(kv.Key, out int was) || was == CountRenderers(kv.Key))
+                {
+                    existing.startColor = existing.endColor = _color;
+                    continue;
+                }
+                Destroy(existing.gameObject);
+                _boxes.Remove(kv.Key);
             }
             var line = kv.Value ? BuildSlotBox(kv.Key) : BuildPalletBox(kv.Key);
-            if (line != null) _boxes[kv.Key] = line;
+            if (line != null)
+            {
+                _boxes[kv.Key] = line;
+                if (!kv.Value) _rendererCounts[kv.Key] = CountRenderers(kv.Key);
+            }
         }
     }
 
     // ── Boxes ────────────────────────────────────────────────────────────────
 
+    private readonly Dictionary<Transform, int> _rendererCounts = new();
+
+    private static int CountRenderers(Transform pallet)
+    {
+        int n = 0;
+        foreach (var r in pallet.GetComponentsInChildren<Renderer>(true))
+            if (r != null && !(r is LineRenderer)) n++;
+        return n;
+    }
+
     private LineRenderer BuildPalletBox(Transform pallet)
     {
         bool any = false;
         Bounds world = default;
-        foreach (var r in pallet.GetComponentsInChildren<Renderer>())
+        // Inactive children count too (a pallet inside a rack can have parts toggled off); the box only has to
+        // enclose the pallet, and the bounds of a disabled renderer are still its last drawn position.
+        foreach (var r in pallet.GetComponentsInChildren<Renderer>(true))
         {
-            if (r == null || !r.enabled || r.GetComponent<LineRenderer>() != null) continue;
+            if (r == null || r is LineRenderer || r.bounds.size == Vector3.zero) continue;
             if (!any) { world = r.bounds; any = true; } else world.Encapsulate(r.bounds);
         }
         if (!any) return null;
@@ -224,5 +247,6 @@ public class OrderFreightHighlighter : MonoBehaviour
         foreach (var line in _boxes.Values)
             if (line != null) Destroy(line.gameObject);
         _boxes.Clear();
+        _rendererCounts.Clear();
     }
 }
