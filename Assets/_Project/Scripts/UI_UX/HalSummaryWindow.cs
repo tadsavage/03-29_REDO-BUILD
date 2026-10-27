@@ -21,7 +21,7 @@ public static class HalSummaryWindow
     static ScrollView _logScroll;
     static int _sizedForTab = -1;
     static int _tab;                      // 0 = summary, 1 = all changes, 2 = iterations
-    static Label _tabIter, _tabMetrics, _curLabel, _highLabel, _highValue, _whoLabel;
+    static Label _tabIter, _tabMetrics, _tabPlayer, _tabBlend, _curLabel, _highLabel, _highValue, _whoLabel;
     static ScrollView _iterScroll, _metricsScroll;
     static string _iterSig, _metricsSig;
     static string _tableSig, _logSig;
@@ -141,8 +141,8 @@ public static class HalSummaryWindow
         // tabs
         var tabs = new VisualElement();
         tabs.style.flexDirection = FlexDirection.Row; tabs.style.flexShrink = 0; tabs.style.height = 28; tabs.style.marginTop = 2; tabs.style.marginBottom = 6;
-        _tabSummary = Tab("SUMMARY", 0); _tabIter = Tab("ITERATIONS", 2); _tabChanges = Tab("ALL CHANGES", 1); _tabMetrics = Tab("METRICS", 3);
-        tabs.Add(_tabSummary); tabs.Add(_tabIter); tabs.Add(_tabChanges); tabs.Add(_tabMetrics);
+        _tabSummary = Tab("SUMMARY", 0); _tabIter = Tab("ITERATIONS", 2); _tabChanges = Tab("ALL CHANGES", 1); _tabMetrics = Tab("BOT METRICS", 3); _tabPlayer = Tab("PLAYER METRICS", 4); _tabBlend = Tab("METRICS BLENDED", 5);
+        tabs.Add(_tabSummary); tabs.Add(_tabIter); tabs.Add(_tabChanges); tabs.Add(_tabMetrics); tabs.Add(_tabPlayer); tabs.Add(_tabBlend);
         _win.Add(tabs);
 
         _metricsScroll = new ScrollView(ScrollViewMode.Vertical);
@@ -187,9 +187,9 @@ public static class HalSummaryWindow
 
     static Label Tab(string text, int index)
     {
-        var t = L(13, Ink, TextAnchor.MiddleCenter);
+        var t = L(12, Ink, TextAnchor.MiddleCenter);
         t.text = text; t.pickingMode = PickingMode.Position;
-        t.style.height = 28; t.style.paddingLeft = t.style.paddingRight = 12; t.style.marginRight = 8;
+        t.style.height = 28; t.style.paddingLeft = t.style.paddingRight = 8; t.style.marginRight = 5;
         Border(t, 2, Ink); Radius(t, 4);
         t.RegisterCallback<PointerDownEvent>(e => { if (e.button != 0) return; _tab = index; HideExplain(); _tableSig = _logSig = _iterSig = _metricsSig = null; e.StopPropagation(); Refresh(); });
         return t;
@@ -201,6 +201,8 @@ public static class HalSummaryWindow
         _tabChanges.style.backgroundColor = _tab == 1 ? Band : Color.white;
         _tabIter.style.backgroundColor = _tab == 2 ? Band : Color.white;
         _tabMetrics.style.backgroundColor = _tab == 3 ? Band : Color.white;
+        _tabPlayer.style.backgroundColor = _tab == 4 ? Band : Color.white;
+        _tabBlend.style.backgroundColor = _tab == 5 ? Band : Color.white;
     }
 
     // ── drag / resize ─────────────────────────────────────────────────────────
@@ -251,18 +253,18 @@ public static class HalSummaryWindow
         var bot = PlaytestBot.Instance;
         StyleTabs();
 
-        _metricsScroll.style.display = _tab == 3 ? DisplayStyle.Flex : DisplayStyle.None;
-        if (_tab == 3)
+        _metricsScroll.style.display = _tab >= 3 ? DisplayStyle.Flex : DisplayStyle.None;
+        if (_tab >= 3)
         {
             _tableHost.style.display = DisplayStyle.None; _iterScroll.style.display = DisplayStyle.None; _logPanel.style.display = DisplayStyle.None;
-            if (_sizedForTab != 3)
+            if (_sizedForTab != _tab)
             {
-                _sizedForTab = 3;
+                _sizedForTab = _tab;
                 _win.style.height = IterH;
                 if (_win.resolvedStyle.width < IterW) _win.style.width = IterW;
             }
-            _sub.text = "time studies, in game minutes";
-            RenderMetrics();
+            _sub.text = _tab == 3 ? "HAL at the controls, in game minutes" : _tab == 4 ? "a human at the controls, in game minutes" : "bot and player together = the standards";
+            RenderMetrics(_tab);
             return;
         }
 
@@ -567,19 +569,21 @@ public static class HalSummaryWindow
         }
     }
 
-    static void RenderMetrics()
+    static void RenderMetrics(int mode)
     {
-        string sig = OpsMetrics.Version.ToString();
+        string sig = OpsMetrics.Version + "|" + mode;
         if (sig == _metricsSig) return;
         _metricsSig = sig;
 
         var keep = _metricsScroll.scrollOffset;
         _metricsScroll.Clear();
 
-        var title = L(30, Ink); title.text = "METRICS"; title.style.marginTop = 2;
+        var title = L(30, Ink); title.text = mode == 3 ? "BOT METRICS" : mode == 4 ? "PLAYER METRICS" : "METRICS BLENDED"; title.style.marginTop = 2;
         _metricsScroll.Add(title);
         var sub = L(12, InkSoft); sub.style.whiteSpace = WhiteSpace.Normal;
-        sub.text = "Time studies as an industrial engineer would take them: every finished job is timed in game minutes. STANDARD = average plus a 15% allowance for personal time, fatigue and delay.";
+        sub.text = mode == 3 ? "Jobs timed while HAL is playing (game minutes). STANDARD = average plus a 15% allowance for personal time, fatigue and delay."
+                  : mode == 4 ? "Jobs timed while a human plays (HAL only watching counts as a human). STANDARD = average plus a 15% allowance."
+                  : "Bot and player samples blended into one standard per job. This is the reference for labor standards, goals, achievements, difficulty levels and balancing. Raw data is saved in " + OpsMetrics.FolderPath + " (and mirrored to the project's Metrics folder in the editor).";
         sub.style.marginBottom = 8;
         _metricsScroll.Add(sub);
 
@@ -608,11 +612,17 @@ public static class HalSummaryWindow
         bool alt = false;
         foreach (var info in OpsMetrics.All)
         {
-            var s = OpsMetrics.Get(info.kind);
+            var s = mode == 3 ? OpsMetrics.Get(info.kind, OpsMetrics.Source.Bot) : mode == 4 ? OpsMetrics.Get(info.kind, OpsMetrics.Source.Player) : OpsMetrics.GetBlended(info.kind);
             var row = Row(alt ? new Color(0.96f, 0.96f, 0.96f, 1f) : new Color(1f, 1f, 1f, 1f), false); alt = !alt;
             var name = new VisualElement(); name.style.flexGrow = 1; name.style.flexShrink = 1;
             var t = L(15, Ink); t.text = info.title; name.Add(t);
             var d = L(11, InkSoft); d.text = info.what; d.style.whiteSpace = WhiteSpace.Normal; name.Add(d);
+            if (mode == 5)
+            {
+                var split = L(11, ScorePurple); split.style.whiteSpace = WhiteSpace.Normal;
+                split.text = "bot " + OpsMetrics.Get(info.kind, OpsMetrics.Source.Bot).n + "  /  player " + OpsMetrics.Get(info.kind, OpsMetrics.Source.Player).n + " samples";
+                name.Add(split);
+            }
             row.Add(name);
             row.Add(Cell(s.n.ToString(), 1, InkSoft, 14));
             row.Add(Cell(s.n > 0 ? Mins(s.avg) : "-", 2, Ink, 14));
@@ -624,13 +634,17 @@ public static class HalSummaryWindow
         }
 
         var foot = L(12, InkSoft); foot.style.whiteSpace = WhiteSpace.Normal; foot.style.marginTop = 10;
-        foot.text = "Once these settle they become the labor standards, and the goals that partnership, reputation and the Reliability score are measured against. Samples are kept between sessions (last 300 per job).";
+        foot.text = "Samples are kept between sessions in their own folder, separate from the save files (last 300 per job per source), each stamped with the date and difficulty so the data can be sliced later.";
         _metricsScroll.Add(foot);
 
-        var clear = L(13, Color.white, TextAnchor.MiddleCenter); clear.text = "CLEAR ALL SAMPLES"; clear.pickingMode = PickingMode.Position;
-        clear.style.height = 28; clear.style.width = 170; clear.style.marginTop = 8; clear.style.backgroundColor = new Color(0.72f, 0.12f, 0.12f, 1f); Radius(clear, 4);
-        clear.RegisterCallback<PointerDownEvent>(e => { if (e.button != 0) return; OpsMetrics.Clear(); _metricsSig = null; e.StopPropagation(); });
-        _metricsScroll.Add(clear);
+        if (mode != 5)
+        {
+            var src = mode == 3 ? OpsMetrics.Source.Bot : OpsMetrics.Source.Player;
+            var clear = L(13, Color.white, TextAnchor.MiddleCenter); clear.text = mode == 3 ? "CLEAR BOT SAMPLES" : "CLEAR PLAYER SAMPLES"; clear.pickingMode = PickingMode.Position;
+            clear.style.height = 28; clear.style.width = 190; clear.style.marginTop = 8; clear.style.backgroundColor = new Color(0.72f, 0.12f, 0.12f, 1f); Radius(clear, 4);
+            clear.RegisterCallback<PointerDownEvent>(e => { if (e.button != 0) return; OpsMetrics.Clear(src); _metricsSig = null; e.StopPropagation(); });
+            _metricsScroll.Add(clear);
+        }
 
         _metricsScroll.scrollOffset = keep;
     }

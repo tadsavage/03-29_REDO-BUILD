@@ -5,18 +5,23 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// Time-study recorder: the floor reports how long each job really took, in GAME minutes (Time.time runs at 1 game minute per scaled second),
-/// and the HAL METRICS tab turns that into averages and suggested standards. Samples persist to disk so the standards keep building across
-/// sessions. Hooks call <see cref="Record"/> when a job finishes; nothing here drives gameplay.
+/// Time-study recorder: the floor reports how long each job really took, in GAME minutes (Time.time runs at 1 game minute per scaled second).
+/// Samples are filed by WHO was running the warehouse (HAL the bot, or a human player), shown on the Bot Metrics / Player Metrics tabs, and
+/// blended into labor standards on the Metrics Blended tab. They persist in their own folder (not the save files) so they keep building across
+/// saves, loads and new games, and become the reference for balancing, difficulty levels, achievements and labor standards.
+/// Hooks call <see cref="Record"/> when a job finishes; nothing here drives gameplay.
 /// </summary>
 public static class OpsMetrics
 {
     // New kinds go on the end: samples are saved by number.
     public enum Kind { GateToDoor, Offload, LoadCycle, LoadTotal, PalletPick, CasePick, OffloadCycle, Receive }
 
+    /// <summary>Who was running the warehouse when the sample was taken. Bot = HAL playing; Player = a human (including HAL only watching).</summary>
+    public enum Source { Bot, Player }
+
     public struct Info { public Kind kind; public string title, what, unit; }
 
-    /// <summary>Display order and wording for the METRICS tab.</summary>
+    /// <summary>Display order and wording for the metrics tabs.</summary>
     public static readonly Info[] All =
     {
         new Info { kind = Kind.GateToDoor, title = "GUARD SHACK TO DOOR", what = "Truck clears the gate until it is docked at its door (trucks sent to the side lot are not counted).", unit = "per truck" },
@@ -29,30 +34,50 @@ public static class OpsMetrics
         new Info { kind = Kind.CasePick, title = "CASE PICK", what = "First pick face reached until the pallet is staged, divided by cases picked.", unit = "per trip" },
     };
 
-    [Serializable] class Sample { public int k; public float min; public int units; }
+    // t = real-world UTC ticks and d = difficulty, so the data can be sliced later (balance passes, difficulty levels, achievements, labor standards).
+    [Serializable] class Sample { public int k; public float min; public int units; public long t; public int d; }
     [Serializable] class Store { public List<Sample> s = new(); }
 
-    const int MaxPerKind = 300;
-    const float Allowance = 1.15f;   // personal / fatigue / delay allowance on top of the observed average for a standard
-    static readonly Dictionary<Kind, List<(float min, int units)>> _data = new();
+    const int MaxPerKind = 300;           // kept per kind PER SOURCE
+    const float Allowance = 1.15f;        // personal / fatigue / delay allowance on top of the observed average for a standard
+    static readonly Dictionary<Source, Dictionary<Kind, List<Sample>>> _data = new()
+    {
+        { Source.Bot, new Dictionary<Kind, List<Sample>>() },
+        { Source.Player, new Dictionary<Kind, List<Sample>>() },
+    };
     static bool _loaded;
     static int _sinceSave;
     public static int Version { get; private set; }
 
-    static string FilePath => Path.Combine(Application.persistentDataPath, "ops_metrics.json");
+    /// <summary>Own folder, separate from the saves so it survives every save, load and new game. In the editor it is also mirrored to
+    /// the project's Metrics folder (outside Assets, so no reimport churn) so the data is git-trackable and travels between machines.</summary>
+    public static string FolderPath => Path.Combine(Application.persistentDataPath, "Metrics");
+    static string FileFor(Source src) => Path.Combine(FolderPath, src == Source.Bot ? "bot_metrics.json" : "player_metrics.json");
+    static string LegacyFile => Path.Combine(Application.persistentDataPath, "ops_metrics.json");
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void Reset() { _data.Clear(); _loaded = false; _sinceSave = 0; }
+    static void Reset() { foreach (var d in _data.Values) d.Clear(); _loaded = false; _sinceSave = 0; }
 
     /// <summary>Game-minute clock.</summary>
     public static float Now => Time.time;
+
+    /// <summary>The source new samples are filed under right now: Bot while HAL is actually playing, otherwise Player.</summary>
+    public static Source CurrentSource
+    {
+        get
+        {
+            var bot = GameCore.Diagnostics.PlaytestBot.Instance;
+            return bot != null && bot.Running && !bot.ObserveOnly ? Source.Bot : Source.Player;
+        }
+    }
 
     public static void Record(Kind kind, float minutes, int units = 1)
     {
         if (minutes <= 0.01f || minutes > 60f * 24f) return;
         Load();
-        if (!_data.TryGetValue(kind, out var list)) _data[kind] = list = new List<(float, int)>();
-        list.Add((minutes, Mathf.Max(1, units)));
+        var map = _data[CurrentSource];
+        if (!map.TryGetValue(kind, out var list)) map[kind] = list = new List<Sample>();
+        list.Add(new Sample { k = (int)kind, min = minutes, units = Mathf.Max(1, units), t = DateTime.UtcNow.Ticks, d = PlayerPrefs.GetInt("Difficulty", 0) });
         if (list.Count > MaxPerKind) list.RemoveAt(0);
         Version++;
         if (++_sinceSave >= 10) Save();
@@ -63,11 +88,25 @@ public static class OpsMetrics
         public int n; public float avg, best, worst, standard, perUnitAvg, perHourAvg;
     }
 
-    public static Stats Get(Kind kind)
+    /// <summary>Stats for one source (Bot or Player).</summary>
+    public static Stats Get(Kind kind, Source src) => Compute(Samples(kind, src, false));
+
+    /// <summary>Bot + Player samples together: the labor-standard view.</summary>
+    public static Stats GetBlended(Kind kind) => Compute(Samples(kind, Source.Bot, true));
+
+    static List<Sample> Samples(Kind kind, Source src, bool both)
     {
         Load();
+        var all = new List<Sample>();
+        if (both || src == Source.Bot) { if (_data[Source.Bot].TryGetValue(kind, out var b)) all.AddRange(b); }
+        if (both || src == Source.Player) { if (_data[Source.Player].TryGetValue(kind, out var p)) all.AddRange(p); }
+        return all;
+    }
+
+    static Stats Compute(List<Sample> list)
+    {
         var st = new Stats();
-        if (!_data.TryGetValue(kind, out var list) || list.Count == 0) return st;
+        if (list.Count == 0) return st;
         st.n = list.Count;
         st.avg = list.Average(x => x.min);
         st.best = list.Min(x => x.min);
@@ -80,10 +119,21 @@ public static class OpsMetrics
         return st;
     }
 
-    public static void Clear()
+    public static void Clear(Source src)
     {
-        _data.Clear(); Version++;
-        try { if (File.Exists(FilePath)) File.Delete(FilePath); } catch { }
+        Load();
+        _data[src].Clear(); Version++;
+        try { if (File.Exists(FileFor(src))) File.Delete(FileFor(src)); } catch { }
+        try { var m = MirrorFor(src); if (m != null && File.Exists(m)) File.Delete(m); } catch { }
+    }
+
+    static string MirrorFor(Source src)
+    {
+#if UNITY_EDITOR
+        return Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Metrics", src == Source.Bot ? "bot_metrics.json" : "player_metrics.json"));
+#else
+        return null;
+#endif
     }
 
     static void Load()
@@ -92,29 +142,68 @@ public static class OpsMetrics
         _loaded = true;
         try
         {
-            if (!File.Exists(FilePath)) return;
-            var store = JsonUtility.FromJson<Store>(File.ReadAllText(FilePath));
-            if (store?.s == null) return;
-            foreach (var x in store.s)
+            foreach (Source src in Enum.GetValues(typeof(Source)))
             {
-                var k = (Kind)x.k;
-                if (!_data.TryGetValue(k, out var l)) _data[k] = l = new List<(float, int)>();
-                l.Add((x.min, x.units));
+                string f = FileFor(src);
+#if UNITY_EDITOR
+                // A fresh machine has no persistent copy yet: seed from the tracked mirror so the data travels with the repo.
+                if (!File.Exists(f)) { var m = MirrorFor(src); if (m != null && File.Exists(m)) { Directory.CreateDirectory(FolderPath); File.Copy(m, f); } }
+#endif
+                if (!File.Exists(f)) continue;
+                var store = JsonUtility.FromJson<Store>(File.ReadAllText(f));
+                if (store?.s == null) continue;
+                foreach (var x in store.s)
+                {
+                    var k = (Kind)x.k;
+                    if (!_data[src].TryGetValue(k, out var l)) _data[src][k] = l = new List<Sample>();
+                    l.Add(x);
+                }
+            }
+            // One-time migration of the old single file (written while HAL was doing the playing) into the Bot file.
+            if (File.Exists(LegacyFile) && !File.Exists(FileFor(Source.Bot)))
+            {
+                var store = JsonUtility.FromJson<Store>(File.ReadAllText(LegacyFile));
+                if (store?.s != null)
+                {
+                    foreach (var x in store.s)
+                    {
+                        var k = (Kind)x.k;
+                        if (!_data[Source.Bot].TryGetValue(k, out var l)) _data[Source.Bot][k] = l = new List<Sample>();
+                        l.Add(x);
+                    }
+                    Save();
+                }
             }
         }
         catch (Exception e) { Debug.LogWarning("[OpsMetrics] load failed: " + e.Message); }
     }
 
-    static void Save()
+    /// <summary>Flush to disk now (also called when the game quits so the last few samples are not lost).</summary>
+    public static void Save()
     {
         _sinceSave = 0;
         try
         {
-            var store = new Store();
-            foreach (var kv in _data)
-                foreach (var x in kv.Value) store.s.Add(new Sample { k = (int)kv.Key, min = x.min, units = x.units });
-            File.WriteAllText(FilePath, JsonUtility.ToJson(store));
+            Directory.CreateDirectory(FolderPath);
+            foreach (Source src in Enum.GetValues(typeof(Source)))
+            {
+                var store = new Store();
+                foreach (var kv in _data[src]) store.s.AddRange(kv.Value);
+                string json = JsonUtility.ToJson(store, true);
+                File.WriteAllText(FileFor(src), json);
+                var m = MirrorFor(src);
+                if (m != null) { Directory.CreateDirectory(Path.GetDirectoryName(m)); File.WriteAllText(m, json); }
+            }
         }
         catch (Exception e) { Debug.LogWarning("[OpsMetrics] save failed: " + e.Message); }
     }
+
+    /// <summary>Saves on quit so no samples are lost between the every-10-samples flushes.</summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void HookQuit()
+    {
+        Application.quitting -= OnQuit;
+        Application.quitting += OnQuit;
+    }
+    static void OnQuit() { if (_loaded) Save(); }
 }

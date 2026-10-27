@@ -1887,3 +1887,4 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
 - day 7 20:36 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 255s while 7 task(s) wait
 - day 7 21:19 | **VEHICLE-STATIONARY** | Dockstocker has a driver, hasn't moved in 240s while 7 task(s) wait
+- day 1 08:49 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh

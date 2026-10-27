@@ -47,8 +47,27 @@ Never fill every door with outbound case-pick trailers; keep one door free for i
 
 ## Session 2026-10-27 (later) - metrics, truck bars, Inbound filters, glow (all compiled, none play-tested)
 Full detail is the last addendum in `CLAUDE.md` ("Addendum 2026-10-27 (later)"). Short version:
-1. New `OpsMetrics` time-study recorder + METRICS tab (4th tab of `HalSummaryWindow`): gate-to-door, offload, offload lap, receiving (incl. gaps), load cycle/total, pallet pick, case pick. Standard = avg x 1.15. Samples persist in `ops_metrics.json`.
+1. `OpsMetrics` time-study recorder (gate-to-door, offload, offload lap, receiving incl. gaps, load cycle/total, pallet pick, case pick; standard = avg x 1.15). **Reworked 2026-10-28 (see below): samples are now split by who was playing.**
 2. Truck modal: pallet-pick (orange) and case-pick (yellow) bars + per-item tags.
 3. Inbound Order Creation: filter bar pinned above the scroll, margin ordering button, multi-select item checkboxes.
 4. Glow: `TruckHighlighter` rescans for missed renderers; `OrderFreightHighlighter` rebuilds stale pallet boxes.
 Next: play-test these, then smoking area + ashtray, then turn the METRICS standards into scoring goals once they settle. Still step 1 of the roadmap (close the core loop).
+
+## Session 2026-10-28 - metrics split into Bot / Player / Blended (compiled, NOT play-tested)
+Tad's ask: the METRICS tab becomes **BOT METRICS** (recorded while HAL plays), a new **PLAYER METRICS** tab (recorded while a human plays; HAL only watching counts as human), and a
+**METRICS BLENDED** tab (bot + player together = the labor standards). The data must live in its own folder, survive saves, and become the long-term reference for game balance,
+difficulty levels, achievements, goals and labor standards.
+- `Assets/_Project/Scripts/1. FSM/Core/Diagnostics/OpsMetrics.cs` rewritten: `Source { Bot, Player }`, `CurrentSource` (Bot only while `PlaytestBot.Instance.Running && !ObserveOnly`),
+  `Get(kind, source)`, `GetBlended(kind)`, `Clear(source)`, public `Save()`.
+- Storage: `Application.persistentDataPath/Metrics/bot_metrics.json` and `player_metrics.json` (NOT in the save files). In the editor each save is also mirrored to
+  `<project>/Metrics/*.json` (outside Assets, so no reimport churn, git-trackable so the data travels between machines; a fresh machine seeds its persistent copy from the mirror).
+  Each sample carries minutes, units, real UTC ticks and the difficulty (`PlayerPrefs "Difficulty"`) so it can be sliced later. Last 300 per kind per source. Saved every 10 samples and on quit.
+- The old single `ops_metrics.json` is migrated once into the Bot file (those samples came from HAL runs).
+- `UI_UX/HalSummaryWindow.cs`: tabs are now SUMMARY / ITERATIONS / ALL CHANGES / BOT METRICS (3) / PLAYER METRICS (4) / METRICS BLENDED (5); `RenderMetrics(mode)`; Blended rows also show the bot/player sample split;
+  Bot and Player tabs have their own clear button, Blended has none. Tab labels are 12 pt with tighter padding so six tabs fit.
+- To verify: compile clean, run one HAL block and one human session, check both JSON files appear in `persistentDataPath/Metrics` and in `<project>/Metrics`, and that the three tabs fill.
+- Open idea, not built: turn the blended standards into scoring goals (partnership, reputation, Reliability) once they settle; smoking area + ashtray for idle workers.
+
+## Status (Tad: "we are almost at 100%")
+Everything above is committed except the 2026-10-28 metrics split (uncommitted at the time of writing). Nothing from "Block 15" onward has been play-tested. First thing to do: open Unity, let it compile
+(check `Logs/Editor.log` for `error CS`), start HAL block 15, and read `Block_15.md` / `BugLog_Block_15.md`. Change ONE thing per block.
