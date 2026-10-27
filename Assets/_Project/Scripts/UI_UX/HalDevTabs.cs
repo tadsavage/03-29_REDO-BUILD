@@ -208,9 +208,9 @@ public static class HalDevTabs
 
     // ══════════════════════════════════════════ ITERATIONS ══════════════════════════════════════════
 
-    struct Metric { public string title; public Func<PlaytestBlockResult, float> get; public Func<float, string> fmt; public bool higherIsBetter; public Color color; }
+    public struct Metric { public string title; public Func<PlaytestBlockResult, float> get; public Func<float, string> fmt; public bool higherIsBetter; public Color color; }
 
-    static List<Metric> Metrics() => new()
+    public static List<Metric> Metrics() => new()
     {
         new Metric { title = "SCORE", get = r => r.score, fmt = v => v.ToString("0.0"), higherIsBetter = true, color = new Color(1f, 0.82f, 0.3f) },
         new Metric { title = "ON-TIME DELIVERY", get = r => r.onTime, fmt = v => v.ToString("0") + "%", higherIsBetter = true, color = new Color(0.35f, 0.85f, 0.45f) },
@@ -286,7 +286,7 @@ public static class HalDevTabs
         }
     }
 
-    static List<PlaytestBlockResult> LoadBlocks()
+    public static List<PlaytestBlockResult> LoadBlocks()
     {
         try
         {

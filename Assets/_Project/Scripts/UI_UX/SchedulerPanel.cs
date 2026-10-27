@@ -1826,13 +1826,54 @@ public class SchedulerPanel : IUIPanel
         int pallets = PalletCountForGroup(group);
         string detail = $"{PalletLabel(pallets)} · {group.OrderIds.Count} order(s) · {timeText}";
 
+        // BONUS ROUND: a bulk order that must ship the day it arrived pays double. Its tile is YELLOW (not the bulk green) with the
+        // bonus and its deadline written on it, so the money-makers stand out while the player mouses around the pool.
+        bool bonus = false; string bonusText = null; float boxHeight = PoolBoxHeight;
+        if (ServiceLocator.TryGet(out OrderService poolOrders) && poolOrders != null)
+        {
+            foreach (var id in group.OrderIds)
+            {
+                var o = poolOrders.ActiveOrders.FirstOrDefault(x => x.OrderId == id);
+                if (o != null && o.IsSameDayRush && o.QualifiesForSameDayBonus(today))
+                {
+                    bonus = true;
+                    int pct = Mathf.RoundToInt((OrderData.SameDayRushRevenueMultiplier - 1f) * 100f);
+                    bonusText = $"+{pct}% if shipped by\nDay {o.DueDay} at midnight";
+                    break;
+                }
+            }
+        }
+        if (bonus)
+        {
+            if (!selected)   // a tile in hand keeps the selection orange; the bonus text still shows
+            {
+                fill = new Color(0.98f, 0.83f, 0.18f, 1f);
+                edge = new Color(0.72f, 0.52f, 0.04f, 1f);
+                ink  = new Color(0.20f, 0.10f, 0.00f, 1f);
+            }
+            boxHeight = PoolBoxHeight + 38f;
+        }
+
+        VisualElement MakeDetail()
+        {
+            var detailLabel = MakeFlagDetailText(detail, ink);
+            if (!bonus) return detailLabel;
+            var col = new VisualElement();
+            col.Add(detailLabel);
+            var b = MakeText(bonusText, 13, ink, bold: true);
+            b.style.whiteSpace = WhiteSpace.Normal;
+            b.style.marginTop = 2; b.style.marginBottom = 0;
+            col.Add(b);
+            return col;
+        }
+
         var box = BuildFlagBox(
             icon: IconForCustomer(group.CustomerId, group.ContractId, arrivals),
             title: group.CustomerName,
             subtitle: dayText,
-            detail: detail,
+            detailElement: MakeDetail(),
             fill: fill, edge: edge, ink: ink,
-            selected: selected);
+            selected: selected, height: boxHeight);
 
         // A second, independent copy of the exact same visual — see the field comment on
         // _poolHoverGhostHost for why. This is what actually stands in front while `box` (still in
@@ -1841,9 +1882,9 @@ public class SchedulerPanel : IUIPanel
             icon: IconForCustomer(group.CustomerId, group.ContractId, arrivals),
             title: group.CustomerName,
             subtitle: dayText,
-            detail: detail,
+            detailElement: MakeDetail(),
             fill: fill, edge: edge, ink: ink,
-            selected: selected);
+            selected: selected, height: boxHeight);
         ghost.style.position = Position.Absolute;
         ghost.style.display = DisplayStyle.None;
         SetPickingModeRecursive(ghost, PickingMode.Ignore);
@@ -1884,7 +1925,7 @@ public class SchedulerPanel : IUIPanel
             Rect worldR = box.worldBound;
             Vector2 modalLocal = _modal.WorldToLocal(new Vector2(worldR.center.x, worldR.center.y));
             ghost.style.left = modalLocal.x - PoolBoxWidth / 2f;
-            ghost.style.top = modalLocal.y - PoolBoxHeight / 2f;
+            ghost.style.top = modalLocal.y - boxHeight / 2f;
             ghost.style.display = DisplayStyle.Flex;
             ghost.style.scale = new Scale(new Vector3(CellHoverGrowScale, CellHoverGrowScale, 1f));
             box.style.opacity = 0f;
@@ -1933,10 +1974,10 @@ public class SchedulerPanel : IUIPanel
     }
 
     private VisualElement BuildFlagBox(Sprite icon, string title, string subtitle, VisualElement detailElement,
-                                       Color fill, Color edge, Color ink, bool selected)
+                                       Color fill, Color edge, Color ink, bool selected, float height = -1f)
     {
         var box = new VisualElement();
-        box.style.width = PoolBoxWidth; box.style.height = PoolBoxHeight;
+        box.style.width = PoolBoxWidth; box.style.height = height > 0f ? height : PoolBoxHeight;
         box.style.flexShrink = 0;
         box.style.flexDirection = FlexDirection.Row;
         box.style.marginRight = 8; box.style.marginBottom = 6;

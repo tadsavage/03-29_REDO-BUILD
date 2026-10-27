@@ -186,6 +186,8 @@ namespace GameCore.Inventory
         public string id;
         public int day;
         public int blockIndex;
+        /// <summary>Hours per block when this was saved. 0 = a save from the 2-hour-block days; its blockIndex is rescaled on load.</summary>
+        public int blockHours;
         public int doorNumber;
         public int kind;
         public string customerId;
@@ -251,8 +253,8 @@ namespace GameCore.Inventory
     /// </summary>
     public class DockScheduleService : IService
     {
-        /// <summary>In-game hours per block. Twelve blocks span a 24-hour day.</summary>
-        public const int BlockHours = 2;
+        /// <summary>In-game hours per block. Six blocks span a 24-hour day (4-hour windows, Tad 2026-10-26: case picking takes time, so give the player room).</summary>
+        public const int BlockHours = 4;
         public const int BlocksPerDay = 24 / BlockHours;
 
         /// <summary>Auto-placed pickups start at least this many in-game hours from now (Tad, 2026-10-26).</summary>
@@ -1884,6 +1886,7 @@ namespace GameCore.Inventory
             id = a.Id,
             day = a.Day,
             blockIndex = a.BlockIndex,
+            blockHours = BlockHours,
             doorNumber = a.DoorNumber,
             kind = (int)a.Kind,
             customerId = a.CustomerId,
@@ -1911,7 +1914,7 @@ namespace GameCore.Inventory
                 {
                     Id = s.id,
                     Day = s.day,
-                    BlockIndex = Mathf.Clamp(s.blockIndex, 0, BlocksPerDay - 1),
+                    BlockIndex = Mathf.Clamp(s.blockIndex * (s.blockHours > 0 ? s.blockHours : 2) / BlockHours, 0, BlocksPerDay - 1),
                     DoorNumber = s.doorNumber,
                     Kind = (AppointmentKind)s.kind,
                     CustomerId = s.customerId,

@@ -573,6 +573,10 @@ public class FreeLookCamera : MonoBehaviour
         ApplyTransform();
     }
 
+    /// <summary>Glides in on a world position, keeping the current yaw and pitch and closing to at most <paramref name="distance"/> (never backing away).</summary>
+    public void ZoomOnto(Vector3 focus, float distance, float seconds = 0.8f)
+        => GlideTo(focus, _yaw, _pitch, Mathf.Min(_distance, distance), seconds);
+
     // Scripted glide state — see GlideTo.
     private bool _gliding;
     private float _glideT, _glideDuration;

@@ -438,6 +438,9 @@ public class TopBarUI : MonoBehaviour
                       // the player has had a chance to look at the state they're starting from.
     }
 
+    /// <summary>Sets the game speed from outside (0 = paused), keeping the speed buttons in step.</summary>
+    public void SetGameSpeed(float scale) => SetSpeed(scale);
+
     // Holistic game speed: scales the whole simulation (clock, employees, animation).
     // 0 = paused. Uses Time.timeScale so everything advances together.
     private void SetSpeed(float scale)

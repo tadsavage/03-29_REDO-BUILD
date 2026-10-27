@@ -94,12 +94,12 @@ namespace GameCore.Inventory
         /// missing appointment turning into freight that silently never arrives.
         /// </summary>
         /// <summary>How many dock blocks ahead of its booked slot an inbound truck is sent (see DispatchDueShipments).</summary>
-        private const int InboundLeadBlocks = 1;
+        private const int InboundLeadHours = 2;   // hours (not blocks): blocks are 4 h now, and a truck 4 h early would just sit
 
         private void DispatchDueShipments(int today)
         {
             ServiceLocator.TryGet(out DockScheduleService dockSchedule);
-            int nowBlock = dockSchedule?.CurrentBlock ?? 0;
+            int nowHour = dockSchedule?.CurrentHour ?? 0;
 
             foreach (var shipment in _pendingShipments.ToList())
             {
@@ -113,8 +113,8 @@ namespace GameCore.Inventory
                     // a truck sent when its 2 h slot opened reached the dock near the slot's END. With every slot booked
                     // back to back each truck ran into the next one's and the queue snowballed all day. The dwell clock
                     // doesn't start before the slot (TruckController.InboundClockStart), so arriving early costs nothing.
-                    int sendAt = appt.Day * DockScheduleService.BlocksPerDay + appt.BlockIndex - InboundLeadBlocks;
-                    if (today * DockScheduleService.BlocksPerDay + nowBlock < sendAt) continue;
+                    int sendAtHour = appt.Day * 24 + appt.StartHour - InboundLeadHours;
+                    if (today * 24 + nowHour < sendAtHour) continue;
                 }
                 else if (shipment.ArrivalDayNumber > today) continue;
 

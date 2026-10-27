@@ -83,7 +83,7 @@ namespace GameCore.Diagnostics
         bool _blockDoneAwaitingPlan;
 
         // ── block stats ──
-        int _shipped, _late, _palletsAtStart, _cashDipHours, _cashSamples, _purchases, _rushes, _signed, _booked, _released, _errors;
+        int _shipped, _shippedOnTime, _late, _palletsAtStart, _cashDipHours, _cashSamples, _purchases, _rushes, _signed, _booked, _released, _errors;
         readonly HashSet<string> _activeBugKeys = new();     // present at the last health check
         readonly Dictionary<string, int> _incidents = new(); // bug key -> episodes this block
         readonly Dictionary<string, string> _firstSeen = new();
@@ -179,7 +179,7 @@ namespace GameCore.Diagnostics
             else if (_history.Count > 0) HalPlanner.PlanAndApply(S, _history, _blockNo);   // the one change for this block
             _startDay = time.Day; _startCash = money.CurrentCapital; _startIncome = money.LifetimeIncome.Values.Sum(); _startInventory = InventoryValueNow();
             _startRep = ServiceLocator.TryGet<ReputationService>(out var rs0) ? rs0.Score : 0;
-            _shipped = _late = _cashDipHours = _cashSamples = _purchases = _rushes = _signed = _booked = _released = _errors = 0;
+            _shipped = _shippedOnTime = _late = _movedFines = _cashDipHours = _cashSamples = _purchases = _rushes = _signed = _booked = _released = _errors = 0;
             _palletsAtStart = PalletsShippedTotal(0, time.Day);
             HalMetrics.Reset();
             _repeatCounts.Clear();
@@ -218,7 +218,7 @@ namespace GameCore.Diagnostics
         [Serializable]
         class BotState
         {
-            public int blockNo, startDay, startCash, startIncome, startRep, startInventory, shipped, late, palletsAtStart, cashDipHours, cashSamples, errors;
+            public int blockNo, startDay, startCash, startIncome, startRep, startInventory, shipped, shippedOnTime, late, palletsAtStart, cashDipHours, cashSamples, errors;
             public long startKey;
             public List<string> incKeys = new(); public List<int> incCounts = new();
             public List<string> seenKeys = new(); public List<string> seenVals = new();
@@ -232,7 +232,7 @@ namespace GameCore.Diagnostics
             var st = new BotState
             {
                 blockNo = _blockNo, startDay = _startDay, startCash = _startCash, startIncome = _startIncome, startRep = _startRep, startInventory = _startInventory,
-                shipped = _shipped, late = _late, palletsAtStart = _palletsAtStart, cashDipHours = _cashDipHours, cashSamples = _cashSamples,
+                shipped = _shipped, shippedOnTime = _shippedOnTime, late = _late, palletsAtStart = _palletsAtStart, cashDipHours = _cashDipHours, cashSamples = _cashSamples,
                 errors = _errors, startKey = _startKey,
             };
             foreach (var kv in _incidents) { st.incKeys.Add(kv.Key); st.incCounts.Add(kv.Value); }
@@ -251,7 +251,7 @@ namespace GameCore.Diagnostics
             S = LoadSettings();
             ObserveOnly = true;
             _blockNo = st.blockNo; _startDay = st.startDay; _startCash = st.startCash; _startIncome = st.startIncome; _startRep = st.startRep; _startInventory = st.startInventory;
-            _shipped = st.shipped; _late = st.late; _palletsAtStart = st.palletsAtStart; _cashDipHours = st.cashDipHours; _cashSamples = st.cashSamples;
+            _shipped = st.shipped; _late = st.late; _shippedOnTime = st.shippedOnTime > 0 || st.shipped == 0 ? st.shippedOnTime : Mathf.Max(0, st.shipped - st.late); _palletsAtStart = st.palletsAtStart; _cashDipHours = st.cashDipHours; _cashSamples = st.cashSamples;
             _errors = st.errors; _startKey = st.startKey;
             _purchases = _rushes = _signed = _booked = _released = 0;
             _incidents.Clear(); for (int i = 0; i < st.incKeys.Count && i < st.incCounts.Count; i++) _incidents[st.incKeys[i]] = st.incCounts[i];
@@ -313,7 +313,7 @@ namespace GameCore.Diagnostics
             int net = (money.CurrentCapital + InventoryValueNow()) - (_startCash + _startInventory);   // stock counts as money in the pocket
             float penalty = _incidents.Sum(kv => WeightOf(kv.Key) * (1f + Mathf.Log(kv.Value, 2f)));
             int rep = ServiceLocator.TryGet<ReputationService>(out var rs) ? rs.Score : _startRep;
-            c[0] = _shipped + _late > 0 ? Mathf.Clamp01((float)_shipped / (_shipped + _late)) : 0f;
+            c[0] = OnTimeRatio();
             c[1] = _shipped > 0 && stats != null ? Mathf.Clamp01(stats.AvgFillRate) : 0f;
             c[2] = Mathf.Clamp01(pallets / Mathf.Max(1f, S.targetPalletsPerDay * elapsed));
             c[3] = Mathf.Clamp01(revenue / Mathf.Max(1f, S.targetRevenuePerDay * elapsed));
@@ -796,6 +796,7 @@ namespace GameCore.Diagnostics
         {
             if (!Running) return;
             _shipped++;
+            if (o == null || !o.HasBeenFined || IsMovedSlotFine(o)) _shippedOnTime++;   // shipped and never fined for lateness
             if (o != null)
             {
                 OrderLineItem worst = null;
@@ -805,6 +806,16 @@ namespace GameCore.Diagnostics
             }
             EvaluateScore("Order " + (o != null ? (o.OrderNumber ?? o.OrderId) : "") + " shipped");
         }
+        int _movedFines;
+        static bool IsMovedSlotFine(OrderData o) => o != null && o.LastFineWhy != null && o.LastFineWhy.StartsWith("was moved off");
+
+        /// <summary>On-time orders / (on-time orders + orders fined for lateness). A late order that ships afterwards is counted ONCE, as late.</summary>
+        float OnTimeRatio()
+        {
+            int total = _shippedOnTime + _late;
+            return total > 0 ? Mathf.Clamp01((float)_shippedOnTime / total) : 0f;
+        }
+
         readonly Dictionary<string, float> _lastPop = new();
         /// <summary>Purple on-screen headline for an event HAL noticed. One per category per 30 real seconds, so a repeating bug cannot flood the screen.</summary>
         void HalPop(string category, string text)
@@ -819,6 +830,7 @@ namespace GameCore.Diagnostics
         void OnFined(OrderData o, int amount)
         {
             if (!Running) return;
+            if (o != null && IsMovedSlotFine(o)) { _movedFines++; EvaluateScore("Moved-slot fine, order " + (o.OrderNumber ?? o.OrderId)); return; }   // a penalty for breaking the requested hour, not a late order
             _late++;
             if (o != null) { _lastLateWhy = WhyLate(o); HalPop("LATE", $"LATE ORDER {o.OrderNumber ?? o.OrderId}: fined ${amount:N0}"); }
             EvaluateScore("Late fine, order " + (o != null ? (o.OrderNumber ?? o.OrderId) : ""));
@@ -831,7 +843,7 @@ namespace GameCore.Diagnostics
         public const int StreakGoal = 5;
         public const float OnTimeGoal = 0.80f, FillGoal = 0.90f;
         public enum GoalState { Pending, Met, Missed }
-        public class GoalRow { public string name, goal, actual, why; public GoalState state; public bool exit; }
+        public class GoalRow { public string name, goal, actual, why, explain; public GoalState state; public bool exit; public bool scored; public float points, maxPoints; }
 
         string _lastLateWhy, _lastShortWhy, _lastDeadlockWhy, _lastRepeatWhy;
         readonly Dictionary<string, long> _unclaimedSince = new();
@@ -902,6 +914,18 @@ namespace GameCore.Diagnostics
             return g == null ? null : $"{g.Count()} {g.Key} task(s) waiting";
         }
 
+        /// <summary>"Biggest offending bug is VEHICLE-STATIONARY - ... with 4 incidents." Ranked by the same weight x count the score uses.</summary>
+        string BiggestOffenderSentence()
+        {
+            var top = _incidents.OrderByDescending(k => WeightOf(k.Key) * k.Value).FirstOrDefault();
+            if (top.Key == null) return "No bugs logged this block.";
+            string[] p = top.Key.Split('|');
+            string detail = p.Length > 1 ? p[1].Trim() : "";
+            if (detail.Length > 80) detail = detail.Substring(0, 80) + "...";
+            string what = detail.Length > 0 ? p[0] + " - " + detail : p[0];
+            return $"Biggest offending bug is {what} with {top.Value} incident{(top.Value == 1 ? "" : "s")}.";
+        }
+
         string TopBug()
         {
             var top = _incidents.OrderByDescending(k => WeightOf(k.Key) * k.Value).FirstOrDefault();
@@ -912,6 +936,64 @@ namespace GameCore.Diagnostics
             return $"{p[0]} x{top.Value}: {detail}";
         }
 
+        // ── high score ──
+        float _highCache = -1f; string _highWho = ""; int _highCacheBlocks = -1; float _highCacheAt = -100f;
+
+        /// <summary>The best block score on record, who earned it ("HAL" or "YOU"), and which block. The block still running counts too
+        /// once it passes every finished one. Read from the two scoreboards at most every few seconds.</summary>
+        public void GetHighScore(out float score, out string who)
+        {
+            if (Time.unscaledTime - _highCacheAt > 5f)
+            {
+                _highCacheAt = Time.unscaledTime;
+                _highCache = -1f; _highWho = "";
+                foreach (var b in LoadHalHistory()) if (b != null && b.score > _highCache) { _highCache = b.score; _highWho = "HAL"; }
+                foreach (var b in LoadPlayerHistory()) if (b != null && b.score > _highCache) { _highCache = b.score; _highWho = "YOU"; }
+            }
+            score = _highCache; who = _highWho;
+            if (Running && LiveScore > score) { score = LiveScore; who = ObserveOnly ? "YOU" : "HAL"; }
+        }
+
+        /// <summary>The hover explanation for a summary row: what it measures and exactly when it moves.</summary>
+        string ExplainRow(string name)
+        {
+            switch (name)
+            {
+                case "On-time orders":
+                    return "ON-TIME ORDERS\nOn-time % = orders shipped on time / (orders shipped on time + orders fined for being late).\n\nAn order only counts as late when a fine is charged against it, and each order is fined at most once:\n1. A recurring order's 4-hour dock block ends with the freight still in the building. The fine fires the moment the block ends.\n2. A bulk order passes its due day. The fine fires at midnight.\n\nA late order that ships afterwards still counts once, as late (it is not counted twice)." +
+                           $"Moving a trailer off the hour the customer asked for also costs a fine, but that is a penalty for breaking the promise, not lateness, so it is not counted here ({_movedFines} so far this block).\n\n" +
+                           "Fairness: an outbound truck reaches the gate 90 minutes before its block opens so it can be at the door on time. " +
+                           "If everything the building has is loaded and the rest is scratched, the game pauses and asks whether to release the trailer (no lateness fine for cases that were never in stock).";
+                case "Door deadlocks":
+                    return "DOOR DEADLOCKS\nCounted when a staged or loading order's outbound truck has sat docked for 90 game minutes with nobody loading it. Goal: zero.";
+                case "Repeating bugs":
+                    return "REPEATING BUGS\nCounted when the same warning or error line repeats 25 times in a block, which means something is stuck in a loop. Goal: zero.";
+                case "Profit (cash + stock)":
+                    return "PROFIT\nCash plus stock on hand (valued at cost) compared with where the block started. Stock you buy counts as money in your pocket until it sells, so buying inventory is not a loss. Goal: above zero.";
+                case "Fill rate":
+                    return "FILL RATE\nThe average share of each shipped order's cases that actually went out. Scratched cases (not in stock) pull it down.";
+                case "Pallets shipped":
+                    return "PALLETS SHIPPED\nThe goal is a daily rate (" + S.targetPalletsPerDay.ToString("0") + " pallets per day, set in the HAL settings) multiplied by the days that have passed in this block.\n\n" +
+                           "Example: at the start of day 3, two days have passed, so the goal reads " + S.targetPalletsPerDay.ToString("0") + " x 2 days = " + Mathf.CeilToInt(S.targetPalletsPerDay * 2f) + ".\n" +
+                           "The right-hand number is pallets that have left on outbound trailers this block. One pallet under the goal shows red; at or above it shows green.\n" +
+                           "The goal grows by " + (S.targetPalletsPerDay / 24f).ToString("0.##") + " pallets every game hour, so it keeps moving up during the day.\n\n" +
+                           "For the first 6 hours of a block the row stays gray, because there is not enough time passed to judge.";
+                case "Revenue":
+                    return "REVENUE\nThe goal is a daily rate ($" + S.targetRevenuePerDay.ToString("N0") + " per day, set in the HAL settings) multiplied by the days that have passed in this block.\n\n" +
+                           "Example: at the start of day 3, two days have passed, so the goal reads $" + S.targetRevenuePerDay.ToString("N0") + " x 2 days = $" + (S.targetRevenuePerDay * 2f).ToString("N0") + ".\n" +
+                           "The right-hand number is income earned this block (goods plus handling fees). Under the goal shows red; at or above it shows green.\n" +
+                           "The goal grows continuously through the day.\n\n" +
+                           "For the first 6 hours of a block the row stays gray, because there is not enough time passed to judge.";
+                case "Cash health":
+                    return "CASH HEALTH\nChecked through the block: it falls whenever your cash is under the safety floor. Goal: never below the floor.";
+                case "Reliability":
+                    return "RELIABILITY\nStarts at 100 and drops with every bug incident the bot logs. The same bug repeating costs more each time it comes back.\n" + BiggestOffenderSentence();
+                case "Reputation":
+                    return "REPUTATION\nYour standing with customers and vendors compared with the start of the block. Late orders and cancellations lower it; clean on-time deliveries raise it.";
+                default: return null;
+            }
+        }
+
         /// <summary>Goal vs actual for every part of the score, plus a one-line reason for each miss.</summary>
         public List<GoalRow> GetGoalRows()
         {
@@ -920,14 +1002,14 @@ namespace GameCore.Diagnostics
             ServiceLocator.TryGet<FulfillmentStatsService>(out var stats);
             ServiceLocator.TryGet<OrderService>(out var orders);
             float elapsed = Mathf.Max(0.25f, (Key(time) - _startKey) / 1440f);
-            int done = _shipped + _late;
+            int done = _shippedOnTime + _late;
 
             // 1. on-time
-            float onT = done > 0 ? (float)_shipped / done : 0f;
+            float onT = OnTimeRatio();
             rows.Add(new GoalRow
             {
                 exit = true, name = "On-time orders", goal = ">= 80%",
-                actual = done > 0 ? $"{onT * 100f:0}%  ({_shipped} shipped, {_late} late)" : "no orders finished yet",
+                actual = done > 0 ? $"{onT * 100f:0}%  ({_shippedOnTime} on time, {_late} late)" : "no orders finished yet",
                 state = done == 0 ? GoalState.Pending : onT >= OnTimeGoal ? GoalState.Met : GoalState.Missed,
                 why = _late == 0 ? "Nothing late so far." : "Last late: " + (_lastLateWhy ?? "unknown")
             });
@@ -970,23 +1052,30 @@ namespace GameCore.Diagnostics
             });
 
             int pallets = PalletsShippedTotal(0, time.Day + 1) - _palletsAtStart;
-            float palTarget = S.targetPalletsPerDay * elapsed;
+            // The goal is a RATE (settings: targetPalletsPerDay). What is shown is that rate and the pace it implies for the time that has
+            // really passed in the block; for the first quarter-day there is nothing meaningful to judge, so it stays pending.
+            float daysIn = Mathf.Max(0f, (Key(time) - _startKey) / 1440f);
+            // Whole pallets, rounded UP, and the same number is both shown and compared: 12/day x 2 days = 24, so 23 is red and 24 is green.
+            int palTarget = Mathf.CeilToInt(S.targetPalletsPerDay * daysIn - 0.001f);
+            string daysText = daysIn.ToString("0.#") + (Mathf.Approximately(daysIn, 1f) ? " day" : " days");
             rows.Add(new GoalRow
             {
-                name = "Pallets shipped", goal = $">= {palTarget:0} (pace)", actual = pallets.ToString(),
-                state = pallets >= palTarget ? GoalState.Met : GoalState.Missed,
-                why = pallets >= palTarget ? "On pace." : "Biggest queue: " + (BiggestQueue() ?? "none waiting")
+                name = "Pallets shipped", goal = $"{S.targetPalletsPerDay:0} x {daysText} = {palTarget}",
+                actual = pallets.ToString(),
+                state = daysIn < 0.25f ? GoalState.Pending : pallets >= palTarget ? GoalState.Met : GoalState.Missed,
+                why = daysIn < 0.25f ? "Too early in the block to judge." : pallets >= palTarget ? "At or above the goal." : $"{palTarget - pallets} short. Biggest queue: " + (BiggestQueue() ?? "none waiting")
             });
 
             int revenue = money.LifetimeIncome.Values.Sum() - _startIncome;
-            float revTarget = S.targetRevenuePerDay * elapsed;
+            int revTarget = Mathf.CeilToInt(S.targetRevenuePerDay * daysIn - 0.001f);
             int open = orders != null ? orders.ActiveOrders.Count : 0;
             int overdue = orders != null ? orders.ActiveOrders.Count(x => x != null && x.IsOverdue(time.Day)) : 0;
             rows.Add(new GoalRow
             {
-                name = "Revenue", goal = $">= ${revTarget:N0} (pace)", actual = "$" + revenue.ToString("N0"),
-                state = revenue >= revTarget ? GoalState.Met : GoalState.Missed,
-                why = revenue >= revTarget ? "On pace." : $"{open} order(s) open, {overdue} overdue."
+                name = "Revenue", goal = $"${S.targetRevenuePerDay:N0} x {daysText} = ${revTarget:N0}",
+                actual = $"${revenue:N0}",
+                state = daysIn < 0.25f ? GoalState.Pending : revenue >= revTarget ? GoalState.Met : GoalState.Missed,
+                why = daysIn < 0.25f ? "Too early in the block to judge." : revenue >= revTarget ? "At or above the goal." : $"${revTarget - revenue:N0} short. {open} order(s) open, {overdue} overdue."
             });
 
             rows.Add(new GoalRow
@@ -1011,6 +1100,23 @@ namespace GameCore.Diagnostics
                 state = repNow >= _startRep ? GoalState.Met : GoalState.Missed,
                 why = repNow >= _startRep ? "Holding or climbing." : "Late and cancelled orders cost reputation."
             });
+
+            // Where the score comes from: each row that is a part of the 0-100 score earns (weight x how well it is doing) of the total.
+            float[] w = { S.wOnTime, S.wFill, S.wThroughput, S.wRevenue, S.wProfit, S.wCash, S.wReliability, S.wReputation };
+            float wSum = Mathf.Max(1, S.TotalWeight);
+            var compIndex = new Dictionary<string, int>
+            {
+                ["On-time orders"] = 0, ["Fill rate"] = 1, ["Pallets shipped"] = 2, ["Revenue"] = 3,
+                ["Profit (cash + stock)"] = 4, ["Cash health"] = 5, ["Reliability"] = 6, ["Reputation"] = 7,
+            };
+            foreach (var r in rows)
+            {
+                r.explain = ExplainRow(r.name);
+                if (!compIndex.TryGetValue(r.name, out int ci)) continue;
+                r.scored = true;
+                r.maxPoints = 100f * w[ci] / wSum;
+                r.points = 100f * w[ci] * comps[ci] / wSum;
+            }
             return rows;
         }
 
@@ -1189,7 +1295,7 @@ namespace GameCore.Diagnostics
             int days = Mathf.Max(1, endDay - _startDay);
 
             // components, each 0..1
-            float onTime = _shipped + _late > 0 ? Mathf.Clamp01((float)_shipped / (_shipped + _late)) : 0f;
+            float onTime = OnTimeRatio();
             float fill = _shipped > 0 && stats != null ? Mathf.Clamp01(stats.AvgFillRate) : 0f;
             float throughput = Mathf.Clamp01(pallets / Mathf.Max(1f, S.targetPalletsPerDay * days));
             int revenueTotal = (money != null ? money.LifetimeIncome.Values.Sum() : 0) - _startIncome;

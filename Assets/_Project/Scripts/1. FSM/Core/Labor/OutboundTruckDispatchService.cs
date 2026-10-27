@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using GameCore.Economy;
 using GameCore.Inventory;
 using GameCore.Services;
 using GameCore.Events;
@@ -79,6 +80,7 @@ namespace GameCore.Labor
             _nextScan = Time.unscaledTime + 1f;
 
             ScanStagedPallets();
+            DispatchDueAppointments();   // once a second, so the 90-minute lead lands on the minute rather than the next hour change
         }
 
         private void TrySubscribe()
@@ -109,7 +111,11 @@ namespace GameCore.Labor
         /// <summary>The BLOCK START trigger — see the class doc for why this is event-driven rather
         /// than polled.</summary>
         /// <summary>Game hours before the block opens that the driver is sent, so the trailer is at the door when the block starts.</summary>
-        private const int ArrivalLeadHours = 1;
+        private const int ArrivalLeadHours = 1;   // (superseded by ArrivalLeadMinutes)
+
+        /// <summary>Game minutes before its block opens that an outbound driver reaches the guard shack. The trip gate-to-door takes about an hour, so
+        /// 90 minutes lets the trailer be at the door when the block starts instead of the player being fined for the driver's travel time (Tad).</summary>
+        private const int ArrivalLeadMinutes = 90;
 
         private void DispatchDueAppointments()
         {
@@ -123,8 +129,9 @@ namespace GameCore.Labor
                 if (appt.Parked || appt.ClosedOut) continue;
                 // Dispatch ArrivalLeadHours before the block opens (Tad, 2026-10-11: an 08:00 appointment's truck turned up at 09:00 because the
                 // trip from the gate to the door takes about an hour of game time). Also still dispatches when the block is already open.
-                int hoursUntil = (appt.Day - schedule.CurrentDay) * 24 + appt.StartHour - schedule.CurrentHour;
-                bool leadDue = hoursUntil >= 1 && hoursUntil <= ArrivalLeadHours;
+                int nowMinute = ServiceLocator.TryGet<SimulationTimeService>(out var clk) && clk != null ? clk.Minute : 0;
+                int minutesUntil = (appt.Day - schedule.CurrentDay) * 1440 + appt.StartHour * 60 - (schedule.CurrentHour * 60 + nowMinute);
+                bool leadDue = minutesUntil > 0 && minutesUntil <= ArrivalLeadMinutes;
                 if (!leadDue)
                 {
                 if (appt.Day != schedule.CurrentDay) continue;

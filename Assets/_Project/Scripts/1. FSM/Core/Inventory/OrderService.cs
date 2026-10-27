@@ -2687,8 +2687,100 @@ namespace GameCore.Inventory
             return false;
         }
 
+        // ── Ready to close with scratches (Tad, 2026-10-26) ─────────────────────────────────────────
+        // Everything the building could load is on the trailer and what is left is SCRATCHED (waiting on stock that is not here).
+        // That is technically ready to close out, so the player is asked (pause + zoom + Hold / Release) instead of the driver
+        // waiting forever. Release cancels the scratched cases (the customer is not billed for them; the usual remaining-cases
+        // penalty applies) and ships; Hold changes nothing.
+
+        public class ReadyToCloseInfo
+        {
+            public int Door;
+            public TruckController Truck;
+            public List<OrderData> Orders = new List<OrderData>();
+            public int CasesShort;
+            public int ReputationLoss;
+            public float PartnershipLoss;
+            public string Signature;
+            public string Customers => string.Join(", ", Orders.Select(o => o.CustomerName).Distinct());
+        }
+
+        /// <summary>Raised once per door per state of its scratches. The UI subscribes; nothing happens if nothing does.</summary>
+        public static event System.Action<ReadyToCloseInfo> OnReadyToCloseWithScratches;
+
+        private readonly HashSet<string> _scratchPrompted = new HashSet<string>();
+
+        /// <summary>Doors whose docked outbound trailer holds everything that can be loaded while the rest is scratched.</summary>
+        public List<ReadyToCloseInfo> FindScratchReadyDoors()
+        {
+            var result = new List<ReadyToCloseInfo>();
+            var trucks = Object.FindObjectsByType<TruckController>();
+            foreach (var grp in _activeOrders.Where(o => (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded)
+                                                         && o.AssignedDoorNumber > 0).GroupBy(o => o.AssignedDoorNumber))
+            {
+                int door = grp.Key;
+                var truck = trucks.FirstOrDefault(t => t != null && t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == door);
+                if (truck == null) continue;
+
+                var info = new ReadyToCloseInfo { Door = door, Truck = truck };
+                bool blocked = false;
+                foreach (var o in grp)
+                {
+                    var live = LiveTasksForOrder(o.OrderId).ToList();
+                    if (live.Any(t => !t.IsScratch)) { blocked = true; break; }                              // real work still going on
+                    if (live.Any(t => t.IsScratch && t.Status != WorkTaskStatus.Open)) { blocked = true; break; }   // a scratch is being (or can be) picked
+                    if (AnyPalletInHand(o) || StagedPalletsRemainingInLane(o) > 0) { blocked = true; break; }
+                    if (!live.Any(t => t.IsScratch)) continue;                                                // nothing scratched: the normal auto-close handles it
+
+                    var impact = PreviewCancelRemaining(o);
+                    if (!impact.Allowed) { blocked = true; break; }
+                    info.Orders.Add(o);
+                    info.CasesShort += impact.CasesCancelled;
+                    info.ReputationLoss += impact.ReputationLoss;
+                    info.PartnershipLoss += impact.PartnershipLoss;
+                }
+                if (blocked || info.Orders.Count == 0) continue;
+                info.Signature = door + ":" + string.Join(",", info.Orders.Select(o => o.OrderId)) + ":" + info.CasesShort;
+                result.Add(info);
+            }
+            return result;
+        }
+
+        private void CheckScratchPrompts()
+        {
+            foreach (var info in FindScratchReadyDoors())
+            {
+                if (!_scratchPrompted.Add(info.Signature)) continue;
+                // An unattended HAL block cannot answer a prompt (and must not freeze the game): it releases.
+                var bot = GameCore.Diagnostics.PlaytestBot.Instance;
+                if (bot != null && bot.Running && !bot.ObserveOnly) { ReleaseScratchedTrailer(info.Door); continue; }
+                OnReadyToCloseWithScratches?.Invoke(info);
+            }
+        }
+
+        /// <summary>The player chose Release: cancel what is scratched on every order riding this door's trailer, then close them out
+        /// so the driver leaves. The customer is billed only for what is aboard.</summary>
+        public bool ReleaseScratchedTrailer(int door)
+        {
+            var info = FindScratchReadyDoors().FirstOrDefault(i => i.Door == door);
+            if (info == null) return false;
+
+            var ids = new List<string>();
+            var numbers = new List<string>();
+            foreach (var o in info.Orders)
+                if (CancelRemaining(o.OrderId, out _)) { ids.Add(o.OrderId); numbers.Add(o.OrderNumber ?? o.OrderId); }
+            if (ids.Count == 0) return false;
+
+            if (!CloseOutOrders(ids, out int billed)) return false;
+            string label = string.Join(", ", numbers);
+            SystemsLogWindow.LogRevenue($"Door {door}'s trailer was released - order {label} shipped short, ${billed:N0} received. The scratched cases were cancelled and not billed.");
+            ShippedFanfare.Show(label, billed);
+            return true;
+        }
+
         public int AutoCloseLoadedOrders()
         {
+            CheckScratchPrompts();
             var ready = _activeOrders
                 .Where(o => o.Status == OrderData.OrderStatus.Loaded
                             && CanCloseOut(o, out _)
@@ -2967,6 +3059,7 @@ namespace GameCore.Inventory
             _moneyService?.RemoveCapital(fine, FinanceCategory.Fines);
             order.HasBeenFined = true;
             order.LastFineAmount = fine;
+            order.LastFineWhy = why;
             OnOrderFined?.Invoke(order, fine);
 
             Debug.LogWarning($"[OrderService] Order {order.OrderId} ({order.CustomerName}) {why} — " +

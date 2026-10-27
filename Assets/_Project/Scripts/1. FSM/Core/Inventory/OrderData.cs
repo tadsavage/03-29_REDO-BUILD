@@ -165,6 +165,8 @@ namespace GameCore.Inventory
         /// show the real number that left the balance instead of recomputing LateFeePercent × revenue
         /// a second time and risking the two disagreeing. 0 for an order never fined.</summary>
         public int LastFineAmount { get; set; }
+        /// <summary>Why the one-time fine was charged ("is OVERDUE...", "missed its 10:00 dock slot", "was moved off its requested slot..."). Not saved; only read right after the fine, by the playtest bot's on-time count.</summary>
+        public string LastFineWhy { get; set; }
 
         /// <summary>RETIRED. Was the guard for a separate flat-25% "ran over its door slot while
         /// loading" fine (OrderService.FineLateLoad), which is gone: that fine only ever hit trailers
