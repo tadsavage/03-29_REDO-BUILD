@@ -21,7 +21,7 @@ public static class HalSummaryWindow
     static ScrollView _logScroll;
     static int _sizedForTab = -1;
     static int _tab;                      // 0 = summary, 1 = all changes, 2 = iterations
-    static Label _tabIter, _curLabel, _highLabel, _whoLabel;
+    static Label _tabIter, _curLabel, _highLabel, _highValue, _whoLabel;
     static ScrollView _iterScroll;
     static string _iterSig;
     static string _tableSig, _logSig;
@@ -61,6 +61,7 @@ public static class HalSummaryWindow
 
     public static void Close()
     {
+        HideExplain();
         if (_win != null) _win.style.display = DisplayStyle.None;
     }
 
@@ -105,23 +106,37 @@ public static class HalSummaryWindow
 
         // title row
         _head = new VisualElement();
-        _head.style.flexDirection = FlexDirection.Row; _head.style.alignItems = Align.Center; _head.style.flexShrink = 0; _head.style.height = 54;
+        _head.style.flexDirection = FlexDirection.Row; _head.style.alignItems = Align.Center; _head.style.flexShrink = 0; _head.style.minHeight = 40;
         _title = L(24, Ink); _title.text = "HAL 9000 SUMMARY";
         _sub = L(12, InkSoft); _sub.style.marginLeft = 12; _sub.style.flexGrow = 1; _sub.style.flexShrink = 1; _sub.style.overflow = Overflow.Hidden;
-        // CURRENT SCORE / HIGH SCORE (purple) to the left of the big number; who earned the high score underneath it.
-        var info = new VisualElement(); info.style.flexShrink = 0; info.style.marginRight = 8; info.style.alignItems = Align.FlexEnd;
+        // Two aligned rows, labels on the left and the big numbers on the right:
+        //   CURRENT SCORE   37.5
+        //   HIGH SCORE:     55.1   (purple)
+        //                   by YOU (purple)
+        var scoreBox = new VisualElement(); scoreBox.style.flexShrink = 0; scoreBox.style.marginRight = 6; scoreBox.style.marginTop = 24; scoreBox.style.alignItems = Align.FlexEnd;
+        VisualElement ScoreRow(Label label, Label value)
+        {
+            var r = new VisualElement(); r.style.flexDirection = FlexDirection.Row; r.style.alignItems = Align.Center; r.style.justifyContent = Justify.FlexEnd;
+            label.style.marginRight = 8;
+            value.style.minWidth = 84;
+            r.Add(label); r.Add(value);
+            return r;
+        }
         _curLabel = L(12, Ink, TextAnchor.MiddleRight); _curLabel.text = "CURRENT SCORE";
-        _highLabel = L(12, ScorePurple, TextAnchor.MiddleRight); _highLabel.text = "HIGH SCORE: -";
-        info.Add(_curLabel); info.Add(_highLabel);
-        var scoreCol = new VisualElement(); scoreCol.style.flexShrink = 0; scoreCol.style.marginRight = 10; scoreCol.style.alignItems = Align.FlexEnd;
         _score = L(30, Ink, TextAnchor.MiddleRight);
+        _highLabel = L(12, ScorePurple, TextAnchor.MiddleRight); _highLabel.text = "HIGH SCORE:";
+        _highValue = L(30, ScorePurple, TextAnchor.MiddleRight);
         _whoLabel = L(12, ScorePurple, TextAnchor.MiddleRight); _whoLabel.text = "";
-        scoreCol.Add(_score); scoreCol.Add(_whoLabel);
+        scoreBox.Add(ScoreRow(_curLabel, _score));
+        scoreBox.Add(ScoreRow(_highLabel, _highValue));
+        scoreBox.Add(_whoLabel);
         _close = L(18, Color.white, TextAnchor.MiddleCenter); _close.text = "X"; _close.pickingMode = PickingMode.Position;
         _close.style.width = 30; _close.style.height = 28; _close.style.backgroundColor = new Color(0.72f, 0.12f, 0.12f, 1f); Radius(_close, 4);
         _close.RegisterCallback<PointerDownEvent>(e => { if (e.button != 0) return; Close(); e.StopPropagation(); });
-        _head.Add(_title); _head.Add(_sub); _head.Add(info); _head.Add(scoreCol); _head.Add(_close);
+        _head.Add(_title); _head.Add(_sub); _head.Add(scoreBox);
         _win.Add(_head);
+        _close.style.position = Position.Absolute; _close.style.top = 4; _close.style.right = 4;   // back up in the corner
+        _win.Add(_close);
 
         // tabs
         var tabs = new VisualElement();
@@ -171,7 +186,7 @@ public static class HalSummaryWindow
         t.text = text; t.pickingMode = PickingMode.Position;
         t.style.height = 28; t.style.paddingLeft = t.style.paddingRight = 12; t.style.marginRight = 8;
         Border(t, 2, Ink); Radius(t, 4);
-        t.RegisterCallback<PointerDownEvent>(e => { if (e.button != 0) return; _tab = index; _tableSig = _logSig = _iterSig = null; e.StopPropagation(); Refresh(); });
+        t.RegisterCallback<PointerDownEvent>(e => { if (e.button != 0) return; _tab = index; HideExplain(); _tableSig = _logSig = _iterSig = null; e.StopPropagation(); Refresh(); });
         return t;
     }
 
@@ -246,8 +261,8 @@ public static class HalSummaryWindow
 
         _score.text = bot.LiveScore.ToString("0.0");
         bot.GetHighScore(out float high, out string highWho);
-        _highLabel.text = high >= 0f ? "HIGH SCORE: " + high.ToString("0.0") : "HIGH SCORE: -";
-        _whoLabel.text = high >= 0f ? highWho : "";
+        _highValue.text = high >= 0f ? high.ToString("0.0") : "-";
+        _whoLabel.text = high >= 0f ? "by " + highWho : "";
         _sub.text = (bot.ObserveOnly ? $"YOUR BLOCK {bot.BlockNo - 1000}" : $"BLOCK {bot.BlockNo}")
                     + (bot.Running ? $"  DAY {Mathf.Min(bot.BlockDay, bot.S.daysPerBlock)}/{bot.S.daysPerBlock}" : "  DONE");
 
@@ -284,17 +299,19 @@ public static class HalSummaryWindow
             var none = L(13, Pending); none.text = "No score changes yet"; none.style.height = 20; _logScroll.Add(none);
             return;
         }
+        const float Gap = 24f;   // about a quarter inch between columns
         for (int i = 0; i < n; i++)
         {
             var c = changes[i];
-            var row = L(13, LogYellow);
-            row.enableRichText = true;
-            row.style.height = 20;
-            string sign = c.delta >= 0 ? "+" : "";
-            string rest = $"{sign}{c.delta:0.0} {c.cause} (score {c.total:0.0})";
-            row.text = c.delta >= 0
-                ? $"<color=#4DE65A>{c.when}  {rest}</color>"
-                : $"<color=#4DE65A>{c.when}</color>  <color=#FFE633>{rest}</color>";
+            Color tone = c.delta >= 0 ? LogGreen : LogYellow;
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row; row.style.alignItems = Align.Center; row.style.height = 24; row.style.flexShrink = 0;
+
+            var when = L(13, LogGreen); when.text = c.when; when.style.width = 120; when.style.marginRight = Gap;
+            var amount = L(13, tone, TextAnchor.MiddleRight); amount.text = (c.delta >= 0 ? "+" : "") + c.delta.ToString("0.0"); amount.style.width = 52; amount.style.marginRight = Gap;
+            var cause = L(13, tone); cause.text = c.cause; cause.style.flexGrow = 1; cause.style.flexShrink = 1; cause.style.overflow = Overflow.Hidden; cause.style.marginRight = Gap;
+            var score = L(13, tone, TextAnchor.MiddleRight); score.text = "score " + c.total.ToString("0.0"); score.style.width = 92;
+            row.Add(when); row.Add(amount); row.Add(cause); row.Add(score);
             _logScroll.Add(row);
         }
         _logScroll.scrollOffset = keep;
@@ -453,6 +470,62 @@ public static class HalSummaryWindow
         return c;
     }
 
+
+    // -- hover explanations for the ITERATIONS cards: shown in a panel just outside the window's right edge --
+    static VisualElement _explain;
+    static Label _explainTitle, _explainBody;
+
+    static readonly Dictionary<string, string> CardText = new Dictionary<string, string>
+    {
+        ["SCORE"] = "The block's overall HAL score out of 100. It is eight weighted parts added together: on-time delivery, fill rate, pallets shipped, revenue, profit, cash health, reliability and reputation. The SUMMARY tab shows exactly how many points each part earned. Higher is better.",
+        ["ON-TIME DELIVERY"] = "The share of orders that went out on time. On-time % = orders shipped on time / (orders shipped on time + orders fined for being late). An order is late only when a fine is charged: a recurring order's 4-hour dock block ends with the freight still here, or a bulk order passes its due day. A late order that ships afterwards counts once, as late. Moving a trailer off the customer's requested hour is a separate fine and is not counted as late. Higher is better.",
+        ["PALLETS SHIPPED"] = "How many pallets left on outbound trailers during the block. The goal is a daily rate (set in the HAL settings) times the days in the block. Higher is better.",
+        ["REVENUE"] = "Income earned during the block: the goods you sold plus handling fees. It does not subtract anything you spent. Higher is better.",
+        ["CASH CHANGE"] = "Cash at the end of the block minus cash at the start. It can be very negative when you spend on stock: that money is now inventory on your shelves, not lost. The score judges cash plus stock on hand together, so read this next to the profit row on the SUMMARY tab. Higher is better.",
+        ["BUG INCIDENTS"] = "How many separate bug episodes HAL logged during the block (stuck vehicles, pallets with no task, repeating errors, deadlocks and so on). The same bug coming back later counts again. Lower is better.",
+        ["RELIABILITY"] = "A 0 to 100 grade for how clean the block was. It starts at 100 and drops with every bug incident; the same bug repeating costs more each time. It is worth 25 of the 100 score points. Higher is better.",
+        ["REPUTATION"] = "Your standing with customers and vendors at the end of the block (0 to 1000). Late and cancelled orders lower it, clean deliveries raise it, and it decides which customers and vendors will deal with you. Higher is better.",
+        ["HEADCOUNT"] = "How many receivers, reach truck operators, dock stockers and order selectors were on the crew. Shown for context: if everything else is equal, a smaller crew is cheaper to run, so down is counted as better.",
+        ["DOCK DOORS"] = "How many shipping doors the warehouse had. More doors means more trailers can be handled at once, but each door and its lanes cost money and floor space.",
+        ["JOBS WAITING (AVG)"] = "The average number of tasks sitting in the Work Queue waiting for someone (receiving, putaway and replenishment, picking, loading and orders), sampled all through the block. A high number means the crew cannot keep up. Lower is better.",
+        ["CREW BUSY (AVG)"] = "The average share of time the crew spent actually working. Very high means people are stretched and work will back up; very low means there is spare capacity. A middle-to-high number with few jobs waiting is the healthy picture.",
+    };
+
+    static void BuildExplainPanel(VisualElement layer)
+    {
+        _explain = new VisualElement { pickingMode = PickingMode.Ignore };
+        _explain.style.position = Position.Absolute;
+        _explain.style.width = 300;
+        _explain.style.backgroundColor = Paper;
+        _explain.style.paddingLeft = _explain.style.paddingRight = 14; _explain.style.paddingTop = 10; _explain.style.paddingBottom = 12;
+        Border(_explain, 3, Purple); Radius(_explain, 8);
+        _explain.style.display = DisplayStyle.None;
+        _explainTitle = L(18, Ink); _explainTitle.style.whiteSpace = WhiteSpace.Normal;
+        _explainBody = L(14, InkSoft); _explainBody.style.whiteSpace = WhiteSpace.Normal; _explainBody.style.marginTop = 6;
+        _explain.Add(_explainTitle); _explain.Add(_explainBody);
+        layer.Add(_explain);
+    }
+
+    static void ShowExplain(string title)
+    {
+        if (_win == null || _win.panel == null) return;
+        if (_explain == null || _explain.panel == null) BuildExplainPanel(_win.parent);
+        string body;
+        if (!CardText.TryGetValue(title, out body)) return;
+        _explainTitle.text = title;
+        _explainBody.text = body + "  " + "Each dot is one finished block (the number underneath is the block). Green means better than the block before, red means worse.";
+        float left = _win.resolvedStyle.left + _win.resolvedStyle.width + 10f;
+        float top = _win.resolvedStyle.top + 170f;
+        _explain.style.left = left; _explain.style.top = top;
+        _explain.style.display = DisplayStyle.Flex;
+        _explain.BringToFront();
+    }
+
+    static void HideExplain()
+    {
+        if (_explain != null) _explain.style.display = DisplayStyle.None;
+    }
+
     // -- ITERATIONS tab: one card per measure, one point per finished block ------
 
     static void RenderIterations()
@@ -488,6 +561,9 @@ public static class HalSummaryWindow
             Color accent = Color.Lerp(m.color, Color.black, 0.28f);
 
             var card = new VisualElement();
+            string cardTitle = m.title;
+            card.RegisterCallback<PointerEnterEvent>(_ => ShowExplain(cardTitle));
+            card.RegisterCallback<PointerLeaveEvent>(_ => HideExplain());
             card.style.width = Length.Percent(32.6f); card.style.marginRight = Length.Percent(0.7f); card.style.marginBottom = 8;
             card.style.backgroundColor = new Color(0.97f, 0.97f, 0.97f, 1f);
             card.style.paddingLeft = card.style.paddingRight = 8; card.style.paddingTop = 4; card.style.paddingBottom = 6;

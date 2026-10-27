@@ -294,6 +294,9 @@ namespace GameCore.Diagnostics
 
         public class ScoreChange { public string when; public float delta; public string cause; public float total; }
 
+        /// <summary>Raised the moment a score change is recorded (the falling text under the player's score box listens).</summary>
+        public static event System.Action<ScoreChange> ScoreChanged;
+
         readonly List<ScoreChange> _recentScore = new();
         public IReadOnlyList<ScoreChange> RecentScoreChanges => _recentScore;
         public float LiveScore { get; private set; }
@@ -346,6 +349,7 @@ namespace GameCore.Diagnostics
                 string when = ServiceLocator.TryGet<SimulationTimeService>(out var t) ? $"Day {t.Day} {t.Hour:00}:{t.Minute:00}" : "";
                 _recentScore.Insert(0, new ScoreChange { when = when, delta = d, cause = cause, total = total });
                 while (_recentScore.Count > 300) _recentScore.RemoveAt(300);
+                try { ScoreChanged?.Invoke(_recentScore[0]); } catch (System.Exception e) { Debug.LogWarning("[PlaytestBot] ScoreChanged listener: " + e.Message); }
             }
             LiveScore = total;
             System.Array.Copy(c, _lastComps, 8);

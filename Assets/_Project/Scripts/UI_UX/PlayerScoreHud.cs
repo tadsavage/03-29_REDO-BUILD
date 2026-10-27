@@ -38,6 +38,8 @@ public static class PlayerScoreHud
         UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
         PlaytestBot.BlockFinished -= OnBlockFinished;
         PlaytestBot.BlockFinished += OnBlockFinished;
+        PlaytestBot.ScoreChanged -= OnScoreChange;
+        PlaytestBot.ScoreChanged += OnScoreChange;
         if (_driver != null) UnityEngine.Object.Destroy(_driver);
         _driver = new GameObject("[PlayerScoreHud]") { hideFlags = HideFlags.HideInHierarchy };
         _driver.AddComponent<Ticker>();
@@ -81,6 +83,50 @@ public static class PlayerScoreHud
         if (Time.unscaledTime < _autoReadyAt) return;
         _autoReadyAt = -1f;
         PlaytestBot.Ensure().StartBlock(true);
+    }
+
+
+    // -- falling score-change text ------------------------------------------------
+
+    static Font _lilita;
+    static readonly Color FallYellow = new Color(1f, 0.92f, 0.2f, 1f), FallGreen = new Color(0.40f, 0.95f, 0.45f, 1f);
+
+    /// <summary>Every score change drops out of the score box as a line of text and fades as it falls: yellow when the score went down,
+    /// green when it went up. No time stamp, just "-0.2 Profit down (score 37.5)".</summary>
+    static void OnScoreChange(PlaytestBot.ScoreChange c)
+    {
+        if (c == null || _hud == null || _hud.panel == null || _hud.style.display == DisplayStyle.None) return;
+        var layer = _hud.parent;
+        if (layer == null) return;
+        if (_lilita == null) _lilita = Resources.Load<Font>("Resource_Fonts/LilitaOne-Regular");
+
+        string sign = c.delta >= 0f ? "+" : "";
+        var l = new Label($"{sign}{c.delta:0.0} {c.cause} (score {c.total:0.0})");
+        l.pickingMode = PickingMode.Ignore;
+        l.style.position = Position.Absolute;
+        const float W = 460f;
+        float jitter = UnityEngine.Random.Range(-50f, 50f);
+        l.style.width = W;
+        l.style.left = _hud.resolvedStyle.left + HudWidth * 0.5f - W * 0.5f + jitter;
+        float startTop = _hud.resolvedStyle.top + HudHeight - 10f;
+        l.style.top = startTop;
+        l.style.unityTextAlign = TextAnchor.MiddleCenter;
+        l.style.whiteSpace = WhiteSpace.NoWrap;
+        l.style.fontSize = 24;
+        l.style.color = c.delta >= 0f ? FallGreen : FallYellow;
+        l.style.unityTextOutlineWidth = 0.25f;
+        l.style.unityTextOutlineColor = new Color(0.12f, 0.06f, 0f, 0.95f);
+        l.style.opacity = 0f;
+        if (_lilita != null) l.style.unityFontDefinition = FontDefinition.FromFont(_lilita);
+        layer.Add(l);
+
+        const int ms = 3600; const float fall = 170f;
+        l.experimental.animation.Start(0f, 1f, ms, (e, t) =>
+        {
+            e.style.top = startTop + t * fall;
+            e.style.opacity = t < 0.12f ? t / 0.12f : (t < 0.65f ? 1f : 1f - (t - 0.65f) / 0.35f);
+        });
+        l.schedule.Execute(() => l.RemoveFromHierarchy()).ExecuteLater(ms + 60);
     }
 
     // ── the live score ────────────────────────────────────────────────────────

@@ -226,66 +226,6 @@ public static class HalDevTabs
         new Metric { title = "CREW BUSY (AVG)", get = r => (r.utilReceiver + r.utilReach + r.utilDock + r.utilSelector) / 4f * 100f, fmt = v => v.ToString("0") + "%", higherIsBetter = true, color = new Color(0.4f, 0.9f, 0.85f) },
     };
 
-    public static void BuildIterations(VisualElement root)
-    {
-        root.Clear();
-        root.style.paddingLeft = root.style.paddingRight = 14; root.style.paddingTop = root.style.paddingBottom = 12;
-        root.Add(Text("ITERATIONS", 34, new Color(1f, 0.82f, 0.3f), true));
-        root.Add(Text("One point per finished block. Green means better than the block before, red worse.", Small, Dim));
-
-        var blocks = LoadBlocks();
-        if (blocks.Count == 0)
-        {
-            var empty = Section(root, "NO BLOCKS YET", Warn);
-            empty.Add(Text("Finish a block with HAL 9000 and its results will be drawn here.", Body, Ink));
-            return;
-        }
-
-        var grid = new VisualElement(); grid.style.flexDirection = FlexDirection.Row; grid.style.flexWrap = Wrap.Wrap; grid.style.marginTop = 10;
-        foreach (var m in Metrics())
-        {
-            var vals = blocks.Select(b => m.get(b)).ToList();
-            var card = new VisualElement();
-            card.style.width = Length.Percent(32.5f); card.style.marginRight = Length.Percent(0.5f); card.style.marginBottom = 8;
-            card.style.backgroundColor = Card; card.style.paddingLeft = card.style.paddingRight = 8; card.style.paddingTop = card.style.paddingBottom = 6;
-            card.style.borderTopLeftRadius = card.style.borderTopRightRadius = card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 8;
-            card.style.borderTopWidth = 3; card.style.borderTopColor = m.color;
-
-            var head = new VisualElement(); head.style.flexDirection = FlexDirection.Row; head.style.justifyContent = Justify.SpaceBetween; head.style.alignItems = Align.Center;
-            var title = Text(m.title, 12, Dim); title.style.flexShrink = 1;
-            var last = vals[vals.Count - 1];
-            var value = Text(m.fmt(last), 20, Ink); value.style.flexShrink = 0;
-            head.Add(title); head.Add(value); card.Add(head);
-
-            string delta = ""; Color dc = Dim;
-            if (vals.Count > 1)
-            {
-                float d = last - vals[vals.Count - 2];
-                bool better = m.higherIsBetter ? d > 0 : d < 0;
-                if (Mathf.Abs(d) > 0.0001f) { delta = (d > 0 ? "up " : "down ") + m.fmt(Mathf.Abs(d)); dc = better ? Good : Bad; }
-                else delta = "no change";
-            }
-            card.Add(Text(delta, 12, dc));
-
-            var chart = new IterationChart(vals, m.color, m.fmt);
-            chart.style.height = 90; chart.style.marginTop = 4;
-            card.Add(chart);
-            grid.Add(card);
-        }
-        root.Add(grid);
-
-        // what changed between blocks, and what happened to the score afterwards
-        var ledger = HalPlanner.LoadLedger(S);
-        var log = Section(root, "WHAT HAL CHANGED", Blue);
-        if (ledger.changes.Count == 0) log.Add(Text("Nothing yet. HAL makes one change before each block after the first.", Body, Dim));
-        foreach (var c in Enumerable.Reverse(ledger.changes).Take(12))
-        {
-            string outcome = c.measured ? $"score {c.scoreBefore:0.0} to {c.scoreAfter:0.0} ({c.scoreAfter - c.scoreBefore:+0.0;-0.0;0.0})" : "waiting for that block to finish";
-            var line = Text($"Block {c.block}: {c.action}. {c.reason}. {outcome}.", 14, c.measured && c.scoreAfter > c.scoreBefore ? Good : (c.measured ? Warn : Ink));
-            line.style.marginTop = 4; log.Add(line);
-        }
-    }
-
     public static List<PlaytestBlockResult> LoadBlocks()
     {
         try
@@ -296,48 +236,6 @@ public static class HalDevTabs
         }
         catch (Exception e) { Debug.LogWarning("[Iterations] " + e.Message); }
         return new List<PlaytestBlockResult>();
-    }
-
-    /// <summary>A small line chart: one point per block, a dot on every point, min and max labelled, block numbers underneath.</summary>
-    class IterationChart : VisualElement
-    {
-        const float PadFrac = 22f;
-        readonly List<float> _v; readonly Color _col; readonly float _min, _max;
-
-        public IterationChart(List<float> values, Color col, Func<float, string> fmt)
-        {
-            _v = values; _col = col;
-            float max = values.Max(), min = values.Min();
-            if (Mathf.Approximately(max, min)) { max += 1f; min -= Mathf.Approximately(min, 0f) ? 0f : 1f; }
-            _min = min; _max = max;
-            generateVisualContent += Draw;
-
-            Label L(string s) { var l = Text(s, 11, Dim); l.pickingMode = PickingMode.Ignore; l.style.position = Position.Absolute; return l; }
-            var top = L(fmt(max)); top.style.left = 2; top.style.top = 0; Add(top);
-            var bot = L(fmt(min)); bot.style.left = 2; bot.style.bottom = 14; Add(bot);
-            for (int i = 0; i < values.Count; i++)
-            {
-                var n = L((i + 1).ToString());
-                n.style.bottom = 0;
-                float f = values.Count == 1 ? 0.5f : i / (float)(values.Count - 1);
-                n.style.left = Length.Percent(PadFrac + f * (96f - PadFrac));
-                Add(n);
-            }
-        }
-
-        void Draw(MeshGenerationContext mgc)
-        {
-            var r = contentRect; if (r.width < 10 || r.height < 10) return;
-            var p = mgc.painter2D;
-            float x0 = r.width * PadFrac / 100f, x1 = r.width * 0.96f, y0 = 14f, y1 = r.height - 18f;
-            p.lineWidth = 1f; p.strokeColor = new Color(1, 1, 1, 0.1f);
-            for (int i = 0; i <= 2; i++) { float y = Mathf.Lerp(y1, y0, i / 2f); p.BeginPath(); p.MoveTo(new Vector2(x0, y)); p.LineTo(new Vector2(x1, y)); p.Stroke(); }
-            Vector2 Pt(int i) => new Vector2(_v.Count == 1 ? (x0 + x1) * 0.5f : Mathf.Lerp(x0, x1, i / (float)(_v.Count - 1)), Mathf.Lerp(y1, y0, Mathf.InverseLerp(_min, _max, _v[i])));
-            p.lineWidth = 2.5f; p.strokeColor = _col; p.lineJoin = LineJoin.Round;
-            if (_v.Count > 1) { p.BeginPath(); p.MoveTo(Pt(0)); for (int i = 1; i < _v.Count; i++) p.LineTo(Pt(i)); p.Stroke(); }
-            p.fillColor = _col;
-            for (int i = 0; i < _v.Count; i++) { p.BeginPath(); p.Arc(Pt(i), i == _v.Count - 1 ? 5f : 3.5f, 0f, 360f); p.Fill(); }
-        }
     }
 
     /// <summary>A slider in the points pool: whole numbers in steps of 5, and it cannot take more than the pool still holds.</summary>
