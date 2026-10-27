@@ -56,7 +56,7 @@ public static class TruckOrderColors
         var todays = schedule.Appointments.Where(a =>
             !a.Parked && a.Kind != AppointmentKind.Inbound &&
             a.DoorNumber == door && a.Day == schedule.CurrentDay).ToList();
-        return todays.FirstOrDefault(a => a.BlockIndex == schedule.CurrentBlock && !a.ClosedOut)
+        return todays.FirstOrDefault(a => a.BlockIndex <= schedule.CurrentBlock && schedule.CurrentBlock <= a.LastBlockIndex && !a.ClosedOut)
             ?? todays.FirstOrDefault(a => !a.ClosedOut)
             ?? todays.FirstOrDefault();
     }

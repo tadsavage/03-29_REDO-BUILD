@@ -442,7 +442,7 @@ namespace GameCore.Actors
             var pending = _workQueue.GetPendingTasksForRole(EmployeeRole.ReachTruckOperator);
             if (pending.Count == 0)
             {
-                WarnThrottled("notasks|" + name, $"[ReachTruckOperator] '{name}' found no Available Putaway/Replenish tasks this poll.");
+                // An idle poll with nothing to do is normal, not a warning (it was logged every two minutes per truck and tripped the playtest's REPEATING detector).
                 return;
             }
 

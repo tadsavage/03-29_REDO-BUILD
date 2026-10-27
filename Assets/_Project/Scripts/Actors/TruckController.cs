@@ -3517,7 +3517,7 @@ private DockSlot        _dock;
             }
         }
 
-        float windowMinutes = GameCore.Inventory.DockScheduleService.BlockHours * 60f;
+        float windowMinutes = appt.SpanBlocks * GameCore.Inventory.DockScheduleService.BlockHours * 60f;
         float frac;
         Color color;
         string text;

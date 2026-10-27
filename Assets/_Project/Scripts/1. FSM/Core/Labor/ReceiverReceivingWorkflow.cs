@@ -196,7 +196,7 @@ namespace GameCore.Labor
                     // Force the animation to restart by briefly disabling and re-enabling the parameter
                     _animator.SetBool("isReceiving", false);
                     _animator.SetBool("isReceiving", true);
-                    if (Time.time - s_lastAnimWarn > 30f) { s_lastAnimWarn = Time.time; Debug.LogWarning("[ReceiverReceivingWorkflow] Receiving animation stopped, restarting loop (logged once per 30 s)"); }
+                    if (Time.time - s_lastAnimWarn > 30f) { s_lastAnimWarn = Time.time; Debug.Log("[ReceiverReceivingWorkflow] Receiving animation stopped, restarting loop (logged once per 30 s)"); }
                 }
             }
         }

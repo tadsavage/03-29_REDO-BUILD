@@ -427,7 +427,7 @@ namespace GameCore.Diagnostics
         IEnumerable<(int day, int block)> Slots(SimulationTimeService time, int lastDay)
         {
             for (int d = time.Day; d <= Mathf.Max(lastDay, time.Day); d++)
-                for (int b = (d == time.Day ? Mathf.Min(11, time.Hour / 2 + 1) : 0); b < 12; b++)
+                for (int b = (d == time.Day ? Mathf.Min(DockScheduleService.BlocksPerDay - 1, time.Hour / DockScheduleService.BlockHours + 1) : 0); b < DockScheduleService.BlocksPerDay; b++)
                     yield return (d, b);
         }
 
@@ -469,7 +469,7 @@ namespace GameCore.Diagnostics
                 bool done = false;
                 foreach (var (d, b) in Slots(time, Mathf.Max(appt.Day, time.Day) + 2))
                 {
-                    if (d < appt.Day || !schedule.HasRoom(d, b)) continue;
+                    if (d < appt.Day || !schedule.HasRoom(d, b, DockScheduleService.SpanFor(appt.Kind))) continue;
                     foreach (int door in doors)
                         if (schedule.TryMoveToDoor(appt.Id, d, b, door, out _)) { done = true; _booked++; Act($"placed parked {appt.Kind} {appt.CustomerName} day {d} block {b} door {door}"); break; }
                     if (done) break;
@@ -497,7 +497,7 @@ namespace GameCore.Diagnostics
                 foreach (var (d, b) in Slots(time, Mathf.Max(g.EarliestDueDay, earliestDay)))
                 {
                     if ((d - 1) * 24 + b * DockScheduleService.BlockHours < earliestStart) continue;
-                    if (!schedule.HasRoom(d, b)) continue;
+                    if (!schedule.HasRoom(d, b, DockScheduleService.SpanFor(g.Kind))) continue;
                     foreach (int door in doors)
                         if (schedule.TryBookGroupAtDoor(d, b, door, g, out _, out _)) { done = true; _booked++; Act($"booked {g.CustomerName} day {d} block {b} door {door} ({kind}: stock ready hour {readyHour} + {turnHours:F1}h of work)"); break; }
                     if (done) break;
@@ -884,6 +884,8 @@ namespace GameCore.Diagnostics
                 var tr = trucks.FirstOrDefault(t => t != null && t.IsOutbound && t.AwaitingLoad && t.OutboundDoorNumber == o.AssignedDoorNumber);
                 if (tr == null) continue;
                 seen.Add(o.OrderId);
+                // Dock equipment that is busy with another job (an offload, another load) is a queue, not a deadlock: keep the clock at zero.
+                if (DockEquipmentCommandeerRegistry.Any()) { _unclaimedSince[o.OrderId] = now; continue; }
                 if (!_unclaimedSince.TryGetValue(o.OrderId, out long since)) { _unclaimedSince[o.OrderId] = now; continue; }
                 if (now - since < 90) continue;
                 _lastDeadlockWhy = $"{o.OrderNumber ?? o.OrderId} is {o.Status} but door {o.AssignedDoorNumber}'s truck has waited {now - since} min with no one loading it.";
@@ -1237,6 +1239,8 @@ namespace GameCore.Diagnostics
                 foreach (var slot in FindObjectsByType<MHEOperatorSlot>())
                 {
                     if (slot == null || !slot.IsOccupied) continue;
+                    // A selector who stepped off to pick cases leaves the jack parked on purpose; only a driver actually aboard can be "stuck".
+                    if (!slot.OperatorAboard) { _vehicleTrack.Remove(slot); continue; }
                     var p = slot.transform.position;
                     if (_vehicleTrack.TryGetValue(slot, out var tr) && Vector3.Distance(tr.pos, p) < 0.3f)
                     {

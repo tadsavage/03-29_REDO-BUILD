@@ -139,7 +139,7 @@ namespace GameCore.Labor
                 // ENDED but not yet been swept (a save loaded at 11:00 still holding an open 06:00
                 // appointment) dispatch its driver hours after the window — who then "sat there for
                 // their whole appointment" and left. A driver doesn't turn up for a window that's gone.
-                if (schedule.CurrentBlock != appt.BlockIndex) continue;
+                if (schedule.CurrentBlock < appt.BlockIndex || schedule.CurrentBlock > appt.LastBlockIndex) continue;
                 }
                 if (schedule.IsComplete(appt)) continue;                // already picked up
 
@@ -216,7 +216,7 @@ namespace GameCore.Labor
                     var todays = schedule.Appointments.Where(a =>
                         a.DoorNumber == doorNumber && a.Day == schedule.CurrentDay &&
                         a.Kind != AppointmentKind.Inbound && !a.Parked && !a.ClosedOut).ToList();
-                    appt = todays.FirstOrDefault(a => a.BlockIndex == schedule.CurrentBlock);
+                    appt = todays.FirstOrDefault(a => a.BlockIndex <= schedule.CurrentBlock && schedule.CurrentBlock <= a.LastBlockIndex);
                     if (appt == null && todays.Count > 0) continue;
                 }
 

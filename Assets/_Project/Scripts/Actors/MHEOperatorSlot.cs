@@ -30,6 +30,10 @@ public class MHEOperatorSlot : MonoBehaviour
     public EmployeeIdentity CurrentOperator { get; private set; }
     public bool IsOccupied => CurrentOperator != null;
 
+    /// <summary>The operator is physically ON the machine. A pallet jack's selector steps off to pick cases while the jack stays parked, still
+    /// "occupied"; that is working, not a stuck vehicle.</summary>
+    public bool OperatorAboard => CurrentOperator != null && OperatorAnchor != null && CurrentOperator.transform.IsChildOf(OperatorAnchor);
+
     private void Awake()
     {
         _vehicleNav = GetComponent<AiNavigation>();

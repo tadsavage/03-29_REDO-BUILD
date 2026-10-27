@@ -117,7 +117,10 @@ namespace GameCore.Actors
             // _taskInProgress=true while her workflow read Idle with no current task.
             //
             // So verify the flag against the workflow's real state rather than trusting it.
-            if (_taskInProgress && _workflow != null && !_workflow.IsBusy)
+            // A receiver still WALKING to the pallet has the flag set and an idle workflow by design (the workflow only starts on
+            // arrival), and a long walk takes longer than the timeout at higher game speeds. Only count the time once the walk is over
+            // (block 11: this misfired ~25 times per receiver, cancelling every long approach and restarting it).
+            if (_taskInProgress && _workflow != null && !_workflow.IsBusy && !_nav.IsSeekingTask)
             {
                 _stuckFlagSeconds += Time.deltaTime;
                 if (_stuckFlagSeconds >= StuckFlagTimeout)

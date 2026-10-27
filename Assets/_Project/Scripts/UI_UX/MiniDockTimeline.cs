@@ -300,7 +300,7 @@ public class MiniDockTimeline
 
             var chip = new VisualElement();
             chip.AddToClassList("mini-timeline-chip");
-            chip.style.width = Length.Percent(widthPct);
+            chip.style.width = Length.Percent(widthPct * appt.SpanBlocks);
 
             var face = new VisualElement { pickingMode = PickingMode.Ignore };
             face.AddToClassList("mini-timeline-face");

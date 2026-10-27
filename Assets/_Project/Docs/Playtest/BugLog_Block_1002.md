@@ -1282,3 +1282,4 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
 - day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
 - day 1 08:49 | **WARN** | Assets\_Project\Scripts\UI_UX\SchedulerPanel.cs(941,17): warning CS0414: The field 'SchedulerPanel._lastLiveScheduleBlock' is assigned but its value is never used
+- day 1 08:00 | **MONEY-DRIFT** | MONEY-DRIFT capital moved +417832 without a ledger entry

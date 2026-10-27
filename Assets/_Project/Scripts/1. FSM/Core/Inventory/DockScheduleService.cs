@@ -149,7 +149,10 @@ namespace GameCore.Inventory
         public int RequestedDay;
 
         public int StartHour => BlockIndex * DockScheduleService.BlockHours;
-        public int EndHour => StartHour + DockScheduleService.BlockHours;
+        /// <summary>How many grid steps this tile covers (4 hours for a recurring order, 2 for bulk and inbound).</summary>
+        public int SpanBlocks => DockScheduleService.SpanFor(Kind);
+        public int LastBlockIndex => BlockIndex + SpanBlocks - 1;
+        public int EndHour => StartHour + SpanBlocks * DockScheduleService.BlockHours;
         public string TimeLabel => $"{StartHour:00}:00–{EndHour:00}:00";
     }
 
@@ -253,9 +256,16 @@ namespace GameCore.Inventory
     /// </summary>
     public class DockScheduleService : IService
     {
-        /// <summary>In-game hours per block. Six blocks span a 24-hour day (4-hour windows, Tad 2026-10-26: case picking takes time, so give the player room).</summary>
-        public const int BlockHours = 4;
+        /// <summary>In-game hours per grid step. Twelve steps span a 24-hour day. How long an appointment lasts is its tile width: see SpanFor.</summary>
+        public const int BlockHours = 2;
         public const int BlocksPerDay = 24 / BlockHours;
+
+        /// <summary>Grid steps a tile of this kind occupies (Tad 2026-10-26): a recurring case-pick pickup is 4 hours because picking takes
+        /// time; a bulk pickup and an inbound delivery are 2 hours.</summary>
+        public static int SpanFor(AppointmentKind kind) => kind == AppointmentKind.Outbound ? 2 : 1;
+
+        /// <summary>True when a tile of <paramref name="span"/> steps starting at <paramref name="blockIndex"/> fits inside the day.</summary>
+        public static bool FitsDay(int blockIndex, int span) => blockIndex >= 0 && span >= 1 && blockIndex + span <= BlocksPerDay;
 
         /// <summary>Auto-placed pickups start at least this many in-game hours from now (Tad, 2026-10-26).</summary>
         public const int MinPickupLeadHours = 4;
@@ -378,10 +388,24 @@ namespace GameCore.Inventory
         /// get them back for DISPLAY purposes, which is all the Scheduler grid wants them for.</summary>
         public IEnumerable<DockAppointment> GetBlock(int day, int blockIndex, bool includeClosedOut = false)
             => _appointments.Where(a => !a.Parked && (includeClosedOut || !a.ClosedOut) &&
-                                        a.Day == day && a.BlockIndex == blockIndex)
+                                        a.Day == day && a.BlockIndex <= blockIndex && blockIndex <= a.LastBlockIndex)
                             .OrderBy(a => a.DoorNumber);
 
-        public bool HasRoom(int day, int blockIndex) => GetBlock(day, blockIndex).Count() < CapacityPerBlock;
+        public bool HasRoom(int day, int blockIndex, int span = 1)
+        {
+            if (!FitsDay(blockIndex, span)) return false;
+            for (int b = blockIndex; b < blockIndex + span; b++)
+                if (GetBlock(day, b).Count() >= CapacityPerBlock) return false;
+            return true;
+        }
+
+        /// <summary>True when a door is taken by another tile anywhere in [blockIndex, blockIndex + span).</summary>
+        public bool DoorBusy(int day, int blockIndex, int span, int doorNumber, string ignoreId = null)
+        {
+            for (int b = blockIndex; b < blockIndex + span; b++)
+                if (GetBlock(day, b).Any(a => a.Id != ignoreId && a.DoorNumber == doorNumber)) return true;
+            return false;
+        }
 
         public DockAppointment FindById(string id)
             => string.IsNullOrEmpty(id) ? null : _appointments.FirstOrDefault(a => a.Id == id);
@@ -462,11 +486,16 @@ namespace GameCore.Inventory
                 return false;
             }
 
-            var taken = GetBlock(day, blockIndex).Select(a => a.DoorNumber).ToHashSet();
-            int free = doors.FirstOrDefault(d => !taken.Contains(d));
-            if (taken.Count >= doors.Count || free == 0)
+            int span = SpanFor(kind);
+            if (!FitsDay(blockIndex, span))
             {
-                failReason = $"{BlockLabel(blockIndex)} is full — all {doors.Count} door(s) are booked.";
+                failReason = $"A {span * BlockHours}-hour appointment starting at {blockIndex * BlockHours:00}:00 doesn't fit in the day.";
+                return false;
+            }
+            int free = doors.FirstOrDefault(d => !DoorBusy(day, blockIndex, span, d));
+            if (free == 0)
+            {
+                failReason = $"{BlockLabel(blockIndex)} is full — all {doors.Count} door(s) are booked for {span * BlockHours} hours from then.";
                 return false;
             }
 
@@ -488,13 +517,21 @@ namespace GameCore.Inventory
             booked = null;
             failReason = null;
 
+            // A block that does not exist (the day has BlocksPerDay of them) must never be booked: a caller still assuming the old
+            // 2-hour blocks booked trailers into "block 9" (hour 36-40), which can never open and was fined as a missed slot.
+            if (blockIndex < 0 || blockIndex >= BlocksPerDay || !FitsDay(blockIndex, SpanFor(kind)))
+            {
+                failReason = $"Block {blockIndex} can't hold a {SpanFor(kind) * BlockHours}-hour appointment (there are {BlocksPerDay} blocks a day).";
+                return false;
+            }
+
             if (!OutboundDoors().Contains(doorNumber))
             {
                 failReason = $"Door {doorNumber} isn't an outbound-capable door.";
                 return false;
             }
 
-            if (GetBlock(day, blockIndex).Any(a => a.DoorNumber == doorNumber))
+            if (DoorBusy(day, blockIndex, SpanFor(kind), doorNumber))
             {
                 failReason = $"Door {doorNumber} is already booked in {BlockLabel(blockIndex)}.";
                 return false;
@@ -562,9 +599,9 @@ namespace GameCore.Inventory
             // the player clicked. The real guard against landing on an elapsed slot is the DESTINATION
             // check in TryMoveToDoor, which stands regardless of this.
             if (!appt.Parked &&
-                (appt.Day < CurrentDay || (appt.Day == CurrentDay && appt.BlockIndex < CurrentBlock)))
+                (appt.Day < CurrentDay || (appt.Day == CurrentDay && appt.LastBlockIndex < CurrentBlock)))
             {
-                reason = $"{BlockLabel(appt.BlockIndex)} on day {appt.Day} has already passed.";
+                reason = $"{appt.TimeLabel} on day {appt.Day} has already passed.";
                 return true;
             }
 
@@ -979,7 +1016,12 @@ namespace GameCore.Inventory
                 return false;
             }
 
-            bool takenByOther = GetBlock(day, blockIndex).Any(a => a.Id != appointmentId && a.DoorNumber == doorNumber);
+            if (!FitsDay(blockIndex, appt.SpanBlocks))
+            {
+                failReason = $"A {appt.SpanBlocks * BlockHours}-hour appointment starting at {blockIndex * BlockHours:00}:00 doesn't fit in the day.";
+                return false;
+            }
+            bool takenByOther = DoorBusy(day, blockIndex, appt.SpanBlocks, doorNumber, appointmentId);
             if (takenByOther)
             {
                 failReason = $"Door {doorNumber} is already booked in {BlockLabel(blockIndex)}.";
@@ -1087,9 +1129,15 @@ namespace GameCore.Inventory
         /// </summary>
         public MoveVerdict EvaluateMove(DockAppointment appt, string contractId, int requestedDay,
                                         int day, int blockIndex, int doorNumber, out string reason,
-                                        List<int> outboundDoors = null, IEnumerable<string> orderIds = null)
+                                        List<int> outboundDoors = null, IEnumerable<string> orderIds = null, int span = 1)
         {
             reason = null;
+            if (appt != null) span = appt.SpanBlocks;
+            if (!FitsDay(blockIndex, span))
+            {
+                reason = $"A {span * BlockHours}-hour appointment doesn't fit starting at {blockIndex * BlockHours:00}:00.";
+                return MoveVerdict.Blocked;
+            }
 
             if (appt != null)
             {
@@ -1117,7 +1165,7 @@ namespace GameCore.Inventory
             }
 
             string selfId = appt?.Id;
-            if (GetBlock(day, blockIndex).Any(a => a.Id != selfId && a.DoorNumber == doorNumber))
+            if (DoorBusy(day, blockIndex, span, doorNumber, selfId))
             {
                 reason = $"Door {doorNumber} is already booked in {BlockLabel(blockIndex)}.";
                 return MoveVerdict.Blocked;
@@ -1498,7 +1546,7 @@ namespace GameCore.Inventory
             {
                 for (; block < BlocksPerDay; block++)
                 {
-                    if (!HasRoom(day, block)) continue;
+                    if (!HasRoom(day, block, SpanFor(kind))) continue;
                     if (TryBook(day, block, kind, customerId, customerName, contractId, out booked, out _))
                         return true;
                 }
@@ -1753,7 +1801,7 @@ namespace GameCore.Inventory
                 .Where(a => (a.Kind == AppointmentKind.Inbound
                                  ? (!string.IsNullOrEmpty(a.ShipmentPoNumber) && !a.Parked && !a.ClosedOut)
                                  : !a.ClosedOut) &&
-                            (a.Day < today || (a.Day == today && a.BlockIndex < nowBlock)))
+                            (a.Day < today || (a.Day == today && a.LastBlockIndex < nowBlock)))
                 .ToList();
 
             foreach (var appt in elapsed)

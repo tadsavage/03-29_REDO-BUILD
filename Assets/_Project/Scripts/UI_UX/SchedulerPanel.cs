@@ -4032,6 +4032,13 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             }
         }
 
+        int holdSpan = movingAppt != null ? movingAppt.SpanBlocks : 1;
+        if (booking && movingAppt == null)
+        {
+            var holdGroupForSpan = schedule.UnscheduledGroups().FirstOrDefault(g => g.Key == _selectedUnscheduledKey);
+            if (holdGroupForSpan != null) holdSpan = DockScheduleService.SpanFor(holdGroupForSpan.Kind);
+        }
+
         for (int block = 0; block < DockScheduleService.BlocksPerDay; block++)
         {
             // includeClosedOut so a block whose window has elapsed still renders (struck through)
@@ -4041,13 +4048,15 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
                 .Where(a => a.DoorNumber == doorNumber)
                 .OrderBy(a => a.ClosedOut)
                 .FirstOrDefault();
+            // A tile longer than one step is drawn ONCE, at its start, across all its steps; the steps it covers draw nothing of their own.
+            if (appt != null && appt.BlockIndex < block) continue;
             bool past = _scheduleDay < today || (_scheduleDay == today && block < schedule.CurrentBlock);
             var verdict = DockScheduleService.MoveVerdict.Free;
             string verdictReason = null;
             bool isHeldChip = appt != null && appt.Id == _selectedAppointmentId;
             if (holding && !isHeldChip)
                 verdict = schedule.EvaluateMove(movingAppt, holdContractId, _scheduleDay, _scheduleDay, block,
-                                                doorNumber, out verdictReason, outboundDoors, holdOrderIds);
+                                                doorNumber, out verdictReason, outboundDoors, holdOrderIds, holdSpan);
             string warning = null;
             if (verdict == DockScheduleService.MoveVerdict.Costly)
             {
@@ -4069,7 +4078,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
                 : (holding ? BuildNewSchedulerEmptyCell(block, doorNumber, booking, verdict, warning) : null);
             if (cell == null) continue;
             cell.style.left = Length.Percent(block / (float)DockScheduleService.BlocksPerDay * 100f);
-            cell.style.width = Length.Percent(100f / DockScheduleService.BlocksPerDay);
+            cell.style.width = Length.Percent(100f * (appt != null ? appt.SpanBlocks : 1) / DockScheduleService.BlocksPerDay);
             lane.Add(cell);
             if (appt != null && isHeldChip) _heldCell = cell;
 
