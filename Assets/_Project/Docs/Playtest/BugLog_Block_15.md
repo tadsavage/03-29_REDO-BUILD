@@ -36,3 +36,19 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 5 10:23 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1C-1 (order 4c0b405e-79ce-47f1-9e77-1bcb174ef868 gone)
 - day 7 15:45 | **WARN** | [OrderService] Order OG7474 closed with a STAGED pallet (44 cs) that never made the trailer - not billed, returning it to stock.
 - day 7 15:53 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1B-1 (order 3e99289a-a68b-4cc3-8a53-302d30b6e49b gone)
+- day 1 20:08 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=113489 load=0245169499
+- day 1 20:08 | **NO-TASK** | NO-TASK lane pallet 1A-1 sku=113489 load=5660366934
+- day 1 21:38 | **NO-TASK** | NO-TASK lane pallet 2B-5 sku=792146 load=8870436857
+- day 1 22:53 | **NO-TASK** | NO-TASK lane pallet 1A-5 sku=102435 load=1610967378
+- day 1 23:27 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Daniel Sanders' as its operator though nobody is on it or running it - clearing the stale link.
+- day 2 05:38 | **NO-TASK** | NO-TASK lane pallet 2A-4 sku=248905 load=0746061575
+- day 2 06:38 | **NO-TASK** | NO-TASK lane pallet 2B-5 sku=304759 load=4119558700
+- day 2 06:48 | **WARN** | [OrderService] Order OG1496 closed with a STAGED pallet (34 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 06:53 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1D-1 (order 7e94fd20-ada5-42cf-b294-4134ddbdd87c gone)
+- day 2 06:53 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1D-1 (order 7e94fd20-ada5-42cf-b294-4134ddbdd87c gone)
+- day 2 09:23 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1C-1 (order b5946e3f-220b-4129-b6c4-6f2bc3d6e1bd gone)
+- day 2 19:55 | **WARN** | [AiNavigation] ReachTruck: stuck at (5.69, 1.16, 20.76) — walking out to (1.22, 0.08, 12.28) (8.65m to mesh).
+- day 3 01:56 | **WARN** | [AiNavigation] ReachTruck: stuck at (8.31, 1.16, 25.50) — walking out to (8.31, 0.08, 12.17) (12.39m to mesh).
+- day 3 08:49 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Daniel Sanders' as its operator though nobody is on it or running it - clearing the stale link.
+- day 4 17:38 | **DOOR-DEADLOCK** | OG4499 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 23:38 | **DOOR-DEADLOCK** | OG4499 is Loading but door 1's truck has waited 90 min with no one loading it.

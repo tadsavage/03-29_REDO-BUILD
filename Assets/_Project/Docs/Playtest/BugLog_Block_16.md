@@ -1,0 +1,50 @@
+# Bug log - block 16
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 16:20 | **WARN** | [AiNavigation] ReachTruck: stuck at (6.99, 1.16, 24.75) — walking out to (0.53, 0.08, 12.28) (13.09m to mesh).
+- day 1 21:53 | **NO-TASK** | NO-TASK lane pallet 1B-4 sku=248905 load=1223103918
+- day 1 23:23 | **NO-TASK** | NO-TASK lane pallet 2A-4 sku=248905 load=6649159473
+- day 1 23:23 | **NO-TASK** | NO-TASK lane pallet 2A-4 sku=564219 load=8885322923
+- day 2 01:38 | **NO-TASK** | NO-TASK lane pallet 2A-3 sku=564219 load=9028839598
+- day 2 07:23 | **NO-TASK** | NO-TASK lane pallet 2A-2 sku=564219 load=2074489471
+- day 2 09:11 | **WARN** | [AiNavigation] Employee_Elizabeth Graham: stuck at (-26.58, 1.12, 34.26) — walking out to (-15.34, 1.12, 27.02) (12.36m to mesh).
+- day 2 10:16 | **WARN** | [AiNavigation] Employee_Elizabeth Graham: stuck at (-26.81, 1.12, 34.39) — walking out to (-15.58, 1.12, 27.01) (12.44m to mesh).
+- day 2 11:43 | **WARN** | [AiNavigation] Employee_Elizabeth Graham: stuck at (-26.92, 1.12, 34.41) — walking out to (-15.69, 1.12, 27.01) (12.44m to mesh).
+- day 2 13:25 | **WARN** | [AiNavigation] Employee_Elizabeth Graham: stuck at (-26.56, 1.12, 34.25) — walking out to (-15.33, 1.12, 27.02) (12.36m to mesh).
+- day 2 16:05 | **WARN** | [AiNavigation] Employee_Elizabeth Graham: stuck at (-27.06, 1.12, 34.39) — walking out to (-15.83, 1.12, 27.01) (12.43m to mesh).
+- day 2 17:56 | **WARN** | [AiNavigation] Employee_Elizabeth Graham: stuck at (-27.03, 1.12, 34.40) — walking out to (-15.80, 1.12, 27.01) (12.44m to mesh).
+- day 3 06:53 | **NO-TASK** | NO-TASK lane pallet 2B-5 sku=983721 load=8859029096
+- day 3 07:38 | **NO-TASK** | NO-TASK lane pallet 2B-3 sku=983721 load=4787144654
+- day 3 08:00 | **WARN** | [OrderService] Order OG3485 closed with a STAGED pallet (24 cs) that never made the trailer - not billed, returning it to stock.
+- day 3 08:08 | **NO-TASK** | NO-TASK lane pallet 2A-1 sku=517634 load=1505365946
+- day 3 08:08 | **NO-TASK** | NO-TASK lane pallet 2B-2 sku=983721 load=6192168501
+- day 3 08:08 | **NO-TASK** | NO-TASK lane pallet 2B-2 sku=983721 load=2478759514
+- day 3 08:08 | **NO-TASK** | NO-TASK lane pallet 2A-2 sku=517634 load=0246625191
+- day 3 08:08 | **NO-TASK** | NO-TASK lane pallet 2A-1 sku=517634 load=3938393791
+- day 3 23:26 | **WARN** | [AiNavigation] Employee_Elizabeth Graham: stuck at (-27.68, 1.19, 33.57) — walking out to (-34.18, 0.04, 22.31) (12.06m to mesh).
+- day 4 05:53 | **NO-TASK** | NO-TASK lane pallet 1A-3 sku=164923 load=0075967986
+- day 4 07:56 | **WARN** | [AiNavigation] Employee_Elizabeth Graham: stuck at (-26.84, 1.20, 33.40) — walking out to (-26.84, 0.04, 46.40) (12.06m to mesh).
+- day 4 20:04 | **WARN** | [AiNavigation] ReachTruck: stuck at (0.00, 1.11, 40.50) — walking out to (3.46, 0.08, 42.50) (3.17m to mesh).
+- day 5 13:21 | **WARN** | [AiNavigation] ReachTruck: stuck at (0.00, 1.16, 40.50) — walking out to (3.46, 0.08, 42.50) (3.19m to mesh).
+- day 1 18:53 | **NO-TASK** | NO-TASK lane pallet 1A-1 sku=113489 load=5660366934
+- day 1 19:08 | **NO-TASK** | NO-TASK lane pallet 1B-5 sku=113489 load=0245169499
+- day 1 21:38 | **NO-TASK** | NO-TASK lane pallet 2B-5 sku=792146 load=8870436857
+- day 1 22:53 | **NO-TASK** | NO-TASK lane pallet 1A-5 sku=102435 load=1610967378
+- day 1 23:27 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Daniel Sanders' as its operator though nobody is on it or running it - clearing the stale link.
+- day 1 23:27 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Daniel Sanders' as its operator though nobody is on it or running it - clearing the stale link.
+- day 2 05:38 | **NO-TASK** | NO-TASK lane pallet 2A-4 sku=248905 load=0746061575
+- day 2 06:38 | **NO-TASK** | NO-TASK lane pallet 2B-5 sku=304759 load=4119558700
+- day 2 06:48 | **WARN** | [OrderService] Order OG1496 closed with a STAGED pallet (34 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 06:48 | **WARN** | [OrderService] Order OG1496 closed with a STAGED pallet (34 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 06:53 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1D-1 (order 7e94fd20-ada5-42cf-b294-4134ddbdd87c gone)
+- day 2 06:53 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1D-1 (order 7e94fd20-ada5-42cf-b294-4134ddbdd87c gone)
+- day 2 09:23 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1C-1 (order b5946e3f-220b-4129-b6c4-6f2bc3d6e1bd gone)
+- day 2 19:55 | **WARN** | [AiNavigation] ReachTruck: stuck at (5.69, 1.16, 20.76) — walking out to (1.22, 0.08, 12.28) (8.65m to mesh).
+- day 2 19:55 | **WARN** | [AiNavigation] ReachTruck: stuck at (5.69, 1.16, 20.76) — walking out to (1.22, 0.08, 12.28) (8.65m to mesh).
+- day 3 01:56 | **WARN** | [AiNavigation] ReachTruck: stuck at (8.31, 1.16, 25.50) — walking out to (8.31, 0.08, 12.17) (12.39m to mesh).
+- day 3 01:56 | **WARN** | [AiNavigation] ReachTruck: stuck at (8.31, 1.16, 25.50) — walking out to (8.31, 0.08, 12.17) (12.39m to mesh).
+- day 3 08:49 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Daniel Sanders' as its operator though nobody is on it or running it - clearing the stale link.
+- day 3 08:49 | **WARN** | [OrderSelectionTaskDriver] Pallet jack still listed 'Employee_Daniel Sanders' as its operator though nobody is on it or running it - clearing the stale link.
+- day 4 17:38 | **DOOR-DEADLOCK** | OG4499 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 23:38 | **DOOR-DEADLOCK** | OG4499 is Loading but door 1's truck has waited 90 min with no one loading it.
