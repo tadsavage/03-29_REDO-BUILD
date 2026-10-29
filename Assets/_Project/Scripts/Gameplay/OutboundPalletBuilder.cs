@@ -17,6 +17,8 @@ using GameCore.Inventory;
 /// </summary>
 public class OutboundPalletBuilder : MonoBehaviour
 {
+    /// <summary>Pallets a trailer load is currently driving to pick up. Release must not destroy these mid-load.</summary>
+    public static readonly System.Collections.Generic.HashSet<OutboundPalletBuilder> LoadClaimed = new();
     private static readonly Vector3 PalletDim = new Vector3(1.2192f, 0.165f, 1.016f);
     private const float SpaceBetweenCases = 0.05f;
     // Matches PalletBuilder's own crookedCase/positionJitter defaults — see that field's tooltip for why

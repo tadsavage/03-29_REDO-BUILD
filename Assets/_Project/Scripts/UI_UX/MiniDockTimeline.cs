@@ -304,7 +304,9 @@ public class MiniDockTimeline
 
             var face = new VisualElement { pickingMode = PickingMode.Ignore };
             face.AddToClassList("mini-timeline-face");
-            face.AddToClassList(missed ? "mini-timeline-face-missed" : FaceClass(appt.Kind));
+            face.AddToClassList(missed ? "mini-timeline-face-missed"
+                : TruckOrderColors.IsSameDay(appt) ? "mini-timeline-face-sameday"
+                : FaceClass(appt.Kind));
             if (complete) face.AddToClassList("mini-timeline-face-done");   // finished trailers fade back
             chip.Add(face);
 

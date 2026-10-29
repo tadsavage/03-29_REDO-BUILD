@@ -716,12 +716,18 @@ namespace GameCore.Labor
                                           TruckController truck, OutboundPalletBuilder pallet, int slotIndex, float stackBaseY = 0f)
         {
             Transform palletT = pallet.transform;
+            // Cached up front: the builder can be destroyed while this coroutine is yielding, and reading
+            // pallet.name afterwards throws MissingReferenceException.
+            string palletName = pallet.name;
+            string orderId = pallet.OrderId;
+            OutboundPalletBuilder.LoadClaimed.Add(pallet);
 
             // ── PICK UP from the lane (reverse of OffloadOnePallet's drop-into-lane) ──────────
             var cell = _grid.WorldToCell(palletT.position);
             if (!LaneNamingService.TryGetSlot(cell, out var laneSlot))
             {
-                Debug.LogWarning($"[TrailerLoad] {pallet.name} no longer resolves to a lane slot — skipping.");
+                Debug.LogWarning($"[TrailerLoad] {palletName} no longer resolves to a lane slot — skipping.");
+                OutboundPalletBuilder.LoadClaimed.Remove(pallet);
                 yield break;
             }
 
@@ -808,6 +814,7 @@ namespace GameCore.Labor
                 Vector3 palletFacingBeforePickup = palletT.forward;
                 palletT.SetParent(carrier, worldPositionStays: false);
                 pallet.Stage = OutboundPalletBuilder.PalletStage.Loading; // lifted: Loading until it's down in the trailer
+                OutboundPalletBuilder.LoadClaimed.Remove(pallet);
                 palletT.localPosition = ForkCarryLocalPos;
                 palletT.localRotation = NearestFacing(Quaternion.Euler(ForkCarryLocalEuler),
                                                       carrier.InverseTransformDirection(palletFacingBeforePickup));
@@ -837,7 +844,7 @@ namespace GameCore.Labor
             // (nose-first, alternating left/right — see CargoSlotForSequence) and read nothing like the
             // 1-N staging-lane positions the pallet was picked FROM. Logging a bare "slot 6" next to a
             // lane load made the interleave look like the DS was jumping to lane position 6.
-            Debug.Log($"[TrailerLoad][PLACE] {pallet.name} (order {pallet.OrderId}) -> {truck.name} cargoSlot {slotIndex} (tier {OutboundStackTier}).");
+            Debug.Log($"[TrailerLoad][PLACE] {palletName} (order {orderId}) -> {truck.name} cargoSlot {slotIndex} (tier {OutboundStackTier}).");
         }
 
         /// <summary>

@@ -268,11 +268,16 @@ namespace GameCore.Diagnostics
 
         static long Key(SimulationTimeService t) => (long)t.Day * 1440 + t.Hour * 60 + t.Minute;
 
+        float _nextScoreEval;
+
         void Update()
         {
             if (!Running) return;
             if (!ServiceLocator.TryGet<SimulationTimeService>(out var time)) return;
             long now = Key(time);
+
+            // Keep the headline score in step with the table (which is recomputed live); otherwise it only moved on events/decisions.
+            if (Time.unscaledTime >= _nextScoreEval) { _nextScoreEval = Time.unscaledTime + 1f; EvaluateScore(null); }
 
             if (now >= _nextHealth) { _nextHealth = now + Mathf.Max(5, S.healthCheckIntervalMinutes); SafeRun(HealthCheck, "health"); }
             if (now >= _nextDecision) { _nextDecision = now + Mathf.Max(5, S.decisionIntervalMinutes); SafeRun(Decide, "decide"); }
@@ -991,9 +996,8 @@ namespace GameCore.Diagnostics
             switch (name)
             {
                 case "On-time orders":
-                    return "ON-TIME ORDERS\nOn-time % = orders shipped on time / (orders shipped on time + orders fined for being late).\n\nAn order only counts as late when a fine is charged against it, and each order is fined at most once:\n1. A recurring order's 4-hour dock block ends with the freight still in the building. The fine fires the moment the block ends.\n2. A bulk order passes its due day. The fine fires at midnight.\n\nA late order that ships afterwards still counts once, as late (it is not counted twice)." +
+                    return "ON-TIME ORDERS\nOn-time % = orders shipped on time / (orders shipped on time + orders fined for being late).\n\nAn order only counts as late when a fine is charged against it, and each order is fined at most once:\n1. A recurring order's truck is spawned at the guard shack and gets 90 minutes to clear the gate and reach its shipping door. The loading clock starts at the 90-minute mark, or earlier if the truck is already at the door (a head start). The clock allows 20 minutes per pallet; if any pallet is still being picked or staged by a reach truck when it runs out, the order is late. Have your labor assigned and everything staged before the truck arrives.\n2. A bulk order passes its due day. The fine fires at midnight.\n\nA late order that ships afterwards still counts once, as late (it is not counted twice)." +
                            $"Moving a trailer off the hour the customer asked for also costs a fine, but that is a penalty for breaking the promise, not lateness, so it is not counted here ({_movedFines} so far this block).\n\n" +
-                           "Fairness: an outbound truck reaches the gate 90 minutes before its block opens so it can be at the door on time. " +
                            "If everything the building has is loaded and the rest is scratched, the game pauses and asks whether to release the trailer (no lateness fine for cases that were never in stock).";
                 case "Door deadlocks":
                     return "DOOR DEADLOCKS\nCounted when a staged or loading order's outbound truck has sat docked for 90 game minutes with nobody loading it. Goal: zero.";

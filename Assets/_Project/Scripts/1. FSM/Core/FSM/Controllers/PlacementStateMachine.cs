@@ -50,7 +50,7 @@ public class PlacementStateMachine : MonoBehaviour
     private RaycastController _raycast;
     // Reusable buffer for the hover-tooltip's supplementary multi-hit raycast (avoids a
     // per-frame array allocation from RaycastAll while hovering).
-    private readonly RaycastHit[] _hoverHitsBuffer = new RaycastHit[16];
+    private readonly RaycastHit[] _hoverHitsBuffer = new RaycastHit[128];
     private BuildMenuUI _buildMenuUI;
     private TopBarUI _topBar;
 
@@ -244,7 +244,7 @@ public class PlacementStateMachine : MonoBehaviour
                     }
                 }
 
-                // Shift + Left Click: toggle lights OR open Slot Assignment on racks
+                // Shift + Left Click: toggle lights OR open Rack Setup on racks
                 bool _shiftHeld = Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed;
                 if (Mouse.current.leftButton.wasPressedThisFrame && _shiftHeld && !_raycast.IsPointerOverUI)
                 {
@@ -264,14 +264,18 @@ public class PlacementStateMachine : MonoBehaviour
                             return;
                         }
 
-                        // Otherwise, check if it's a live rack — open Slot Assignment panel
+                        // Otherwise, check if it's a live rack — open Rack Setup in edit mode (same as double-click)
                         var rackPo = _raycast.HitObject.GetComponentInParent<PlacedObject>();
                         if (rackPo != null && rackPo.isRackLive && rackPo.data != null
-                            && rackPo.data.category == "Racking" && rackPo.rackAisle >= 0
-                            && _topBar != null && _topBar.SlotAssignmentPanel != null)
+                            && rackPo.data.category == "Racking" && rackPo.rackAisle >= 0)
                         {
-                            _hoverUI.HideImmediate();
-                            _topBar.SlotAssignmentPanel.ShowForAisle(rackPo.rackAisle);
+                            var rackSetup = FindAnyObjectByType<RackSetupUI>(FindObjectsInactive.Include);
+                            if (rackSetup != null && !rackSetup.IsOpen)
+                            {
+                                _hoverUI.HideImmediate();
+                                rackSetup.OpenForEdit(rackPo.rackAisle);
+                                AudioManager.Play("ValidPlace");
+                            }
                         }
                     }
                 }

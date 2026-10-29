@@ -228,6 +228,17 @@ public class ContractsPanel : IUIPanel
     }
 
     public bool IsOpen => _visible;
+
+    private string _highlightContractId;
+
+    /// <summary>Opens on the New Contracts board with one offer outlined and scrolled into view (used by log links).</summary>
+    public void ShowOffer(string contractId)
+    {
+        _tab = Tab.NewContracts;
+        _highlightContractId = contractId;
+        Show();
+    }
+
     public void Toggle() { if (_visible) Hide(); else Show(); }
 
     public void Show()
@@ -1035,6 +1046,16 @@ public class ContractsPanel : IUIPanel
     {
         var card = MakeRow(rowIndex, AccentFor(contract));
         card.style.position = Position.Relative;
+        if (_highlightContractId != null && contract.ContractId == _highlightContractId)
+        {
+            var glow = new StyleColor(new Color(1f, 0.85f, 0.2f, 1f));
+            card.style.borderTopWidth = card.style.borderBottomWidth =
+                card.style.borderLeftWidth = card.style.borderRightWidth = 4;
+            card.style.borderTopColor = card.style.borderBottomColor =
+                card.style.borderLeftColor = card.style.borderRightColor = glow;
+            _highlightContractId = null;
+            card.schedule.Execute(() => _content.ScrollTo(card)).ExecuteLater(60);
+        }
         card.Add(MakeOfferCardIcon(contract.Customer != null ? contract.Customer.Icon : null));
 
         var body = new VisualElement();
@@ -1546,7 +1567,7 @@ public class ContractsPanel : IUIPanel
                 ? "ship SAME DAY (2x pay)"
                 : $"ship within {c.LeadTimeDays} day(s)";
             return $"{c.BulkLinesMin}–{c.BulkLinesMax} item(s) · full pallets out of reserve · " +
-                   $"cost of goods + 5% · {deadline} · late fee {c.LateFeePercent:P0}";
+                   $"cost of goods + 10% · {deadline} · late fee {c.LateFeePercent:P0}";
         }
 
         int block = DockScheduleService.BlockForHour(c.CutoffHour);
@@ -1578,7 +1599,7 @@ public class ContractsPanel : IUIPanel
 
         if (c.IsBulk)
         {
-            // Priced off BUY value, not sell — a bulk order pays cost of goods plus 5%, so estimating
+            // Priced off BUY value, not sell — a bulk order pays cost of goods plus 10%, so estimating
             // it from SellValue like the others would overstate every card on the board. Computed from
             // THIS contract's own rolled BulkPreviewLines (exactly what GenerateBulk will build on
             // Accept) rather than an average over every SKU in the game — averaging ignored the actual

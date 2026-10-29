@@ -238,7 +238,9 @@ namespace GameCore.Actors
 
                 if (!_currentOrder.IsFullyPicked && PlanTripDone())
                 {
-                    Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) pallet {_currentTask.PlanNumber} of {_currentTask.PlanTotal} built on the pallet jack. Driving to staging.");
+                    Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) pallet {_currentTask.PlanNumber} of {_currentTask.PlanTotal} built on the pallet jack.");
+                    if (TryJoinSameCustomerPlan()) continue;   // jack has room and another same-customer plan is waiting
+                    Debug.Log("Driving to staging.");
                     break;
                 }
 
@@ -492,8 +494,11 @@ namespace GameCore.Actors
         /// <summary>Lane resolve, drive to the lane's open end, back in, leave the pallets, drive out.</summary>
         private IEnumerator JackStageRoutine(OrderData.OrderStatus completion)
         {
-            var order = _currentOrder;
-            var task = _currentTask;
+            // A joined trip stages into the anchor's lane, so the anchor is the trip's order/task for staging.
+            var order = _anchorOrder ?? _currentOrder;
+            var task = _anchorTask ?? _currentTask;
+            _currentOrder = order;
+            _currentTask = task;
 
             DestroyEmptyPallets();
             if (LivePalletCount() == 0)
@@ -509,6 +514,7 @@ namespace GameCore.Actors
                     yield return StayAboardWhileCharging();
                     if (_jack != null) yield return StepOut(_jack.transform.position - _jack.transform.right);
                 }
+                FinishJoinedTrips(0, null, completion);
                 ReleaseJack();
                 FinishOrderCleanup(task);
                 yield break;
@@ -591,6 +597,7 @@ namespace GameCore.Actors
             yield return MoveForks(0f);
             PlacePalletsAtStagingSlot(order, door, resolvedLane, slotPos, axis);
             order.Status = TripEndStatus(order, completion, task);
+            FinishJoinedTrips(door, resolvedLane, completion);
             _pallets.Clear();
 
             // Drive back out to the line-up spot, release the lane, step off (via a mount point) and leave the jack.
@@ -1245,12 +1252,29 @@ namespace GameCore.Actors
                 yield break;
             }
 
-            float elapsed = 0f, sinceRecheck = 0f, navYielded = 0f;
+            float elapsed = 0f, sinceRecheck = 0f, navYielded = 0f, stillFor = 0f;
             int reissues = 0;
+            Vector3 lastPos = jt.position;
+            bool stallLogged = false;
             while (_jack != null && !arrived && _jackNav.IsSeekingTask && elapsed < 45f)
             {
                 elapsed += Time.deltaTime;
                 sinceRecheck += Time.deltaTime;
+
+                // Diagnostic: log each stall of 0.5s+ (not moving > 5 cm), to locate the stuck spot.
+                stillFor = PlanarDist(jt.position, lastPos) < 0.05f ? stillFor + Time.deltaTime : 0f;
+                lastPos = jt.position;
+                if (stillFor >= 0.5f && !stallLogged)
+                {
+                    stallLogged = true;
+                    Debug.LogWarning($"[JackStall] '{phase}' at {jt.position} (target {driveTarget}) " +
+                        $"remaining={_jackAgent.remainingDistance:F2} pathStatus={_jackAgent.pathStatus} " +
+                        $"hasPath={_jackAgent.hasPath} pathPending={_jackAgent.pathPending} " +
+                        $"desiredVel={_jackAgent.desiredVelocity} stopped={_jackAgent.isStopped} " +
+                        $"onMesh={_jackAgent.isOnNavMesh} jackBlocked={JackPathBlocked(_jackAgent.desiredVelocity.sqrMagnitude > 0.01f ? _jackAgent.desiredVelocity : jt.forward)} " +
+                        $"elapsed={elapsed:F1}s reissues={reissues}");
+                }
+                else if (stillFor == 0f) stallLogged = false;
 
                 // Another jack in the way: hold the agent still behind it (capped, see JackYieldMaxSeconds).
                 if (_jackAgent.isActiveAndEnabled && _jackAgent.isOnNavMesh)

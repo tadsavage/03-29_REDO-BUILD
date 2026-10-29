@@ -1804,6 +1804,7 @@ private DockSlot        _dock;
     private void Start()
     {
         TruckLivery.Apply(this);
+        VehicleGrounding.AttachShadowOnly(gameObject);   // soft contact shadow between the tyres and the asphalt
     }
 
     // Time study: guard shack -> door, only for trucks that never had to wait at the side lot / door-wait spot.
@@ -4122,6 +4123,8 @@ private DockSlot        _dock;
         foreach (var r in _ghostWhileDockedRenderers)
         {
             if (r == null) continue;
+            // The vendor/customer logo decals stay solid so you can still see who the trailer belongs to.
+            if (r.name.StartsWith("SavageDecal")) continue;
 
             if (ghosted)
             {
@@ -4130,14 +4133,75 @@ private DockSlot        _dock;
 
                 var ghosts = new Material[r.sharedMaterials.Length];
                 for (int i = 0; i < ghosts.Length; i++) ghosts[i] = _ghostMaterial;
+                SplitOutSolidFloor(r);
                 r.sharedMaterials = ghosts;
             }
             else if (_originalMaterials.TryGetValue(r, out var original))
             {
+                RestoreSolidFloor(r);
                 r.sharedMaterials = original;
                 _originalMaterials.Remove(r);
             }
         }
+    }
+
+    private static readonly Dictionary<Mesh, (Mesh noFloor, Mesh floor)> s_floorSplits = new();
+    private readonly Dictionary<Renderer, (Mesh original, GameObject floorGO)> _floorSplit = new();
+
+    /// <summary>Keeps the trailer's floor solid while the rest of the shell is ghosted: the floor's big up-facing
+    /// triangles are cut out of the ghosted mesh and drawn by a child renderer using the original material.</summary>
+    private void SplitOutSolidFloor(Renderer r)
+    {
+        if (r.name != "TrailerMesh" || _floorSplit.ContainsKey(r)) return;
+        var mf = r.GetComponent<MeshFilter>();
+        var src = mf != null ? mf.sharedMesh : null;
+        if (src == null || !src.isReadable || src.subMeshCount != 1) return;
+
+        if (!s_floorSplits.TryGetValue(src, out var split) || split.noFloor == null || split.floor == null)
+        {
+            var v = src.vertices; var n = src.normals; var t = src.triangles;
+            var floorTris = new List<int>(); var restTris = new List<int>();
+            for (int i = 0; i < t.Length; i += 3)
+            {
+                Vector3 a = v[t[i]], b = v[t[i + 1]], c = v[t[i + 2]];
+                var nn = (n[t[i]] + n[t[i + 1]] + n[t[i + 2]]).normalized;
+                bool floor = nn.y > 0.95f && Vector3.Cross(b - a, c - a).magnitude * 0.5f > 4f;
+                var dst = floor ? floorTris : restTris;
+                dst.Add(t[i]); dst.Add(t[i + 1]); dst.Add(t[i + 2]);
+            }
+            if (floorTris.Count == 0) return;
+
+            Mesh Build(string suffix, List<int> tris)
+            {
+                var m = Object.Instantiate(src);
+                m.name = src.name + suffix;
+                m.hideFlags = HideFlags.HideAndDontSave;
+                m.SetTriangles(tris, 0);
+                m.RecalculateBounds();
+                return m;
+            }
+            split = (Build("_NoFloor", restTris), Build("_Floor", floorTris));
+            s_floorSplits[src] = split;
+        }
+        if (split.noFloor == null) return;
+
+        var go = new GameObject("TrailerFloorSolid");
+        go.transform.SetParent(r.transform, false);
+        go.AddComponent<MeshFilter>().sharedMesh = split.floor;
+        var fr = go.AddComponent<MeshRenderer>();
+        fr.sharedMaterials = r.sharedMaterials;
+        fr.shadowCastingMode = r.shadowCastingMode;
+        mf.sharedMesh = split.noFloor;
+        _floorSplit[r] = (src, go);
+    }
+
+    private void RestoreSolidFloor(Renderer r)
+    {
+        if (!_floorSplit.TryGetValue(r, out var s)) return;
+        var mf = r.GetComponent<MeshFilter>();
+        if (mf != null) mf.sharedMesh = s.original;
+        if (s.floorGO != null) Destroy(s.floorGO);
+        _floorSplit.Remove(r);
     }
 
     private void StartExiting()

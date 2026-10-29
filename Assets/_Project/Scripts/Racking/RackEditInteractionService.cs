@@ -34,6 +34,7 @@ public class RackEditInteractionService : MonoBehaviour
         _instance = go.AddComponent<RackEditInteractionService>();
     }
 
+    private const bool DoubleClickOpensRackSetup = false;
     private const float DoubleClickThreshold = 0.3f;
     private const int MaxHits = 16;
 
@@ -48,6 +49,9 @@ public class RackEditInteractionService : MonoBehaviour
 
     private void Update()
     {
+        // Double-click no longer opens Rack Setup (Tad, 2026-10-28): Shift+Left Click does, see PlacementStateMachine.
+        if (!DoubleClickOpensRackSetup) return;
+
         var mouse = Mouse.current;
         if (mouse == null || !mouse.leftButton.wasReleasedThisFrame) return;
 

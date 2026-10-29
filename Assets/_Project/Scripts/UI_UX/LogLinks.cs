@@ -36,6 +36,9 @@ public static class LogLinks
     public static string Order(string orderId, string display) =>
         Wrap($"order:{orderId}", display);
 
+    /// <summary>A contract offer on the Orders screen's New Contracts board (ContractData.ContractId).</summary>
+    public static string Contract(string contractId, string display) => Wrap($"contract:{contractId}", display);
+
     /// <summary>A specific dock appointment — for outbound pickups, which have no PO number.</summary>
     public static string Appointment(string appointmentId, string display) =>
         string.IsNullOrEmpty(appointmentId) ? display : Wrap($"appt:{appointmentId}", display);
@@ -66,12 +69,22 @@ public static class LogLinks
         {
             case "po":    OpenSchedulerOn(FindAppointmentForPo(arg), $"PO {arg}"); break;
             case "order": OpenSchedulerOn(FindAppointmentForOrder(arg), $"Order {OrderLabel(arg)}"); break;
+            case "contract": OpenContract(arg); break;
             case "appt":  OpenSchedulerOn(FindAppointment(arg), "That pickup"); break;
             case "door":  GoToDoor(arg); break;
             case "equip": GoToEquipment(arg); break;
             case "emp":   GoToEmployee(arg); break;
             default: Debug.LogWarning($"[LogLinks] Unknown link id '{linkId}'."); break;
         }
+    }
+
+    private static void OpenContract(string contractId)
+    {
+        var topBar = Object.FindAnyObjectByType<TopBarUI>();
+        var panel = topBar != null ? topBar.ContractsPanel : null;
+        if (panel == null) { UIToast.Show("Couldn't open the Orders screen — it isn't loaded."); return; }
+        UIKeyBindingManager.Instance?.CloseAll();
+        panel.ShowOffer(contractId);
     }
 
     private static void OpenSchedulerOn(DockAppointment appt, string what)

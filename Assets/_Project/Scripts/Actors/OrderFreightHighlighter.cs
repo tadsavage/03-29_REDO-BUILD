@@ -23,7 +23,10 @@ using GameCore.Services;
 public class OrderFreightHighlighter : MonoBehaviour
 {
     private const float RefreshSeconds = 1f;
-    private const float LineWidth = 0.05f;
+    private const float LineWidth = 0.075f;
+    private const float GlowWidthScale = 3.5f;
+    private const float GlowAlpha = 0.3f;
+    private const float MaxPalletFootprint = 1.3f;
     private static readonly Vector3 SlotBoxSize = new Vector3(1.25f, 1.1f, 1.1f);
     private static readonly Vector3 SlotBoxCenter = new Vector3(0f, 0.55f, 0f);
 
@@ -145,7 +148,7 @@ public class OrderFreightHighlighter : MonoBehaviour
                 // rebuild it whenever the pallet's renderer count has changed since the box was drawn.
                 if (kv.Value || !_rendererCounts.TryGetValue(kv.Key, out int was) || was == CountRenderers(kv.Key))
                 {
-                    existing.startColor = existing.endColor = _color;
+                    ApplyColor(existing);
                     continue;
                 }
                 Destroy(existing.gameObject);
@@ -181,6 +184,8 @@ public class OrderFreightHighlighter : MonoBehaviour
         foreach (var r in pallet.GetComponentsInChildren<Renderer>(true))
         {
             if (r == null || r is LineRenderer || r.bounds.size == Vector3.zero) continue;
+            // Skip oversized renderers (shadow planes, rack beams, etc.) that blow the box out to several cells.
+            if (r.bounds.size.x > MaxPalletFootprint || r.bounds.size.z > MaxPalletFootprint) continue;
             if (!any) { world = r.bounds; any = true; } else world.Encapsulate(r.bounds);
         }
         if (!any) return null;
@@ -195,7 +200,13 @@ public class OrderFreightHighlighter : MonoBehaviour
             min = Vector3.Min(min, local);
             max = Vector3.Max(max, local);
         }
-        return CreateBox(pallet, (min + max) * 0.5f, max - min);
+        Vector3 size = max - min;
+        Vector3 center = (min + max) * 0.5f;
+        // Never wider than one pallet cell, whatever the pallet's local scale.
+        Vector3 worldSize = Vector3.Scale(size, pallet.lossyScale);
+        float sx = worldSize.x > MaxPalletFootprint ? MaxPalletFootprint / Mathf.Max(0.0001f, Mathf.Abs(pallet.lossyScale.x)) : size.x;
+        float sz = worldSize.z > MaxPalletFootprint ? MaxPalletFootprint / Mathf.Max(0.0001f, Mathf.Abs(pallet.lossyScale.z)) : size.z;
+        return CreateBox(pallet, center, new Vector3(sx, size.y, sz));
     }
 
     private LineRenderer BuildSlotBox(Transform slot) => CreateBox(slot, SlotBoxCenter, SlotBoxSize);
@@ -227,7 +238,34 @@ public class OrderFreightHighlighter : MonoBehaviour
         var pts = new[] { b0, b1, b2, b3, b0, t0, t1, b1, t1, t2, b2, t2, t3, b3, t3, t0 };
         line.positionCount = pts.Length;
         line.SetPositions(pts);
+
+        // Glow: a wider, translucent copy of the same strip behind the crisp line.
+        var glowGo = new GameObject("Glow");
+        glowGo.transform.SetParent(go.transform, worldPositionStays: false);
+        var glow = glowGo.AddComponent<LineRenderer>();
+        glow.useWorldSpace = false;
+        glow.loop = false;
+        glow.alignment = LineAlignment.View;
+        glow.numCapVertices = 2;
+        glow.numCornerVertices = 2;
+        glow.widthMultiplier = LineWidth * GlowWidthScale;
+        glow.shadowCastingMode = ShadowCastingMode.Off;
+        glow.receiveShadows = false;
+        glow.sharedMaterial = LineMaterial();
+        glow.positionCount = pts.Length;
+        glow.SetPositions(pts);
+        ApplyColor(line);
         return line;
+    }
+
+    private void ApplyColor(LineRenderer line)
+    {
+        line.startColor = line.endColor = _color;
+        var glow = line.transform.Find("Glow");
+        if (glow == null) return;
+        var g = glow.GetComponent<LineRenderer>();
+        var gc = _color; gc.a = GlowAlpha;
+        g.startColor = g.endColor = gc;
     }
 
     /// <summary>Unlit, vertex-coloured, drawn through everything (ZTest Always) so a box on a pallet inside a

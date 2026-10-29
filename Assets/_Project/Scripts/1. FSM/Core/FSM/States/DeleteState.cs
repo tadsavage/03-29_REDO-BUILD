@@ -111,11 +111,20 @@ public class DeleteState : PlacementStateBase
         _isDragging = false;
     }
 
+    private bool _pressStartedOverWorld = true;
+
     public override void Update()
     {
         _raycast.Tick();
 
-        if (_raycast.IsPointerOverUI)
+        // A click that began on UI (or on a modal that closed on press) must never delete: deletes
+        // fire on release, so require the press itself to have started over the world.
+        var lmb = Mouse.current.leftButton;
+        bool overUI = _raycast.IsPointerOverUI || UIInputGuard.IsPointerOverUIToolkit();
+        if (lmb.wasPressedThisFrame) _pressStartedOverWorld = !overUI;
+        else if (!lmb.isPressed && !lmb.wasReleasedThisFrame) _pressStartedOverWorld = true;
+
+        if (overUI || !_pressStartedOverWorld)
         {
             ClearHover();
             _indicator.ClearAll();

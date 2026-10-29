@@ -13,6 +13,7 @@ public static class TruckOrderColors
 {
     public static readonly Color Recurring = new Color(0x4A / 255f, 0x90 / 255f, 0xD9 / 255f, 1f); // blue
     public static readonly Color Bulk      = new Color(0x4C / 255f, 0xAF / 255f, 0x50 / 255f, 1f); // green
+    public static readonly Color SameDay   = new Color(0xFF / 255f, 0xD6 / 255f, 0x0A / 255f, 1f); // yellow
     public static readonly Color Inbound   = new Color(0xE6 / 255f, 0x7E / 255f, 0x22 / 255f, 1f); // orange
 
     /// <summary>Classifies a truck's order type and returns its color. Inbound trailers are always
@@ -26,8 +27,18 @@ public static class TruckOrderColors
 
         var appt = ResolveOutboundAppointment(truck);
         if (appt != null)
+        {
+            if (IsSameDay(appt)) return SameDay;
             return (appt.Kind == AppointmentKind.Bulk || appt.Kind == AppointmentKind.Wholesale) ? Bulk : Recurring;
+        }
         return Recurring;
+    }
+
+    public static bool IsSameDay(DockAppointment appt)
+    {
+        if (appt.OrderIds == null || appt.OrderIds.Count == 0) return false;
+        if (!ServiceLocator.TryGet(out OrderService orders) || orders == null) return false;
+        return orders.ActiveOrders.Any(o => o.IsSameDayRush && appt.OrderIds.Contains(o.OrderId));
     }
 
     /// <summary>

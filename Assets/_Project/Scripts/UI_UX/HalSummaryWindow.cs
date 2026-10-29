@@ -404,7 +404,7 @@ public static class HalSummaryWindow
 
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row; row.style.flexShrink = 0; row.style.minHeight = 42;
-        if (!string.IsNullOrEmpty(r.explain)) RuntimeTooltip.Attach(row, r.explain, ignoreGlobalToggle: true);
+        if (!string.IsNullOrEmpty(r.explain)) RuntimeTooltip.Attach(row, r.explain, ignoreGlobalToggle: true, halStyle: true);
         row.style.borderBottomWidth = 1; row.style.borderBottomColor = Grid;
 
         // what it is + why it is behind
@@ -469,7 +469,7 @@ public static class HalSummaryWindow
             var l = L(11, Ink, align); l.text = text;
             if (grow == 5f) { c.style.alignItems = Align.FlexStart; c.style.paddingLeft = 6; }
             c.Add(l);
-            if (!string.IsNullOrEmpty(tip)) RuntimeTooltip.Attach(c, tip, ignoreGlobalToggle: true);
+            if (!string.IsNullOrEmpty(tip)) RuntimeTooltip.Attach(c, tip, ignoreGlobalToggle: true, halStyle: true);
             return c;
         }
 

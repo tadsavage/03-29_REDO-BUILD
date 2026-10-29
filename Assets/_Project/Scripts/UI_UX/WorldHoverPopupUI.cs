@@ -52,6 +52,8 @@ public class WorldHoverPopupUI : MonoBehaviour
         public Label PalletPickLabel, CasePickLabel;
         public Label TotalPalletsLabel;
         public VisualElement ItemsList;
+        public Button ReleaseButton;
+        public TruckController Truck;
     }
 
     private TruckPopupUI _hoverTruckUI;
@@ -1265,43 +1267,25 @@ private void ShowLocation(LocationData location)
         vendorLabel.style.fontSize = 18; // 14 -> 18, +25% per Tad's ask
         vendorLabel.style.color = new Color(0.9f, 0.95f, 1f, 1f);
         vendorLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        popup.Add(vendorLabel);
 
-        // ── Vendor icon frame — a fixed square footprint (the border lives here, so it stays put
-        // regardless of how the icon graphic inside is scaled) — big, top-right, sized/positioned
-        // where Tad's mockup drew it (below the door badge, roughly spanning the PO/Appt lines)
-        // rather than a small inline icon next to the name.
+        // ── Vendor icon frame — sits to the right of the vendor/order/appointment text and stretches
+        // the full height of that block (from just under the delay bar down to the divider line).
         var vendorIconFrame = new VisualElement();
         ui.VendorIconFrame = vendorIconFrame;
         vendorIconFrame.pickingMode = PickingMode.Ignore;
-        vendorIconFrame.style.position = Position.Absolute;
-        // Bounding box measured directly off a live capture: top matches the PO number row's top
-        // edge, width equals height so the border is a tight square around the icon. Shifted 8px
-        // left of the popup's inner (padded) edge per Tad's ask, so it sits close to the popup's
-        // right border without touching it. Overflow visible so the icon graphic inside (scaled
-        // taller, see below) can bleed past this frame's edges without growing the frame/border
-        // itself.
-        vendorIconFrame.style.top = 106;
-        vendorIconFrame.style.height = 69;
-        vendorIconFrame.style.width = 69;
-        vendorIconFrame.style.right = 12;
-        vendorIconFrame.style.overflow = Overflow.Visible;
+        vendorIconFrame.style.width = 120;
+        vendorIconFrame.style.flexShrink = 0;
+        vendorIconFrame.style.alignSelf = Align.Stretch;
+        vendorIconFrame.style.marginLeft = 8;
+        vendorIconFrame.style.marginBottom = 6;
         vendorIconFrame.style.display = DisplayStyle.None;
-        popup.Add(vendorIconFrame);
 
         var vendorIcon = new Image();
         ui.VendorIcon = vendorIcon;
         vendorIcon.pickingMode = PickingMode.Ignore;
-        vendorIcon.style.width = new Length(100, LengthUnit.Percent);
-        vendorIcon.style.height = new Length(100, LengthUnit.Percent);
-        // Icon graphic scaled up per Tad's ask — Y already 30% taller, both axes now +10% more
-        // on top of that (1.0->1.1 X, 1.3->1.43 Y), then a further +5% on both axes on top of that
-        // (1.1->1.155 X, 1.43->1.5015 Y) per follow-up ask, then narrowed back down 7% on both axes
-        // (1.155->1.07415 X, 1.5015->1.396395 Y) per a later follow-up ask. Frame position/size and
-        // the border below are untouched by this — the border is a separate element painted after
-        // this icon (see vendorIconBorder) so it always renders on top and the icon, however far it
-        // bleeds past the frame's edges, can never visually cover it.
-        vendorIcon.style.scale = new Scale(new Vector3(1.07415f, 1.396395f, 1f));
+        vendorIcon.scaleMode = ScaleMode.ScaleToFit;
+        vendorIcon.style.position = Position.Absolute;
+        vendorIcon.style.left = 0; vendorIcon.style.right = 0; vendorIcon.style.top = 0; vendorIcon.style.bottom = 0;
         vendorIconFrame.Add(vendorIcon);
 
         // Border painted as its OWN element, added AFTER the icon so it always renders on top of
@@ -1334,14 +1318,52 @@ private void ShowLocation(LocationData location)
         orderLabel.pickingMode = PickingMode.Ignore;
         orderLabel.style.fontSize = 27; // 21 -> 27, +30% per Tad's ask
         orderLabel.style.color = new Color(0.75f, 0.85f, 0.95f, 1f);
-        popup.Add(orderLabel);
-
         var apptLabel = new Label { text = "" };
         ui.ApptLabel = apptLabel;
         apptLabel.pickingMode = PickingMode.Ignore;
         apptLabel.style.fontSize = 21; // 17 -> 21, +25% per Tad's ask
         apptLabel.style.color = new Color(0.75f, 0.85f, 0.95f, 1f);
-        popup.Add(apptLabel);
+
+        var infoRow = new VisualElement { pickingMode = PickingMode.Ignore };
+        infoRow.style.flexDirection = FlexDirection.Row;
+        infoRow.style.alignItems = Align.Stretch;
+        var infoText = new VisualElement { pickingMode = PickingMode.Ignore };
+        infoText.style.flexGrow = 1; infoText.style.flexShrink = 1;
+        infoText.Add(vendorLabel);
+        infoText.Add(orderLabel);
+        infoText.Add(apptLabel);
+        infoRow.Add(infoText);
+
+        var rightCol = new VisualElement { pickingMode = PickingMode.Ignore };
+        rightCol.style.width = 120; rightCol.style.flexShrink = 0;
+        rightCol.style.marginLeft = 8; rightCol.style.marginBottom = 6;
+        rightCol.style.alignItems = Align.Stretch;
+        var releaseBtn = new Button(() =>
+        {
+            if (ui.Truck != null) ReleaseTrailerDialog.Show(ui.Truck);
+        }) { text = "Release trailer" };
+        ui.ReleaseButton = releaseBtn;
+        releaseBtn.style.display = DisplayStyle.None;
+        releaseBtn.style.whiteSpace = WhiteSpace.Normal;
+        releaseBtn.style.unityTextAlign = TextAnchor.MiddleCenter;
+        releaseBtn.style.fontSize = 17;
+        releaseBtn.style.color = Color.white;
+        releaseBtn.style.backgroundColor = new Color(0.82f, 0.14f, 0.14f, 1f);
+        releaseBtn.style.marginLeft = releaseBtn.style.marginRight = releaseBtn.style.marginTop = 0;
+        releaseBtn.style.marginBottom = 6;
+        releaseBtn.style.paddingTop = releaseBtn.style.paddingBottom = 4;
+        releaseBtn.style.borderTopWidth = releaseBtn.style.borderBottomWidth = releaseBtn.style.borderLeftWidth = releaseBtn.style.borderRightWidth = 2;
+        releaseBtn.style.borderTopColor = releaseBtn.style.borderBottomColor = releaseBtn.style.borderLeftColor = releaseBtn.style.borderRightColor = new Color(0.45f, 0.05f, 0.05f, 1f);
+        releaseBtn.style.borderTopLeftRadius = releaseBtn.style.borderTopRightRadius = releaseBtn.style.borderBottomLeftRadius = releaseBtn.style.borderBottomRightRadius = 6;
+        var lilitaBtn = LilitaFont();
+        if (lilitaBtn != null) releaseBtn.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(lilitaBtn));
+        rightCol.Add(releaseBtn);
+        vendorIconFrame.style.width = StyleKeyword.Auto;
+        vendorIconFrame.style.marginLeft = 0; vendorIconFrame.style.marginBottom = 0;
+        vendorIconFrame.style.flexGrow = 1;
+        rightCol.Add(vendorIconFrame);
+        infoRow.Add(rightCol);
+        popup.Add(infoRow);
 
         // Which DAY the appointment above is booked for — indented under the time so it reads as
         // a detail of that line rather than its own fact. Per Tad's ask: the time alone doesn't say
@@ -1558,10 +1580,10 @@ private void ShowLocation(LocationData location)
                 vendorId = shipment.SupplierId;
                 orderInfo = $"PO {shipment.PONumber}";
                 var appt = dockSchedule?.FindForPo(shipment.PONumber);
-                apptInfo = appt != null ? $"Appt: {appt.TimeLabel}" : null;
-                apptDayInfo = appt != null
-                    ? (appt.Day == dockSchedule.CurrentDay ? "Today" : $"Day {appt.Day}")
+                apptInfo = appt != null
+                    ? $"Appt: {appt.TimeLabel} {(appt.Day == dockSchedule.CurrentDay ? "today" : $"Day {appt.Day}")}"
                     : null;
+                apptDayInfo = null;
 
                 // Physical pallets-off-the-trailer progress, not case-received progress — advances the
                 // instant the dock stocker drops a pallet in the lane (TotalPalletsAtDock snapshotted
@@ -1697,10 +1719,9 @@ private void ShowLocation(LocationData location)
                 vendor = appt != null ? appt.CustomerName : fallbackCustomer;
                 if (appt != null)
                 {
-                    apptInfo = $"Appt: {appt.TimeLabel}";
-                    apptDayInfo = appt.Day == dockSchedule.CurrentDay ? "Today" : $"Day {appt.Day}";
-                    borderColor = (appt.Kind == AppointmentKind.Bulk || appt.Kind == AppointmentKind.Wholesale)
-                        ? TruckBulkColor : TruckRecurringColor;
+                    apptInfo = $"Appt: {appt.TimeLabel} {(appt.Day == dockSchedule.CurrentDay ? "today" : $"Day {appt.Day}")}";
+                    apptDayInfo = null;
+                    borderColor = TruckOrderColors.GetColor(truck);
                 }
                 else
                 {
@@ -1860,19 +1881,13 @@ private void ShowLocation(LocationData location)
                         int assignedSel = selects.Count(t => t.Status == WorkTaskStatus.Assigned);
                         int toPick = (selects.Count - assignedSel) + Mathf.Max(0, assignedSel - building) + picksLeft;
                         int total = loadedPallets + waiting + toPick;
-                        outboundPalletText = $"PALLETS: {loadedPallets} of {total} aboard" + System.Environment.NewLine +
-                            (waiting > 0 ? $"{waiting} waiting" : "") + (waiting > 0 && toPick > 0 ? " · " : "") + (toPick > 0 ? $"{toPick} still to pick" : (waiting == 0 ? "all picked" : ""));
+                        // Pallets still being built are already part of the still-to-pick work, so don't list them as staged too.
+                        outboundPalletText = BuildOutboundStatus(loadedPallets, Mathf.Max(0, waiting - building), picksLeft, cpRemainingCases);
                         totalPalletCount = total;
                         goto planDone;
                     }
                 }
-                string line1 = $"PALLETS: {loadedPallets} aboard" + (waiting > 0 ? $" · {waiting} waiting" : "");
-                // The total is exact the moment no LOOSE cases remain to be picked: every pallet that will ever exist is either built
-                // (aboard / waiting) or is a full-pallet pick still being fetched, and each of those is exactly one pallet.
-                string line2 = casesLeft == 0
-                    ? $"TOTAL: {loadedPallets + waiting + picksLeft} pallet(s)" + (picksLeft > 0 ? $" - {picksLeft} still being fetched" : " - all picked")
-                    : "STILL TO PICK: "+ string.Join(" + ", new[] { picksLeft > 0 ? $"{picksLeft} full pallet(s)" : null, casesLeft > 0 ? $"{casesLeft} loose case(s)" : null }.Where(x => x != null));
-                outboundPalletText = line1 + System.Environment.NewLine + line2;
+                outboundPalletText = BuildOutboundStatus(loadedPallets, waiting, picksLeft, cpRemainingCases);
             planDone:;
             }
             else
@@ -1944,9 +1959,11 @@ private void ShowLocation(LocationData location)
         }
 
         ui.LoadFill.style.width = new Length(progress * 100f, LengthUnit.Percent);
-        ui.LoadPercentLabel.text = $"{Mathf.RoundToInt(progress * 100f)}%";
+        ui.LoadPercentLabel.text = loadedPalletCount >= 0 ? "Load Progress" : $"{Mathf.RoundToInt(progress * 100f)}%";
+        ui.Truck = truck;
+        ui.ReleaseButton.style.display = loadedPalletCount >= 0 ? DisplayStyle.Flex : DisplayStyle.None;
 
-        bool showPickBars = loadedPalletCount >= 0;
+        bool showPickBars = false;
         ui.PickBars.style.display = showPickBars ? DisplayStyle.Flex : DisplayStyle.None;
         if (showPickBars)
         {
@@ -2038,7 +2055,8 @@ private void ShowLocation(LocationData location)
                     // Text inside the bar = what is STILL TO LOAD for this item (not the order total).
                     int remainCases = Mathf.Max(0, qty - aboard);
                     int remainPlts = remainCases > 0 ? Mathf.Max(1, Mathf.CeilToInt(remainCases / (float)Mathf.Max(1, casesPerPallet))) : 0;
-                    var inBar = new Label(done ? "Loaded" : $"{remainCases}cs / {remainPlts}plt") { pickingMode = PickingMode.Ignore };
+                    string Plt(int n) => n == 1 ? "plt" : "plts";
+                    var inBar = new Label(done ? "Loaded" : $"{remainPlts}{Plt(remainPlts)} @ {remainCases}cs") { pickingMode = PickingMode.Ignore };
                     inBar.style.position = Position.Absolute;
                     inBar.style.left = 0; inBar.style.right = 0; inBar.style.top = 0; inBar.style.bottom = 0;
                     inBar.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -2085,6 +2103,11 @@ private void ShowLocation(LocationData location)
             }
         }
     }
+
+    private static string BuildOutboundStatus(int loaded, int staged, int palletPicks, int casePicks) =>
+        $"Pallets loaded: {loaded}" + System.Environment.NewLine +
+        $"Staged but not loaded: {staged}" + System.Environment.NewLine +
+        $"Still to pick: {palletPicks} pallet picks and {casePicks} case picks";
 
     /// <summary>Flips a truck popup (hover or pinned) to visible. Split out of RenderTruck because
     /// RenderTruck also runs every frame for the PINNED popup's live refresh (see Update()), and that

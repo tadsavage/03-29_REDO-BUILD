@@ -75,20 +75,30 @@ public class TruckHighlighter : MonoBehaviour
         {
             _nextRescan = Time.unscaledTime + 0.5f;
             _clones.RemoveAll(c => c == null);
+            // Order type can resolve after the click (appointment/orders arrive late): keep the color current.
+            var liveColor = TruckOrderColors.GetColor(_current);
+            if (liveColor != _lastColor)
+            {
+                _lastColor = liveColor;
+                if (_fillMat != null) _fillMat.SetColor("_OutlineColor", liveColor);
+                OrderFreightHighlighter.Instance.Show(_current);
+            }
             BuildOutline(_current, onlyMissing: true);
         }
     }
 
     private float _nextRescan;
+    private Color _lastColor;
 
     /// <summary>Outline a single truck (replaces any existing highlight).</summary>
     public void Highlight(TruckController truck)
     {
         if (truck == null) return;
-        if (_current == truck) return;
+        if (_current == truck && _clones.Count > 0) return;
 
         Clear();
         _current = truck;
+        _lastColor = TruckOrderColors.GetColor(truck);
         BuildOutline(truck);
         // The freight reserved for this truck's order(s) gets boxed in the same colour. Outbound only.
         OrderFreightHighlighter.Instance.Show(truck);

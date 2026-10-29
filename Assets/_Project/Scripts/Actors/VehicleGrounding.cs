@@ -27,6 +27,8 @@ public class VehicleGrounding : MonoBehaviour
     private const float RayLength     = 1.6f;
     private const float MaxSnap       = 0.35f;  // never move further than this in one go (guards against a stray collider)
     private const float RestAboveFloor = 0.004f;// pivot height above the floor surface
+    private const float TruckWheelShadowStrength = 3f;    // per-tyre blobs: the strength the whole-truck blob had
+    private const float TruckBodyShadowStrength  = 1.5f;  // whole-truck blob, halved
     private const float ShadowLift    = 0.012f;
     private const float WideAlpha     = 0.55f;
     private const float CoreAlpha     = 0.55f;
@@ -45,12 +47,19 @@ public class VehicleGrounding : MonoBehaviour
     private Vector2 _footSize = new Vector2(1.2f, 2.0f);   // X (width), Z (length) of the footprint
     private bool _footReady;
 
-    public static void Attach(GameObject vehicle)
+    public static void Attach(GameObject vehicle) => Attach(vehicle, false);
+
+    /// <summary>Contact shadow only, no floor snapping - for trucks, whose height the truck controller owns.</summary>
+    public static void AttachShadowOnly(GameObject vehicle) => Attach(vehicle, true);
+
+    private bool _shadowOnly;
+
+    private static void Attach(GameObject vehicle, bool shadowOnly)
     {
         if (vehicle == null || vehicle.GetComponent<VehicleGrounding>() != null) return;
         for (var t = vehicle.transform; t != null; t = t.parent)
             if (t.name.StartsWith("LiveFeed_") || t.name.Contains("PhotoBooth")) return;
-        vehicle.AddComponent<VehicleGrounding>();
+        vehicle.AddComponent<VehicleGrounding>()._shadowOnly = shadowOnly;
     }
 
     private void Start()
@@ -123,12 +132,36 @@ public class VehicleGrounding : MonoBehaviour
             _footCentreLocal = new Vector3((min.x + max.x) * 0.5f, 0f, (min.y + max.y) * 0.5f);
             _footSize = new Vector2(Mathf.Max(0.6f, max.x - min.x), Mathf.Max(0.8f, max.y - min.y));
         }
+        if (_shadowOnly) MeasureWheels();
         _footReady = true;
+    }
+
+    private readonly System.Collections.Generic.List<(Transform t, MeshRenderer r, Vector3 centreLocal, Vector2 size)> _wheels = new();
+
+    /// <summary>Trucks only: one small dark blob under each tyre, measured once in the truck's own space.</summary>
+    private void MeasureWheels()
+    {
+        if (_material == null) return;
+        foreach (var r in GetComponentsInChildren<MeshRenderer>(false))
+        {
+            if (!r.name.StartsWith("Wheel")) continue;
+            bool any = false; Vector2 mn = Vector2.zero, mx = Vector2.zero;
+            Bounds lb = r.localBounds;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = lb.center + Vector3.Scale(lb.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                Vector3 p = transform.InverseTransformPoint(r.transform.TransformPoint(corner));
+                if (!any) { mn = mx = new Vector2(p.x, p.z); any = true; }
+                else { mn = Vector2.Min(mn, new Vector2(p.x, p.z)); mx = Vector2.Max(mx, new Vector2(p.x, p.z)); }
+            }
+            var blob = MakeBlob("VehicleShadow_" + r.name, out var br);
+            _wheels.Add((blob, br, new Vector3((mn.x + mx.x) * 0.5f, 0f, (mn.y + mx.y) * 0.5f), new Vector2(mx.x - mn.x, mx.y - mn.y)));
+        }
     }
 
     private void LateUpdate()
     {
-        SnapToFloor();
+        if (!_shadowOnly) SnapToFloor();
         UpdateShadow();
     }
 
@@ -154,17 +187,34 @@ public class VehicleGrounding : MonoBehaviour
 
         Vector3 centre = transform.TransformPoint(_footCentreLocal);
         float floorY = transform.position.y - RestAboveFloor + ShadowLift;   // the floor under the pivot
+        if (_shadowOnly)
+        {
+            // A truck's pivot is at its tyres: sit the shadow on whatever surface is actually under it (asphalt, dock apron, ramp).
+            floorY = Physics.Raycast(transform.position + Vector3.up * RayStartAbove, Vector3.down, out var gh, RayLength, _groundMask, QueryTriggerInteraction.Ignore)
+                ? gh.point.y + ShadowLift
+                : transform.position.y + ShadowLift;
+        }
         Quaternion rot = Quaternion.Euler(90f, transform.eulerAngles.y, 0f);
+        float strength = _shadowOnly ? TruckBodyShadowStrength : 1f;
 
-        PlaceBlob(_wide, _wideR, centre, floorY, rot, _footSize * WideGrow, WideAlpha);
-        PlaceBlob(_core, _coreR, centre, floorY, rot, _footSize * CoreShrink, CoreAlpha);
+        PlaceBlob(_wide, _wideR, centre, floorY, rot, _footSize * WideGrow, WideAlpha * strength);
+        PlaceBlob(_core, _coreR, centre, floorY, rot, _footSize * CoreShrink, CoreAlpha * strength);
+
+        foreach (var w in _wheels)
+        {
+            if (w.t == null) continue;
+            Vector3 wc = transform.TransformPoint(w.centreLocal);
+            // Wider than the tyre and a little longer than its contact patch, so it reads as a shadow rather than a rectangle.
+            PlaceBlob(w.t, w.r, wc, floorY, rot, new Vector2(w.size.x * 1.5f, w.size.y * 0.9f), CoreAlpha * TruckWheelShadowStrength);
+        }
     }
 
     private void PlaceBlob(Transform t, MeshRenderer r, Vector3 centre, float floorY, Quaternion rot, Vector2 size, float alpha)
     {
         t.position = new Vector3(centre.x, floorY, centre.z);
         t.rotation = rot;
-        t.localScale = new Vector3(size.x, size.y, 1f);   // X = width, Y = length (the quad is rotated flat)
+        var ls = transform.lossyScale;   // blobs are children: cancel the parent's scale (trucks are scaled)
+        t.localScale = new Vector3(size.x / Mathf.Max(0.0001f, ls.x), size.y / Mathf.Max(0.0001f, ls.z), 1f);   // X = width, Y = length (the quad is rotated flat)
         if (_mpb == null) _mpb = new MaterialPropertyBlock();   // non-serialized: a script reload during Play nulls it
         r.GetPropertyBlock(_mpb);
         _mpb.SetFloat(AlphaId, alpha);
@@ -175,6 +225,7 @@ public class VehicleGrounding : MonoBehaviour
     {
         if (_wide != null) Destroy(_wide.gameObject);
         if (_core != null) Destroy(_core.gameObject);
+        foreach (var w in _wheels) if (w.t != null) Destroy(w.t.gameObject);
     }
 
     private static Mesh BuildQuad()

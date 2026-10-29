@@ -1553,6 +1553,7 @@ namespace GameCore.Inventory
                 if (pallet == null || string.IsNullOrEmpty(pallet.OrderId) || activeIds.Contains(pallet.OrderId)) continue;
                 if (!pallet.IsOnFloor) continue;   // on forks / in a trailer
                 if (pallet.Stage != OutboundPalletBuilder.PalletStage.Staged) continue;
+                if (OutboundPalletBuilder.LoadClaimed.Contains(pallet)) continue;   // a trailer load is mid-pickup on it
 
                 // A CASE-PICKED pallet left behind (didn't fit / never loaded): its order didn't pay for it (ShipOrder bills
                 // shipped pallets only), and the cases go back where they came from - a selector reverse-picks them into
@@ -1567,6 +1568,36 @@ namespace GameCore.Inventory
                 if (data == null || string.IsNullOrEmpty(data.ItemNumber) || data.CaseQuantity <= 0) continue;
                 if (ReturnLanePalletToStock(pallet, data.ItemNumber, data.CaseQuantity))
                     Debug.LogWarning($"[OrderService] Freight for order {pallet.OrderId} outlived the order - {data.CaseQuantity} cs of {data.ItemNumber} returned to stock for putaway.");
+            }
+            RefileStrandedLanePallets();
+        }
+
+        /// <summary>Received pallets standing in a staging lane that no live task references: they were claimed by an order
+        /// (its Putaway cancelled) and the order is gone, so nothing will ever move them. Each gets a fresh Putaway.</summary>
+        private void RefileStrandedLanePallets()
+        {
+            if (_workQueue == null || _inventoryService == null) return;
+            var live = new HashSet<string>();
+            foreach (var t in _workQueue.Tasks)
+                if (!string.IsNullOrEmpty(t.PalletId) && t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled)
+                    live.Add(t.PalletId);
+
+            foreach (var rec in _inventoryService.GetAllPallets().ToList())
+            {
+                if (rec == null || rec.Quantity <= 0 || live.Contains(rec.PalletId)) continue;
+                if (!LaneNamingService.TryGetSlot(rec.CurrentLocation, out var slot)) continue;
+                string address = $"STG{slot.DoorNumber}{slot.Lane}-{slot.Slot}";
+                var sku = _inventoryService.GetSkuData(rec.SkuId);
+                var created = _workQueue.CreateTask(
+                    WorkTaskType.Putaway,
+                    EmployeeRole.ReachTruckOperator,
+                    rec.PalletId,
+                    $"Putaway pallet [{rec.LoadId}] left over from a finished order at {address}",
+                    fromLocation: address,
+                    toLocation: null,
+                    area: sku != null ? sku.StorageArea : PalletData.AreaCategory.Grocery);
+                if (created != null)
+                    Debug.LogWarning($"[OrderService] Pallet {rec.PalletId} was stranded in {address} with no task - filed a Putaway.");
             }
         }
 
@@ -2156,8 +2187,10 @@ namespace GameCore.Inventory
                 foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
                 {
                     if (p == null || !p.IsOnFloor || !ids.Contains(p.OrderId)) continue;
+                    // Any lane at ANY door: a loader drives over and fetches the pallet itself (TrailerLoadController's cross-door
+                    // leg), nobody has to wait for a reach truck to carry it to the dock door's lanes first (Tad, 2026-10-28).
                     if (LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var s) &&
-                        lanes.Any(l => l.door == s.DoorNumber) && !lanes.Contains((s.DoorNumber, s.Lane)))
+                        !lanes.Contains((s.DoorNumber, s.Lane)))
                     {
                         lanes.Add((s.DoorNumber, s.Lane));
                         // Record it on the order too. Without this the order still lists only its primary
@@ -2845,6 +2878,103 @@ namespace GameCore.Inventory
             return true;
         }
 
+        // ── Player-initiated "Release trailer" (the button on a docked outbound truck's card) ──────────
+        public class TruckReleaseImpact
+        {
+            public bool Allowed;
+            public string WhyNot;
+            public int Fine;
+            public int ReputationLoss;
+            public float PartnershipLoss;
+            public int CasesShort;
+            public List<OrderData> Orders = new List<OrderData>();
+        }
+
+        private List<OrderData> OrdersRidingTruck(TruckController truck)
+        {
+            var list = new List<OrderData>();
+            if (truck == null) return list;
+            var appt = !string.IsNullOrEmpty(truck.OutboundAppointmentId) && ServiceLocator.TryGet(out DockScheduleService ds) && ds != null
+                ? ds.FindById(truck.OutboundAppointmentId) : null;
+            int door = truck.DockedAt != null ? truck.DockedAt.DoorNumber : 0;
+            foreach (var o in _activeOrders)
+            {
+                if (o.Status != OrderData.OrderStatus.Loading && o.Status != OrderData.OrderStatus.Loaded) continue;
+                if (appt != null ? !appt.OrderIds.Contains(o.OrderId) : (door <= 0 || o.AssignedDoorNumber != door)) continue;
+                list.Add(o);
+            }
+            return list;
+        }
+
+        /// <summary>What releasing this trailer now would cost: the late-fee rate on every order that ships short, plus the
+        /// reputation and partnership hit of cancelling what is left.</summary>
+        public TruckReleaseImpact PreviewReleaseTrailer(TruckController truck)
+        {
+            var r = new TruckReleaseImpact();
+            r.Orders = OrdersRidingTruck(truck);
+            if (r.Orders.Count == 0) { r.WhyNot = "there is no released order on this trailer"; return r; }
+
+            foreach (var o in r.Orders)
+            {
+                int short_ = CasesNotAboard(o);
+                if (short_ <= 0) continue;
+                r.CasesShort += short_;
+                CancelScale(o, short_ / (float)Mathf.Max(1, o.TotalUnits), out int rep, out float sat, out _);
+                r.ReputationLoss += rep;
+                r.PartnershipLoss += sat;
+                if (!o.HasBeenFined)
+                    r.Fine += Mathf.RoundToInt((o.LateFeePercent > 0f ? o.LateFeePercent : LateFeePercentClerk) * o.TotalRevenue);
+            }
+            r.Allowed = true;
+            return r;
+        }
+
+        /// <summary>Cases of the order that are not riding its trailer: still unpicked, staged, or in someone's hands.</summary>
+        private int CasesNotAboard(OrderData o)
+        {
+            int aboard = 0;
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
+                if (p != null && p.OrderId == o.OrderId && p.Lifecycle == PalletLifecycle.Shipped)
+                    foreach (var (_, cases) in CasesOn(p)) aboard += cases;
+            return Mathf.Max(0, o.TotalUnits - o.CancelledCases - aboard);
+        }
+
+        /// <summary>Cancels what is not aboard, charges the fine, and ships the trailer with what is on it.</summary>
+        public bool ReleaseTrailer(TruckController truck, out int fineCharged)
+        {
+            fineCharged = 0;
+            var preview = PreviewReleaseTrailer(truck);
+            if (!preview.Allowed) return false;
+
+            // Ships exactly what is aboard. Everything else is dropped: unclaimed picks are cancelled, pallets in a lane go back
+            // to stock (whole pallets via putaway, mixed case-picked ones via a selector's reverse pick), and a pallet already
+            // in someone's hands is set down in a lane and reclaimed the same way once the order is gone.
+            int door = truck.DockedAt != null ? truck.DockedAt.DoorNumber : 0;
+            int billedTotal = 0;
+            foreach (var o in preview.Orders)
+            {
+                int short_ = CasesNotAboard(o);
+                CancelLeftoverTasks(o.OrderId);
+                if (short_ > 0)
+                {
+                    CancelScale(o, short_ / (float)Mathf.Max(1, o.TotalUnits), out int rep, out float sat, out _);
+                    o.CancelledCases += short_;
+                    string label = o.OrderNumber ?? o.OrderId;
+                    if (ServiceLocator.TryGet(out ReputationService reputation) && reputation != null)
+                        reputation.Add(-rep, $"released the trailer short on order {label}");
+                    if (!string.IsNullOrEmpty(o.ContractId) && ServiceLocator.TryGet(out OrderArrivalService arrivals))
+                        arrivals?.PenalizeSatisfaction(o.ContractId, sat);
+                    if (ChargeLateFee(o, "was released short by the player")) fineCharged += o.LastFineAmount;
+                }
+                billedTotal += ShipOrder(o.OrderId);
+            }
+            if (door > 0) TryReleaseDoorIfClear(door, billedTotal);
+            ReclaimOrphanedFreight();
+            SystemsLogWindow.LogWarning($"Trailer at door {(truck.DockedAt != null ? truck.DockedAt.DoorNumber : 0)} was released by the player" +
+                                        (fineCharged > 0 ? $" - fined ${fineCharged:N0}." : "."));
+            return true;
+        }
+
         public int AutoCloseLoadedOrders()
         {
             CheckScratchPrompts();
@@ -3100,7 +3230,12 @@ namespace GameCore.Inventory
             // A recurring order with no appointment at all still falls through to this sweep, which is
             // the correct floor: it can't be measured against a block it never had.
             foreach (var order in _activeOrders.Where(o => o.IsOverdue(newDay) && !o.HasBeenFined).ToList())
-                ChargeLateFee(order, $"is OVERDUE (due day {order.DueDay})");
+            {
+                if (!ChargeLateFee(order, $"is OVERDUE (due day {order.DueDay})")) continue;
+                // Satisfaction is docked with the money, same as a missed recurring dock slot.
+                if (ServiceLocator.TryGet(out OrderArrivalService arrivals) && arrivals != null)
+                    arrivals.PenalizeSatisfaction(order.ContractId);
+            }
         }
 
         /// <summary>

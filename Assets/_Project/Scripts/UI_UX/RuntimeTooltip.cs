@@ -31,10 +31,10 @@ public static class RuntimeTooltip
     /// <summary>Wires a floating hover card onto <paramref name="target"/>. Safe to call during panel
     /// construction, before the element is ever added to a document — nothing here touches
     /// <c>target.panel</c> until the pointer actually enters it.</summary>
-    public static void Attach(VisualElement target, string text, bool ignoreGlobalToggle = false)
+    public static void Attach(VisualElement target, string text, bool ignoreGlobalToggle = false, bool halStyle = false)
     {
         if (target == null || string.IsNullOrEmpty(text)) return;
-        target.RegisterCallback<PointerEnterEvent>(evt => Show(target, () => BuildPlainText(text), (Vector2)evt.position, ignoreGlobalToggle));
+        target.RegisterCallback<PointerEnterEvent>(evt => Show(target, () => BuildPlainText(text, halStyle), (Vector2)evt.position, ignoreGlobalToggle, halStyle));
         target.RegisterCallback<PointerLeaveEvent>(_ => Hide(target));
         // A target that vanishes mid-hover (a panel rebuild while the tooltip is up) gets no
         // PointerLeaveEvent — without this the card would be stuck on screen forever.
@@ -52,14 +52,26 @@ public static class RuntimeTooltip
         target.RegisterCallback<DetachFromPanelEvent>(_ => Hide(target));
     }
 
-    private static VisualElement BuildPlainText(string text)
+    private static VisualElement BuildPlainText(string text, bool halStyle)
     {
         var label = new Label(text) { name = "runtime-tooltip-text" };
         label.pickingMode = PickingMode.Ignore;
         label.style.whiteSpace = WhiteSpace.Normal;
-        label.style.color = new StyleColor(ColText);
-        label.style.fontSize = 13;
+        label.style.color = new StyleColor(halStyle ? Color.black : ColText);
+        label.style.fontSize = halStyle ? 20 : 13;
+        label.style.unityFontStyleAndWeight = halStyle ? FontStyle.Bold : FontStyle.Normal;
         return label;
+    }
+
+    // HAL tooltips are bigger, solid white with black bold text, and pinned above the bottom bar's
+    // far right instead of following the pointer, so they never sit on top of the score table.
+    private static void ApplyHostStyle(VisualElement host, bool halStyle)
+    {
+        host.style.backgroundColor = new StyleColor(halStyle ? Color.white : ColBg);
+        host.style.maxWidth = halStyle ? 510 : 340;
+        Color border = halStyle ? Color.black : ColBorder;
+        host.style.borderTopColor = host.style.borderBottomColor =
+            host.style.borderLeftColor = host.style.borderRightColor = new StyleColor(border);
     }
 
     private static VisualElement GetHost(IPanel panel)
@@ -99,7 +111,7 @@ public static class RuntimeTooltip
         return host;
     }
 
-    private static void Show(VisualElement target, Func<VisualElement> buildContent, Vector2 pointerPos, bool ignoreGlobalToggle = false)
+    private static void Show(VisualElement target, Func<VisualElement> buildContent,     Vector2 pointerPos, bool ignoreGlobalToggle = false, bool halStyle = false)
     {
         // ignoreGlobalToggle: the panel's tooltips are exempt from F1 (the Scheduler's are always on).
         if (ignoreGlobalToggle ? TooltipSettings.BlockedIgnoringToggle : TooltipSettings.Blocked) return;
@@ -108,6 +120,7 @@ public static class RuntimeTooltip
         _activeTarget = target;
 
         VisualElement host = GetHost(panel);
+        ApplyHostStyle(host, halStyle);
         var body = (VisualElement)host.userData;
         body.Clear();
         body.Add(buildContent());
@@ -128,8 +141,16 @@ public static class RuntimeTooltip
             // Anchored so the tooltip's BOTTOM-RIGHT corner sits at the pointer tip (a small gap short
             // of it) — up and to the left of the cursor, never under it, so the pointer never covers
             // its own tooltip and the tooltip never hides whatever the pointer is actually over.
-            host.style.left = Mathf.Clamp(pointerPos.x - w - 10f, 0f, maxLeft);
-            host.style.top = Mathf.Clamp(pointerPos.y - h - 10f, 0f, maxTop);
+            if (halStyle)
+            {
+                host.style.left = maxLeft;
+                host.style.top = Mathf.Clamp(root.resolvedStyle.height - BuildMenuUI.BottomBarHeight - h - 6f, 0f, maxTop);
+            }
+            else
+            {
+                host.style.left = Mathf.Clamp(pointerPos.x - w - 10f, 0f, maxLeft);
+                host.style.top = Mathf.Clamp(pointerPos.y - h - 10f, 0f, maxTop);
+            }
             host.style.opacity = 1f;
             RaiseAboveEverything(host);
         }).ExecuteLater(16);

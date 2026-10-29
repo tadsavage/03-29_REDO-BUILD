@@ -497,7 +497,7 @@ namespace GameCore.Inventory
             if (offer == null || !_announcedContractIds.Add(offer.ContractId)) return;
 
             string customerName = offer.Customer != null ? offer.Customer.CompanyName : "A new customer";
-            SystemsLogWindow.Celebrate($"{customerName} just posted a {offer.Title}!");
+            SystemsLogWindow.Celebrate($"{LogLinks.Contract(offer.ContractId, customerName)} just posted a {offer.Title}!");
         }
 
         /// <summary>Reputation crossing a contract's threshold is the only "arrival" moment a Recurring
@@ -1039,9 +1039,9 @@ namespace GameCore.Inventory
                 var offer = ContractData.CreateRuntime(
                     contractId, customer,
                     deadlineDays <= 0
-                        ? "Contract pays Cost of Goods plus 5%, Double if the load ships on the same " +
+                        ? "Contract pays Cost of Goods plus 10%, Double if the load ships on the same " +
                           "day it was ordered!!!"
-                        : $"{customer.CompanyName} wants a full-pallet drop. Cost of goods plus 5%.",
+                        : $"{customer.CompanyName} wants a full-pallet drop. Cost of goods plus 10%.",
                     ContractKind.Bulk,
                     palletCount: 1,
                     ordersPerDayMin: 1, ordersPerDayMax: 1,
@@ -1148,7 +1148,7 @@ namespace GameCore.Inventory
         /// <summary>
         /// Turns a bulk offer's rolled preview (ContractData.BulkPreviewLines) into a real OrderData.
         ///
-        /// PRICING is cost of goods plus a 5% surcharge, deliberately ignoring both the SKU's SellValue
+        /// PRICING is cost of goods plus a 10% surcharge, deliberately ignoring both the SKU's SellValue
         /// and the contract's PayRateMultiplier: bulk is a low-margin volume deal priced off what the
         /// goods cost, which is what makes it a different decision from a standing account.
         /// </summary>
@@ -1220,8 +1220,8 @@ namespace GameCore.Inventory
                       (order.IsSameDayRush ? " — SAME-DAY RUSH, pays double if it makes the truck." : "."));
         }
 
-        /// <summary>Cost of goods plus a 5% surcharge — the whole of bulk pricing.</summary>
-        public const float BulkSurchargeMultiplier = 1.05f;
+        /// <summary>Cost of goods plus a 10% surcharge — the whole of bulk pricing.</summary>
+        public const float BulkSurchargeMultiplier = 1.10f;
 
         /// <summary>Chance, per delivery day, that a customer on an account with real notice rules leaves their order
         /// until the last minute. Deterministic per contract+day so a save/load can't re-roll it.</summary>

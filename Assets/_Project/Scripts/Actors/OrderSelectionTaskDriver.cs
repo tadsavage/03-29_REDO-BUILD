@@ -54,6 +54,13 @@ namespace GameCore.Actors
         private OrderData _currentOrder;
         private readonly List<OutboundPalletBuilder> _pallets = new();
 
+        // ── Same-customer continuation (Tad): one jack run stays on one customer. When the anchor's planned pallet is
+        // built and the jack has room, the selector claims another planned pallet for that customer and keeps picking.
+        // Everything on the jack stages into the ANCHOR's lane; the joined orders/tasks are finished alongside it.
+        private OrderData _anchorOrder;
+        private WorkTask _anchorTask;
+        private readonly List<(OrderData order, WorkTask task)> _joinedTrips = new();
+
         // ── Staging-space-unavailable retry state (see StagingRetryInterval) ──────────────────────
         private bool _waitingForStagingSpace;
         private float _stagingRetryTimer;
@@ -696,8 +703,69 @@ namespace GameCore.Actors
             _nav.Patrol();
         }
 
+        /// <summary>SAME-CUSTOMER JOIN: called once the jack's current planned pallet is built. If the jack has room, claims
+        /// the next Available planned OrderSelect task for the same customer (queue priority order) and starts another
+        /// pallet for it on this jack. Returns false when the jack is full, nothing is waiting, or no claim succeeds.</summary>
+        private bool TryJoinSameCustomerPlan()
+        {
+            if (_pallets.Count >= MaxPalletsPerOrder || _currentOrder == null || _currentTask == null) return false;
+            if (!_currentTask.HasPlan || _currentOrder.ReturnsMode) return false;
+            if (ResolveChepEmptyPrefab() == null) return false;
+
+            string guid = GetComponent<EmployeeIdentity>()?.Record?.employeeGuid;
+            if (string.IsNullOrEmpty(guid)) return false;
+
+            string customer = (_anchorOrder ?? _currentOrder).CustomerName;
+            var candidates = _workQueue.Tasks
+                .Where(t => t.Type == WorkTaskType.OrderSelect && t.HasPlan && t.Status == WorkTaskStatus.Available
+                            && t.RequiredRole == EmployeeRole.OrderSelector)
+                .OrderByDescending(t => t.Priority)
+                .ToList();
+
+            foreach (var t in candidates)
+            {
+                if (t == _currentTask || t == _anchorTask || _joinedTrips.Any(j => j.task == t)) continue;
+                var o = _orderService.ActiveOrders.FirstOrDefault(x => x.OrderId == t.OrderId);
+                if (o == null || o.ReturnsMode || o.IsFullyPicked || o.CustomerName != customer) continue;
+                if (!_workQueue.TryClaimSpecificTask(t, guid)) continue;
+
+                if (_anchorOrder == null) { _anchorOrder = _currentOrder; _anchorTask = _currentTask; }
+                _joinedTrips.Add((o, t));
+                _currentOrder = o;
+                _currentTask = t;
+                _pickFloorKey = long.MinValue;
+                StartNextPallet();
+                Debug.Log($"[OrderSelectionTaskDriver] '{name}': same-customer continuation - joined order {o.OrderNumber} pallet {t.PlanNumber} of {t.PlanTotal} for {customer} ({_pallets.Count} pallet(s) on the jack, staging with {_anchorOrder.OrderNumber}).");
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Settles the joined orders picked on this jack. Their pallets stage in the anchor's lane, so that lane is
+        /// recorded on each joined order, and each joined order's status and work-queue task finish as the anchor's do.</summary>
+        private void FinishJoinedTrips(int door, string lane, OrderData.OrderStatus completion)
+        {
+            foreach (var (o, t) in _joinedTrips)
+            {
+                if (door > 0 && !string.IsNullOrEmpty(lane) && !(door == o.EffectiveStagingDoor && lane == o.AssignedLane))
+                    o.AddOverflowLane(door, lane);
+                o.Status = TripEndStatus(o, completion, t);
+                _orderService.ReleasePick(t?.TaskId);
+                if (t != null) _workQueue.CompleteTask(t.TaskId);
+            }
+        }
+
+        /// <summary>Forgets the joined state once the trip has staged and finished.</summary>
+        private void ClearJoinState()
+        {
+            _anchorOrder = null;
+            _anchorTask = null;
+            _joinedTrips.Clear();
+        }
+
         private void FinishOrderCleanup(WorkTask task)
         {
+            ClearJoinState();
             RecordCasePickTrip();
             _orderService.ReleasePick(task?.TaskId);
             _workQueue.CompleteTask(task.TaskId);
