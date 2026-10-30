@@ -680,6 +680,9 @@ public class PlacementSystem : MonoBehaviour
 
     private void ApplySaveData(SaveData save)
     {
+        // Employee world banners belong to the session that opened them. A load rebuilds the HUD and the staff, so a card left
+        // up from before the load can be stranded on screen, swallowing clicks and camera drags. Clear them all first.
+        EmployeeWorldBanners.Existing?.HideAll();
         ShaderWarmup.Run("save load");
         // RestoreCapital, NOT SetMoney: SetMoney books the difference between starting capital and
         // the saved balance as a real "Debug" transaction, so every load charged that gap to lifetime

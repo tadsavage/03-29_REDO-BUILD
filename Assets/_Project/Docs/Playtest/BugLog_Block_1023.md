@@ -3537,3 +3537,606 @@ Every incident as it happened. Format: day hour:minute | category | what.
   AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
   ```
 - day 6 07:45 | **NO-TASK** | NO-TASK lane pallet 3C-2 sku=649320 load=5902781162
+- day 6 20:22 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:03 | **GHOST-SLOT** | SLOT 02-05-01 names dbc4afb5 - no object
+- day 1 08:03 | **GHOST-SLOT** | SLOT 01-12-B0 names b4dcf84a - no object
+- day 1 15:34 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (18.91, 1.11, 20.77) — walking out to (25.33, 0.08, 20.77) (5.52m to mesh).
+- day 1 19:48 | **WARN** | [AiNavigation] Employee_Madison Shelton: stuck at (13.11, 1.20, 24.94) — walking out to (24.96, 0.04, 18.46) (12.56m to mesh).
+- day 1 20:57 | **ERROR** | [OrderSelectionTaskDriver] Pallet jack did not reach 'bay 01-03' ((-9.34, 1.11, 19.71)) after 4.7s.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<JackNavLeg>d__96:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.PalletJack.cs:1306)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 22:18 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @5B-3 bottom=2.62
+- day 1 22:18 | **FLOATING** | FLOATING Pallet_03_Slot1_Tier1 @2B-2 bottom=2.15
+- day 1 22:18 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_00_Slot0_Tier0 @2B-2
+- day 1 22:33 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1E-1 bottom=1.30
+- day 1 22:33 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_02_Slot2_Tier0 @1E-1
+- day 2 00:18 | **WARN** | [OrderService] Order OG1555 closed with a STAGED pallet (12 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 00:18 | **WARN** | [OrderService] Order OG1555 closed with a IN TRANSIT pallet (34 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 00:33 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1D-1 (order d840ef77-d492-47b5-928d-72ab0ce76e99 gone)
+- day 2 00:33 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1D-1 (order d840ef77-d492-47b5-928d-72ab0ce76e99 gone)
+- day 2 01:18 | **FLOATING** | FLOATING Pallet_07_Slot3_Tier1 @3B-2 bottom=2.06
+- day 2 01:18 | **FLOATING** | FLOATING Pallet_05_Slot2_Tier1 @3B-3 bottom=2.19
+- day 2 01:21 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (16.69, 1.11, 34.56) — walking out to (25.69, 0.08, 34.56) (8.07m to mesh).
+- day 2 02:48 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1D-1 (order 6619460b-875b-45bf-8c12-d8d831990b26 gone)
+- day 2 03:18 | **FLOATING** | FLOATING Pallet_03_Slot1_Tier1 @4B-2 bottom=2.17
+- day 2 07:18 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @5B-3 bottom=2.62
+- day 2 11:33 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (19.96, 1.17, 24.13) — walking out to (26.46, 0.04, 35.39) (12.05m to mesh).
+- day 3 08:39 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-3.39, 1.11, 21.18) — walking out to (-7.84, 0.08, 12.27) (9.02m to mesh).
+- day 3 10:08 | **REPEATING** | x25 and counting: [OrderService] Order OG3566: no reserve or pick-face pallet of 912457 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 3 11:31 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (15.69, 1.16, 30.19) — walking out to (28.69, 0.04, 30.19) (12.05m to mesh).
+- day 3 15:03 | **FLOATING** | FLOATING Pallet_03_Slot1_Tier1 @5A-3 bottom=1.30
+- day 3 15:03 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_05_Slot5_Tier0 @5A-3
+- day 3 15:03 | **OVERLAP** | OVERLAP Pallet_05_Slot2_Tier1 & Pallet_02_Slot1_Tier0 @5B-2
+- day 3 15:03 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @5B-2 bottom=1.30
+- day 3 18:55 | **WARN** | [AiNavigation] Employee_Madison Shelton: stuck at (11.36, 1.20, 24.88) — walking out to (11.36, 0.04, 11.88) (12.06m to mesh).
+- day 3 20:03 | **OVERLAP** | OVERLAP OutboundPallet_7890e9e4-5ff3-4930-8c99-44481bae0945_2 & OutboundPallet_7890e9e4-5ff3-4930-8c99-44481bae0945_1 @1A-3
+- day 3 20:03 | **FLOATING** | FLOATING OutboundPallet_7890e9e4-5ff3-4930-8c99-44481bae0945_1 @1A-3 bottom=2.01
+- day 3 20:49 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (16.44, 1.11, 37.33) — walking out to (19.44, 0.08, 42.53) (5.11m to mesh).
+- day 3 21:38 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (2.03, 1.22, 19.49) — walking out to (-4.45, 1.18, 31.52) (12.66m to mesh).
+- day 4 01:33 | **DOOR-DEADLOCK** | OG3216 is Staged but door 1's truck has waited 90 min with no one loading it.
+- day 4 01:33 | **DOOR-DEADLOCK** | OG3563 is Loading but door 4's truck has waited 90 min with no one loading it.
+- day 4 02:35 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-07' at (-9.17, 1.11, 20.34) (target (-19.94, 1.12, 19.71)) remaining=10.78 pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(0.00, 0.00, 0.00) stopped=True onMesh=True jackBlocked=True elapsed=15.9s reissues=0
+- day 4 03:18 | **OVERLAP** | OVERLAP OutboundPallet_de8ee194-a6cf-4683-9e50-159c9e5f6cf9_1 & OutboundPallet_de8ee194-a6cf-4683-9e50-159c9e5f6cf9_1 @4D-1
+- day 4 03:26 | **WARN** | [OrderService] Order OG3566 closed with a STAGED pallet (12 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 03:33 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 4D-1 (order de8ee194-a6cf-4683-9e50-159c9e5f6cf9 gone)
+- day 4 15:01 | **WARN** | [AiNavigation] Employee_Madison Shelton: stuck at (1.89, 1.20, 24.63) — walking out to (1.89, 0.04, 11.63) (12.06m to mesh).
+- day 4 15:47 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (2.39, 1.22, 21.31) — walking out to (-8.83, 1.08, 14.00) (12.56m to mesh).
+- day 4 18:42 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (19.22, 1.11, 36.71) — walking out to (25.33, 0.08, 36.71) (5.22m to mesh).
+- day 1 08:00 | **WARN** | To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 1 14:00 | **REPEATING** | x25 and counting: [NoWaypointIndicator] Alert emote 'emote_exclamations' not found in Resources/Emotes.
+- day 1 15:52 | **WARN** | [AiNavigation] ReachTruck: stuck at (-2.29, 1.11, 42.73) — walking out to (6.83, 0.08, 42.73) (8.19m to mesh).
+- day 1 15:52 | **WARN** | [AiNavigation] ReachTruck: stuck at (-2.29, 1.11, 42.73) — walking out to (6.83, 0.08, 42.73) (8.19m to mesh).
+- day 2 09:33 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-01' at (-10.28, 1.11, 42.94) (target (-18.61, 1.12, 39.81)) remaining=8.87 pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-2.34, -0.01, -0.88) stopped=False onMesh=True jackBlocked=False elapsed=3.7s reissues=0
+- day 2 14:57 | **ERROR** | TransientArtifactProvider::TryProduceTransientArtifactObject call is not allowed when transient artifacts are getting updated
+- day 2 14:57 | **ERROR** | TransientArtifactProvider::TryProduceTransientArtifactObject call is not allowed when transient artifacts are getting updated
+- day 2 15:00 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-1
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-1 bottom=1.85
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_2 @1B-3 bottom=2.47
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_2 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-3
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_2 @1B-4
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_2 @1B-2
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  NegotiatorGestures.PoseArm (NegotiatorGestures+Arm arm, System.Single t, System.Single wRest, System.Boolean isRight) (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:140)
+  NegotiatorGestures.LateUpdate () (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:120)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  NegotiatorGestures.PoseArm (NegotiatorGestures+Arm arm, System.Single t, System.Single wRest, System.Boolean isRight) (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:140)
+  NegotiatorGestures.LateUpdate () (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:120)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- day 1 08:00 | **GHOST-SLOT** | SLOT 02-01-01 names 597ed77e - no object
+- day 1 08:00 | **GHOST-SLOT** | SLOT 02-04-A0 names f6e81d60 - no object
+- day 1 08:00 | **GHOST-SLOT** | SLOT 01-07-B1 names 2ae173c4 - no object
+- day 6 20:22 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 6 20:22 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 6 20:22 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 16:04 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-2.29, 1.11, 41.41) — walking out to (6.83, 0.08, 41.41) (8.19m to mesh).
+- day 1 19:00 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-04' at (-20.90, 1.11, 40.40) (target (-26.63, 1.12, 40.13)) remaining=5.69 pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-2.50, 0.00, -0.12) stopped=False onMesh=True jackBlocked=False elapsed=9.1s reissues=0
+- day 2 04:54 | **REPEATING** | x25 and counting: [JackStall] 'staging lane 1C line-up' at (-5.59, 1.11, 45.81) (target (-0.71, 1.11, 46.03)) remaining=4.85 pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(2.50, 0.00, 0.11) stopped=False onMesh=True jackBlocked=False elapsed=8.5s reissues=0
+- day 2 04:54 | **REPEATING** | x25 and counting: [JackStall] 'staging lane 1C line-up' at (-5.59, 1.11, 45.81) (target (-0.71, 1.11, 46.03)) remaining=4.85 pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(2.50, 0.00, 0.11) stopped=False onMesh=True jackBlocked=False elapsed=8.5s reissues=0
+- day 2 04:54 | **REPEATING** | x25 and counting: [JackStall] 'staging lane 1C line-up' at (-5.59, 1.11, 45.81) (target (-0.71, 1.11, 46.03)) remaining=4.85 pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(2.50, 0.00, 0.11) stopped=False onMesh=True jackBlocked=False elapsed=8.5s reissues=0
+- day 2 04:54 | **REPEATING** | x25 and counting: [JackStall] 'staging lane 1C line-up' at (-5.59, 1.11, 45.81) (target (-0.71, 1.11, 46.03)) remaining=4.85 pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(2.50, 0.00, 0.11) stopped=False onMesh=True jackBlocked=False elapsed=8.5s reissues=0
+- day 2 04:54 | **REPEATING** | x25 and counting: [JackStall] 'staging lane 1C line-up' at (-5.59, 1.11, 45.81) (target (-0.71, 1.11, 46.03)) remaining=4.85 pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(2.50, 0.00, 0.11) stopped=False onMesh=True jackBlocked=False elapsed=8.5s reissues=0
+- day 1 08:00 | **GHOST-SLOT** | SLOT 01-05-00 names ea3f14e7 - no object
+- day 1 08:00 | **GHOST-SLOT** | SLOT 02-01-A1 names e8ed96f9 - no object
+- day 1 08:00 | **GHOST-SLOT** | SLOT 02-01-A0 names 6b05b103 - no object
+- day 1 08:00 | **GHOST-SLOT** | SLOT 01-09-01 names 381c2ce2 - no object
+- day 1 08:00 | **NO-RECORD** | NO-RECORD lane pallet 1A-5 A Chep
+- day 1 08:00 | **GHOST-SLOT** | SLOT 01-09-00 names 5eec023c - no object
+- day 1 10:29 | **WARN** | [InventoryService] Lane 1A lock was held for over 120s - treating it as leaked and taking it over.
+- day 1 10:29 | **WARN** | [InventoryService] Lane 1A lock was held for over 120s - treating it as leaked and taking it over.
+- day 1 20:26 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 1 20:26 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.52
+- day 1 20:45 | **OVERLAP** | OVERLAP Pallet_03_Slot2_Tier1 & Pallet_02_Slot2_Tier0 @1A-4
+- day 1 20:45 | **FLOATING** | FLOATING Pallet_02_Slot2_Tier0 @1A-4 bottom=2.28
+- day 2 08:08 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 2 08:08 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 2 09:56 | **REPEATING** | x25 and counting: [JackStall] 'bay 02-04' at (-21.96, 1.11, 44.88) (target (-25.24, 1.11, 44.89)) remaining=3.24 pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-2.50, 0.00, 0.01) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 2 09:56 | **REPEATING** | x25 and counting: [JackStall] 'bay 02-04' at (-21.96, 1.11, 44.88) (target (-25.24, 1.11, 44.89)) remaining=3.24 pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-2.50, 0.00, 0.01) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 2 14:56 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-1
+- day 2 14:56 | **OVERLAP** | OVERLAP OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_2 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-2
+- day 2 14:56 | **OVERLAP** | OVERLAP OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_2 @1B-4
+- day 2 14:56 | **FLOATING** | FLOATING OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-3 bottom=2.18
+- day 2 14:56 | **OVERLAP** | OVERLAP OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_2 @1B-3
+- day 2 14:56 | **FLOATING** | FLOATING OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-2 bottom=2.29
+- day 2 15:00 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-1
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_2 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-2
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_2 @1B-4
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-3 bottom=2.18
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 & OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_2 @1B-3
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_5ebb7752-cd6a-41aa-ac1a-863c50fabcb3_1 @1B-2 bottom=2.29
+- day 2 20:26 | **STALE-ASSIGNED** | STALE-ASSIGNED PalletPick Pallet pick — 80 cs of 105672 for Neon Nectar Juice Co. 350s
+- day 2 20:30 | **STALE-ASSIGNED** | STALE-ASSIGNED PalletPick Pallet pick — 80 cs of 105672 for Neon Nectar Juice Co. 352s
+- day 2 22:45 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=2.03
+- day 2 20:21 | **GHOST-SLOT** | RECORD 3d1b0d1b 105672 x58 cell=(-1, -1) lane= - no object
+- day 2 20:21 | **GHOST-SLOT** | RECORD 3d1b0d1b 105672 x58 cell=(-1, -1) lane= - no object
+- day 2 20:21 | **GHOST-SLOT** | RECORD 3d1b0d1b 105672 x58 cell=(-1, -1) lane= - no object
+- day 2 20:21 | **GHOST-SLOT** | RECORD 3d1b0d1b 105672 x58 cell=(-1, -1) lane= - no object
+- day 2 20:21 | **GHOST-SLOT** | RECORD 3d1b0d1b 105672 x58 cell=(-1, -1) lane= - no object
+- day 2 20:21 | **GHOST-SLOT** | RECORD 3d1b0d1b 105672 x58 cell=(-1, -1) lane= - no object
+- day 2 20:21 | **GHOST-SLOT** | RECORD 3d1b0d1b 105672 x58 cell=(-1, -1) lane= - no object
+- day 2 20:21 | **GHOST-SLOT** | RECORD 3d1b0d1b 105672 x58 cell=(-1, -1) lane= - no object
+- day 2 20:21 | **GHOST-SLOT** | RECORD 3d1b0d1b 105672 x58 cell=(-1, -1) lane= - no object
+- day 2 21:51 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2841 & Truck→PO_IG2840 at (6.2, 0.0, -2.5)
+- day 2 21:51 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2841 & Truck→PO_IG2840 at (6.3, 0.0, -2.6)
+- day 2 21:51 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2841 & Truck→PO_IG2840 at (6.3, 0.0, -2.6)
+- day 2 21:51 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2841 & Truck→PO_IG2840 at (6.3, 0.0, -2.6)
+- day 2 21:51 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2841 & Truck→PO_IG2840 at (6.3, 0.0, -2.6)
+- day 2 21:51 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2841 & Truck→PO_IG2840 at (6.3, 0.0, -2.6)
+- day 2 21:51 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2841 & Truck→PO_IG2840 at (6.3, 0.0, -2.6)
+- day 2 21:51 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2841 & Truck→PO_IG2840 at (6.3, 0.0, -2.6)
+- day 2 21:51 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG2841 & Truck→PO_IG2840 at (6.3, 0.0, -2.6)
+- day 2 22:51 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=1.90
+- day 2 22:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 22:51 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=1.90
+- day 2 22:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 22:51 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=1.90
+- day 2 22:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 22:51 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=1.90
+- day 2 22:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 22:51 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=1.90
+- day 2 22:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 22:51 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=1.90
+- day 2 22:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 22:51 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=1.90
+- day 2 22:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 22:51 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=1.90
+- day 2 22:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 22:51 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=1.90
+- day 2 22:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 23:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:00 | **FLOATING** | FLOATING Pallet_03_Slot1_Tier1 @1B-5 bottom=2.03
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:01 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet e5583aae-b1ad-4d8e-a6d8-11899e276dba
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 2 23:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:11 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-1 bottom=2.15
+- day 2 23:11 | **FLOATING** | FLOATING Pallet_03_Slot1_Tier1 @1B-5 bottom=1.90
+- day 2 23:11 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 23:15 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1B-5
+- day 2 23:41 | **FLOATING** | FLOATING Pallet_05_Slot2_Tier1 @1B-4 bottom=1.90
+- day 2 23:41 | **OVERLAP** | OVERLAP Pallet_05_Slot2_Tier1 & Pallet_02_Slot1_Tier0 @1B-4
+- day 3 00:11 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:15 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:21 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:21 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:21 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:21 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:21 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:21 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:21 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:21 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:21 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_01_Slot0_Tier1 @1A-2
+- day 3 00:56 | **NO-TASK** | NO-TASK lane pallet 1B-2 sku=520894 load=0279744339
+- day 3 01:08 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:08 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:15 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:15 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:15 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:15 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:21 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:21 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:26 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:26 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:26 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:26 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 02:36 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 847s
+- day 3 02:36 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 847s
+- day 3 02:36 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 847s
+- day 3 02:36 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 847s
+- day 3 02:36 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 847s
+- day 3 02:36 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 847s
+- day 3 02:36 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 847s
+- day 3 02:36 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 847s
+- day 3 02:36 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 847s
+- day 3 02:38 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 848s
+- day 3 02:41 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 849s
+- day 3 02:45 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [0279744339] left over from a finished order at STG1B-2 850s
+- day 3 03:15 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:21 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:21 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:21 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:21 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:21 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:21 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:21 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:21 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:21 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:23 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:36 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:36 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:36 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:36 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:36 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:36 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:36 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:36 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:36 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:36 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:36 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:36 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:36 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:36 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:36 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:36 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:36 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:36 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:38 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:38 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:41 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:41 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:41 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1B-1 bottom=1.90
+- day 3 03:45 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1C-5 bottom=2.15
+- day 3 03:45 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1C-5
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 03:54 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet c7611deb-0b45-4f05-b2a7-ada775d21527
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass18_0:<Update>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:193)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:960)
+  ```
+- day 3 04:56 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:00 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=2.09
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=1.96
+- day 3 05:06 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=1.96
+- day 3 05:06 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=1.96
+- day 3 05:06 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=1.96
+- day 3 05:06 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=1.96
+- day 3 05:06 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=1.96
+- day 3 05:06 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=1.96
+- day 3 05:06 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=1.96
+- day 3 05:06 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=1.96
+- day 3 05:06 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:08 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1C-5 bottom=2.15
+- day 3 05:08 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1C-4 bottom=1.96
+- day 3 05:08 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:11 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 05:15 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_13_Slot6_Tier1 @1C-4
+- day 3 08:06 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.90
+- day 3 08:06 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:06 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.90
+- day 3 08:06 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:06 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.90
+- day 3 08:06 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:06 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.90
+- day 3 08:06 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:06 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.90
+- day 3 08:06 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:06 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.90
+- day 3 08:06 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:06 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.90
+- day 3 08:06 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:06 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.90
+- day 3 08:06 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:06 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.90
+- day 3 08:06 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:08 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:11 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 08:15 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @1A-5
+- day 3 09:53 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 09:53 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 09:53 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 09:53 | **FLOATING** | FLOATING A Chep @1A-4 bottom=1.30
+- day 3 11:15 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 11:21 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 11:21 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 11:21 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 11:21 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 11:21 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 11:21 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 11:21 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 11:21 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 11:21 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 11:23 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-5 bottom=1.30
+- day 3 14:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:45 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:51 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:51 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:51 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:51 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:51 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:51 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:51 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:51 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:51 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:51 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:53 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:53 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 3 14:56 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1A-5
+- day 3 14:56 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-5 bottom=2.62
+- day 4 03:30 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:36 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:36 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:36 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:36 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:36 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:36 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:36 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:36 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:36 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:38 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 4 03:41 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1

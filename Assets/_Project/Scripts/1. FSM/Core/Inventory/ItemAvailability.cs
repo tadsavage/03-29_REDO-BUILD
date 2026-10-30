@@ -44,6 +44,17 @@ namespace GameCore.Inventory
     {
         private const int MinutesPerDay = 1440;
 
+        /// <summary>Cases short per SKU, exactly as the Item Listing's Potential Scratches column reads it: pending outbound
+        /// demand minus what is on the shelf, never below 0. Stock still on order is NOT netted off (it does not change the
+        /// number until it arrives). Purchasing uses this so its scratch figure and the Item Listing always agree.</summary>
+        public static Dictionary<string, int> ShortCasesBySku()
+        {
+            var short_ = new Dictionary<string, int>();
+            foreach (var r in Build())
+                if (r.Pending > r.OnHand) short_[r.SkuId] = r.Pending - r.OnHand;
+            return short_;
+        }
+
         public static List<ItemAvailabilityRow> Build()
         {
             var rows = new List<ItemAvailabilityRow>();

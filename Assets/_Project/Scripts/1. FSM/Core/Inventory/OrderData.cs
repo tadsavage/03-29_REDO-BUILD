@@ -233,6 +233,11 @@ namespace GameCore.Inventory
         /// each with its fixed contents). Such an order has no helper / continuation trips: the plan IS the work.</summary>
         public bool UsesPalletPlan { get; set; }
 
+        /// <summary>Exact number of pallets this order will ship on, fixed at release: one per pallet-pick task plus one per
+        /// planned loose pallet. 0 = not released yet, or an order saved before this was recorded (callers fall back to the
+        /// rounded estimate). Quoted by the Scheduler tile so it always agrees with the truck card and the Work Queue.</summary>
+        public int PlannedPallets { get; set; }
+
         public OrderData(string customerId, string customerName, string deliveryAddress, int createdDay, int dueDay, int createdMinute)
         {
             OrderId = System.Guid.NewGuid().ToString();
@@ -451,6 +456,7 @@ namespace GameCore.Inventory
         public int palletFee;
         public int shortNoticeFee;
         public bool usesPalletPlan;
+        public int plannedPallets;
         public List<OrderLineItemSnapshot> lineItems = new();
     }
 

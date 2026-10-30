@@ -497,7 +497,7 @@ namespace GameCore.Inventory
             if (offer == null || !_announcedContractIds.Add(offer.ContractId)) return;
 
             string customerName = offer.Customer != null ? offer.Customer.CompanyName : "A new customer";
-            SystemsLogWindow.Celebrate($"{LogLinks.Contract(offer.ContractId, customerName)} just posted a {offer.Title}!");
+            SystemsLogWindow.Celebrate($"{LogLinks.Contract(offer.ContractId, customerName)} just posted a {offer.Title}!", "NewCustomer");
         }
 
         /// <summary>Reputation crossing a contract's threshold is the only "arrival" moment a Recurring

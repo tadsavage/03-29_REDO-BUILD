@@ -65,7 +65,7 @@ public class OrderFreightHighlighter : MonoBehaviour
     public void Show(TruckController truck)
     {
         Clear();
-        if (truck == null || !truck.IsOutbound) return;
+        if (truck == null) return;
         _truck = truck;
         _color = TruckOrderColors.GetColor(truck);
         Refresh();
@@ -95,7 +95,23 @@ public class OrderFreightHighlighter : MonoBehaviour
     {
         var wanted = new Dictionary<Transform, bool>();   // target -> isPickSlot
 
-        var appt = TruckOrderColors.ResolveOutboundAppointment(_truck);
+        if (!_truck.IsOutbound)
+        {
+            // Inbound: every pallet of this PO - cargo still on the trailer, plus pallets already offloaded and received
+            // from it - in the same orange as the truck's outline.
+            if (_truck.LoadContainer != null)
+                foreach (Transform child in _truck.LoadContainer)
+                    if (child != null && child.GetComponent<PalletData>() != null) wanted[child] = false;
+
+            if (_truck.AssignedShipment != null && ServiceLocator.TryGet<ShipmentReceivingCoordinator>(out var receiving) && receiving != null)
+                foreach (var palletId in receiving.PalletIdsFor(_truck.AssignedShipment))
+                {
+                    var link = PalletMasterLink.Find(palletId);
+                    if (link != null) wanted[link.transform] = false;
+                }
+        }
+
+        var appt = _truck.IsOutbound ? TruckOrderColors.ResolveOutboundAppointment(_truck) : null;
         if (appt != null && appt.OrderIds != null && appt.OrderIds.Count > 0 &&
             ServiceLocator.TryGet<OrderService>(out var orderService) && orderService != null)
         {

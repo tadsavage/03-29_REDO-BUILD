@@ -151,6 +151,9 @@ public class EmployeeWorldBanners : MonoBehaviour
             // Gone (destroyed, fired, resigned): drop the banner with them.
             if (id == null || id.Record == null || id.Record.status == EmploymentStatus.Terminated || id.Record.status == EmploymentStatus.Resigned)
             { Hide(id); continue; }
+            // A card whose HUD panel is gone (rebuilt by a load, or its document torn down) can never be repositioned or
+            // closed by the player, and it still swallows clicks where it was last drawn. Drop it.
+            if (b.Root == null || b.Root.panel == null) { Hide(id); continue; }
 
             if (Time.unscaledTime >= b.NextRendererRefresh) RefreshRenderers(b);
             RefreshTask(b, force: false);

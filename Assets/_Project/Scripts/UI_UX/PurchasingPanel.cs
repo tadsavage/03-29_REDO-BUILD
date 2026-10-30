@@ -1854,6 +1854,7 @@ public class PurchasingPanel : IUIPanel
     private void BuildMultiVendorTab()
     {
         _multiVendorPane.Clear();
+        _shortBySku = ItemAvailability.ShortCasesBySku();
 
         // Hidden until Yoga finishes laying out the fresh content below, then revealed next frame.
         // A sort/filter change can flip several vendor groups' expanded state at once (e.g. picking
@@ -2867,9 +2868,8 @@ public class PurchasingPanel : IUIPanel
         // in-progress basket right now (this tab's per-vendor baskets, and the old single-vendor tab's
         // basket) — see TotalInProgressCases. Ordering enough to cover demand should read as "handled"
         // (0) as soon as it's on a load, not stay pinned at the gross number until dispatch.
-        int grossInDemand = Economy()?.GetTotalInDemand(skuId) ?? 0;
-        int inProgress = TotalInProgressCases(skuId);
-        int inDemand = Mathf.Max(0, grossInDemand - onHand - onOrder - inProgress);
+        // Now the Item Listing's shortfall (see ScratchCases): stock on order does not net it off until it arrives.
+        int inDemand = ScratchCases(skuId);
 
         var idCol = new VisualElement();
         idCol.style.width = 190;
@@ -2937,9 +2937,7 @@ public class PurchasingPanel : IUIPanel
             // next rebuilds (switching tabs, dispatching, etc.) — an accepted gap, since chasing that
             // live across every open group would mean a full Rebuild() on every keystroke/click here,
             // which is exactly the scroll-position churn this targeted-refresh approach exists to avoid.
-            int newInDemand = Mathf.Max(0, (Economy()?.GetTotalInDemand(skuId) ?? 0) -
-                (Inventory()?.TotalOnHand(skuId) ?? 0) - (Economy()?.GetTotalOnOrder(skuId) ?? 0) -
-                TotalInProgressCases(skuId));
+            int newInDemand = ScratchCases(skuId);
             inDemandLabel.text = newInDemand.ToString("N0");
             inDemandLabel.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColSubtleText);
             num.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColSubtleText);
@@ -2947,6 +2945,7 @@ public class PurchasingPanel : IUIPanel
             // previously only `num` was corrected here, so a SKU that stopped being critical kept its
             // description stuck red until the next full Rebuild().
             desc.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColTitleText);
+            RefreshScratchTotal();
 
             onQtyChanged?.Invoke();
         }
@@ -3067,12 +3066,17 @@ public class PurchasingPanel : IUIPanel
     /// 1 case each on 5 SKUs reads as "5 critical items", not "5 critical items" worth of cases summed
     /// into one misleading case-count. Drives the vendor header's summary line.</summary>
     /// <summary>Cases of this SKU still uncovered after on-hand, on-order and in-progress baskets.</summary>
+    // Cases short per SKU, taken from the Item Listing's own calculation so the two screens always agree
+    // (ItemAvailability.ShortCasesBySku). Refreshed each time the tab is built.
+    private Dictionary<string, int> _shortBySku = new();
+
+    // Still to buy: the listing's shortfall minus whatever is already sitting in an open basket for this SKU, so
+    // typing a quantity walks the figure down to 0. Stock already on a dispatched PO is NOT netted off here — that
+    // keeps this number equal to the Item Listing's Potential Scratches until the stock actually arrives.
     private int ScratchCases(string skuId)
     {
-        int gross = Economy()?.GetTotalInDemand(skuId) ?? 0;
-        int onHand = Inventory()?.TotalOnHand(skuId) ?? 0;
-        int onOrder = Economy()?.GetTotalOnOrder(skuId) ?? 0;
-        return Mathf.Max(0, gross - onHand - onOrder - TotalInProgressCases(skuId));
+        if (string.IsNullOrEmpty(skuId) || !_shortBySku.TryGetValue(skuId, out int short_)) return 0;
+        return Mathf.Max(0, short_ - TotalInProgressCases(skuId));
     }
 
     private int VendorScratchCases(string vendorId)
@@ -3112,11 +3116,7 @@ public class PurchasingPanel : IUIPanel
             var sku = entry?.Sku;
             if (sku == null) continue;
 
-            int gross = Economy()?.GetTotalInDemand(sku.SkuId) ?? 0;
-            int onHand = Inventory()?.TotalOnHand(sku.SkuId) ?? 0;
-            int onOrder = Economy()?.GetTotalOnOrder(sku.SkuId) ?? 0;
-            int inProgress = TotalInProgressCases(sku.SkuId);
-            if (gross - onHand - onOrder - inProgress > 0) criticalItemCount++;
+            if (ScratchCases(sku.SkuId) > 0) criticalItemCount++;
         }
         return criticalItemCount;
     }

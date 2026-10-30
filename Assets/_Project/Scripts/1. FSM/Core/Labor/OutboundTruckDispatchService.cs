@@ -211,6 +211,9 @@ namespace GameCore.Labor
                 // truck outside any pickup time. Only a door with nothing booked today at all falls
                 // back to immediate dispatch (debug-staged pallets).
                 DockAppointment appt = null;
+                // Any booking at this door (today or a later day) means the appointment dispatcher owns the truck: it sends it
+                // ArrivalLeadMinutes before the block. Staged freight must never summon it early.
+                if (schedule != null && schedule.DoorHasOutboundBooking(doorNumber)) continue;
                 if (schedule != null)
                 {
                     var todays = schedule.Appointments.Where(a =>

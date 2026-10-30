@@ -50,15 +50,28 @@ public static class TruckOrderColors
     /// to come first in the list (Sneaky Pete's, 16:00). Shared with WorldHoverPopupUI so the card and
     /// the outline can never disagree about which order a truck is carrying.
     /// </summary>
+    private static readonly System.Collections.Generic.Dictionary<TruckController, DockAppointment> s_lastAppt = new();
+
     public static DockAppointment ResolveOutboundAppointment(TruckController truck)
     {
+        // Trucks are destroyed when they leave; drop dead keys so the cache can't grow across a long session.
+        if (s_lastAppt.Count > 32)
+            foreach (var dead in s_lastAppt.Keys.Where(k => k == null).ToList()) s_lastAppt.Remove(dead);
+
         if (truck == null || !truck.IsOutbound) return null;
         if (!ServiceLocator.TryGet(out DockScheduleService schedule) || schedule == null) return null;
 
         if (!string.IsNullOrEmpty(truck.OutboundAppointmentId))
         {
             var own = schedule.FindById(truck.OutboundAppointmentId);
-            if (own != null) return own;
+            if (own != null) { s_lastAppt[truck] = own; return own; }
+            // Last booking this truck resolved to: still describes its cargo after the booking is purged / closed out.
+            if (s_lastAppt.TryGetValue(truck, out var remembered) && remembered != null) return remembered;
+            // The truck WAS dispatched for a specific booking, but that booking has since been purged / closed out / moved.
+            // Do NOT guess "whatever is booked at this door right now": with several doors and back-to-back bookings that
+            // is a DIFFERENT customer's appointment, so the card, the glow and the percent all described the wrong order
+            // while this trailer was still loading. Returning null lets callers fall back to the manifest they remembered.
+            return null;
         }
 
         int door = truck.AssignedDock != null ? truck.AssignedDock.DoorNumber : truck.OutboundDoorNumber;

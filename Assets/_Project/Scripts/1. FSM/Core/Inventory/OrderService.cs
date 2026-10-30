@@ -283,6 +283,7 @@ namespace GameCore.Inventory
                 // cases are on it (whatever the visual stacking looks like).
                 var plan = PlanLoosePallets(looseBySku);
                 order.UsesPalletPlan = true;
+                order.PlannedPallets = palletTasks + plan.Count;   // the definitive count every surface quotes
                 for (int i = 0; i < plan.Count; i++)
                 {
                     int cases = plan[i].Sum(k => k.Value);
@@ -300,9 +301,37 @@ namespace GameCore.Inventory
                 }
             }
 
+            if (looseCases <= 0) order.PlannedPallets = palletTasks;
+
             Debug.Log($"[OrderService] Order {order.OrderNumber} released to {toLocation ?? "(no lane yet)"}: filed {palletTasks} " +
                       $"pallet pick(s)" + (looseCases > 0 ? $" and 1 case pick for {looseCases} loose case(s)." : ".") +
                       (unreservedPallets > 0 ? $" {unreservedPallets} filed without a source yet." : ""));
+        }
+
+        /// <summary>The exact number of pallets an order WILL ship on, worked out from its lines before release. Mirrors
+        /// FileReleasedOrderTasks' split exactly: every full pallet's worth of a line is a pallet pick, and the remainder
+        /// (plus any SKU with no Ti/Hi) is planned into loose pallets. Depends only on the order's lines, never on stock,
+        /// so it is the same number release will store in PlannedPallets.</summary>
+        public int PreviewPalletCount(OrderData order)
+        {
+            if (order == null) return 0;
+            int total = 0;
+            var loose = new List<KeyValuePair<string, int>>();
+            void AddLoose(string skuId, int qty)
+            {
+                if (qty <= 0) return;
+                int at = loose.FindIndex(k => k.Key == skuId);
+                if (at >= 0) loose[at] = new KeyValuePair<string, int>(skuId, loose[at].Value + qty);
+                else loose.Add(new KeyValuePair<string, int>(skuId, qty));
+            }
+            foreach (var li in order.LineItems)
+            {
+                int fullPallet = FullPalletCases(li.SkuId);
+                if (fullPallet <= 0) { AddLoose(li.SkuId, li.QuantityNeeded); continue; }
+                total += li.QuantityNeeded / fullPallet;
+                AddLoose(li.SkuId, li.QuantityNeeded % fullPallet);
+            }
+            return loose.Count == 0 ? total : total + PlanLoosePallets(loose).Count;
         }
 
         /// <summary>Cases in one full pallet of this SKU (Ti x Hi), or 0 if it has no committed pallet
@@ -2207,7 +2236,11 @@ namespace GameCore.Inventory
 
             bool truckAtDoor = Object.FindObjectsByType<TruckController>()
                 .Any(t => t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber);
-            if (!truckAtDoor)
+            // A booked door gets its truck from the appointment dispatcher at (block start - arrival lead), never from here:
+            // releasing/loading an order hours before its slot used to summon the trailer immediately.
+            bool doorIsBooked = ServiceLocator.TryGet<DockScheduleService>(out var bookSched) && bookSched != null &&
+                                bookSched.DoorHasOutboundBooking(doorNumber);
+            if (!truckAtDoor && !doorIsBooked)
                 Object.FindAnyObjectByType<TruckYardManager>()?.SpawnOutboundTruck(doorNumber);
 
             foreach (var order in orders)
@@ -3388,7 +3421,8 @@ namespace GameCore.Inventory
                     pickFeePerCase = o.PickFeePerCase,
                     palletFee = o.PalletFee,
                     shortNoticeFee = o.ShortNoticeFee,
-                    usesPalletPlan = o.UsesPalletPlan
+                    usesPalletPlan = o.UsesPalletPlan,
+                    plannedPallets = o.PlannedPallets
                 };
                 foreach (var li in o.LineItems)
                 {
@@ -3450,7 +3484,8 @@ namespace GameCore.Inventory
                     PickFeePerCase = snap.pickFeePerCase,
                     PalletFee = snap.palletFee,
                     ShortNoticeFee = snap.shortNoticeFee,
-                    UsesPalletPlan = snap.usesPalletPlan
+                    UsesPalletPlan = snap.usesPalletPlan,
+                    PlannedPallets = snap.plannedPallets
                 };
                 order.CancelledCases = snap.cancelledCases;
                 if (snap.overflowLanes != null)
@@ -3554,6 +3589,7 @@ namespace GameCore.Inventory
                 order.AssignedDoorNumber = 0;
                 order.StagingDoorNumber = 0;
                 order.ReleasedToFloor = false;
+                order.PlannedPallets = 0;   // no longer released: the count goes back to the preview
                 order.AssignedLane = null;
                 order.OverflowLanes.Clear();
                 foreach (var li in order.LineItems)

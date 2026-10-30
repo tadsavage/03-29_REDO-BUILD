@@ -79,6 +79,17 @@ namespace GameCore.Inventory
             _palletToShipmentMap[palletId] = shipment;
         }
 
+        /// <summary>Every pallet id this session has linked to the given PO (cargo offloaded from its trailer).
+        /// Runtime-only, like the map itself: pallets restored from a save before this session aren't listed.</summary>
+        public List<string> PalletIdsFor(ShipmentData shipment)
+        {
+            var ids = new List<string>();
+            if (shipment == null) return ids;
+            foreach (var kv in _palletToShipmentMap)
+                if (kv.Value == shipment) ids.Add(kv.Key);
+            return ids;
+        }
+
         /// <summary>Called when a pallet is received (PalletData script applied). Updates shipment tracking.</summary>
         private void OnPalletReceived(string eventId, PalletMasterRecord pallet)
         {

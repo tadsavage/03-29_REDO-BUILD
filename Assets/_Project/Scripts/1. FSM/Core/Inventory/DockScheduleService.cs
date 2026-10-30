@@ -410,6 +410,12 @@ namespace GameCore.Inventory
         public DockAppointment FindById(string id)
             => string.IsNullOrEmpty(id) ? null : _appointments.FirstOrDefault(a => a.Id == id);
 
+        /// <summary>True when this door has a not-yet-finished outbound booking today or later. Such a door's trucks are sent ONLY by the
+        /// appointment dispatcher (arrival lead before the block); staged freight or a release must never pull a trailer in early.</summary>
+        public bool DoorHasOutboundBooking(int doorNumber)
+            => _appointments.Any(a => a.DoorNumber == doorNumber && a.Kind != AppointmentKind.Inbound &&
+                                      !a.Parked && !a.ClosedOut && a.Day >= CurrentDay);
+
         /// <summary>Trailers the player has pulled off the grid, waiting in the pool to be put back.
         /// Ordered soonest-first so the most urgent is leftmost, matching UnscheduledGroups.</summary>
         public IEnumerable<DockAppointment> ParkedAppointments

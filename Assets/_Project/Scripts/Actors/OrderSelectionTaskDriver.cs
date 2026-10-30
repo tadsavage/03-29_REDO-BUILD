@@ -683,6 +683,7 @@ namespace GameCore.Actors
             order.AssignedDoorNumber = 0;
             order.StagingDoorNumber = 0;
             order.ReleasedToFloor = false;
+            order.PlannedPallets = 0;   // no longer released: the count goes back to the preview
             order.AssignedLane = null;
             order.OverflowLanes.Clear();
 

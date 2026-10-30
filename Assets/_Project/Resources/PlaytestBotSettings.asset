@@ -17,7 +17,7 @@ MonoBehaviour:
   pauseAtBlockEnd: 1
   saveAtBlockEnd: 1
   decisionIntervalMinutes: 30
-  layoutName: Standard Layout
+  layoutName: Small Layout
   startDockStockers: 1
   startReachTruckOps: 1
   startReceivers: 1
@@ -31,6 +31,12 @@ MonoBehaviour:
   targetPalletsPerDay: 12
   minCashBalance: 15000
   palletsPerActiveSku: 2
+  releaseLeadHours: 3
+  outboundLeadHours: 0
+  palletTurnHours: 1.5
+  pickHoursPerPicklist: 2.25
+  loadBufferHours: 1
+  inboundBufferHours: 3
   stockCoverDays: 2
   inventoryValueCap: 60000
   bulkUpPalletsPerSku: 6

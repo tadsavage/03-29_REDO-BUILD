@@ -149,10 +149,10 @@ public class SystemsLogWindow : MonoBehaviour
     /// fall from) bursts a shower of confetti from just above the log panel down past the bottom of
     /// the screen. Silently skips the fanfare/confetti if the window isn't built yet; the message
     /// itself still buffers into _pending like any other Log call, so nothing is lost, just undecorated.</summary>
-    public static void Celebrate(string message)
+    public static void Celebrate(string message, string soundName = "Fanfare")
     {
         Log(message, CelebrationColor);
-        AudioManager.Play("Fanfare");
+        AudioManager.Play(soundName);
 
         if (_instance != null && _instance._built && _instance._docRoot != null && _instance._panel != null)
             ConfettiFx.Play(_instance._docRoot, _instance._panel);

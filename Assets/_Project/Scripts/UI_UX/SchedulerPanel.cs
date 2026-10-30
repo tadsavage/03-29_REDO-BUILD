@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 using GameCore.Economy;
 using GameCore.Events;
 using GameCore.Inventory;
+using GameCore.Labor;
 using GameCore.Services;
 
 /// <summary>
@@ -561,6 +562,33 @@ public class SchedulerPanel : IUIPanel
         if (_visible) Rebuild();
     }
 
+    // Staging/picking changes no inventory event the grid listens to, so a chip's In-Stock % or pallet count could sit stale
+    // until something else rebuilt the grid. Once a second, re-read every booking's chip figures on the day shown; if any
+    // changed, mark the same coalesced refresh above. Only the chip figures are compared, so an unchanged grid never rebuilds.
+    private string _lastChipFigures;
+    private void SyncChipFigures()
+    {
+        if (!_visible) return;
+        var schedule = Schedule();
+        if (schedule == null) return;
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var appt in schedule.Appointments)
+        {
+            if (appt == null || appt.Day != _scheduleDay || appt.Parked || appt.ClosedOut) continue;
+            if (IsInboundPo(appt))
+                sb.Append(appt.Id).Append(':').Append(CountInboundOutOfStockItems(appt)).Append(':').Append(PalletCountForAppointment(appt)).Append('|');
+            else
+                sb.Append(appt.Id).Append(':').Append(ComputeOutboundInStockPercent(appt)).Append(':').Append(PalletCountForAppointment(appt)).Append('|');
+        }
+
+        string figures = sb.ToString();
+        if (figures == _lastChipFigures) return;
+        bool firstLook = _lastChipFigures == null;
+        _lastChipFigures = figures;
+        if (!firstLook) _pendingLiveRefresh = true;
+    }
+
     // ── Shell ────────────────────────────────────────────────────────────────
 
     private VisualElement Build(out VisualElement modalOut, out VisualElement tabBarOut,
@@ -804,6 +832,7 @@ public class SchedulerPanel : IUIPanel
         // comment for why a raw per-event Rebuild() was the actual cause of the pool "shaking" and
         // tooltips never staying open. Scheduled ONCE here, same reasoning as the sweep poll above.
         content.schedule.Execute(FlushPendingLiveRefresh).Every(500);
+        content.schedule.Execute(SyncChipFigures).Every(1000);
         content.schedule.Execute(SyncDoorLiveStatus).Every(500);   // door OCCUPIED / % complete labels
 
         footerMessage = new Label();
@@ -2977,12 +3006,11 @@ public class SchedulerPanel : IUIPanel
             var order = orders.ActiveOrders.FirstOrDefault(o => o.OrderId == orderId);
             if (order == null) continue;
 
-            foreach (var li in order.LineItems)
-            {
-                int fullPallet = orders.FullPalletCases(li.SkuId);
-                if (fullPallet <= 0) continue;
-                pallets += Mathf.CeilToInt(li.QuantityNeeded / (float)fullPallet);
-            }
+            // Released orders carry their exact pallet count (fixed at release, same figure as the truck card).
+            if (order.ReleasedToFloor && order.PlannedPallets > 0) { pallets += order.PlannedPallets; continue; }
+
+            // Not released yet, or released before the count was stored: the same split release will use, worked out from the lines.
+            pallets += orders.PreviewPalletCount(order);
         }
         return pallets;
     }
@@ -4517,7 +4545,12 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         if (!ServiceLocator.TryGet<InventoryService>(out var inv) || inv == null) return 0;
 
         var allOrders = orders.ActiveOrders.Concat(orders.OrderHistory);
+        // Cases already picked have LEFT the shelf (TotalOnHand drops as they're taken), so they must
+        // count as covered on their own -- comparing shelf stock against the full quantity made the
+        // percent fall as picking progressed (100 -> 81 -> ...). Shelf stock only has to cover what
+        // is still unpicked.
         var neededBySku = new Dictionary<string, int>();
+        var pickedBySku = new Dictionary<string, int>();
         foreach (var id in appt.OrderIds)
         {
             var order = allOrders.FirstOrDefault(o => o.OrderId == id);
@@ -4526,6 +4559,8 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             {
                 neededBySku.TryGetValue(li.SkuId, out int needed);
                 neededBySku[li.SkuId] = needed + li.QuantityNeeded;
+                pickedBySku.TryGetValue(li.SkuId, out int picked);
+                pickedBySku[li.SkuId] = picked + Mathf.Clamp(li.QuantityPicked, 0, li.QuantityNeeded);
             }
         }
         if (neededBySku.Count == 0) return 0;
@@ -4533,8 +4568,10 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         int totalNeeded = 0, totalCovered = 0;
         foreach (var kv in neededBySku)
         {
+            pickedBySku.TryGetValue(kv.Key, out int picked);
+            int remaining = Mathf.Max(0, kv.Value - picked);
             totalNeeded += kv.Value;
-            totalCovered += Mathf.Min(inv.TotalOnHand(kv.Key), kv.Value);
+            totalCovered += picked + Mathf.Min(inv.TotalOnHand(kv.Key), remaining);
         }
         return totalNeeded > 0 ? Mathf.Clamp(Mathf.RoundToInt(totalCovered / (float)totalNeeded * 100f), 0, 100) : 0;
     }
@@ -5335,23 +5372,28 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         ServiceLocator.TryGet<ShipmentService>(out var shipments);
         var dockSchedule = Schedule();
         var bySku = new Dictionary<string, int>();
+        var pickedBySku = new Dictionary<string, int>();
         foreach (var order in orderList)
             foreach (var li in order.LineItems)
             {
                 bySku.TryGetValue(li.SkuId, out var needed);
                 bySku[li.SkuId] = needed + li.QuantityNeeded;
+                pickedBySku.TryGetValue(li.SkuId, out var picked);
+                pickedBySku[li.SkuId] = picked + Mathf.Clamp(li.QuantityPicked, 0, li.QuantityNeeded);
             }
 
         foreach (var kv in bySku.OrderBy(k => inv?.GetSkuData(k.Key)?.ItemNumber ?? 0))
         {
             var sku = inv?.GetSkuData(kv.Key);
+            pickedBySku.TryGetValue(kv.Key, out int pickedSoFar);
             int onHand = inv?.TotalOnHand(kv.Key) ?? 0;
             int onPo = economy?.GetTotalOnOrder(kv.Key) ?? 0;
             string nextPo = NextPoLabel(kv.Key, shipments, dockSchedule);
             // On-hand alone already covers what this trailer needs -- item reads green, per Tad's
             // explicit call, same as everywhere else "good coverage" is called out (see OutsColor).
-            Color? itemColor = onHand >= kv.Value ? ColMoney : (Color?)null;
-            col.Add(BuildTooltipItemRow(sku, BuildOutboundItemDetail(kv.Value, onHand, onPo, nextPo), itemColor));
+            // Already-picked cases left the shelf, so only the unpicked remainder needs covering.
+            Color? itemColor = onHand >= kv.Value - pickedSoFar ? ColMoney : (Color?)null;
+            col.Add(BuildTooltipItemRow(sku, BuildOutboundItemDetail(kv.Value, onHand, onPo, nextPo, Mathf.Max(0, kv.Value - pickedSoFar)), itemColor));
         }
 
         return col;
@@ -5410,7 +5452,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
     /// (fill qty is on an order, just not here yet), or green "Sufficient BOH" when nothing's on
     /// order because nothing needs to be — on-hand alone already covers what's needed — per Tad's
     /// explicit call.</summary>
-    private VisualElement BuildOutboundItemDetail(int ordered, int onHand, int onPo, string nextPoLabel)
+    private VisualElement BuildOutboundItemDetail(int ordered, int onHand, int onPo, string nextPoLabel, int stillNeeded)
     {
         var col = new VisualElement();
         col.style.flexDirection = FlexDirection.Column;
@@ -5421,7 +5463,8 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         col.Add(line1);
 
         bool nothingOnOrder = nextPoLabel == "Nothing On Order";
-        bool sufficientBoh = nothingOnOrder && onHand >= ordered;
+        // Cases already picked have left the shelf, so judge coverage on what is still unpicked.
+        bool sufficientBoh = nothingOnOrder && onHand >= stillNeeded;
         string line2Text = sufficientBoh ? "Sufficient BOH" : nextPoLabel;
         Color line2Color = sufficientBoh ? ColMoney : nothingOnOrder ? ColDanger : ColWholesale;
         var line2 = MakeText(line2Text, 19, line2Color, bold: true);
