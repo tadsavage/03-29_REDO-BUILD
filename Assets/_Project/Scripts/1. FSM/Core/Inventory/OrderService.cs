@@ -70,6 +70,7 @@ namespace GameCore.Inventory
             _timeService = ServiceLocator.Get<SimulationTimeService>();
             _eventManager = EventManager.Instance;
             _workQueue = ServiceLocator.Get<WorkQueueSystem>();
+            if (_workQueue != null) _workQueue.IsOrderOpen = id => _activeOrders.Any(o => o.OrderId == id);
             _moneyService = ServiceLocator.Get<MoneyService>();
 
             if (_eventManager != null)
@@ -2861,7 +2862,10 @@ namespace GameCore.Inventory
                 {
                     var live = LiveTasksForOrder(o.OrderId).ToList();
                     if (live.Any(t => !t.IsScratch)) { blocked = true; break; }                              // real work still going on
-                    if (live.Any(t => t.IsScratch && t.Status != WorkTaskStatus.Open)) { blocked = true; break; }   // a scratch is being (or can be) picked
+                    // A scratch someone is working blocks; an Available one blocks only while stock for it is really reachable.
+                    // Otherwise it sits Available forever (nobody can pick it) and the prompt never comes.
+                    if (live.Any(t => t.IsScratch && (t.Status == WorkTaskStatus.Assigned ||
+                                                      (t.Status == WorkTaskStatus.Available && (t.Type != WorkTaskType.OrderSelect || ScratchCanBePicked(o)))))) { blocked = true; break; }
                     if (AnyPalletInHand(o) || StagedPalletsRemainingInLane(o) > 0) { blocked = true; break; }
                     if (!live.Any(t => t.IsScratch)) continue;                                                // nothing scratched: the normal auto-close handles it
 
@@ -2932,7 +2936,12 @@ namespace GameCore.Inventory
             int door = truck.DockedAt != null ? truck.DockedAt.DoorNumber : 0;
             foreach (var o in _activeOrders)
             {
-                if (o.Status != OrderData.OrderStatus.Loading && o.Status != OrderData.OrderStatus.Loaded) continue;
+                // Any released order booked on this trailer can be let go short, not just ones already Loading/Loaded:
+                // an order still waiting on a SCRATCHES list or a part-picked pallet (PartiallyPicked / Staged) used to read
+                // "no released order on this trailer", which left the player with no way to send the truck away.
+                if (o.Status == OrderData.OrderStatus.Shipped || o.Status == OrderData.OrderStatus.Cancelled) continue;
+                bool onFloor = o.ReleasedToFloor || o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded;
+                if (!onFloor) continue;
                 if (appt != null ? !appt.OrderIds.Contains(o.OrderId) : (door <= 0 || o.AssignedDoorNumber != door)) continue;
                 list.Add(o);
             }
@@ -3368,6 +3377,7 @@ namespace GameCore.Inventory
             // pulls those pallets out of the racks into a lane for an order that no longer exists.
             CancelLeftoverTasks(order.OrderId);
             _activeOrders.Remove(order);
+            _workQueue?.RemoveFinishedForOrder(order.OrderId);   // the order's completed tasks were kept as its record until now
             CancelIdleLoadTasksForUnusedLanes();
             _orderHistory.Add(order);
 

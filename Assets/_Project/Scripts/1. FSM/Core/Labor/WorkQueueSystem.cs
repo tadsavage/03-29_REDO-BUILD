@@ -470,7 +470,27 @@ namespace GameCore.Labor
             if (task == null) return;
             task.Status = WorkTaskStatus.Complete;
             OnTaskCompleted?.Invoke(task);
-            _tasks.Remove(task);
+            // An outbound task of an order that is still on the books stays in the list as Complete until the order is
+            // archived (its trailer ships / is released), so 14 expected pallets always read 13 done + 1 live, never a
+            // queue where the finished ones have vanished. Everything else is dropped immediately as before.
+            if (!IsRetainedFinished(task)) _tasks.Remove(task);
+        }
+
+        /// <summary>Set by OrderService: true while the order still exists (not shipped / cancelled / archived).</summary>
+        public Func<string, bool> IsOrderOpen;
+
+        private bool IsRetainedFinished(WorkTask t)
+        {
+            if (t == null || string.IsNullOrEmpty(t.OrderId) || IsOrderOpen == null) return false;
+            if (t.Type != WorkTaskType.PalletPick && t.Type != WorkTaskType.OrderSelect) return false;
+            return IsOrderOpen(t.OrderId);
+        }
+
+        /// <summary>Order archived: its finished tasks have done their job as a record.</summary>
+        public int RemoveFinishedForOrder(string orderId)
+        {
+            if (string.IsNullOrEmpty(orderId)) return 0;
+            return _tasks.RemoveAll(t => t != null && t.OrderId == orderId && t.Status == WorkTaskStatus.Complete);
         }
 
         /// <summary>
@@ -511,7 +531,8 @@ namespace GameCore.Labor
         /// Returns how many rows went.</summary>
         public int ClearFinishedTasks()
         {
-            return _tasks.RemoveAll(t => t != null && (t.Status == WorkTaskStatus.Cancelled || t.Status == WorkTaskStatus.Complete));
+            return _tasks.RemoveAll(t => t != null && (t.Status == WorkTaskStatus.Cancelled ||
+                                                       (t.Status == WorkTaskStatus.Complete && !IsRetainedFinished(t))));
         }
 
         /// <summary>Hourly: keep only the newest <see cref="KeepFinishedTasks"/> finished rows so a long game doesn't bury the queue
@@ -519,13 +540,14 @@ namespace GameCore.Labor
         private void PruneOldFinishedTasks()
         {
             int finished = 0;
-            foreach (var t in _tasks) if (t != null && (t.Status == WorkTaskStatus.Cancelled || t.Status == WorkTaskStatus.Complete)) finished++;
+            foreach (var t in _tasks) if (t != null && (t.Status == WorkTaskStatus.Cancelled || (t.Status == WorkTaskStatus.Complete && !IsRetainedFinished(t)))) finished++;
             int drop = finished - KeepFinishedTasks;
             if (drop <= 0) return;
             _tasks.RemoveAll(t =>
             {
                 if (drop <= 0 || t == null) return false;
                 if (t.Status != WorkTaskStatus.Cancelled && t.Status != WorkTaskStatus.Complete) return false;
+                if (IsRetainedFinished(t)) return false;
                 drop--;
                 return true;
             });

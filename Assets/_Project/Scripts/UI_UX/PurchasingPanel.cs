@@ -1854,6 +1854,7 @@ public class PurchasingPanel : IUIPanel
     private void BuildMultiVendorTab()
     {
         _multiVendorPane.Clear();
+        _scratchRefreshers.Clear();
         _shortBySku = ItemAvailability.ShortCasesBySku();
 
         // Hidden until Yoga finishes laying out the fresh content below, then revealed next frame.
@@ -2688,6 +2689,7 @@ public class PurchasingPanel : IUIPanel
         // scroll position and every expanded vendor's own inner scroll position back to the top on
         // every single +/- press, which is exactly the annoyance BuildItemCard's own Apply() (on the
         // old Create tab) already avoids the same way.
+        _scratchRefreshers.Add(() => statCritical.text = $"[{TotalCriticalShortfall(vendorId)}] potential scratches");
         void RefreshHeader()
         {
             var lines = MultiBasketLines(vendorId);
@@ -2937,18 +2939,20 @@ public class PurchasingPanel : IUIPanel
             // next rebuilds (switching tabs, dispatching, etc.) — an accepted gap, since chasing that
             // live across every open group would mean a full Rebuild() on every keystroke/click here,
             // which is exactly the scroll-position churn this targeted-refresh approach exists to avoid.
+            RunScratchRefreshers();
+
+            onQtyChanged?.Invoke();
+        }
+
+        // Live updater for this row's scratch figure; also runs for edits made on any other row / vendor.
+        _scratchRefreshers.Add(() =>
+        {
             int newInDemand = ScratchCases(skuId);
             inDemandLabel.text = newInDemand.ToString("N0");
             inDemandLabel.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColSubtleText);
             num.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColSubtleText);
-            // The item's NAME needs the same live critical/normal color flip as its SKU number above —
-            // previously only `num` was corrected here, so a SKU that stopped being critical kept its
-            // description stuck red until the next full Rebuild().
             desc.style.color = new StyleColor(newInDemand > 0 ? ColDanger : ColTitleText);
-            RefreshScratchTotal();
-
-            onQtyChanged?.Invoke();
-        }
+        });
 
         int step = Mathf.Max(1, sku.Ti * sku.Hi);
         minus.clicked += () =>
@@ -3076,7 +3080,21 @@ public class PurchasingPanel : IUIPanel
     private int ScratchCases(string skuId)
     {
         if (string.IsNullOrEmpty(skuId) || !_shortBySku.TryGetValue(skuId, out int short_)) return 0;
-        return Mathf.Max(0, short_ - TotalInProgressCases(skuId));
+        // Cases already on a dispatched PO count as covered too (Tad 2026-10-30): ordering must not make the figure
+        // jump back up once the truck is dispatched. When the stock arrives it moves from on-order to on-hand.
+        int onOrder = Economy()?.GetTotalOnOrder(skuId) ?? 0;
+        return Mathf.Max(0, short_ - TotalInProgressCases(skuId) - onOrder);
+    }
+
+    // Everything on screen that shows a scratch figure registers a small updater here (rebuilt with the tab), so a
+    // quantity change on ONE row refreshes the same item under every other vendor, each vendor's header count and
+    // the grand total above - not just the row being edited.
+    private readonly List<System.Action> _scratchRefreshers = new();
+
+    private void RunScratchRefreshers()
+    {
+        foreach (var r in _scratchRefreshers) r();
+        RefreshScratchTotal();
     }
 
     private int VendorScratchCases(string vendorId)

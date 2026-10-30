@@ -4140,3 +4140,315 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 4 03:36 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
 - day 4 03:38 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
 - day 4 03:41 | **OVERLAP** | OVERLAP OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_2 & OutboundPallet_57a176a1-2de3-4837-b74c-ca9a7d4668f1_1 @1A-1
+- day 3 01:08 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(59, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 27)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 27)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(58, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(60, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(51, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(59, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(51, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 28)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(51, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(58, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 28)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 27)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(57, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 27)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 27)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(58, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 28)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(60, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(57, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(51, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 32)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 28)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 33)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(60, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 27)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 37)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 27)
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 28)
+- day 3 01:08 | **REPEATING** | x25 and counting: [NoWaypointIndicator] Alert emote 'emote_exclamations' not found in Resources/Emotes.
+- day 3 01:08 | **WARN** | To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 3 01:08 | **WARN** | To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(59, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 27)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(51, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 27)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 27)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(58, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(59, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(51, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(58, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 28)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 28)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(58, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 27)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(60, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 27)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 28)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(57, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 27)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(54, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 27)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(57, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(60, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 28)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(51, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(51, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(53, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(60, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(49, 28)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(56, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(50, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 37)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(52, 32)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 33)
+- day 3 13:29 | **OVERLAP** | OVERLAP A Chep & A Chep @(55, 37)
+- day 1 08:00 | **REPEATING** | x25 and counting: Internal: JobTempAlloc has allocations that are more than the maximum lifespan of 4 frames old - this is not allowed and likely a leak
+- day 1 08:00 | **REPEATING** | x25 and counting: To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 1 08:00 | **REPEATING** | x25 and counting: Internal: JobTempAlloc has allocations that are more than the maximum lifespan of 4 frames old - this is not allowed and likely a leak
+- day 1 08:00 | **REPEATING** | x25 and counting: To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 2 15:00 | **OVERLAP** | OVERLAP Pallet_04_Slot4_Tier0 & Pallet_02_Slot2_Tier0 @1B-1
+- day 2 15:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-3
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-2
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-3 bottom=2.43
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_2 @1B-4 bottom=2.50
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_2 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-4
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-2 bottom=2.17
+- day 2 15:00 | **OVERLAP** | OVERLAP Pallet_04_Slot4_Tier0 & Pallet_02_Slot2_Tier0 @1B-1
+- day 2 15:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-3
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-2
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-3 bottom=2.43
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_2 @1B-4 bottom=2.50
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_2 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-4
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-2 bottom=2.17
+- day 2 15:00 | **OVERLAP** | OVERLAP Pallet_04_Slot4_Tier0 & Pallet_02_Slot2_Tier0 @1B-1
+- day 2 15:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-3
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-2
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-3 bottom=2.43
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_2 @1B-4 bottom=2.50
+- day 2 15:00 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_2 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-4
+- day 2 15:00 | **FLOATING** | FLOATING OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-2 bottom=2.17
+- day 2 15:30 | **FLOATING** | FLOATING Pallet_02_Slot2_Tier0 @1B-1 bottom=1.30
+- day 2 15:30 | **FLOATING** | FLOATING Pallet_02_Slot2_Tier0 @1B-1 bottom=1.30
+- day 2 15:30 | **FLOATING** | FLOATING Pallet_02_Slot2_Tier0 @1B-1 bottom=1.30
+- day 2 15:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-3
+- day 2 15:45 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-2
+- day 2 15:45 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_2 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-4
+- day 2 15:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-3
+- day 2 15:45 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-2
+- day 2 15:45 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_2 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-4
+- day 2 15:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-3
+- day 2 15:45 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-2
+- day 2 15:45 | **OVERLAP** | OVERLAP OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_2 & OutboundPallet_286df513-b1f5-4445-b276-6c165a09eeb7_1 @1B-4
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_06_Slot5_Tier0 @1A-1
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_06_Slot4_Tier0 @1B-1
+- day 3 16:00 | **FLOATING** | FLOATING Pallet_06_Slot4_Tier0 @1B-1 bottom=2.16
+- day 3 16:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-2 bottom=2.32
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & OutboundPallet_0ded9fb8-3556-49d8-9787-f927ca7d79f0_1 @1A-2
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1B-2
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_06_Slot5_Tier0 @1A-1
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_06_Slot4_Tier0 @1B-1
+- day 3 16:00 | **FLOATING** | FLOATING Pallet_06_Slot4_Tier0 @1B-1 bottom=2.16
+- day 3 16:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-2 bottom=2.32
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & OutboundPallet_0ded9fb8-3556-49d8-9787-f927ca7d79f0_1 @1A-2
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1B-2
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_06_Slot5_Tier0 @1A-1
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_06_Slot4_Tier0 @1B-1
+- day 3 16:00 | **FLOATING** | FLOATING Pallet_06_Slot4_Tier0 @1B-1 bottom=2.16
+- day 3 16:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-2 bottom=2.32
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & OutboundPallet_0ded9fb8-3556-49d8-9787-f927ca7d79f0_1 @1A-2
+- day 3 16:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1B-2
+- day 3 16:53 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1B-2
+- day 3 16:53 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1B-2 bottom=1.30
+- day 4 14:08 | **TRUCK-STALLED** | TRUCK-STALLED Truck→PO_IG4101 state=DepartToApproach 105s at (-11.3, 0.0, 18.7)
+- day 4 17:45 | **OVERLAP** | OVERLAP OutboundPallet_00ea67ed-b8fa-4f54-bf6d-053123dcf82b_2 & OutboundPallet_00ea67ed-b8fa-4f54-bf6d-053123dcf82b_1 @1A-1
+- day 4 17:45 | **OVERLAP** | OVERLAP OutboundPallet_00ea67ed-b8fa-4f54-bf6d-053123dcf82b_2 & OutboundPallet_00ea67ed-b8fa-4f54-bf6d-053123dcf82b_1 @1A-1
+- day 4 17:45 | **OVERLAP** | OVERLAP OutboundPallet_00ea67ed-b8fa-4f54-bf6d-053123dcf82b_2 & OutboundPallet_00ea67ed-b8fa-4f54-bf6d-053123dcf82b_1 @1A-1
+- day 4 17:53 | **OVERLAP** | OVERLAP OutboundPallet_00ea67ed-b8fa-4f54-bf6d-053123dcf82b_2 & OutboundPallet_00ea67ed-b8fa-4f54-bf6d-053123dcf82b_1 @1A-1
+- day 4 20:26 | **WARN** | [ReachTruckOperator] Replenish: could not reach pallet at 02-02-A1 within 0.15m.
+- day 4 20:26 | **WARN** | [ReachTruckOperator] Replenish: could not reach pallet at 02-02-A1 within 0.15m.
+- day 4 20:26 | **WARN** | [ReachTruckOperator] Replenish: could not reach pallet at 02-02-A1 within 0.15m.
+- day 4 20:26 | **WARN** | [ReachTruckOperator] Replenish: could not reach pallet at 02-02-A1 within 0.15m.
+- day 5 16:53 | **NO-TASK** | NO-TASK lane pallet 2B-1 sku=201495 load=8209489508
+- day 5 17:38 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & OutboundPallet_b89bbfac-5cb8-4240-b588-9af84d38d3dc_1 @2A-2
+- day 5 17:45 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & OutboundPallet_b89bbfac-5cb8-4240-b588-9af84d38d3dc_1 @2A-2
+- day 5 17:45 | **FLOATING** | FLOATING OutboundPallet_b89bbfac-5cb8-4240-b588-9af84d38d3dc_1 @2A-2 bottom=1.30
+- day 5 17:45 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & OutboundPallet_b89bbfac-5cb8-4240-b588-9af84d38d3dc_1 @2A-2
+- day 5 17:45 | **FLOATING** | FLOATING OutboundPallet_b89bbfac-5cb8-4240-b588-9af84d38d3dc_1 @2A-2 bottom=1.30
+- day 5 17:45 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & OutboundPallet_b89bbfac-5cb8-4240-b588-9af84d38d3dc_1 @2A-2
+- day 5 17:45 | **FLOATING** | FLOATING OutboundPallet_b89bbfac-5cb8-4240-b588-9af84d38d3dc_1 @2A-2 bottom=1.30
+- day 5 17:53 | **FLOATING** | FLOATING OutboundPallet_b89bbfac-5cb8-4240-b588-9af84d38d3dc_1 @2A-2 bottom=1.30
+- day 5 19:11 | **GHOST-SLOT** | RECORD aedeaaac 201495 x40 cell=(-1, -1) lane= - no object
+- day 5 19:11 | **GHOST-SLOT** | RECORD aedeaaac 201495 x40 cell=(-1, -1) lane= - no object
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(31, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @3A-2
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @2C-4
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(17, 79)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 74)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(20, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(18, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(22, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @3A-4
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(25, 74)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(32, 74)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @3A-1
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(29, 74)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(27, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(23, 74)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(23, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(30, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(23, 74)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @3A-4
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(27, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(30, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(18, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(25, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @2B-1
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @3B-5
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(32, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @3A-3
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(29, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 74)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(31, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(25, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(21, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @2C-4
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @3A-3
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(27, 74)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @3A-1
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(22, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(17, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(30, 74)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @2C-5
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(23, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(25, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(19, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @2B-2
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(17, 79)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @3A-2
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(21, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(22, 74)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @2B-1
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(18, 79)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(23, 75)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(18, 79)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(32, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(22, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @2C-5
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(21, 70)
+- day 5 19:13 | **OVERLAP** | OVERLAP A Chep & A Chep @(21, 74)
+- day 5 20:58 | **OVERLAP** | OVERLAP Pallet_05_Slot8_Tier1 & Pallet_00_Slot2_Tier0 @3B-4
+- day 5 20:58 | **FLOATING** | FLOATING Pallet_00_Slot2_Tier0 @3B-4 bottom=2.02
+- day 5 20:58 | **FLOATING** | FLOATING Pallet_01_Slot3_Tier0 @3B-3 bottom=2.02
+- day 5 20:58 | **OVERLAP** | OVERLAP Pallet_01_Slot3_Tier0 & Pallet_04_Slot8_Tier0 @3B-3
+- day 5 21:00 | **OVERLAP** | OVERLAP Pallet_05_Slot8_Tier1 & Pallet_00_Slot2_Tier0 @3B-4
+- day 5 21:00 | **FLOATING** | FLOATING Pallet_00_Slot2_Tier0 @3B-4 bottom=2.02
+- day 5 21:00 | **FLOATING** | FLOATING Pallet_01_Slot3_Tier0 @3B-3 bottom=2.02
+- day 5 21:00 | **OVERLAP** | OVERLAP Pallet_01_Slot3_Tier0 & Pallet_04_Slot8_Tier0 @3B-3
+- day 5 21:00 | **OVERLAP** | OVERLAP Pallet_05_Slot8_Tier1 & Pallet_00_Slot2_Tier0 @3B-4
+- day 5 21:00 | **FLOATING** | FLOATING Pallet_00_Slot2_Tier0 @3B-4 bottom=2.02
+- day 5 21:00 | **FLOATING** | FLOATING Pallet_01_Slot3_Tier0 @3B-3 bottom=2.02
+- day 5 21:00 | **OVERLAP** | OVERLAP Pallet_01_Slot3_Tier0 & Pallet_04_Slot8_Tier0 @3B-3
+- day 5 21:00 | **OVERLAP** | OVERLAP Pallet_05_Slot8_Tier1 & Pallet_00_Slot2_Tier0 @3B-4
+- day 5 21:00 | **FLOATING** | FLOATING Pallet_00_Slot2_Tier0 @3B-4 bottom=2.02
+- day 5 21:00 | **FLOATING** | FLOATING Pallet_01_Slot3_Tier0 @3B-3 bottom=2.02
+- day 5 21:00 | **OVERLAP** | OVERLAP Pallet_01_Slot3_Tier0 & Pallet_04_Slot8_Tier0 @3B-3
+- day 5 21:11 | **WARN** | [InventoryService] Lane 1B lock was held for over 120s - treating it as leaked and taking it over.
+- day 5 21:11 | **WARN** | [InventoryService] Lane 1B lock was held for over 120s - treating it as leaked and taking it over.
+- day 5 21:11 | **WARN** | [InventoryService] Lane 1B lock was held for over 120s - treating it as leaked and taking it over.
+- day 5 21:11 | **WARN** | [InventoryService] Lane 1B lock was held for over 120s - treating it as leaked and taking it over.
+- day 5 21:11 | **WARN** | [InventoryService] Lane 1B lock was held for over 120s - treating it as leaked and taking it over.
+- day 5 21:11 | **WARN** | [InventoryService] Lane 1B lock was held for over 120s - treating it as leaked and taking it over.
+- day 5 21:28 | **NO-TASK** | NO-TASK lane pallet 3B-3 sku=897034 load=8788945200
+- day 5 21:45 | **NO-TASK** | NO-TASK lane pallet 3B-2 sku=897034 load=3325585644
+- day 5 21:45 | **NO-TASK** | NO-TASK lane pallet 3B-2 sku=897034 load=3325585644
+- day 5 21:45 | **NO-TASK** | NO-TASK lane pallet 3B-2 sku=897034 load=3325585644
+- day 5 21:52 | **WARN** | [OrderService] Order OG6102 closed with a STAGED pallet (40 cs) that never made the trailer - not billed, returning it to stock.
+- day 5 21:52 | **WARN** | [OrderService] Order OG6102 closed with a STAGED pallet (40 cs) that never made the trailer - not billed, returning it to stock.
+- day 5 21:52 | **WARN** | [OrderService] Order OG6102 closed with a STAGED pallet (40 cs) that never made the trailer - not billed, returning it to stock.
+- day 5 21:52 | **WARN** | [OrderService] Order OG6102 closed with a STAGED pallet (40 cs) that never made the trailer - not billed, returning it to stock.
+- day 5 21:52 | **WARN** | [OrderService] Order OG6102 closed with a STAGED pallet (40 cs) that never made the trailer - not billed, returning it to stock.
+- day 5 21:52 | **WARN** | [OrderService] Order OG6102 closed with a STAGED pallet (40 cs) that never made the trailer - not billed, returning it to stock.
