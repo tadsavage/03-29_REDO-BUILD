@@ -187,6 +187,11 @@ namespace GameCore.Actors
             var stuck = _activeTask;
             Debug.LogWarning($"[ReachTruckOperator] '{name}' has been on {stuck.Type} task {stuck.TaskId} for over {StuckTaskSeconds:F0}s without finishing — releasing it and re-evaluating the queue.");
             StopAllCoroutines();
+            // StopAllCoroutines never runs the routine's own cleanup, so hand back the lane entry lock and any staging
+            // slot here. Missing this left lane 1A locked for the rest of the session: every later delivery into that
+            // lane (dock stockers included) queued at the lane mouth behind a lock nobody held any more.
+            ReleaseLaneLock();
+            ReleaseStagingReservation();
 
             if (!string.IsNullOrEmpty(_activeReservedAddress))
             {

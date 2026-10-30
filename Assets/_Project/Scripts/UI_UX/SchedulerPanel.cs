@@ -127,11 +127,10 @@ public class SchedulerPanel : IUIPanel
     /// covers the full row rather than just the text's own line box.</summary>
     private const float ScheduleRowHeight = 30f;
 
-    /// <summary>How far either side of today the timeline will page. Backwards is 0 —
-    /// DockScheduleService purges a day's appointments the moment it stops being "today", so
-    /// there's nothing left to page back to. Forwards is just far enough to see the
-    /// consequences of a lead time.</summary>
-    private const int ScheduleDaysBack = 0;
+    /// <summary>How far either side of today the timeline will page. Backwards is ONE day: yesterday stays
+    /// up as a red "last look" until the next rollover (DockScheduleService.KeepPastDays), and the day
+    /// after that is gone for good. Forwards is just far enough to see the consequences of a lead time.</summary>
+    private const int ScheduleDaysBack = 1;
     private const int ScheduleDaysAhead = 7;
 
     /// <summary>
@@ -1035,6 +1034,10 @@ public class SchedulerPanel : IUIPanel
         // while a stuck true costs it forever.
         _pointerOverPoolBox = false;
         _focusedCell = null;
+
+        // A view left on a day that has since rolled out of the paging window (the panel was closed across two
+        // midnights) snaps forward to the oldest day still on the books, so it never shows a purged day.
+        if (_scheduleDay != int.MinValue) _scheduleDay = Mathf.Max(_scheduleDay, CurrentDay() - ScheduleDaysBack);
 
         if (_titleLabel != null) _titleLabel.text = TitleFor(_tab);
         _tabHeader.Clear();
@@ -3813,21 +3816,30 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     // where the clock is. Only built when the tab is looking at today; otherwise left null, which is
     // what SyncNewSchedulerSweep already treats as "nothing to sync" (same guard the no-doors branch
     // of BuildNewScheduler uses).
-    if (_scheduleDay == today)
+    // Time that is gone is tinted red so a glance says so. On a day already over the whole lane is red; on today
+    // it is red up to the sweep line, which SyncNewSchedulerSweep moves. Lives in laneOverlay (created above, in
+    // scope here) so it sits behind the door rows' own appointment cells rather than covering them.
+    if (_scheduleDay <= today)
     {
-        // Everything BEFORE now on today's timeline, tinted red so a glance says "that time is
-        // gone" — lives in laneOverlay (created above, in scope here) so it sits behind the door
-        // rows' own appointment cells rather than covering them.
         var pastOverlay = new VisualElement();
         pastOverlay.style.position = Position.Absolute;
         pastOverlay.style.left = 0;
         pastOverlay.style.top = 0; pastOverlay.style.bottom = 0;
-        pastOverlay.style.width = 0; // set below by SyncNewSchedulerSweep, same % as the sweep line
+        pastOverlay.style.width = 0; // today: set below by SyncNewSchedulerSweep, same % as the sweep line
+        if (_scheduleDay < today) pastOverlay.style.width = Length.Percent(100f);
         pastOverlay.style.backgroundColor = new StyleColor(new Color(ColDanger.r, ColDanger.g, ColDanger.b, 0.25f));
         pastOverlay.pickingMode = PickingMode.Ignore;
         laneOverlay.Add(pastOverlay);
         _newSchedulerPastOverlay = pastOverlay;
+    }
+    else
+    {
+        _newSchedulerPastOverlay = null;
+    }
 
+    // The sweep line and its badge only exist for today: a day already over has no "now" to point at.
+    if (_scheduleDay == today)
+    {
         var sweepHost = new VisualElement();
         sweepHost.style.position = Position.Absolute;
         sweepHost.style.left = NewSchedulerDoorLabelWidth; sweepHost.style.right = 0;
@@ -3875,7 +3887,6 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     else
     {
         _newSchedulerSweepLine = null;
-        _newSchedulerPastOverlay = null;
         _newSchedulerSweepBadge = null;
     }
 

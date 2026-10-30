@@ -270,10 +270,10 @@ namespace GameCore.Inventory
         /// <summary>Auto-placed pickups start at least this many in-game hours from now (Tad, 2026-10-26).</summary>
         public const int MinPickupLeadHours = 4;
 
-        /// <summary>How many past days of appointments to keep once a day fully rolls over. Zero —
-        /// there's no need to look back at a past day's schedule, so a day's appointments are purged
-        /// the moment it stops being "today" rather than lingering around for archiving.</summary>
-        private const int KeepPastDays = 0;
+        /// <summary>How many past days of appointments survive a rollover. One: yesterday stays on the
+        /// Scheduler as a last look, painted red, so the player can read it before closing out the day.
+        /// The day after that it is purged, and the Scheduler can no longer page back to it.</summary>
+        private const int KeepPastDays = 1;
 
         private readonly List<DockAppointment> _appointments = new();
         private EventManager _eventManager;
@@ -1658,26 +1658,11 @@ namespace GameCore.Inventory
 
         private void OnDayChanged(string eventId, int newDay)
         {
+            // Yesterday stays whole — every kind, trailers still docked or mid-load included — until the next rollover.
+            // Purging it at midnight used to strand trailers still being loaded (2026-10-18) and left the Scheduler with
+            // nothing to show for the day just gone. Anything older than that goes now.
             int cutoff = newDay - KeepPastDays;
-
-            // Yesterday's booking is only history once its work is done. Purging it at midnight stranded trailers still
-            // docked or being loaded (their card read "Outbound Trailer / 0%", the dwell clock and the fine sweep lost
-            // the appointment) and orders that were mid-pick (2026-10-18). Keep an outbound appointment for ONE extra day
-            // while a truck on site holds its id or any of its orders is still unshipped.
-            var onSite = new HashSet<string>();
-            foreach (var t in Object.FindObjectsByType<TruckController>())
-                if (t != null && t.IsOutbound && !t.IsLeaving && !string.IsNullOrEmpty(t.OutboundAppointmentId))
-                    onSite.Add(t.OutboundAppointmentId);
-            ServiceLocator.TryGet(out OrderService liveOrders);
-            _appointments.RemoveAll(a =>
-            {
-                if (a.Day >= cutoff) return false;
-                if (a.Kind == AppointmentKind.Inbound || a.Day < newDay - 1) return true;   // inbound history / older than a day of grace
-                if (onSite.Contains(a.Id)) return false;
-                if (liveOrders != null && a.OrderIds != null &&
-                    liveOrders.ActiveOrders.Any(o => a.OrderIds.Contains(o.OrderId))) return false;
-                return true;
-            });
+            _appointments.RemoveAll(a => a.Day < cutoff);
 
             // NOTE: no re-booking sweep here any more. The purge does strand orders that outlived
             // their appointment, but re-booking them automatically is exactly the behaviour that made
@@ -1797,7 +1782,7 @@ namespace GameCore.Inventory
             // BookInboundNow's live-truck notes are still exempt entirely; they aren't reservations.
             _appointments.RemoveAll(a => a.Kind == AppointmentKind.Inbound
                                       && !string.IsNullOrEmpty(a.ShipmentPoNumber)
-                                      && a.Day < today);
+                                      && a.Day < today - KeepPastDays);
 
             // Inbound: a PARKED box (unscheduled pool — e.g. an automatic backfill waiting for the player to book
             // it) holds no door and promised no slot, and a box already CLOSED OUT has been judged once. Judging

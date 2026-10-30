@@ -4452,3 +4452,146 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 5 21:52 | **WARN** | [OrderService] Order OG6102 closed with a STAGED pallet (40 cs) that never made the trailer - not billed, returning it to stock.
 - day 5 21:52 | **WARN** | [OrderService] Order OG6102 closed with a STAGED pallet (40 cs) that never made the trailer - not billed, returning it to stock.
 - day 5 21:52 | **WARN** | [OrderService] Order OG6102 closed with a STAGED pallet (40 cs) that never made the trailer - not billed, returning it to stock.
+- day 3 01:08 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:08 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:08 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:00 | **NO-RECORD** | NO-RECORD lane pallet 1B-2 A Chep
+- day 1 08:00 | **NO-RECORD** | NO-RECORD lane pallet 1B-1 A Chep
+- day 1 08:00 | **GHOST-SLOT** | SLOT 01-07-00 names 5be1eac8 - no object
+- day 1 08:00 | **GHOST-SLOT** | SLOT 02-08-A0 names be25a0d5 - no object
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 3 01:08 | **FLOATING** | FLOATING A Chep @1A-2 bottom=1.30
+- day 3 01:08 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 3 01:08 | **FLOATING** | FLOATING A Chep @1A-3 bottom=1.30
+- day 1 08:00 | **NO-RECORD** | NO-RECORD lane pallet 1B-2 A Chep
+- day 1 08:00 | **NO-RECORD** | NO-RECORD lane pallet 1B-1 A Chep
+- day 1 10:13 | **ERROR** | Rotation quaternions must be unit length.
+  ```
+  UnityEngine.Rigidbody:MoveRotation (UnityEngine.Quaternion)
+  AgentAnimation:LateUpdate () (at Assets/_Project/Scripts/Actors/AgentAnimation.cs:232)
+  ```
+- day 1 10:13 | **REPEATING** | x25 and counting: Rotation quaternions must be unit length.
+- day 1 13:00 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1A-5 bottom=2.79
+- day 1 13:00 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier1 & Pallet_00_Slot0_Tier0 @1A-5
+- day 1 13:14 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-2.29, 1.11, 39.32) — walking out to (6.83, 0.08, 39.32) (8.19m to mesh).
+- day 1 15:34 | **WARN** | [InventoryService] Lane 1B lock was held for over 120s - treating it as leaked and taking it over.
+- day 1 20:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-2 bottom=2.15
+- day 1 22:00 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_07_Slot7_Tier0 @1C-1
+- day 1 22:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=2.60
+- day 1 22:00 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1A-1 bottom=2.60
+- day 1 10:19 | **GHOST-SLOT** | SLOT 01-05-01 names bd1681bc - no object
+- day 1 10:19 | **GHOST-SLOT** | SLOT 02-07-B1 names 3d68e7d7 - no object
+- day 1 13:19 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_02_Slot1_Tier1 @1A-5
+- day 1 13:19 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1A-5 bottom=2.79
+- day 1 17:04 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1A-3 bottom=2.47
+- day 1 17:04 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_06_Slot6_Tier0 @1A-3
+- day 1 17:04 | **OVERLAP** | OVERLAP Pallet_07_Slot7_Tier0 & Pallet_02_Slot2_Tier0 @1A-2
+- day 1 17:04 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-4 bottom=2.06
+- day 1 17:04 | **FLOATING** | FLOATING Pallet_02_Slot2_Tier0 @1A-2 bottom=2.47
+- day 1 21:19 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1B-3 bottom=2.52
+- day 1 21:19 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 1 13:04 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_02_Slot1_Tier1 @1A-5
+- day 1 13:04 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1A-5 bottom=2.79
+- day 1 13:04 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1A-5 bottom=2.79
+- day 1 13:04 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier1 & Pallet_00_Slot0_Tier0 @1A-5
+- day 1 17:04 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-5 bottom=2.47
+- day 1 17:04 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1B-4 bottom=2.16
+- day 1 17:04 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_02_Slot1_Tier1 @1B-4
+- day 2 00:04 | **DOOR-DEADLOCK** | OG3577 is Loading but door 1's truck has waited 90 min with no one loading it.
+- day 4 17:16 | **WARN** | [OrderService] Order OG4580 closed with a IN TRANSIT pallet (21 cs) that never made the trailer - not billed, returning it to stock.
+- day 4 18:19 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1C-1 (order 3ac0773c-773d-416c-a52d-d0c2061626aa gone)
+- day 1 08:00 | **GHOST-SLOT** | SLOT 01-05-01 names 56599e13 - no object
+- day 1 08:00 | **GHOST-SLOT** | SLOT 01-01-A0 names 4859a503 - no object
+- day 1 08:00 | **GHOST-SLOT** | SLOT 01-02-B1 names 0d047bef - no object
+- day 1 11:50 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-2.31, 1.11, 42.80) — walking out to (-2.31, 0.08, 51.83) (8.10m to mesh).
+- day 2 04:06 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-4 bottom=2.06
+- day 2 08:36 | **OVERLAP** | OVERLAP Pallet_07_Slot7_Tier0 & Pallet_01_Slot1_Tier0 @1D-2
+- day 2 00:45 | **OVERLAP** | OVERLAP Pallet_03_Slot2_Tier1 & A Chep @(37, 78)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1G-3 Pallet_09_Slot4_Tier1
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1F-2 Pallet_03_Slot1_Tier1
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & Pallet_01_Slot0_Tier1 @(36, 78)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1G-4 Pallet_06_Slot3_Tier0
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & Pallet_02_Slot1_Tier1 @(30, 78)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1G-3 Pallet_08_Slot4_Tier0
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1F-5 Pallet_03_Slot1_Tier1
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(29, 78)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1C-1 Pallet_01_Slot0_Tier1
+- day 2 00:45 | **OVERLAP** | OVERLAP Pallet_02_Slot0_Tier0 & A Chep @(31, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & A Chep @(32, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & Pallet_11_Slot5_Tier1 @(37, 78)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1F-1 Pallet_02_Slot1_Tier0
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1G-5 Pallet_04_Slot2_Tier0
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1G-5 Pallet_05_Slot2_Tier1
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(27, 78)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1F-5 Pallet_02_Slot1_Tier0
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1F-3 Pallet_00_Slot0_Tier0
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & Pallet_01_Slot1_Tier0 @(33, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & Pallet_00_Slot0_Tier0 @(35, 78)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1G-2 Pallet_10_Slot5_Tier0
+- day 2 00:45 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & A Chep @(37, 78)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1F-3 Pallet_13_Slot6_Tier1
+- day 2 00:45 | **OVERLAP** | OVERLAP Pallet_04_Slot3_Tier0 & A Chep @(35, 81)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1F-2 Pallet_12_Slot6_Tier0
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1F-4 Pallet_04_Slot2_Tier0
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1G-4 Pallet_07_Slot3_Tier1
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1F-1 Pallet_14_Slot7_Tier0
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1F-4 Pallet_01_Slot0_Tier1
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & Pallet_02_Slot1_Tier0 @(34, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & Pallet_00_Slot1_Tier0 @(28, 78)
+- day 2 00:45 | **STALE-ASSIGNED** | STALE-ASSIGNED Replenish Replenish 02-08-01 with SKU 113489 from 01-01-A0 662s
+- day 2 00:45 | **GHOST-SLOT** | SLOT 02-08-00 names 63887540 - object is 10.7 m away at (-17.94, 3.11, 37.71) (parent PlacedObjectsContainer)
+- day 2 00:45 | **GHOST-SLOT** | SLOT 02-04-A1 names b04d1d7d - no object
+- day 2 00:45 | **GHOST-SLOT** | SLOT 02-02-00 names cb612e4a - no object
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-4
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(31, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(32, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(37, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(30, 78)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1A-2 Pallet_01_Slot4_Tier0
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(34, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(34, 81)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-3
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(27, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 81)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(33, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(37, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(29, 78)
+- day 2 00:45 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 78)
+- day 2 00:45 | **NO-RECORD** | NO-RECORD lane pallet 1A-2 Pallet_00_Slot5_Tier0
+- day 2 00:45 | **STALE-ASSIGNED** | STALE-ASSIGNED Replenish Replenish 02-08-01 with SKU 113489 from 01-01-A0 716s
+- day 2 01:08 | **WARN** | [InventoryService] Lane 1A lock was held for over 120s - treating it as leaked and taking it over.
+- day 2 06:30 | **FLOATING** | FLOATING Pallet_07_Slot3_Tier1 @1E-3 bottom=2.26
+- day 2 06:30 | **OVERLAP** | OVERLAP Pallet_07_Slot3_Tier1 & Pallet_04_Slot2_Tier0 @1E-3
+- day 2 06:30 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1E-5 bottom=2.26
+- day 2 06:30 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_03_Slot1_Tier1 @1E-5
+- day 2 06:30 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_12_Slot6_Tier0 @1D-1
+- day 2 06:30 | **OVERLAP** | OVERLAP Pallet_14_Slot7_Tier0 & Pallet_05_Slot2_Tier1 @1E-4
+- day 2 06:30 | **FLOATING** | FLOATING Pallet_05_Slot2_Tier1 @1E-4 bottom=2.16
+- day 2 06:30 | **FLOATING** | FLOATING Pallet_13_Slot6_Tier1 @1D-2 bottom=2.26
+- day 2 06:30 | **OVERLAP** | OVERLAP Pallet_13_Slot6_Tier1 & Pallet_01_Slot0_Tier1 @1D-2
+- day 2 06:30 | **FLOATING** | FLOATING Pallet_12_Slot6_Tier0 @1D-1 bottom=2.26
+- day 2 08:30 | **FLOATING** | FLOATING Pallet_07_Slot3_Tier1 @1E-3 bottom=2.26
+- day 2 08:30 | **OVERLAP** | OVERLAP Pallet_07_Slot3_Tier1 & Pallet_04_Slot2_Tier0 @1E-3
+- day 2 08:30 | **FLOATING** | FLOATING Pallet_11_Slot5_Tier1 @1E-1 bottom=2.26
+- day 2 08:30 | **OVERLAP** | OVERLAP Pallet_11_Slot5_Tier1 & Pallet_08_Slot4_Tier0 @1E-1
+- day 2 08:30 | **FLOATING** | FLOATING Pallet_09_Slot4_Tier1 @1E-2 bottom=2.26
+- day 2 08:30 | **OVERLAP** | OVERLAP Pallet_09_Slot4_Tier1 & Pallet_06_Slot3_Tier0 @1E-2
+- day 2 08:30 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1E-5 bottom=2.26
+- day 2 08:30 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_03_Slot1_Tier1 @1E-5
+- day 2 08:30 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_12_Slot6_Tier0 @1D-1
+- day 2 08:30 | **OVERLAP** | OVERLAP Pallet_14_Slot7_Tier0 & Pallet_05_Slot2_Tier1 @1E-4
+- day 2 08:30 | **FLOATING** | FLOATING Pallet_05_Slot2_Tier1 @1E-4 bottom=2.16
+- day 2 08:30 | **FLOATING** | FLOATING Pallet_13_Slot6_Tier1 @1D-2 bottom=2.26
+- day 2 08:30 | **OVERLAP** | OVERLAP Pallet_13_Slot6_Tier1 & Pallet_01_Slot0_Tier1 @1D-2
+- day 2 08:30 | **FLOATING** | FLOATING Pallet_12_Slot6_Tier0 @1D-1 bottom=2.26
+- day 2 09:15 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-2
+- day 2 09:15 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1

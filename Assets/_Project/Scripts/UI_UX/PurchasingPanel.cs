@@ -202,6 +202,12 @@ public class PurchasingPanel : IUIPanel
     /// <summary>Whether the item filter dropdown's popout panel is currently open.</summary>
     private bool _multiVendorItemFilterOpen = false;
 
+    /// <summary>The item filter's checkbox list as it was last built, and where its scroll sat. Every pick rebuilds the
+    /// whole tab (the popout included), so the position is carried across by hand — otherwise the list snapped back to
+    /// the A's on every tick and the player had to scroll back down to the W's again.</summary>
+    private ScrollView _itemPopoutScrollView;
+    private Vector2 _itemPopoutScroll;
+
     /// <summary>Root passed into the constructor, kept for the lifetime of the panel — this is the
     /// only ancestor common to every click on screen (including clicks that land on nothing and get
     /// dispatched to the document root itself), so the global "close the open dropdown" capture
@@ -1853,6 +1859,9 @@ public class PurchasingPanel : IUIPanel
 
     private void BuildMultiVendorTab()
     {
+        // Read the item checkbox list's scroll from the popout being replaced, so ANY rebuild (sort, margin, vendor
+        // filter, qty change) puts the list back where the player left it, not just an item pick.
+        if (_itemPopoutScrollView != null) _itemPopoutScroll = _itemPopoutScrollView.scrollOffset;
         _multiVendorPane.Clear();
         _scratchRefreshers.Clear();
         _shortBySku = ItemAvailability.ShortCasesBySku();
@@ -2259,6 +2268,13 @@ public class PurchasingPanel : IUIPanel
         var itemScroll = new ScrollView(ScrollViewMode.Vertical);
         itemScroll.style.maxHeight = 300;
         itemPopout.Add(itemScroll);
+        _itemPopoutScrollView = itemScroll;
+        if (_itemPopoutScroll != Vector2.zero)
+        {
+            // Restored a frame later: a ScrollView clamps its offset against content it has not laid out yet.
+            Vector2 keepItems = _itemPopoutScroll;
+            itemScroll.schedule.Execute(() => itemScroll.scrollOffset = keepItems).ExecuteLater(1);
+        }
 
         // "Critical Items" toggle — moved here from the VENDOR filter dropdown per Tad's request
         // (same Toggle widget, same styling, same _multiVendorFilterCriticalOnly flag; only its
@@ -2317,9 +2333,12 @@ public class PurchasingPanel : IUIPanel
             ApplyFont(cb, bold: cb.value, size: 13);
             cb.RegisterValueChangedCallback(evt =>
             {
+                // Picking an item must not move anything: the checkbox list stays on the letter it was on, and the
+                // vendor list keeps its place too. Only the rows change under it.
+                CaptureItemFilterScroll();
                 ApplyItemFilterSelection(id, evt.newValue);
                 Rebuild();
-                _multiVendorPane.scrollOffset = Vector2.zero;
+                RestoreItemFilterScroll();
             });
             itemScroll.Add(cb);
         }
@@ -3024,6 +3043,23 @@ public class PurchasingPanel : IUIPanel
         return total;
     }
 
+    private Vector2 _keepVendorPaneScroll;
+
+    /// <summary>Remembers where the item checkbox list and the vendor list are before a Rebuild() from an item pick.</summary>
+    private void CaptureItemFilterScroll()
+    {
+        _itemPopoutScroll = _itemPopoutScrollView != null ? _itemPopoutScrollView.scrollOffset : Vector2.zero;
+        _keepVendorPaneScroll = _multiVendorPane != null ? _multiVendorPane.scrollOffset : Vector2.zero;
+    }
+
+    /// <summary>Puts the vendor list back where CaptureItemFilterScroll found it, one frame after the rebuild has laid out.</summary>
+    private void RestoreItemFilterScroll()
+    {
+        if (_multiVendorPane == null) return;
+        Vector2 keepPane = _keepVendorPaneScroll;
+        _multiVendorPane.schedule.Execute(() => _multiVendorPane.scrollOffset = keepPane).ExecuteLater(1);
+    }
+
     /// <summary>Sets the Item filter and expands/collapses vendor groups to match — every vendor
     /// carrying the item pops open the moment a specific SKU is picked, and picking "All Items" (null)
     /// puts every group back exactly how it was before searching (see _expandedBeforeItemFilter).
@@ -3537,5 +3573,11 @@ public class PurchasingPanel : IUIPanel
             _multiDealDiscountByKey.Remove(key);
 
         Rebuild();
+
+        // A dispatch changes every row's figure and the sort key, so the list reads from the top again. Rebuild()
+        // keeps whatever scroll the pane had, which left the largest scratches off-screen above the view after a
+        // dispatch — it looked unsorted even though the order was right.
+        _multiVendorPane.scrollOffset = Vector2.zero;
+        _multiVendorPane.schedule.Execute(() => _multiVendorPane.scrollOffset = Vector2.zero).ExecuteLater(1);
     }
 }
