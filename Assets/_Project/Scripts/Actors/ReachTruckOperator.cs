@@ -121,6 +121,9 @@ namespace GameCore.Actors
         /// <summary>A truck on one task for longer than this (game seconds) without finishing it is considered stuck: the task is
         /// released and backed off so the truck re-evaluates the queue and picks something it can actually do.</summary>
         private const float StuckTaskSeconds = 120f;
+        // How long a putaway/pallet pick will sit at a lane mouth waiting for the lane to free up before giving up
+        // and re-queueing. Must stay well under StuckTaskSeconds, or the watchdog is the only thing that ends the wait.
+        private const float LaneWaitSeconds = 45f;
 
         private WorkTask _activeTask;
         private float _activeTaskStart;
@@ -972,9 +975,16 @@ namespace GameCore.Actors
             // delivery is, so a dock stocker mid-drop into this exact lane must not be able to overlap
             // with an RTO mid-extraction from it. ReleaseLaneLock() is already called from both Restore()
             // and AbortRoutine(), so every exit path below hands this back automatically.
-            while (!_inventoryService.TryEnterLaneForDelivery(door, lane))
-                yield return null;
-            _heldLaneLock = (door, lane);
+            bool gotLane = false;
+            yield return WaitForLaneEntry(door, lane, ok => gotLane = ok);
+            if (!gotLane)
+            {
+                // Nothing picked up yet, so this is the same clean give-up as "no path": free the slot, back off, re-queue.
+                _putawayLogic?.CancelPutaway(toAddress);
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
+                yield return AbortRoutine(task, null, null);
+                yield break;
+            }
 
             // RE-VERIFY: `pallet` was resolved BEFORE the cross-warehouse NavMesh leg above (and the
             // lane-entry wait just above), either of which can take many real seconds. In that window
@@ -1713,9 +1723,15 @@ namespace GameCore.Actors
                 yield break;
             }
 
-            while (!_inventoryService.TryEnterLaneForDelivery(srcDoor, srcLane))
-                yield return null;
-            _heldLaneLock = (srcDoor, srcLane);
+            bool gotSrcLane = false;
+            yield return WaitForLaneEntry(srcDoor, srcLane, ok => gotSrcLane = ok);
+            if (!gotSrcLane)
+            {
+                // Nothing picked up yet, so back off and re-queue, same as the no-path case above.
+                _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
+                yield return AbortRoutine(task, null, null);
+                yield break;
+            }
 
             // Re-verify after the travel + lane-entry wait, same reasoning as PutawayRoutine — the
             // exit-most pallet may have changed while this truck was en route.
@@ -2378,6 +2394,33 @@ namespace GameCore.Actors
             if (_heldLaneLock == null) return;
             _inventoryService?.ReleaseLaneEntry(_heldLaneLock.Value.Door, _heldLaneLock.Value.Lane);
             _heldLaneLock = null;
+        }
+
+        /// <summary>Waits for exclusive lane entry (see InventoryService.TryEnterLaneForDelivery) but gives up after
+        /// LaneWaitSeconds. Without this a truck parked at a lane mouth behind a lock nobody releases sat there with its
+        /// navigation off until the 120 s watchdog fired, which is what stranded RT_Full at the lane entry.</summary>
+        private IEnumerator WaitForLaneEntry(int door, string lane, System.Action<bool> done)
+        {
+            // Already ours? Then do not queue behind our own lock. This is how the reach truck deadlocked itself: a second
+            // acquire ran while the first hold was still recorded, so it waited on a lock it already owned until the watchdog.
+            if (_heldLaneLock.HasValue && _heldLaneLock.Value == (door, lane)) { done(true); yield break; }
+            // A truck can only work one lane at a time. Drop any hold left from an earlier run before queueing for this one,
+            // otherwise the old lane stays locked for up to LaneLockStaleSeconds.
+            ReleaseLaneLock();
+
+            float start = Time.time;
+            while (!_inventoryService.TryEnterLaneForDelivery(door, lane))
+            {
+                if (Time.time - start >= LaneWaitSeconds)
+                {
+                    Debug.LogWarning($"[ReachTruckOperator] '{name}' waited {LaneWaitSeconds:F0}s for lane {door}{lane} and it never freed up — giving up and re-queueing.");
+                    done(false);
+                    yield break;
+                }
+                yield return null;
+            }
+            _heldLaneLock = (door, lane);
+            done(true);
         }
 
         private void Restore()

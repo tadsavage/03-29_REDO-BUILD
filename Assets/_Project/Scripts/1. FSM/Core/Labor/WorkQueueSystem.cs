@@ -42,6 +42,11 @@ namespace GameCore.Labor
         // The pallet is done when those cases are on it - whatever the visual cubing says - so the number of pallets an order
         // ends as is known, and shown, from the moment it is released.
         public string PlanText { get; set; }
+
+        /// <summary>The dock appointment this task serves - Load tasks only. The appointment id, not the door number, is what ties a
+        /// Load task to its trailer and order, so two appointments at one door can never be mixed up (Tad, 2026-10-31).
+        /// Null on tasks from older saves (those fall back to the door in ToLocation).</summary>
+        public string AppointmentId { get; set; }
         /// <summary>1-based position of this pallet among the order's planned loose pallets, and how many there are.</summary>
         public int PlanNumber { get; set; }
         public int PlanTotal { get; set; }
@@ -68,7 +73,21 @@ namespace GameCore.Labor
         /// <summary>A SCRATCHES task: the deficit left when a selector ran out of stock mid-order, picked as a brand new pick
         /// list that must be done before the truck leaves (unless the player cancels the rest of the order).</summary>
         public bool IsScratch => (Type == WorkTaskType.OrderSelect || Type == WorkTaskType.PalletPick) && Description != null && Description.StartsWith(ScratchPrefix);
-        public WorkTaskStatus Status { get; set; } = WorkTaskStatus.Available;
+        private WorkTaskStatus _status = WorkTaskStatus.Available;
+        /// <summary>Every change of a pallet's task is written to GameCore.Diagnostics.PalletHistory, with the method that made it,
+        /// so "who cancelled this pallet's putaway" has an answer.</summary>
+        public WorkTaskStatus Status
+        {
+            get => _status;
+            set
+            {
+                if (_status == value) return;
+                var old = _status;
+                _status = value;
+                if (!string.IsNullOrEmpty(PalletId))
+                    GameCore.Diagnostics.PalletHistory.Note(PalletId, $"{Type} task {old}->{value}", nameCaller: true);
+            }
+        }
         public string AssignedToEmployeeGuid { get; set; }  // for persistence and tracking
 
         /// <summary>Time.realtimeSinceStartup when this task was last claimed (Status set to
@@ -424,6 +443,8 @@ namespace GameCore.Labor
 
             var task = new WorkTask(type, requiredRole, palletId, description, fromLocation, toLocation, area, priority, orderId, skuId);
             _tasks.Add(task);
+            if (!string.IsNullOrEmpty(palletId))
+                GameCore.Diagnostics.PalletHistory.Note(palletId, $"{type} task created ({fromLocation}->{toLocation})", nameCaller: true);
             OnTaskCreated?.Invoke(task);
             Debug.Log($"[WorkQueueSystem] + {description} (role: {requiredRole.DisplayName()}, area: {area})");
             return task;

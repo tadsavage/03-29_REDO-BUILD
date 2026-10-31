@@ -213,6 +213,7 @@ public class WorkTaskSnapshot
     public string planText;                  // OrderSelect tasks: the exact cases of this task's one pallet ("sku:qty,..."); empty for legacy tasks
     public int planNumber;
     public int planTotal;
+    public string appointmentId;             // Load tasks: the dock appointment id; null on older saves
 }
 
 [System.Serializable]

@@ -574,7 +574,7 @@ private DockSlot        _dock;
     // charged against this) to the sim-minute BeginDeparture runs at (i.e. the moment the last pallet
     // comes off the trailer and CompleteOffload fires) — see ApplyOffloadStandardBonus.
     private const float OffloadStandardBaseMinutes = 60f; // flat 1 hour, Tad's spec
-    private const float OffloadStandardMinutesPerPallet = 10f; // + 10 min per pallet, Tad's spec
+    private const float OffloadStandardMinutesPerPallet = 15f; // + 15 min per pallet (Tad, 2026-10-31: "that's how long it takes")
     private const int OffloadStandardBonusPoints = 5;
 
     /// <summary>Set true by ApplyOffloadStandardBonus when the Standard was beaten, read (and
@@ -3501,8 +3501,9 @@ private DockSlot        _dock;
         minutes = 0;
         var clock = Ctx?.TimeService;
         if (appt == null || clock == null) return false;
+        if (!GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService sched) || sched == null) return false;
         int now = clock.Day * 1440 + clock.Hour * 60 + clock.Minute;
-        int end = appt.Day * 1440 + appt.EndHour * 60;
+        int end = sched.DeadlineMinute(appt);   // the one shared deadline: block, or 15 min per pallet if longer
         minutes = end - now;
         return true;
     }
@@ -3537,7 +3538,7 @@ private DockSlot        _dock;
             }
         }
 
-        float windowMinutes = appt.SpanBlocks * GameCore.Inventory.DockScheduleService.BlockHours * 60f;
+        float windowMinutes = appt.SpanBlocks * GameCore.Inventory.DockScheduleService.BlockMinutes;
         float frac;
         Color color;
         string text;
@@ -3918,7 +3919,7 @@ private DockSlot        _dock;
             if (appt != null && !appt.Parked)
             {
                 long slotStart = (long)(appt.Day - 1) * 24 * 60 +
-                                 appt.BlockIndex * GameCore.Inventory.DockScheduleService.BlockHours * 60;
+                                 appt.BlockIndex * GameCore.Inventory.DockScheduleService.BlockMinutes;
                 if (slotStart > now) return slotStart;
             }
         }

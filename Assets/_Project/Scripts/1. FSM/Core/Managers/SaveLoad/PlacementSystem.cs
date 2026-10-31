@@ -502,7 +502,8 @@ public class PlacementSystem : MonoBehaviour
                     skuId = task.SkuId,
                     planText = task.PlanText,
                     planNumber = task.PlanNumber,
-                    planTotal = task.PlanTotal
+                    planTotal = task.PlanTotal,
+                    appointmentId = task.AppointmentId
                 });
             }
         }
@@ -822,6 +823,7 @@ public class PlacementSystem : MonoBehaviour
                     task.PlanText = snapshot.planText;
                     task.PlanNumber = snapshot.planNumber;
                     task.PlanTotal = snapshot.planTotal;
+                    task.AppointmentId = snapshot.appointmentId;
 
                     workQueueSystem.RegisterRestoredTask(task);
                 }

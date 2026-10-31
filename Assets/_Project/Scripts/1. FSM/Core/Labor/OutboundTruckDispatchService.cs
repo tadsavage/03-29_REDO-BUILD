@@ -79,7 +79,8 @@ namespace GameCore.Labor
             if (Time.unscaledTime < _nextScan) return;
             _nextScan = Time.unscaledTime + 1f;
 
-            ScanStagedPallets();
+            // Trucks come ONLY from appointments (DispatchDueAppointments, tagged with the appointment id). Staged freight alone never summons
+            // one: that trigger sent trucks by door number with no appointment, which is what let orders cross trailers (Tad, 2026-10-31).
             DispatchDueAppointments();   // once a second, so the 90-minute lead lands on the minute rather than the next hour change
         }
 
@@ -130,7 +131,7 @@ namespace GameCore.Labor
                 // Dispatch ArrivalLeadHours before the block opens (Tad, 2026-10-11: an 08:00 appointment's truck turned up at 09:00 because the
                 // trip from the gate to the door takes about an hour of game time). Also still dispatches when the block is already open.
                 int nowMinute = ServiceLocator.TryGet<SimulationTimeService>(out var clk) && clk != null ? clk.Minute : 0;
-                int minutesUntil = (appt.Day - schedule.CurrentDay) * 1440 + appt.StartHour * 60 - (schedule.CurrentHour * 60 + nowMinute);
+                int minutesUntil = (appt.Day - schedule.CurrentDay) * 1440 + appt.StartMinute - (schedule.CurrentHour * 60 + nowMinute);
                 bool leadDue = minutesUntil > 0 && minutesUntil <= ArrivalLeadMinutes;
                 if (!leadDue)
                 {
@@ -150,7 +151,6 @@ namespace GameCore.Labor
                 // Only skip if a truck for THIS appointment is already here, or an unattributed one (the
                 // staged-pallet trigger fired before the block and is already serving the door).
                 if (TruckYardManager.HasOutboundTruckFor(appt.DoorNumber, appt.Id)) continue;
-                if (HasUnattributedOutboundTruck(appt.DoorNumber)) continue;
 
                 _truckYard.SpawnOutboundTruck(appt.DoorNumber, appt.Id);
             }

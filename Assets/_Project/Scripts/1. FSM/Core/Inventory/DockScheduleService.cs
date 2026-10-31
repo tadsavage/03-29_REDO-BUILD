@@ -157,12 +157,18 @@ namespace GameCore.Inventory
         /// </summary>
         public int RequestedDay;
 
-        public int StartHour => BlockIndex * DockScheduleService.BlockHours;
-        /// <summary>How many grid steps this tile covers (4 hours for a recurring order, 2 for bulk and inbound).</summary>
-        public int SpanBlocks => DockScheduleService.SpanFor(Kind);
+        /// <summary>Grid steps (30 minutes each) this tile covers, sized from the pallets it carries (15 min per pallet, rounded up
+        /// to the next half hour). 0 = not recorded (an empty hold, or an older save): the default for its kind is used.</summary>
+        public int Span;
+
+        public int StartMinute => BlockIndex * DockScheduleService.BlockMinutes;
+        public int StartHour => StartMinute / 60;
+        public int SpanBlocks => Span > 0 ? Span : DockScheduleService.SpanFor(Kind);
         public int LastBlockIndex => BlockIndex + SpanBlocks - 1;
-        public int EndHour => StartHour + SpanBlocks * DockScheduleService.BlockHours;
-        public string TimeLabel => $"{StartHour:00}:00–{EndHour:00}:00";
+        public int EndMinute => StartMinute + SpanBlocks * DockScheduleService.BlockMinutes;
+        /// <summary>The hour the tile ends in, rounded UP (a tile ending at 14:30 reads 15).</summary>
+        public int EndHour => (EndMinute + 59) / 60;
+        public string TimeLabel => $"{StartMinute / 60:00}:{StartMinute % 60:00}–{EndMinute / 60:00}:{EndMinute % 60:00}";
     }
 
     /// <summary>
@@ -188,7 +194,7 @@ namespace GameCore.Inventory
 
         /// <summary>Stable identity for UI selection. Customer alone isn't enough — one customer can
         /// hold several contracts, and each is its own trailer.</summary>
-        public string Key => $"{CustomerId}|{ContractId}";
+        public string Key => OrderIds.Count == 1 ? OrderIds[0] : $"{CustomerId}|{ContractId}";
     }
 
     /// <summary>Save shape for a DockAppointment. Flat fields, same style as OrderSnapshot.</summary>
@@ -200,6 +206,10 @@ namespace GameCore.Inventory
         public int blockIndex;
         /// <summary>Hours per block when this was saved. 0 = a save from the 2-hour-block days; its blockIndex is rescaled on load.</summary>
         public int blockHours;
+        /// <summary>Minutes per block when saved (30 now). 0 = an older save: use blockHours x 60 (or 2 hours if that is 0 too).</summary>
+        public int blockMinutes;
+        /// <summary>Grid steps this tile covers; 0 = not recorded (use the default for its kind).</summary>
+        public int spanBlocks;
         public int doorNumber;
         public int kind;
         public string customerId;
@@ -268,13 +278,19 @@ namespace GameCore.Inventory
     /// </summary>
     public class DockScheduleService : IService
     {
-        /// <summary>In-game hours per grid step. Twelve steps span a 24-hour day. How long an appointment lasts is its tile width: see SpanFor.</summary>
-        public const int BlockHours = 2;
-        public const int BlocksPerDay = 24 / BlockHours;
+        /// <summary>Minutes per grid step (Tad, 2026-10-31: half-hour blocks, so a tile can start at any half hour and be as long as its
+        /// pallets need). 48 steps span a day. A tile's length is its own span: see <see cref="SpanFor"/> and <see cref="SpanForPallets"/>.</summary>
+        public const int BlockMinutes = 30;
+        public const int BlocksPerDay = 24 * 60 / BlockMinutes;
 
-        /// <summary>Grid steps a tile of this kind occupies (Tad 2026-10-26): a recurring case-pick pickup is 4 hours because picking takes
-        /// time; a bulk pickup and an inbound delivery are 2 hours.</summary>
-        public static int SpanFor(AppointmentKind kind) => kind == AppointmentKind.Outbound ? 2 : 1;
+        /// <summary>Default grid steps for a tile with no pallet count yet (an empty hold): 4 hours for a recurring case-pick pickup,
+        /// 2 hours for bulk and inbound. Real tiles use <see cref="SpanForPallets"/>.</summary>
+        public static int SpanFor(AppointmentKind kind) => kind == AppointmentKind.Outbound ? 8 : 4;
+
+        /// <summary>Grid steps for a load of this many pallets: 15 minutes each, rounded UP to the next half hour, at least one step.
+        /// 14 pallets = 210 minutes = 7 steps; 3 pallets = 45 minutes = 2 steps.</summary>
+        public static int SpanForPallets(int pallets)
+            => Mathf.Max(1, Mathf.CeilToInt(Mathf.Max(0, pallets) * (float)MinutesPerPalletLoad / BlockMinutes));
 
         /// <summary>True when a tile of <paramref name="span"/> steps starting at <paramref name="blockIndex"/> fits inside the day.</summary>
         public static bool FitsDay(int blockIndex, int span) => blockIndex >= 0 && span >= 1 && blockIndex + span <= BlocksPerDay;
@@ -355,15 +371,99 @@ namespace GameCore.Inventory
         public int CurrentDay => Clock?.Day ?? 0;
 
         /// <summary>Block containing the given hour.</summary>
-        public static int BlockForHour(int hour) => Mathf.Clamp(hour / BlockHours, 0, BlocksPerDay - 1);
+        public static int BlockForHour(int hour) => Mathf.Clamp(hour * 60 / BlockMinutes, 0, BlocksPerDay - 1);
 
-        public int CurrentBlock => BlockForHour(Clock?.Hour ?? 0);
+        /// <summary>Block containing the given minute of the day.</summary>
+        public static int BlockForMinute(int minuteOfDay) => Mathf.Clamp(minuteOfDay / BlockMinutes, 0, BlocksPerDay - 1);
+
+        public int CurrentBlock => BlockForMinute((Clock?.Hour ?? 0) * 60 + (Clock?.Minute ?? 0));
+
+        /// <summary>Tad's loading rule (2026-10-31): a load gets 15 game minutes per pallet. A trailer's slot always has at least
+        /// its block span, and stretches to the pallets it carries when that is longer - a 10-pallet load gets 150 minutes,
+        /// not a fine at the end of the 2-hour block.</summary>
+        public const int MinutesPerPalletLoad = 15;
+
+        /// <summary>How long this appointment's trailer may run past its start before it counts as late.</summary>
+        public int AllowedMinutes(DockAppointment appt, OrderService orders)
+        {
+            int span = appt.SpanBlocks * BlockMinutes;
+            int pallets = 0;
+            // Inbound: the PO's own pallets (one per line, the same count PalletCountForPO uses).
+            if (!string.IsNullOrEmpty(appt.ShipmentPoNumber) && ServiceLocator.TryGet(out ShipmentService shipments) && shipments != null)
+            {
+                var po = shipments.PendingShipments.FirstOrDefault(s => s != null && s.PONumber == appt.ShipmentPoNumber);
+                if (po != null) pallets += po.LineItems.Count(li => li != null && !li.Dropped);
+            }
+            if (orders != null)
+            {
+                foreach (var id in appt.OrderIds)
+                {
+                    var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
+                    if (o == null) continue;
+                    pallets += o.ReleasedToFloor && o.PlannedPallets > 0 ? o.PlannedPallets : orders.PreviewPalletCount(o);
+                }
+            }
+            return System.Math.Max(span, pallets * MinutesPerPalletLoad);
+        }
+
+        /// <summary>THE deadline of an appointment, as an absolute game minute (day x 1440 + minute of day): its start plus
+        /// <see cref="AllowedMinutes"/>. Every judgment, countdown, lock and label uses this one function so the fine, the
+        /// truck's "driver leaves" cutoff and the scoring can never disagree (Tad, 2026-10-31).</summary>
+        public int DeadlineMinute(DockAppointment appt)
+        {
+            ServiceLocator.TryGet(out OrderService orders);
+            return appt.Day * 1440 + appt.StartMinute + AllowedMinutes(appt, orders);
+        }
+
+        /// <summary>The deadline as day + "HH:MM" text, e.g. "Day 3 @ 20:30".</summary>
+        public string DeadlineLabel(DockAppointment appt)
+        {
+            int m = DeadlineMinute(appt);
+            return $"Day {m / 1440} @ {m % 1440 / 60:00}:{m % 60:00}";
+        }
         public int CurrentHour => Clock?.Hour ?? 0;
 
+        /// <summary>Resizes an appointment to <paramref name="span"/> steps if its door is free for that long (shrinking always works).</summary>
+        private bool TryFitSpan(DockAppointment a, int span)
+        {
+            if (a == null || span < 1) return false;
+            if (span <= a.SpanBlocks) { a.Span = span; return true; }
+            if (!FitsDay(a.BlockIndex, span) || DoorBusy(a.Day, a.BlockIndex, span, a.DoorNumber, a.Id)) return false;
+            a.Span = span;
+            return true;
+        }
+
+        /// <summary>"2h 30m" for a tile of this many steps.</summary>
+        public static string DurationText(int spanBlocks)
+        {
+            int m = spanBlocks * BlockMinutes;
+            return m % 60 == 0 ? $"{m / 60}h" : m < 60 ? $"{m}m" : $"{m / 60}h {m % 60}m";
+        }
+
+        /// <summary>The time a block starts, "HH:MM". (Blocks are half hours; an appointment's own range is its TimeLabel.)</summary>
         public static string BlockLabel(int blockIndex)
         {
-            int start = blockIndex * BlockHours;
-            return $"{start:00}:00–{start + BlockHours:00}:00";
+            int start = blockIndex * BlockMinutes;
+            return $"{start / 60:00}:{start % 60:00}";
+        }
+
+        /// <summary>Pallets an appointment's load is judged on: its PO's lines (inbound) or its orders' planned pallets (outbound).</summary>
+        public int PalletsFor(IEnumerable<string> orderIds, string poNumber)
+        {
+            int pallets = 0;
+            if (!string.IsNullOrEmpty(poNumber) && ServiceLocator.TryGet(out ShipmentService shipments) && shipments != null)
+            {
+                var po = shipments.PendingShipments.FirstOrDefault(s => s != null && s.PONumber == poNumber);
+                if (po != null) pallets += po.LineItems.Count(li => li != null && !li.Dropped);
+            }
+            if (orderIds != null && ServiceLocator.TryGet(out OrderService orders) && orders != null)
+                foreach (var id in orderIds)
+                {
+                    var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
+                    if (o == null) continue;
+                    pallets += o.ReleasedToFloor && o.PlannedPallets > 0 ? o.PlannedPallets : orders.PreviewPalletCount(o);
+                }
+            return pallets;
         }
 
         // ── Capacity ─────────────────────────────────────────────────────────
@@ -486,7 +586,7 @@ namespace GameCore.Inventory
         /// </summary>
         public bool TryBook(int day, int blockIndex, AppointmentKind kind,
                             string customerId, string customerName, string contractId,
-                            out DockAppointment booked, out string failReason)
+                            out DockAppointment booked, out string failReason, int spanBlocks = 0)
         {
             booked = null;
             failReason = null;
@@ -504,21 +604,21 @@ namespace GameCore.Inventory
                 return false;
             }
 
-            int span = SpanFor(kind);
+            int span = spanBlocks > 0 ? spanBlocks : SpanFor(kind);
             if (!FitsDay(blockIndex, span))
             {
-                failReason = $"A {span * BlockHours}-hour appointment starting at {blockIndex * BlockHours:00}:00 doesn't fit in the day.";
+                failReason = $"A {DurationText(span)} appointment starting at {BlockLabel(blockIndex)} doesn't fit in the day.";
                 return false;
             }
             int free = doors.FirstOrDefault(d => !DoorBusy(day, blockIndex, span, d));
             if (free == 0)
             {
-                failReason = $"{BlockLabel(blockIndex)} is full — all {doors.Count} door(s) are booked for {span * BlockHours} hours from then.";
+                failReason = $"{BlockLabel(blockIndex)} is full — all {doors.Count} door(s) are booked for {DurationText(span)} from then.";
                 return false;
             }
 
             return TryBookAtDoor(day, blockIndex, free, kind, customerId, customerName, contractId,
-                                 out booked, out failReason);
+                                 out booked, out failReason, span);
         }
 
         /// <summary>
@@ -530,16 +630,17 @@ namespace GameCore.Inventory
         /// </summary>
         private bool TryBookAtDoor(int day, int blockIndex, int doorNumber, AppointmentKind kind,
                                    string customerId, string customerName, string contractId,
-                                   out DockAppointment booked, out string failReason)
+                                   out DockAppointment booked, out string failReason, int spanBlocks = 0)
         {
             booked = null;
             failReason = null;
+            int span = spanBlocks > 0 ? spanBlocks : SpanFor(kind);
 
             // A block that does not exist (the day has BlocksPerDay of them) must never be booked: a caller still assuming the old
             // 2-hour blocks booked trailers into "block 9" (hour 36-40), which can never open and was fined as a missed slot.
-            if (blockIndex < 0 || blockIndex >= BlocksPerDay || !FitsDay(blockIndex, SpanFor(kind)))
+            if (blockIndex < 0 || blockIndex >= BlocksPerDay || !FitsDay(blockIndex, span))
             {
-                failReason = $"Block {blockIndex} can't hold a {SpanFor(kind) * BlockHours}-hour appointment (there are {BlocksPerDay} blocks a day).";
+                failReason = $"Block {blockIndex} can't hold a {DurationText(span)} appointment (there are {BlocksPerDay} blocks a day).";
                 return false;
             }
 
@@ -549,7 +650,7 @@ namespace GameCore.Inventory
                 return false;
             }
 
-            if (DoorBusy(day, blockIndex, SpanFor(kind), doorNumber))
+            if (DoorBusy(day, blockIndex, span, doorNumber))
             {
                 failReason = $"Door {doorNumber} is already booked in {BlockLabel(blockIndex)}.";
                 return false;
@@ -560,6 +661,7 @@ namespace GameCore.Inventory
                 Id = System.Guid.NewGuid().ToString(),
                 Day = day,
                 BlockIndex = blockIndex,
+                Span = span,
                 DoorNumber = doorNumber,
                 Kind = kind,
                 CustomerId = customerId,
@@ -617,7 +719,7 @@ namespace GameCore.Inventory
             // the player clicked. The real guard against landing on an elapsed slot is the DESTINATION
             // check in TryMoveToDoor, which stands regardless of this.
             if (!appt.Parked &&
-                (appt.Day < CurrentDay || (appt.Day == CurrentDay && appt.LastBlockIndex < CurrentBlock)))
+                DeadlineMinute(appt) <= CurrentDay * 1440 + CurrentHour * 60 + (Clock?.Minute ?? 0))
             {
                 reason = $"{appt.TimeLabel} on day {appt.Day} has already passed.";
                 return true;
@@ -814,6 +916,9 @@ namespace GameCore.Inventory
 
         /// <summary>Reputation cost per 2-hour block away from the customer's requested hour.</summary>
         public const int RepPointsPerBlockOff = 2;
+        /// <summary>Off-slot penalties are priced per 2 hours (the old block size), so a half-hour nudge is a shrug and 4 hours is two steps.</summary>
+        public const int BlocksPerPenaltyStep = 120 / BlockMinutes;
+        public static int PenaltySteps(int blocks) => Mathf.CeilToInt(blocks / (float)BlocksPerPenaltyStep);
 
         /// <summary>Reputation cost per whole day away from the day the trailer was booked for.</summary>
         public const int RepPointsPerDayOff = 10;
@@ -872,7 +977,7 @@ namespace GameCore.Inventory
         {
             if (appt == null) return 0;
 
-            int cost = OffSlotBlocksFrom(appt) * RepPointsPerBlockOff
+            int cost = PenaltySteps(OffSlotBlocksFrom(appt)) * RepPointsPerBlockOff
                      + OffSlotDaysFrom(appt) * RepPointsPerDayOff;
 
             return Mathf.Clamp(cost, 0, MaxOffSlotRepPenalty);
@@ -900,7 +1005,7 @@ namespace GameCore.Inventory
             int blocks = Mathf.Abs(targetBlock - wanted);
             int days = requestedDay > 0 ? Mathf.Abs(targetDay - requestedDay) : 0;
 
-            return Mathf.Clamp(blocks * RepPointsPerBlockOff + days * RepPointsPerDayOff,
+            return Mathf.Clamp(PenaltySteps(blocks) * RepPointsPerBlockOff + days * RepPointsPerDayOff,
                                0, MaxOffSlotRepPenalty);
         }
 
@@ -939,7 +1044,7 @@ namespace GameCore.Inventory
 
             var parts = new List<string>();
             if (days > 0) parts.Add($"{days} day{(days == 1 ? "" : "s")}");
-            if (blocks > 0) parts.Add($"{blocks * BlockHours} hour{(blocks * BlockHours == 1 ? "" : "s")}");
+            if (blocks > 0) parts.Add(DurationText(blocks));
             return string.Join(" and ", parts) + " off their slot";
         }
 
@@ -1036,7 +1141,7 @@ namespace GameCore.Inventory
 
             if (!FitsDay(blockIndex, appt.SpanBlocks))
             {
-                failReason = $"A {appt.SpanBlocks * BlockHours}-hour appointment starting at {blockIndex * BlockHours:00}:00 doesn't fit in the day.";
+                failReason = $"A {DurationText(appt.SpanBlocks)} appointment starting at {BlockLabel(blockIndex)} doesn't fit in the day.";
                 return false;
             }
             bool takenByOther = DoorBusy(day, blockIndex, appt.SpanBlocks, doorNumber, appointmentId);
@@ -1153,7 +1258,7 @@ namespace GameCore.Inventory
             if (appt != null) span = appt.SpanBlocks;
             if (!FitsDay(blockIndex, span))
             {
-                reason = $"A {span * BlockHours}-hour appointment doesn't fit starting at {blockIndex * BlockHours:00}:00.";
+                reason = $"A {DurationText(span)} appointment doesn't fit starting at {BlockLabel(blockIndex)}.";
                 return MoveVerdict.Blocked;
             }
 
@@ -1303,6 +1408,7 @@ namespace GameCore.Inventory
                 CustomerId = supplierId,
                 CustomerName = supplierName,
                 ShipmentPoNumber = poNumber,
+                Span = SpanForPallets(PalletsFor(null, poNumber)),
                 Parked = true
             };
             _appointments.Add(appt);
@@ -1323,10 +1429,10 @@ namespace GameCore.Inventory
         /// <summary>Records the door an inbound PO's truck is taking right now. Called by
         /// ShipmentService as it spawns — the truck is already rolling, so this isn't a reservation
         /// so much as an honest note that the door is spoken for.</summary>
-        public void BookInboundNow(string supplierId, string supplierName)
+        public void BookInboundNow(string supplierId, string supplierName, int pallets = 0)
         {
             if (TryBook(CurrentDay, CurrentBlock, AppointmentKind.Inbound, supplierId, supplierName, null,
-                        out _, out string why))
+                        out _, out string why, pallets > 0 ? SpanForPallets(pallets) : 0))
                 return;
 
             // A PO that can't get a slot still arrives — the yard queue handles that. Log it so a
@@ -1410,10 +1516,20 @@ namespace GameCore.Inventory
             // put a 20:00 order on the 10:00 trailer, so its revenue rode the wrong appointment (block 1023). When the
             // contract names an hour, only that block counts.
             int? wantedBlock = RequestedBlockFor(order);
+            // ONE order per appointment (Tad, 2026-10-31): an arriving order may only take an appointment that is EMPTY (a hold
+            // or pre-booking for its own contract, day and block). It never joins another order's trailer, and a bulk order never
+            // wanders onto some other day's or block's appointment.
             var existing = candidates.FirstOrDefault(a => a.Day == scheduledDay
-                                                         && (wantedBlock == null || a.BlockIndex == wantedBlock.Value)
-                                                         && FitsWith(a, order)) ??
-                           (order.IsBulk ? candidates.FirstOrDefault(a => FitsWith(a, order)) : null);
+                                                         && a.OrderIds.Count == 0
+                                                         && (wantedBlock == null || a.BlockIndex == wantedBlock.Value));
+            // The trailer's length is what its pallets need (15 min each, rounded up to a half hour). A hold reserved a default length, so
+            // fit it to this order; if it cannot grow in place the hold is released and the order books a fresh, correctly sized slot.
+            int orderSpan = SpanForPallets(PalletsFor(new[] { order.OrderId }, null));
+            if (existing != null && !TryFitSpan(existing, orderSpan))
+            {
+                _appointments.Remove(existing);
+                existing = null;
+            }
             if (existing != null)
             {
                 if (!existing.OrderIds.Contains(order.OrderId)) existing.OrderIds.Add(order.OrderId);
@@ -1446,7 +1562,7 @@ namespace GameCore.Inventory
 
             var kind = order.IsBulk ? AppointmentKind.Bulk : AppointmentKind.Outbound;
             if (!TryAutoPlace(scheduledDay, requestedHour, Mathf.Max(order.DueDay, scheduledDay), kind,
-                              order.CustomerId, order.CustomerName, order.ContractId, out var appt))
+                              order.CustomerId, order.CustomerName, order.ContractId, out var appt, orderSpan))
                 return;
 
             appt.OrderIds.Add(order.OrderId);
@@ -1541,9 +1657,11 @@ namespace GameCore.Inventory
                 if (sameDay.Count == 0) continue;
                 if (sameDay.Any(a => a.OrderIds.Contains(order.OrderId))) continue;
 
+                // Only an EMPTY appointment in the order's own block may take it. No "first one that day" fallback (that put a
+                // 12:00 order on the 10:00 trailer) and never a trailer that already carries another order.
                 int? wantedBlock = RequestedBlockFor(order);
-                var target = sameDay.FirstOrDefault(a => wantedBlock == null || a.BlockIndex == wantedBlock.Value)
-                             ?? sameDay[0];
+                var target = sameDay.FirstOrDefault(a => a.OrderIds.Count == 0 && (wantedBlock == null || a.BlockIndex == wantedBlock.Value));
+                if (target == null) continue;
 
                 foreach (var appointment in _appointments)
                 {
@@ -1577,8 +1695,9 @@ namespace GameCore.Inventory
 
         public bool TryAutoPlace(int day, int? requestedHour, int lastDay, AppointmentKind kind,
                                  string customerId, string customerName, string contractId,
-                                 out DockAppointment booked)
+                                 out DockAppointment booked, int spanBlocks = 0)
         {
+            int span = spanBlocks > 0 ? spanBlocks : SpanFor(kind);
             booked = null;
 
             int block = requestedHour.HasValue ? BlockForHour(requestedHour.Value) : CurrentBlock;
@@ -1589,7 +1708,7 @@ namespace GameCore.Inventory
             if (day == CurrentDay)
             {
                 float nowH = (Clock?.Hour ?? 0) + (Clock?.Minute ?? 0) / 60f;
-                int minBlock = Mathf.CeilToInt((nowH + MinPickupLeadHours) / BlockHours);
+                int minBlock = Mathf.CeilToInt((nowH + MinPickupLeadHours) * 60f / BlockMinutes);
                 if (block < minBlock) block = minBlock;
             }
 
@@ -1597,8 +1716,8 @@ namespace GameCore.Inventory
             {
                 for (; block < BlocksPerDay; block++)
                 {
-                    if (!HasRoom(day, block, SpanFor(kind))) continue;
-                    if (TryBook(day, block, kind, customerId, customerName, contractId, out booked, out _))
+                    if (!HasRoom(day, block, span)) continue;
+                    if (TryBook(day, block, kind, customerId, customerName, contractId, out booked, out _, span))
                         return true;
                 }
                 day++;
@@ -1648,7 +1767,8 @@ namespace GameCore.Inventory
                 // booking either copy would leave the other behind.
                 if (IsOnAnyAppointment(order.OrderId)) continue;
 
-                string key = $"{order.CustomerId}|{order.ContractId}";
+                // One pool box per ORDER: one order per appointment, so a box never books several orders onto one trailer.
+                string key = order.OrderId;
                 if (!byKey.TryGetValue(key, out var group))
                 {
                     group = new UnscheduledGroup
@@ -1690,7 +1810,7 @@ namespace GameCore.Inventory
             if (group == null) { failReason = "Nothing selected to book."; return false; }
 
             if (!TryBookAtDoor(day, blockIndex, doorNumber, group.Kind, group.CustomerId, group.CustomerName,
-                               group.ContractId, out booked, out failReason))
+                               group.ContractId, out booked, out failReason, SpanForPallets(PalletsFor(group.OrderIds, null))))
                 return false;
 
             booked.OrderIds.AddRange(group.OrderIds);
@@ -1818,6 +1938,7 @@ namespace GameCore.Inventory
 
             int today = CurrentDay;
             int nowBlock = CurrentBlock;
+            int nowMinute = CurrentHour * 60 + (Clock?.Minute ?? 0);
 
             // Inbound PO reservations whose day has fully passed are dropped rather than judged. There
             // is no customer to disappoint and no order to fine — the freight either turned up (in
@@ -1838,7 +1959,7 @@ namespace GameCore.Inventory
                 .Where(a => (a.Kind == AppointmentKind.Inbound
                                  ? (!string.IsNullOrEmpty(a.ShipmentPoNumber) && !a.Parked && !a.ClosedOut)
                                  : !a.ClosedOut) &&
-                            (a.Day < today || (a.Day == today && a.LastBlockIndex < nowBlock)))
+                            DeadlineMinute(a) <= today * 1440 + nowMinute)
                 .ToList();
 
             foreach (var appt in elapsed)
@@ -1859,7 +1980,7 @@ namespace GameCore.Inventory
                 foreach (var order in apptOrders)
                 {
                     if (order.Status == OrderData.OrderStatus.Cancelled) continue;
-                    if (!orderService.FineMissedDeadline(order, appt.EndHour)) continue;
+                    if (!orderService.FineMissedDeadline(order, DeadlineMinute(appt) % 1440 / 60)) continue;
 
                     // Satisfaction is docked once per order fined, alongside the money. Missing the
                     // slot the customer was promised is precisely the case Tad asked satisfaction to
@@ -1964,6 +2085,72 @@ namespace GameCore.Inventory
                              "door freed for rebooking, kept on the grid (IsComplete decides finished vs missed).");
         }
 
+        // ── Healing (old saves and any drift) ────────────────────────────────
+
+        /// <summary>
+        /// Brings the book back to the golden rule (Tad, 2026-10-31): ONE order per appointment, every order on the door of ITS
+        /// appointment, every Load task tied to ITS appointment. Runs after a load. Returns how many things it corrected.
+        ///   1. An appointment carrying several orders keeps the first; each extra order is re-booked on an appointment of its own.
+        ///   2. (Orders the player left in the pending pool stay there: booking a door is the player's decision.)
+        ///   3. An order's dock door is set to its appointment's door (an old release used the staging lane's door instead).
+        ///   4. A Load task with no appointment id is tied to the appointment of the order it loads; an orphan is cancelled.
+        /// </summary>
+        public int HealAppointments()
+        {
+            if (!ServiceLocator.TryGet(out OrderService orders) || orders == null) return 0;
+            int fixes = 0;
+
+            foreach (var a in _appointments.Where(x => x.Kind != AppointmentKind.Inbound && x.OrderIds.Count > 1).ToList())
+            {
+                var extras = a.OrderIds.Skip(1).ToList();
+                a.OrderIds.RemoveRange(1, a.OrderIds.Count - 1);
+                foreach (var id in extras)
+                {
+                    var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
+                    if (o == null) continue;
+                    fixes++;
+                    HandleOrderArrived(o);
+                    Debug.LogWarning($"[DockSchedule] Healed: order {o.OrderNumber ?? o.OrderId} shared an appointment with another order; it now has its own.");
+                }
+            }
+
+            foreach (var a in _appointments)
+            {
+                if (a.Kind == AppointmentKind.Inbound || a.Parked || a.DoorNumber <= 0) continue;
+                foreach (var id in a.OrderIds)
+                {
+                    var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
+                    if (o == null || o.AssignedDoorNumber == a.DoorNumber) continue;
+                    if (o.StagingDoorNumber <= 0 && o.AssignedDoorNumber > 0) o.StagingDoorNumber = o.AssignedDoorNumber;   // pallets stay where they are
+                    Debug.LogWarning($"[DockSchedule] Healed: order {o.OrderNumber ?? o.OrderId} was on door {o.AssignedDoorNumber} but its appointment is at door {a.DoorNumber}.");
+                    o.AssignedDoorNumber = a.DoorNumber;
+                    fixes++;
+                }
+            }
+
+            if (ServiceLocator.TryGet(out WorkQueueSystem queue) && queue != null)
+            {
+                foreach (var t in queue.Tasks.ToList())
+                {
+                    if (t == null || t.Type != WorkTaskType.Load || !string.IsNullOrEmpty(t.AppointmentId)) continue;
+                    if (t.Status != WorkTaskStatus.Available && t.Status != WorkTaskStatus.Assigned) continue;
+                    string from = t.FromLocation ?? "";
+                    int split = from.Length - 1;
+                    bool parsed = split > 0 && int.TryParse(from.Substring(0, split), out int laneDoor) && true;
+                    int fromDoor = 0; if (parsed) int.TryParse(from.Substring(0, split), out fromDoor);
+                    string fromLane = split >= 0 && from.Length > 0 ? from.Substring(split) : "";
+                    var load = parsed ? orders.ActiveOrders.FirstOrDefault(o => o != null &&
+                        (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Staged) && o.UsesLane(fromDoor, fromLane) &&
+                        FindForOrder(o.OrderId) != null && t.ToLocation == FindForOrder(o.OrderId).DoorNumber.ToString()) : null;
+                    if (load != null) { t.AppointmentId = FindForOrder(load.OrderId).Id; fixes++; }
+                    else { t.Status = WorkTaskStatus.Cancelled; fixes++; }
+                }
+            }
+
+            if (fixes > 0) Debug.Log($"[DockSchedule] Healed {fixes} appointment link(s) after load.");
+            return fixes;
+        }
+
         // ── Persistence ──────────────────────────────────────────────────────
 
         public List<DockAppointmentSnapshot> Export() => _appointments.Select(a => new DockAppointmentSnapshot
@@ -1971,7 +2158,8 @@ namespace GameCore.Inventory
             id = a.Id,
             day = a.Day,
             blockIndex = a.BlockIndex,
-            blockHours = BlockHours,
+            blockMinutes = BlockMinutes,
+            spanBlocks = a.Span,
             doorNumber = a.DoorNumber,
             kind = (int)a.Kind,
             customerId = a.CustomerId,
@@ -2000,7 +2188,9 @@ namespace GameCore.Inventory
                 {
                     Id = s.id,
                     Day = s.day,
-                    BlockIndex = Mathf.Clamp(s.blockIndex * (s.blockHours > 0 ? s.blockHours : 2) / BlockHours, 0, BlocksPerDay - 1),
+                    // Saved minutes per block: 30 now; an older save had hour blocks (blockHours, or 2 if that was never written).
+                    BlockIndex = Mathf.Clamp(s.blockIndex * (s.blockMinutes > 0 ? s.blockMinutes : (s.blockHours > 0 ? s.blockHours : 2) * 60) / BlockMinutes, 0, BlocksPerDay - 1),
+                    Span = s.spanBlocks,
                     DoorNumber = s.doorNumber,
                     Kind = (AppointmentKind)s.kind,
                     CustomerId = s.customerId,

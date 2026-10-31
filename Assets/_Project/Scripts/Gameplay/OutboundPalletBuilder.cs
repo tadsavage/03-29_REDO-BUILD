@@ -109,6 +109,13 @@ public class OutboundPalletBuilder : MonoBehaviour
         OrderId = orderId;
         TotalCases = Mathf.Max(0, cases);
         FillFraction = 1f;
+        var link = GetComponent<PalletMasterLink>();
+        GameCore.Diagnostics.PalletHistory.Note(link != null ? link.PalletId : GameCore.Diagnostics.PalletHistory.OutboundKey(orderId), $"adopted as outbound freight of order {orderId} ({cases} cs)", nameCaller: true);
+
+        // A pallet an order claims straight out of the dock can still wear the see-through "unreceived" case material (it was
+        // ghosted as cargo and nobody has received it). Outbound freight is real stock: put the real material back (Tad, 2026-10-31).
+        var builder = GetComponent<PalletBuilder>();
+        if (builder != null && builder.OriginalCaseMaterial != null) builder.RestoreCaseMaterial();
     }
 
     /// <summary>Fraction of "one reference pallet's worth" of capacity consumed so far, summed

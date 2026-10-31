@@ -252,7 +252,7 @@ namespace GameCore.Inventory
                     else
                     {
                         unreservedPallets++;
-                        Debug.LogWarning($"[OrderService] Order {order.OrderNumber}: no reserve or pick-face " +
+                        Debug.Log($"[OrderService] Order {order.OrderNumber}: no reserve or pick-face " +
                                          $"pallet of {li.SkuId} left to fill a pallet pick — filed unassigned; a " +
                                          $"Reach Truck resolves a source once one claims it.");
                     }
@@ -539,8 +539,18 @@ namespace GameCore.Inventory
             // No SCRATCHES status any more (Tad): cases the pick faces no longer hold are not queued for a second pass. They
             // are cut from the order - not billed - and the order finishes with what was staged, like a release that
             // leaves the trailer unfilled.
+            // Only cases with NO stock anywhere are a real shortfall. Loose cases that still have stock are a continuation
+            // trip (FileContinuationSelect), not a cut. The old count treated every owed case as "not in stock", so it logged
+            // a cut that never happened and an order with 444 cases on hand was left with nothing filed (OG4587, 2026-10-31).
             int deficit = 0;
-            foreach (var li in order.LineItems) deficit += SelectableRemaining(order, li);
+            foreach (var li in order.LineItems)
+            {
+                int want = SelectableRemaining(order, li);
+                if (want <= 0) continue;
+                bool stock = OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null ||
+                             (_inventoryService != null && GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, li.SkuId, out _));
+                if (!stock) deficit += want;
+            }
             if (deficit <= 0) return false;
 
             string msg = $"Order {order.OrderNumber}: {deficit} case(s) not in stock - cut from the order, not billed.";
@@ -600,7 +610,7 @@ namespace GameCore.Inventory
                 {
                     order.StagingDoorNumber = chosen.door;
                     order.AssignedLane = chosen.lane;
-                    if (order.AssignedDoorNumber <= 0) order.AssignedDoorNumber = chosen.door;
+                    // The dock door comes ONLY from the order's appointment, never from where it stages.
                 }
                 else if (!(order.EffectiveStagingDoor == chosen.door && order.AssignedLane == chosen.lane))
                     order.AddOverflowLane(chosen.door, chosen.lane);
@@ -1040,7 +1050,10 @@ namespace GameCore.Inventory
                 if (order == null) { failReason = $"order {id} no longer exists"; plan = null; return false; }
 
                 int dock = schedule?.FindForOrder(id)?.DoorNumber ?? 0;
-                var group = groups.FirstOrDefault(g => g.CustomerId == order.CustomerId && g.DockDoor == dock);
+                // No appointment, no dock door: an order is never released onto a door it merely stages at.
+                if (dock <= 0) { failReason = $"order {order.OrderNumber ?? order.OrderId} has no dock appointment - schedule it first"; plan = null; return false; }
+                // One stage plan per ORDER (= per appointment): two appointments of one customer never share a plan or lanes.
+                StageRelease group = null;
                 if (group == null)
                 {
                     group = new StageRelease
@@ -1072,7 +1085,6 @@ namespace GameCore.Inventory
                         plannedLanes.Add((d, l));
                         plannedDoorOwners[d] = group.CustomerId;
                     }
-                    if (group.DockDoor <= 0) group.DockDoor = found[0].door; // unscheduled: dock where it stages
                 }
                 else
                 {
@@ -1199,6 +1211,9 @@ namespace GameCore.Inventory
             // first, a lane shared with another customer only as a last resort). A door-wide "no other customer at this door" check here
             // would refuse exactly the lanes the planner is allowed to pick.
 
+            // No appointment door, no release: the lane's door is never used as the dock door.
+            if (dockDoor <= 0 && pairs.Any(p => p.order.AssignedDoorNumber <= 0)) return false;
+
             foreach (var (order, placeholders) in pairs)
             {
                 RetirePlaceholders(placeholders);
@@ -1206,7 +1221,7 @@ namespace GameCore.Inventory
                 // AssignedDoorNumber is the DOCK door (whose trailer carries the order); the lanes may be at
                 // other doors. AssignedLane/StagingDoorNumber are stamped by AllocateHeldWork when the first
                 // task actually lands in a lane.
-                order.AssignedDoorNumber = dockDoor > 0 ? dockDoor : lanes[0].door;
+                if (dockDoor > 0) order.AssignedDoorNumber = dockDoor;
                 order.StagingDoorNumber = 0;
                 order.AssignedLane = null;
                 order.OverflowLanes.Clear();
@@ -1318,7 +1333,7 @@ namespace GameCore.Inventory
                         {
                             order.StagingDoorNumber = l.door;
                             order.AssignedLane = l.lane;
-                            if (order.AssignedDoorNumber <= 0) order.AssignedDoorNumber = l.door;
+                            // The dock door comes ONLY from the order's appointment, never from where it stages.
                         }
                         else if (!isPrimary)
                         {
@@ -1364,10 +1379,12 @@ namespace GameCore.Inventory
                 pairs.Add((order, placeholders));
             }
 
+            if (dockDoor <= 0 && pairs.Any(p => p.order.AssignedDoorNumber <= 0)) return false;   // no appointment door, no release
+
             foreach (var (order, placeholders) in pairs)
             {
                 RetirePlaceholders(placeholders);
-                order.AssignedDoorNumber = dockDoor;
+                if (dockDoor > 0) order.AssignedDoorNumber = dockDoor;
                 order.StagingDoorNumber = 0;
                 order.AssignedLane = null;
                 order.ReleasedToFloor = true;
@@ -1388,7 +1405,7 @@ namespace GameCore.Inventory
             foreach (var order in orders)
             {
                 if (order == null) continue;
-                if (order.AssignedDoorNumber <= 0) order.AssignedDoorNumber = stagingDoor;
+                // The dock door comes ONLY from the order's appointment, never from where it stages.
                 order.StagingDoorNumber = stagingDoor;
                 order.AssignedLane = lane;
                 foreach (var t in LiveTasksForOrder(order.OrderId))
@@ -1447,9 +1464,12 @@ namespace GameCore.Inventory
                 foreach (var p in pallets) if (p != null && p.Stage != OutboundPalletBuilder.PalletStage.Shipped) { allShipped = false; break; }
                 if (!allShipped) continue;
                 int door = truck.DockedAt.DoorNumber;
-                bool openOrderHere = _activeOrders.Any(o => (o.AssignedDoorNumber == door &&
-                    (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded)) ||
-                    pallets.Any(p => p != null && p.OrderId == o.OrderId));
+                // Judged on THIS trailer's appointment only (Tad, 2026-10-31), so another order at the same door cannot hold it.
+                var appt = !string.IsNullOrEmpty(truck.OutboundAppointmentId) && ServiceLocator.TryGet(out DockScheduleService sched) && sched != null
+                    ? sched.FindById(truck.OutboundAppointmentId) : null;
+                bool openOrderHere = appt != null && _activeOrders.Any(o => o != null && appt.OrderIds.Contains(o.OrderId) &&
+                    (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded ||
+                     pallets.Any(p => p != null && p.OrderId == o.OrderId)));
                 if (openOrderHere) continue;
                 truck.CompleteLoad();
                 Debug.Log($"[OrderService] Door {door}'s trailer cleared to depart - everything aboard is shipped.");
@@ -1462,12 +1482,19 @@ namespace GameCore.Inventory
         private void SettleFloatingOutboundPallets()
         {
             const float LaneSurface = 1.15f, Tolerance = 0.12f;
-            var all = Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsInactive.Exclude);
-            if (all.Length == 0) return;
+            // Every pallet standing in a lane, outbound freight AND received stock (block 1023, 2026-10-31: 700+ FLOATING incidents were
+            // received "Pallet_x_Slot_Tier" pallets hanging 0.7-1.5 m up once whatever they stood on was picked away).
+            var grid = Object.FindAnyObjectByType<PlacementGrid>();
+            var all = new List<GameObject>();
+            var seen = new HashSet<GameObject>();
+            foreach (var o in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsInactive.Exclude)) if (o != null && seen.Add(o.gameObject)) all.Add(o.gameObject);
+            foreach (var l in Object.FindObjectsByType<PalletMasterLink>(FindObjectsInactive.Exclude)) if (l != null && seen.Add(l.gameObject)) all.Add(l.gameObject);
+            if (all.Count == 0) return;
             foreach (var p in all)
             {
-                if (p == null || !p.IsOnFloor) continue;
-                if (p.GetComponentInParent<MHEOperatorSlot>() != null) continue;
+                if (p == null || !OutboundPalletBuilder.IsOnFloorTransform(p.transform)) continue;
+                if (p.GetComponentInParent<MHEOperatorSlot>() != null || p.GetComponentInParent<TruckController>() != null) continue;
+                if (grid == null || !LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out _)) continue;   // lane cells only: racks hold pallets high on purpose
                 var rs = p.GetComponentsInChildren<Renderer>();
                 if (rs.Length == 0) continue;
                 var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
@@ -1488,9 +1515,118 @@ namespace GameCore.Inventory
                 if (drop > Tolerance)
                 {
                     p.transform.position += Vector3.down * drop;
-                    Debug.LogWarning($"[OrderService] Settled a floating outbound pallet down {drop:0.00} m (it had nothing under it).");
+                    Debug.LogWarning($"[OrderService] Settled a floating lane pallet down {drop:0.00} m (it had nothing under it).");
                 }
             }
+        }
+
+        private readonly Dictionary<string, int> _recoverySelectTick = new Dictionary<string, int>();
+
+        /// <summary>A released order whose selectors all finished while stock was missing (FileScratchSelect only logs "cut from the
+        /// order") would otherwise sit with no live task even after the stock arrives, and ship without those cases (Tad,
+        /// 2026-10-31: Sneaky Pete's OG4604 - 376 cases "cut", stock on hand again, no work queue entries). Once stock exists for
+        /// the owed cases again, file one more selector trip (plan orders included; the new task carries no plan, so it picks the
+        /// remaining cases generally). At most once per 5 ticks (15 game minutes) per order, so a pick face that never gets
+        /// stocked cannot churn tasks.</summary>
+        private void RefileSelectForRestockedCases()
+        {
+            if (_workQueue == null || _inventoryService == null) return;
+            foreach (var order in _activeOrders.ToList())
+            {
+                if (order == null || !order.ReleasedToFloor || order.CancelledCases > 0 || string.IsNullOrEmpty(order.AssignedLane)) continue;
+                if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled
+                    || order.Status == OrderData.OrderStatus.Loaded) continue;
+                if (order.ReturnsMode) continue;
+                if (LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect)) continue;
+                if (_recoverySelectTick.TryGetValue(order.OrderId, out int last) && _waitingLaneTick - last < 5) continue;
+
+                int remaining = 0;
+                bool stockExists = false;
+                foreach (var li in order.LineItems)
+                {
+                    int want = SelectableRemaining(order, li);
+                    if (want <= 0) continue;
+                    if (OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null) { remaining += want; stockExists = true; }
+                }
+                if (remaining <= 0 || !stockExists) continue;
+
+                var st = _workQueue.CreateTask(WorkTaskType.OrderSelect, EmployeeRole.OrderSelector, palletId: null,
+                    description: $"Continue selecting {remaining} loose case(s) for {order.CustomerName}",
+                    area: DominantArea(order), orderId: order.OrderId);
+                if (st == null) continue;
+                st.Status = WorkTaskStatus.Available;
+                _recoverySelectTick[order.OrderId] = _waitingLaneTick;
+                Debug.LogWarning($"[OrderService] Order {order.OrderNumber}: stock is back for {remaining} case(s) that were cut - filed another selector trip.");
+            }
+        }
+
+        // Orders whose whole-pallet need exceeded their live pallet picks on the previous tick (orderId:skuId -> missing pallets).
+        private readonly Dictionary<string, int> _pickShortfallSeen = new Dictionary<string, int>();
+
+        /// <summary>A released order that needs N whole pallets of a SKU must always have N pallet picks (done or live).
+        /// A pick can be cancelled out from under it (two picks bound to the same source pallet, a stale-lane sweep, ...), and
+        /// when that happens the missing pallet silently turns into "case picks" that no task exists to do, so the order ships a
+        /// whole pallet short (Tad, 2026-10-31: OG5608 canned peaches, 48 cs to a pallet, always one pallet light). Seen on two
+        /// consecutive ticks (so a pick that is mid-completion is never double-filed), a replacement pick is filed.</summary>
+        private void RefilePalletPickShortfalls()
+        {
+            if (_workQueue == null || _inventoryService == null) return;
+            var seenNow = new HashSet<string>();
+            foreach (var order in _activeOrders.ToList())
+            {
+                if (order == null || !order.ReleasedToFloor || order.CancelledCases > 0 || string.IsNullOrEmpty(order.AssignedLane)) continue;
+                if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) continue;
+                var live = LiveTasksForOrder(order.OrderId).ToList();
+                if (live.Any(t => t.Type == WorkTaskType.OrderSelect)) continue;   // a selector still owns the loose cases
+
+                foreach (var li in order.LineItems)
+                {
+                    int full = FullPalletCases(li.SkuId);
+                    if (full <= 0) continue;
+                    int unfilled = li.QuantityRemaining - OutstandingPalletPickCases(order.OrderId, li.SkuId);
+                    int missing = unfilled / full;
+                    if (missing <= 0) continue;
+
+                    string key = order.OrderId + ":" + li.SkuId;
+                    seenNow.Add(key);
+                    if (!_pickShortfallSeen.TryGetValue(key, out int before) || before != missing) continue;   // wait one more tick
+
+                    var area = _inventoryService.GetSkuData(li.SkuId)?.StorageArea ?? PalletData.AreaCategory.Grocery;
+                    string toLocation = $"{order.EffectiveStagingDoor}{order.AssignedLane}";
+                    for (int i = 0; i < missing; i++)
+                    {
+                        string sourcePalletId = null, sourceAddress = null;
+                        if (ReplenishmentService.TryFindStagedPalletAwaitingPutaway(_workQueue, _inventoryService, li.SkuId, out string stagedId, out string stagedFrom))
+                        {
+                            _workQueue.CancelTasksForPallet(stagedId);
+                            sourcePalletId = stagedId; sourceAddress = stagedFrom;
+                        }
+                        else if (ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, li.SkuId, out var reserve))
+                        {
+                            reserve.Reserve();
+                            sourcePalletId = reserve.PalletId; sourceAddress = reserve.Address;
+                        }
+                        var pt = _workQueue.CreateTask(WorkTaskType.PalletPick, EmployeeRole.ReachTruckOperator, palletId: sourcePalletId,
+                            description: $"Pallet pick — {full} cs of {li.SkuId} for {order.CustomerName}", fromLocation: sourceAddress, toLocation: toLocation,
+                            area: area, priority: PalletPickPriority, orderId: order.OrderId, skuId: li.SkuId);
+                        if (pt != null) pt.Status = sourcePalletId != null ? WorkTaskStatus.Available : WorkTaskStatus.Open;
+                    }
+                    Debug.LogWarning($"[OrderService] Order {order.OrderNumber}: {missing} pallet pick(s) of {li.SkuId} had been lost (cancelled) while the order still needed them - filed replacement(s).");
+                    seenNow.Remove(key);
+                }
+            }
+            // Remember this tick's shortfalls for the next one; forget anything that has resolved.
+            var remembered = new Dictionary<string, int>();
+            foreach (var order in _activeOrders)
+                foreach (var li in order.LineItems)
+                {
+                    string key = order.OrderId + ":" + li.SkuId;
+                    if (!seenNow.Contains(key)) continue;
+                    int full = FullPalletCases(li.SkuId);
+                    if (full > 0) remembered[key] = (li.QuantityRemaining - OutstandingPalletPickCases(order.OrderId, li.SkuId)) / full;
+                }
+            _pickShortfallSeen.Clear();
+            foreach (var kv in remembered) _pickShortfallSeen[kv.Key] = kv.Value;
         }
 
         // Every few in-game minutes; AssignWaitingLanes is a no-op (one LINQ pass) when nothing waits.
@@ -1498,6 +1634,8 @@ namespace GameCore.Inventory
         {
             if (++_waitingLaneTick % 3 != 0) return;
             AssignWaitingLanes();
+            RefilePalletPickShortfalls();
+            RefileSelectForRestockedCases();
             ReleaseFullyShippedTrucks();
             SettleFloatingOutboundPallets();
             AssignLanesToScratchPicks();
@@ -1643,7 +1781,7 @@ namespace GameCore.Inventory
             if (holding.Count == 0) return;
 
             ServiceLocator.TryGet<InventoryService>(out var inv);
-            foreach (var group in holding.GroupBy(o => (o.CustomerId, o.AssignedDoorNumber)))
+            foreach (var group in holding.GroupBy(o => (o.OrderId, o.AssignedDoorNumber)))
             {
                 var batch = group.ToList();
 
@@ -1665,7 +1803,7 @@ namespace GameCore.Inventory
                 int ownRoom = lanes.Sum(l => FreeRoom(l.door, l.lane));
                 if (ownRoom < needed &&
                     StagingLaneAssignmentService.TryFindLanesForOrder(this, inv, group.Key.AssignedDoorNumber,
-                        group.Key.CustomerId, needed - ownRoom, null, null, out var fresh))
+                        batch[0].CustomerId, needed - ownRoom, null, null, out var fresh))
                 {
                     foreach (var l in fresh)
                         if (!lanes.Contains(l)) lanes.Add(l);
@@ -2232,17 +2370,16 @@ namespace GameCore.Inventory
             }
             lanes = lanes.OrderBy(l => l.door).ThenBy(l => l.lane).ToList();
 
-            bool truckAtDoor = Object.FindObjectsByType<TruckController>()
-                .Any(t => t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == doorNumber);
-            // A booked door gets its truck from the appointment dispatcher at (block start - arrival lead), never from here:
-            // releasing/loading an order hours before its slot used to summon the trailer immediately.
-            bool doorIsBooked = ServiceLocator.TryGet<DockScheduleService>(out var bookSched) && bookSched != null &&
-                                bookSched.DoorHasOutboundBooking(doorNumber);
-            if (!truckAtDoor && !doorIsBooked)
-                Object.FindAnyObjectByType<TruckYardManager>()?.SpawnOutboundTruck(doorNumber);
+            // No trailer is summoned from here. Every trailer comes from its appointment through the dispatcher (at block start minus the
+            // arrival lead), so it always carries its appointment id; a truck spawned by door number alone had none, and everything that
+            // later matched it by door could cross appointments.
 
             foreach (var order in orders)
                 order.Status = OrderData.OrderStatus.Loading;
+
+            // The appointment (trailer) these orders ride: the key that ties the Load task to its truck.
+            string loadApptId = ServiceLocator.TryGet<DockScheduleService>(out var loadSched) && loadSched != null
+                ? loadSched.FindForOrder(orders[0].OrderId)?.Id : null;
 
             foreach (var (stageDoor, lane) in lanes)
             {
@@ -2252,16 +2389,17 @@ namespace GameCore.Inventory
                 string fromAddress = $"{stageDoor}{lane}";
                 if (_workQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
                         (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned) &&
-                        t.FromLocation == fromAddress && t.ToLocation == doorNumber.ToString()))
+                        t.FromLocation == fromAddress && t.ToLocation == doorNumber.ToString() && t.AppointmentId == loadApptId))
                     continue;
 
-                _workQueue.CreateTask(
+                var loadTask = _workQueue.CreateTask(
                     WorkTaskType.Load,
                     EmployeeRole.DockStockerOperator,
                     palletId: null,
                     description: $"Load {customerId} from {stageDoor}{lane} -> Door {doorNumber}",
                     fromLocation: $"{stageDoor}{lane}",
                     toLocation: doorNumber.ToString());
+                if (loadTask != null) loadTask.AppointmentId = loadApptId;
             }
 
             Debug.Log($"[OrderService] Released {orders.Count} order(s) for {customerId} to loading at dock door {doorNumber} " +
@@ -2330,8 +2468,9 @@ namespace GameCore.Inventory
             failReason = null;
             if (orderIds == null || orderIds.Count == 0) { failReason = "nothing selected"; return false; }
 
-            var byDoor = new Dictionary<int, List<OrderData>>();
-            var doorOrder = new List<int>();
+            // Grouped by APPOINTMENT (one trailer), never by door number: one order per appointment.
+            var byDoor = new Dictionary<string, List<OrderData>>();
+            var doorOrder = new List<string>();
 
             foreach (var id in orderIds)
             {
@@ -2348,36 +2487,32 @@ namespace GameCore.Inventory
                     return false;
                 }
 
-                if (!byDoor.TryGetValue(order.AssignedDoorNumber, out var list))
+                string apptKey = ServiceLocator.TryGet<DockScheduleService>(out var batchSched) && batchSched != null
+                    ? batchSched.FindForOrder(order.OrderId)?.Id : null;
+                if (string.IsNullOrEmpty(apptKey)) { failReason = $"{order.CustomerName}'s order has no dock appointment - schedule it first"; return false; }
+                if (!byDoor.TryGetValue(apptKey, out var list))
                 {
                     list = new List<OrderData>();
-                    byDoor[order.AssignedDoorNumber] = list;
-                    doorOrder.Add(order.AssignedDoorNumber);
+                    byDoor[apptKey] = list;
+                    doorOrder.Add(apptKey);
                 }
                 list.Add(order);
             }
 
-            foreach (int door in doorOrder)
+            foreach (var key in doorOrder)
             {
-                var customersAtDoor = byDoor[door].Select(o => o.CustomerId).Distinct().ToList();
-                if (customersAtDoor.Count <= 1) continue;
-                failReason = $"Door {door} has orders from {customersAtDoor.Count} customers — a trailer loads one customer";
-                return false;
-            }
-
-            foreach (int door in doorOrder)
-            {
-                var ids = byDoor[door].Select(o => o.OrderId).ToList();
+                var ids = byDoor[key].Select(o => o.OrderId).ToList();
+                int door = byDoor[key][0].AssignedDoorNumber;
                 if (ReleaseOrdersToLoading(ids, door)) continue;
 
                 failReason = $"Door {door} could not be released to loading";
-                Debug.LogWarning($"[OrderService] Multi-door loading release aborted partway: {failReason}. " +
-                                 $"{doorOrder.IndexOf(door)} of {doorOrder.Count} door(s) were already released.");
+                Debug.LogWarning($"[OrderService] Multi-trailer loading release aborted partway: {failReason}. " +
+                                 $"{doorOrder.IndexOf(key)} of {doorOrder.Count} trailer(s) were already released.");
                 return false;
             }
 
-            Debug.Log($"[OrderService] Released {orderIds.Count} order(s) to loading across {doorOrder.Count} door(s): " +
-                      string.Join(", ", doorOrder.Select(d => $"{byDoor[d][0].CustomerName} -> Door {d}")));
+            Debug.Log($"[OrderService] Released {orderIds.Count} order(s) to loading across {doorOrder.Count} trailer(s): " +
+                      string.Join(", ", doorOrder.Select(k => $"{byDoor[k][0].CustomerName} -> Door {byDoor[k][0].AssignedDoorNumber}")));
             return true;
         }
 
@@ -2841,16 +2976,15 @@ namespace GameCore.Inventory
         {
             var result = new List<ReadyToCloseInfo>();
             var trucks = Object.FindObjectsByType<TruckController>();
-            foreach (var grp in _activeOrders.Where(o => (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded)
-                                                         && o.AssignedDoorNumber > 0).GroupBy(o => o.AssignedDoorNumber))
+            var apptSvc = ServiceLocator.TryGet(out DockScheduleService ds) ? ds : null;
+            // One trailer = one appointment = one order. Walk the docked trucks by their appointment id; never group orders by door number.
+            foreach (var truck in trucks.Where(t => t != null && t.IsOutbound && t.DockedAt != null && !string.IsNullOrEmpty(t.OutboundAppointmentId)))
             {
-                int door = grp.Key;
-                var truck = trucks.FirstOrDefault(t => t != null && t.IsOutbound && t.DockedAt != null && t.DockedAt.DoorNumber == door);
-                if (truck == null) continue;
-                // Only the orders booked on THIS trailer's appointment count; another order merely staged at the same door must not.
-                var apptSvc = ServiceLocator.TryGet(out DockScheduleService ds) ? ds : null;
-                var truckAppt = apptSvc != null && !string.IsNullOrEmpty(truck.OutboundAppointmentId) ? apptSvc.FindById(truck.OutboundAppointmentId) : null;
-                var grpOrders = truckAppt != null ? grp.Where(x => truckAppt.OrderIds.Contains(x.OrderId)).ToList() : grp.ToList();
+                var truckAppt = apptSvc != null ? apptSvc.FindById(truck.OutboundAppointmentId) : null;
+                if (truckAppt == null) continue;
+                int door = truck.DockedAt.DoorNumber;
+                var grpOrders = _activeOrders.Where(o => o != null && truckAppt.OrderIds.Contains(o.OrderId) &&
+                    (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded)).ToList();
                 if (grpOrders.Count == 0) continue;
 
                 var info = new ReadyToCloseInfo { Door = door, Truck = truck };
@@ -2939,7 +3073,7 @@ namespace GameCore.Inventory
                 if (o.Status == OrderData.OrderStatus.Shipped || o.Status == OrderData.OrderStatus.Cancelled) continue;
                 bool onFloor = o.ReleasedToFloor || o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded;
                 if (!onFloor) continue;
-                if (appt != null ? !appt.OrderIds.Contains(o.OrderId) : (door <= 0 || o.AssignedDoorNumber != door)) continue;
+                if (appt == null || !appt.OrderIds.Contains(o.OrderId)) continue;   // by appointment only, never by door number
                 list.Add(o);
             }
             return list;
@@ -3053,7 +3187,11 @@ namespace GameCore.Inventory
 
                 // Shipped orders are archived, so what's left at this door is whatever still rides
                 // the same trailer. Nothing => the driver was released to leave.
-                bool driverDeparting = !_activeOrders.Any(o => o.AssignedDoorNumber == door &&
+                // Only orders on THIS order's appointment ride this trailer (Tad, 2026-10-31). Another customer's order at the same
+                // door number is on its own trailer and must not hold this one at the dock.
+                var ownAppt = ServiceLocator.TryGet<DockScheduleService>(out var apptSched) && apptSched != null
+                    ? apptSched.FindForOrder(order.OrderId) : null;
+                bool driverDeparting = ownAppt == null || !_activeOrders.Any(o => o != null && ownAppt.OrderIds.Contains(o.OrderId) &&
                     (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded));
 
                 SystemsLogWindow.LogRevenue(driverDeparting
@@ -3102,7 +3240,11 @@ namespace GameCore.Inventory
                 FloatingMoneyText.Show(truck.DockedAt.transform.position + Vector3.up * 2.5f, revenueJustBilled);
 
             ReleaseFullyShippedTrucks();
-            bool stillPending = _activeOrders.Any(o => o.AssignedDoorNumber == doorNumber &&
+            // Only the orders on THIS trailer's appointment can hold it (Tad, 2026-10-31). Another order at the same door number
+            // belongs to its own trailer; checking the door kept a finished trailer docked behind someone else's load.
+            var appt = truck != null && !string.IsNullOrEmpty(truck.OutboundAppointmentId) && ServiceLocator.TryGet(out DockScheduleService sched) && sched != null
+                ? sched.FindById(truck.OutboundAppointmentId) : null;
+            bool stillPending = appt != null && _activeOrders.Any(o => o != null && appt.OrderIds.Contains(o.OrderId) &&
                 (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded));
             if (stillPending || truck == null) return;
 
@@ -3559,6 +3701,10 @@ namespace GameCore.Inventory
         /// </summary>
         public int ReconcileStagedOrdersAgainstScene(ICollection<string> onlyOrderIds = null)
         {
+            // First put the schedule right (one order per appointment, doors from appointments, Load tasks tied to appointments),
+            // so the reconcile below works from correct links.
+            if (ServiceLocator.TryGet<DockScheduleService>(out var healSched) && healSched != null) healSched.HealAppointments();
+
             var livePalletOrderIds = new HashSet<string>();
             foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
                 if (p != null && !string.IsNullOrEmpty(p.OrderId))

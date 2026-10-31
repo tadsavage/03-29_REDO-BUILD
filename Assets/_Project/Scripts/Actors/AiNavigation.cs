@@ -607,6 +607,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
         var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
         var path = new NavMeshPath();
+        // Boundary-restricted vehicles (forklifts, dock stockers, pallet jacks) must never walk OUT of the building to get
+        // unstuck. Their walk-out and the MHEBoundary check were fighting each other at the south wall (2026-10-31).
+        bool restricted = MHEBoundary.Restricts(gameObject);
         const int Directions = 12;
         Vector3 best = origin; float bestScore = -1f;
 
@@ -618,6 +621,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 Vector3 probe = origin + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * radius;
 
                 if (!NavMesh.SamplePosition(probe, out NavMeshHit hit, 2f, filter)) continue;
+                if (restricted && !MHEBoundary.IsInside(hit.position)) continue;
 
                 float d = Vector3.Distance(origin, hit.position);
                 if (d < MinEscapeDistance) continue;   // too close — still inside the pocket
@@ -664,6 +668,8 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         bool haveTarget = TryFindEscapePoint(from, out Vector3 target);
         if (!haveTarget)
             haveTarget = TryFindNavMeshNear(from, out target, out _);
+        // A boundary-restricted vehicle with no inside escape stays where it is. Walking it out would only fight MHEBoundary.
+        if (haveTarget && MHEBoundary.Restricts(gameObject) && !MHEBoundary.IsInside(target)) haveTarget = false;
 
         if (!haveTarget)
         {

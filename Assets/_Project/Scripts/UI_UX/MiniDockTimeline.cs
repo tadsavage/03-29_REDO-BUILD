@@ -34,7 +34,9 @@ public class MiniDockTimeline
     private const float MaxScrubBack = 6f;
     /// <summary>Height of one door row in px. Must match .mini-timeline-door / -chip in the USS.</summary>
     private const float RowHeight = 20f;
-    private const int HourLabelPool = 11;   // VisibleHours / BlockHours + a couple spare
+    /// <summary>Hours between the vertical grid lines and hour labels (a block is only half an hour).</summary>
+    private const int GridLineHours = 2;
+    private const int HourLabelPool = 11;   // VisibleHours / grid-line spacing (2 h) + a couple spare
 
     // Glide back to "now" / the top row after letting go: exponential ease plus a floor so it always
     // finishes. Hours per second / pixels per second.
@@ -83,7 +85,7 @@ public class MiniDockTimeline
         _keep.Add(_nowLine);
 
         // Fixed pools, repositioned as the view moves, so scrolling never allocates.
-        int vlineCount = Mathf.CeilToInt(VisibleHours / DockScheduleService.BlockHours) + 2;
+        int vlineCount = Mathf.CeilToInt(VisibleHours / GridLineHours) + 2;
         for (int i = 0; i < vlineCount; i++)
         {
             var v = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -224,8 +226,8 @@ public class MiniDockTimeline
     {
         float viewStart = _lastNowHours + _scrubHours - VisibleHours / 2f;
 
-        // Block boundaries (every BlockHours) inside the window.
-        int step = DockScheduleService.BlockHours;
+        // Grid lines every GridLineHours (blocks are half hours, too dense to draw) inside the window.
+        int step = GridLineHours;
         int firstBoundary = Mathf.CeilToInt(viewStart / step) * step;
         for (int i = 0; i < _vLines.Count; i++)
         {
@@ -274,7 +276,7 @@ public class MiniDockTimeline
         _emptyLabel.EnableInClassList("mini-timeline-empty-visible", none);
         if (none) return;
 
-        float widthPct = DockScheduleService.BlockHours / VisibleHours * 100f;
+        float widthPct = (DockScheduleService.BlockMinutes / 60f) / VisibleHours * 100f;
 
         for (int r = 0; r < doors.Count; r++)
         {
@@ -313,9 +315,9 @@ public class MiniDockTimeline
             string state = missed ? "MISSED" : complete ? "done" : "scheduled";
             RuntimeTooltip.Attach(chip,
                 $"{(string.IsNullOrEmpty(appt.CustomerName) ? "Trailer" : appt.CustomerName)} - {KindName(appt.Kind)}, " +
-                $"Door {appt.DoorNumber}, {appt.StartHour:00}:00-{appt.EndHour:00}:00 ({state})");
+                $"Door {appt.DoorNumber}, {appt.TimeLabel} ({state})");
             _grid.Add(chip);
-            _chips.Add((chip, appt.Day * 24f + appt.StartHour, row));
+            _chips.Add((chip, appt.Day * 24f + appt.StartMinute / 60f, row));
         }
 
         _nowLine.BringToFront();   // the yellow line sits above every chip

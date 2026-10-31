@@ -1980,8 +1980,8 @@ public class SchedulerPanel : IUIPanel
     /// how much of it was actually left.</summary>
     private static string DeadlineLabel(int dueDay)
     {
-        int lastBlockHour = (DockScheduleService.BlocksPerDay - 1) * DockScheduleService.BlockHours;
-        return $"DEADLINE: D{dueDay} {lastBlockHour:00}:00";
+        int lastBlockMinute = (DockScheduleService.BlocksPerDay - 1) * DockScheduleService.BlockMinutes;
+        return $"DEADLINE: D{dueDay} {lastBlockMinute / 60:00}:{lastBlockMinute % 60:00}";
     }
 
     /// <summary>
@@ -4075,7 +4075,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         if (booking && movingAppt == null)
         {
             var holdGroupForSpan = schedule.UnscheduledGroups().FirstOrDefault(g => g.Key == _selectedUnscheduledKey);
-            if (holdGroupForSpan != null) holdSpan = DockScheduleService.SpanFor(holdGroupForSpan.Kind);
+            if (holdGroupForSpan != null) holdSpan = DockScheduleService.SpanForPallets(schedule.PalletsFor(holdGroupForSpan.OrderIds, null));
         }
 
         for (int block = 0; block < DockScheduleService.BlocksPerDay; block++)
@@ -4447,6 +4447,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     /// the next day, since that is when the clock actually reaches it.</summary>
     private static string ChipCutoffText(DockAppointment appt)
     {
+        if (ServiceLocator.TryGet<DockScheduleService>(out var sched) && sched != null) return sched.DeadlineLabel(appt);
         int day = appt.Day, hour = appt.EndHour;
         if (hour >= 24) { day++; hour -= 24; }
         return $"Day {day} @ {hour:00}:00";
@@ -4550,6 +4551,19 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     /// a surplus of one item can't paper over a shortage of another. Same ActiveOrders+OrderHistory
     /// lookup as BuildOutboundTooltipContent, so the chip agrees with its own hover tooltip even after
     /// an order archives out of ActiveOrders on close-out.</summary>
+    // The global availability picture, built once per frame: the scheduler asks for every appointment in the same frame.
+    private static int s_netFrame = -1;
+    private static Dictionary<string, ItemAvailabilityRow> s_net;
+    private static Dictionary<string, ItemAvailabilityRow> ItemAvailabilityRows()
+    {
+        if (s_net == null || s_netFrame != Time.frameCount)
+        {
+            s_net = ItemAvailability.Build().ToDictionary(r => r.SkuId);
+            s_netFrame = Time.frameCount;
+        }
+        return s_net;
+    }
+
     private static int ComputeOutboundInStockPercent(DockAppointment appt)
     {
         if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null || appt.OrderIds.Count == 0)
@@ -4577,13 +4591,24 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         }
         if (neededBySku.Count == 0) return 0;
 
+        // Net of EVERYTHING the building owes (Tad 2026-10-31), not just this appointment: a case already promised to another
+        // accepted order is not free for this one, and cases on open POs are coming. Available to this appointment =
+        // shelf + open POs - what every OTHER order still owes of the SKU. (Conservative: other demand is treated as ahead.)
+        var net = ItemAvailabilityRows();
         int totalNeeded = 0, totalCovered = 0;
         foreach (var kv in neededBySku)
         {
             pickedBySku.TryGetValue(kv.Key, out int picked);
             int remaining = Mathf.Max(0, kv.Value - picked);
             totalNeeded += kv.Value;
-            totalCovered += picked + Mathf.Min(inv.TotalOnHand(kv.Key), remaining);
+            int available = inv.TotalOnHand(kv.Key);
+            if (net.TryGetValue(kv.Key, out var row))
+            {
+                int owedElsewhere = Mathf.Max(0, row.Pending - remaining);
+                // Balance on hand only (Tad 2026-10-31): stock on an open PO is not here yet, so booking a PO must not read as "in stock".
+                available = Mathf.Max(0, row.OnHand - owedElsewhere);
+            }
+            totalCovered += picked + Mathf.Min(available, remaining);
         }
         return totalNeeded > 0 ? Mathf.Clamp(Mathf.RoundToInt(totalCovered / (float)totalNeeded * 100f), 0, 100) : 0;
     }
@@ -4640,6 +4665,8 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
                 break;
         }
 
+        // Blank for now (Tad, 2026-10-31): the green / yellow / red tint says it. The wording above is kept for when text comes back.
+        text = string.Empty;
         var label = MakeText(text, MoveTintFontSize, textCol, bold: true);
         label.style.whiteSpace = WhiteSpace.Normal;
         label.style.unityTextAlign = verdict == DockScheduleService.MoveVerdict.Blocked
@@ -5434,7 +5461,7 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
                 earliest = appt;
         }
 
-        return earliest == null ? "Nothing On Order" : $"Next PO: Day {earliest.Day} {earliest.StartHour:00}:00";
+        return earliest == null ? "Nothing On Order" : $"Next PO: Day {earliest.Day} {earliest.StartMinute / 60:00}:{earliest.StartMinute % 60:00}";
     }
 
     private VisualElement BuildTooltipDivider()

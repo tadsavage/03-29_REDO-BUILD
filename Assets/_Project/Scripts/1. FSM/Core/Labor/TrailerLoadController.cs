@@ -154,7 +154,8 @@ namespace GameCore.Labor
             foreach (var (task, door, lane, dockDoor) in byLane)
             {
                 // The trailer is at the DOCK door; the lane being emptied may be at a different door.
-                var truck = FindDockedOutboundTruck(dockDoor);
+                // By appointment id when the task carries one; only an old save's task (no id) falls back to the door.
+                var truck = !string.IsNullOrEmpty(task.AppointmentId) ? FindTruckForAppointment(task.AppointmentId) : FindDockedOutboundTruck(dockDoor);
                 if (truck == null || !truck.AwaitingLoad) continue; // no trailer there (yet) -- try the next task
 
                 var slot = FindAvailableDockStocker();
@@ -315,7 +316,7 @@ namespace GameCore.Labor
                     if (order.Status != OrderData.OrderStatus.Loaded && !loading) continue;
                     if (loading)
                     {
-                        var dockTruck = FindDockedOutboundTruck(order.AssignedDoorNumber);
+                        var dockTruck = FindTruckForAppointment(AppointmentOfOrder(order.OrderId));
                         if (dockTruck == null || !dockTruck.AwaitingLoad) continue;
                     }
                     if (!HasStagedPalletForOrder(order.OrderId)) continue;
@@ -329,7 +330,9 @@ namespace GameCore.Labor
                 }
             }
 
-            var orderIdsByDoor = new Dictionary<int, List<string>>();
+            // One appointment = one trailer = one order. Group by the appointment id, never by door number: two appointments can
+            // sit at the same door back to back, and nothing from one may be loaded onto the other's trailer.
+            var orderIdsByAppt = new Dictionary<string, List<string>>();
             foreach (var order in orderService.ActiveOrders)
             {
                 if (!orderService.CanStartLoading(order, out _)) continue;
@@ -337,39 +340,21 @@ namespace GameCore.Labor
                 // was dug out and loaded straight onto the trailer. Releasing it would file a Load task
                 // the loader can only fail (RevertUnloadedOrdersToStaged), then re-file every poll.
                 if (!HasStagedPalletForOrder(order.OrderId)) continue;
-                if (!orderIdsByDoor.TryGetValue(order.AssignedDoorNumber, out var ids))
+                string apptId = AppointmentOfOrder(order.OrderId);
+                if (string.IsNullOrEmpty(apptId)) continue;   // no appointment: no trailer to load it onto
+                if (!orderIdsByAppt.TryGetValue(apptId, out var ids))
                 {
                     ids = new List<string>();
-                    orderIdsByDoor[order.AssignedDoorNumber] = ids;
+                    orderIdsByAppt[apptId] = ids;
                 }
                 ids.Add(order.OrderId);
             }
 
-            foreach (var (door, orderIds) in orderIdsByDoor)
+            foreach (var kv in orderIdsByAppt)
             {
-                var truck = FindDockedOutboundTruck(door);
-                if (truck == null || !truck.AwaitingLoad) continue; // nothing waiting at this door yet
-
-                // A DOOR may hold several customers at once (one per lane: 1A for one, 1B for another), but a TRAILER carries one customer's
-                // freight. Handing every staged order of the door to ReleaseOrdersToLoading in one batch made it refuse the whole lot as
-                // "more than one customer", every half second, and no Load task was ever filed - the truck sat docked while two customers'
-                // pallets sat in their lanes, which in turn held those lanes and left the selectors' work Open (block 10, 2026-10-25).
-                // So: load the orders that belong to THIS truck's appointment, and only one customer's at a time.
-                var toLoad = orderIds;
-                if (!string.IsNullOrEmpty(truck.OutboundAppointmentId) && ServiceLocator.TryGet<DockScheduleService>(out var sched) && sched != null)
-                {
-                    var appt = sched.FindById(truck.OutboundAppointmentId);
-                    if (appt != null && appt.OrderIds != null && appt.OrderIds.Count > 0)
-                    {
-                        var mine = orderIds.Where(id => appt.OrderIds.Contains(id)).ToList();
-                        if (mine.Count > 0) toLoad = mine;
-                    }
-                }
-                string CustomerOf(string id) => orderService.ActiveOrders.FirstOrDefault(o => o != null && o.OrderId == id)?.CustomerId;
-                var firstCustomer = CustomerOf(toLoad[0]);
-                toLoad = toLoad.Where(id => CustomerOf(id) == firstCustomer).ToList();   // no appointment info: take one customer, the other loads on its own truck
-
-                orderService.ReleaseOrdersToLoading(toLoad, door);
+                var truck = FindTruckForAppointment(kv.Key);
+                if (truck == null || !truck.AwaitingLoad) continue; // this appointment's trailer is not at its door yet
+                orderService.ReleaseOrdersToLoading(kv.Value, truck.DockedAt.DoorNumber);
             }
         }
 
@@ -391,6 +376,21 @@ namespace GameCore.Labor
                 _claimIdleSince.Remove(t);
                 Debug.LogWarning($"[TrailerLoad] {t.name} was marked as being loaded but no dock machine was working it for 15 s - released the stale claim so it can be loaded.");
             }
+        }
+
+        /// <summary>The appointment (trailer booking) an order rides, or null. The appointment id is the key that ties an order, its
+        /// Load tasks and its truck together; the door number never is (Tad, 2026-10-31).</summary>
+        internal static string AppointmentOfOrder(string orderId)
+            => !string.IsNullOrEmpty(orderId) && ServiceLocator.TryGet<DockScheduleService>(out var sched) && sched != null
+                ? sched.FindForOrder(orderId)?.Id : null;
+
+        /// <summary>The docked outbound truck dispatched for exactly this appointment, or null.</summary>
+        internal static TruckController FindTruckForAppointment(string appointmentId)
+        {
+            if (string.IsNullOrEmpty(appointmentId)) return null;
+            foreach (var t in TrucksThisFrame())
+                if (t != null && t.IsOutbound && t.DockedAt != null && t.OutboundAppointmentId == appointmentId) return t;
+            return null;
         }
 
         private static TruckController FindDockedOutboundTruck(int doorNumber)
@@ -479,7 +479,7 @@ namespace GameCore.Labor
             Transform forks = FindDeepChild(ds, ForkChildName);
             float forkRestY = forks != null ? forks.localPosition.y : 0f;
 
-            var pallets = FindStagedPalletsInLane(doorNumber, lane, truck.DockedAt != null ? truck.DockedAt.DoorNumber : doorNumber);
+            var pallets = FindStagedPalletsInLane(doorNumber, lane, truck.DockedAt != null ? truck.DockedAt.DoorNumber : doorNumber, truck.OutboundAppointmentId);
 
             Debug.Log($"[TrailerLoad] Loading {pallets.Count} staged pallet(s) from lane {doorNumber}{lane} onto {truck.name} with dock stocker {ds.name}.");
 
@@ -607,7 +607,7 @@ namespace GameCore.Labor
         /// Order Selection already wrote instead of writing new ones. Excludes anything still
         /// parented (mid-carry, either still riding a selector or already on another DS's forks)
         /// since that pallet isn't actually staged yet/still.</summary>
-        private List<OutboundPalletBuilder> FindStagedPalletsInLane(int doorNumber, string lane, int dockDoor)
+        private List<OutboundPalletBuilder> FindStagedPalletsInLane(int doorNumber, string lane, int dockDoor, string appointmentId = null)
         {
             var found = new List<(OutboundPalletBuilder pallet, int slotIndex, float y)>();
             foreach (var pallet in FindObjectsByType<OutboundPalletBuilder>())
@@ -664,8 +664,11 @@ namespace GameCore.Labor
             // driving through it.
             if (ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
             {
+                // Only the orders on THIS trailer's appointment: another appointment at the same dock door is another trailer.
+                var apptSvc = ServiceLocator.TryGet<DockScheduleService>(out var sch) ? sch : null;
+                var apptForTruck = apptSvc != null && !string.IsNullOrEmpty(appointmentId) ? apptSvc.FindById(appointmentId) : null;
                 var loadingIds = new HashSet<string>(orders.ActiveOrders
-                    .Where(o => o.AssignedDoorNumber == dockDoor && // dock door (the trailer), not the lane's door
+                    .Where(o => (apptForTruck != null ? apptForTruck.OrderIds.Contains(o.OrderId) : o.AssignedDoorNumber == dockDoor) &&
                                 (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded))
                     .Select(o => o.OrderId));
                 int firstForeign = found.FindIndex(f => !loadingIds.Contains(f.pallet.OrderId));

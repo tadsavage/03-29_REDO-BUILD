@@ -97,7 +97,7 @@ public class SchedulerWarningService : MonoBehaviour
     private void AnnounceReadiness(OrderData order, DockAppointment appt, OrderService orders,
         InventoryService inventory, DockScheduleService dockSchedule, ShipmentService shipments)
     {
-        string apptTime = $"{appt.StartHour:00}:00";
+        string apptTime = $"{appt.StartMinute / 60:00}:{appt.StartMinute % 60:00}";
         string displayNumber = string.IsNullOrEmpty(order.OrderNumber) ? order.OrderId : order.OrderNumber;
         // "Order XXX" is a Systems Log hyperlink to this order's block on the Scheduler (LogLinks).
         string header = $"{LogLinks.Order(order.OrderId, $"Order {displayNumber}")} {order.CustomerName} is at {apptTime}";
@@ -162,7 +162,7 @@ public class SchedulerWarningService : MonoBehaviour
             var shipment = shipments.PendingShipments.FirstOrDefault(s => s.PONumber == inbound.ShipmentPoNumber);
             if (shipment == null) continue;
             if (shipment.LineItems.Any(li => li.SkuId == skuId))
-                return $"{inbound.StartHour:00}:00";
+                return $"{inbound.StartMinute / 60:00}:{inbound.StartMinute % 60:00}";
         }
         return null;
     }

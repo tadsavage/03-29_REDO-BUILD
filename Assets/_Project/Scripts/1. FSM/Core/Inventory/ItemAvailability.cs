@@ -50,8 +50,13 @@ namespace GameCore.Inventory
         public static Dictionary<string, int> ShortCasesBySku()
         {
             var short_ = new Dictionary<string, int>();
+            // One global net: everything owed to every accepted order, against shelf stock PLUS open POs. Cases on order are
+            // covered (Tad 2026-10-31), so purchasing and the Item Listing read the same figure.
             foreach (var r in Build())
-                if (r.Pending > r.OnHand) short_[r.SkuId] = r.Pending - r.OnHand;
+            {
+                int shortBy = r.Pending - r.OnHand - r.Inbound;
+                if (shortBy > 0) short_[r.SkuId] = shortBy;
+            }
             return short_;
         }
 

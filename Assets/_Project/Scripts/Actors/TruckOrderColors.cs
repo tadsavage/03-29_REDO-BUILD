@@ -74,14 +74,7 @@ public static class TruckOrderColors
             return null;
         }
 
-        int door = truck.AssignedDock != null ? truck.AssignedDock.DoorNumber : truck.OutboundDoorNumber;
-        if (door <= 0) return null;
-
-        var todays = schedule.Appointments.Where(a =>
-            !a.Parked && a.Kind != AppointmentKind.Inbound &&
-            a.DoorNumber == door && a.Day == schedule.CurrentDay).ToList();
-        return todays.FirstOrDefault(a => a.BlockIndex <= schedule.CurrentBlock && schedule.CurrentBlock <= a.LastBlockIndex && !a.ClosedOut)
-            ?? todays.FirstOrDefault(a => !a.ClosedOut)
-            ?? todays.FirstOrDefault();
+        // No appointment id means no appointment: never guess "whatever is booked at this door today" (it describes a different trailer).
+        return null;
     }
 }

@@ -61,6 +61,7 @@ public class MHEOperatorSlot : MonoBehaviour
         {
             VehicleGrounding.Attach(gameObject);
             EquipmentBattery.Attach(gameObject);   // 8 h of use, 2 h on a charger (Tad, 2026-10-17)
+            MHEBoundary.Attach(gameObject);        // never drive out of the building (Tad, 2026-10-31)
         }
     }
 

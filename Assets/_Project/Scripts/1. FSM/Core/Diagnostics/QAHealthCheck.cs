@@ -70,6 +70,18 @@ namespace GameCore.Diagnostics
         private static int LedgerNet(MoneyService m) =>
             m.LifetimeIncome.Values.Sum() - m.LifetimeExpenses.Values.Sum();
 
+        /// <summary>The pallet's recent trail (PalletHistory) as a suffix the bot strips off before it builds a bug's identity, so a
+        /// changing trail never makes one bug look like a new one. Empty when nothing was recorded.</summary>
+        private static string Hist(GameObject g)
+        {
+            if (g == null) return "";
+            var link = g.GetComponent<PalletMasterLink>();
+            var ob = g.GetComponent<OutboundPalletBuilder>();
+            string h = link != null ? PalletHistory.Describe(link.PalletId) : "";
+            if (string.IsNullOrEmpty(h) && ob != null && !string.IsNullOrEmpty(ob.OrderId)) h = PalletHistory.Describe(PalletHistory.OutboundKey(ob.OrderId));
+            return string.IsNullOrEmpty(h) ? "" : "  <<HISTORY: " + h.Replace('\n', ' ') + ">>";
+        }
+
         private static bool Carried(GameObject g) =>
             g.GetComponentInParent<MHEOperatorSlot>() != null || g.GetComponentInParent<TruckController>() != null ||
             g.GetComponentInParent<GameCore.Actors.OrderSelectionTaskDriver>() != null || g.GetComponentInParent<EmployeeIdentity>() != null;
@@ -149,6 +161,44 @@ namespace GameCore.Diagnostics
 
             sb.Append($"t={Time.time:F0} ts={Time.timeScale} $={money?.CurrentCapital} rep={rep?.Score}\n");
 
+            // ── appointment isolation (Tad's golden rule, 2026-10-31): ONE order per appointment, nothing bleeds across ──────────
+            if (ServiceLocator.TryGet<DockScheduleService>(out var sched) && sched != null)
+            {
+                var liveAppts = sched.Appointments.Where(a => a != null && a.Kind != AppointmentKind.Inbound && !a.Parked && !a.ClosedOut).ToList();
+                foreach (var a in liveAppts.Where(a => a.OrderIds.Count > 1))
+                { sb.Append($"APPT-MULTI-ORDER door {a.DoorNumber} day {a.Day} {a.TimeLabel} carries {a.OrderIds.Count} orders\n"); issues++; }
+                foreach (var g in orders.ActiveOrders.Where(o => o != null).GroupBy(o => o.OrderId))
+                    if (sched.Appointments.Count(a => a.Kind != AppointmentKind.Inbound && a.OrderIds.Contains(g.Key)) > 1)
+                    { sb.Append($"ORDER-ON-MANY-APPTS {g.First().OrderNumber}\n"); issues++; }
+                foreach (var a in liveAppts.Where(a => !a.IsHold && a.DoorNumber > 0))
+                    foreach (var id in a.OrderIds)
+                    {
+                        var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
+                        if (o != null && o.AssignedDoorNumber != a.DoorNumber)
+                        { sb.Append($"ORDER-DOOR-MISMATCH {o.OrderNumber} order door {o.AssignedDoorNumber} but appointment door {a.DoorNumber}\n"); issues++; }
+                    }
+                for (int i = 0; i < liveAppts.Count; i++)
+                    for (int j = i + 1; j < liveAppts.Count; j++)
+                        if (liveAppts[i].Day == liveAppts[j].Day && liveAppts[i].DoorNumber == liveAppts[j].DoorNumber && liveAppts[i].DoorNumber > 0 &&
+                            liveAppts[i].BlockIndex <= liveAppts[j].LastBlockIndex && liveAppts[j].BlockIndex <= liveAppts[i].LastBlockIndex)
+                        { sb.Append($"APPT-OVERLAP door {liveAppts[i].DoorNumber} day {liveAppts[i].Day} {liveAppts[i].TimeLabel} & {liveAppts[j].TimeLabel}\n"); issues++; }
+                foreach (var t in wq.Tasks.Where(t => t != null && t.Type == WorkTaskType.Load && (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned)))
+                {
+                    var ta = sched.FindById(t.AppointmentId);
+                    if (ta == null) { sb.Append($"LOAD-TASK-NO-APPT {t.FromLocation}>{t.ToLocation}\n"); issues++; }
+                    else if (t.ToLocation != ta.DoorNumber.ToString()) { sb.Append($"LOAD-TASK-DOOR {t.FromLocation}>{t.ToLocation} but appointment door {ta.DoorNumber}\n"); issues++; }
+                }
+                foreach (var tr in Object.FindObjectsByType<TruckController>().Where(t => t != null && t.IsOutbound && !t.IsLeaving))
+                {
+                    if (string.IsNullOrEmpty(tr.OutboundAppointmentId)) { sb.Append($"TRUCK-NO-APPT {tr.name}\n"); issues++; continue; }
+                    var ap = sched.FindById(tr.OutboundAppointmentId);
+                    if (ap == null || tr.LoadContainer == null) continue;
+                    foreach (var pb in tr.LoadContainer.GetComponentsInChildren<OutboundPalletBuilder>(true))
+                        if (pb != null && !string.IsNullOrEmpty(pb.OrderId) && !ap.OrderIds.Contains(pb.OrderId))
+                        { sb.Append($"TRUCK-FOREIGN-PALLET {tr.name} carries a pallet of order {pb.OrderId.Substring(0, 6)} that is not on its appointment\n"); issues++; break; }
+                }
+            }
+
             // ── money: capital must move only with the ledger ────────────────────────────────────
             if (money != null)
             {
@@ -205,18 +255,18 @@ namespace GameCore.Diagnostics
                 var links = g.GetComponents<PalletMasterLink>();
                 var link = links.Length > 0 ? links[0] : null;
                 var ob = g.GetComponent<OutboundPalletBuilder>();
-                if (links.Length > 1) { sb.Append($"DUPLINK {g.name} @{where}\n"); issues++; }
+                if (links.Length > 1) { sb.Append($"DUPLINK {g.name} @{where}{Hist(g)}\n"); issues++; }
                 if (addr != null)
                 {
                     if (ob != null)
                     {
-                        if (!orders.ActiveOrders.Any(o => o.OrderId == ob.OrderId)) { sb.Append($"ORPHAN-OUTBOUND {addr} (order {ob.OrderId} gone)\n"); issues++; }
+                        if (!orders.ActiveOrders.Any(o => o.OrderId == ob.OrderId)) { sb.Append($"ORPHAN-OUTBOUND {addr} (order {ob.OrderId} gone){Hist(g)}\n"); issues++; }
                     }
                     else
                     {
                         var rec = link != null ? inv.GetPallet(link.PalletId) : null;
-                        if (rec == null) { sb.Append($"NO-RECORD lane pallet {addr} {g.name}\n"); issues++; }
-                        else if (!live.Contains(rec.PalletId)) { sb.Append($"NO-TASK lane pallet {addr} sku={rec.SkuId} load={rec.LoadId}\n"); issues++; }
+                        if (rec == null) { sb.Append($"NO-RECORD lane pallet {addr} {g.name}{Hist(g)}\n"); issues++; }
+                        else if (!live.Contains(rec.PalletId)) { sb.Append($"NO-TASK lane pallet {addr} sku={rec.SkuId} load={rec.LoadId}{Hist(g)}\n"); issues++; }
                     }
                 }
                 if (!hasB[i]) continue;
@@ -230,12 +280,12 @@ namespace GameCore.Diagnostics
                         var lp = l.transform.position;
                         if (Vector2.Distance(new Vector2(lp.x, lp.z), new Vector2(g.transform.position.x, g.transform.position.z)) < 0.9f && Mathf.Abs(lp.y - bottom) < 0.3f) { supported = true; break; }
                     }
-                if (!supported) { sb.Append($"FLOATING {g.name} @{where} bottom={bottom:F2}\n"); issues++; }
+                if (!supported) { sb.Append($"FLOATING {g.name} @{where} bottom={bottom:F2}{Hist(g)}\n"); issues++; }
                 for (int j = i + 1; j < pals.Count; j++)
                 {
                     if (!hasB[j]) continue;
                     float vo = Mathf.Min(bb[j].max.y, bb[i].max.y) - Mathf.Max(bb[j].min.y, bb[i].min.y);
-                    if (PD(bb[i], bb[j]) < 0.45f && vo > 0.15f) { sb.Append($"OVERLAP {g.name} & {pals[j].name} @{where}\n"); issues++; }
+                    if (PD(bb[i], bb[j]) < 0.45f && vo > 0.15f) { sb.Append($"OVERLAP {g.name} & {pals[j].name} @{where}{Hist(g)}{Hist(pals[j])}\n"); issues++; }
                 }
             }
             foreach (var r in inv.GetAllPallets())

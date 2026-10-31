@@ -568,7 +568,7 @@ namespace GameCore.Inventory
                 if (ServiceLocator.TryGet(out DockScheduleService dockSchedule) && dockSchedule != null)
                 {
                     if (dockSchedule.FindForPo(shipment.PONumber) == null)
-                        dockSchedule.BookInboundNow(shipment.SupplierId, shipment.SupplierName);
+                        dockSchedule.BookInboundNow(shipment.SupplierId, shipment.SupplierName, shipment.LineItems.Count(li => li != null && !li.Dropped));
                 }
             }
             else

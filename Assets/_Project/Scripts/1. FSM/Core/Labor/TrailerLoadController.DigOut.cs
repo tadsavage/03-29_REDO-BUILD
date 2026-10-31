@@ -74,7 +74,8 @@ namespace GameCore.Labor
                 if (srcDoor != dstDoor) continue; // a dock stocker works its own door's dock only
                 if (_digRetryAt.TryGetValue(task.TaskId, out float retryAt) && Time.time < retryAt) continue;
 
-                var truck = FindDockedOutboundTruck(dstDoor);
+                // The trailer is the one booked for THIS pick's order (appointment id), not whatever is docked at the lane's door.
+                var truck = FindTruckForAppointment(AppointmentOfOrder(task.OrderId));
                 if (truck == null || !truck.AwaitingLoad) continue;
                 if (truck.LoadContainer == null ||
                     !TryChooseCargoSlot(truck, MeasurePalletHeight(PalletMasterLink.Find(task.PalletId)?.transform), out _, out _)) continue;

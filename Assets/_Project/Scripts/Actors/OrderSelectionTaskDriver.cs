@@ -794,8 +794,10 @@ namespace GameCore.Actors
                 return;
             }
 
+            // Any loose cases still owed with stock on hand get another trip, not only when this selector's pallets were full.
+            // FileContinuationSelect checks for remaining cases and stock itself, so it is safe to call after every trip.
             bool moreToPick = _currentOrder != null &&
-                              ((_cubingCapHit && _orderService.FileContinuationSelect(_currentOrder)) ||
+                              (_orderService.FileContinuationSelect(_currentOrder) ||
                                _orderService.FileScratchSelect(_currentOrder));
             if (moreToPick)
             {

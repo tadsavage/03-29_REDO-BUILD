@@ -56,7 +56,7 @@ public static class NegotiationFx
 
     static void PlayWin(VisualElement layer)
     {
-        AudioManager.Play("Fanfare");
+        AudioManager.Play("NegotiationWin"); // cannon fire, no fanfare (Tad 2026-10-31)
         ScreenSize(layer, out float sw, out float sh);
 
         // Text sized so the finished word spans ~2/3 of the screen width.

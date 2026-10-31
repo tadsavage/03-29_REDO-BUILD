@@ -4595,3 +4595,3589 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 2 08:30 | **FLOATING** | FLOATING Pallet_12_Slot6_Tier0 @1D-1 bottom=2.26
 - day 2 09:15 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-2
 - day 2 09:15 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 2 11:45 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1E-1 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1D-1 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1E-2 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1E-5 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1E-2 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1E-3 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1E-4 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1E-3 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1A-1 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1E-5 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1E-4 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 1E-1 A Chep
+- day 1 08:03 | **GHOST-SLOT** | SLOT 01-01-B0 names d70938d7 - no object
+- day 1 08:03 | **GHOST-SLOT** | SLOT 01-11-00 names 002cb93e - no object
+- day 1 08:03 | **GHOST-SLOT** | SLOT 02-02-A1 names 0d7b65bb - no object
+- day 1 14:01 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (20.99, 1.17, 24.96) — walking out to (14.50, 0.04, 13.39) (12.26m to mesh).
+- day 1 19:31 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (16.56, 1.11, 31.96) — walking out to (25.56, 0.08, 31.96) (8.07m to mesh).
+- day 1 20:18 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & Pallet_14_Slot7_Tier0 @1C-1
+- day 1 20:18 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier0 & Pallet_15_Slot7_Tier1 @1C-2
+- day 1 20:18 | **OVERLAP** | OVERLAP Pallet_05_Slot2_Tier1 & Pallet_06_Slot3_Tier0 @2D-1
+- day 1 20:18 | **OVERLAP** | OVERLAP Pallet_04_Slot2_Tier0 & Pallet_13_Slot6_Tier1 @2C-5
+- day 1 20:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @2C-3 bottom=2.02
+- day 1 20:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2C-4
+- day 1 20:18 | **OVERLAP** | OVERLAP Pallet_09_Slot4_Tier1 & Pallet_08_Slot4_Tier0 @1D-3
+- day 1 20:18 | **FLOATING** | FLOATING Pallet_08_Slot4_Tier0 @1D-3 bottom=2.16
+- day 1 20:18 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier0 @1C-1 bottom=2.26
+- day 1 20:18 | **FLOATING** | FLOATING Pallet_15_Slot7_Tier1 @1C-2 bottom=2.16
+- day 1 20:18 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier0 @1B-1 bottom=2.16
+- day 1 20:46 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (22.21, 1.19, 19.98) — walking out to (35.21, 0.04, 19.98) (12.06m to mesh).
+- day 1 22:26 | **ERROR** | "GetRemainingDistance" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_remainingDistance ()
+  MCPDynamicCode:Execute ()
+  System.Reflection.MethodBase:Invoke (object,object[])
+  MCPForUnity.Editor.Tools.ExecuteCode:InvokeCompiled (System.Reflection.Assembly,string) (at ./Library/PackageCache/com.coplaydev.unity-mcp@da7b9ae4aeeb/Editor/Tools/ExecuteCode.cs:275)
+  MCPForUnity.Editor.Tools.ExecuteCode:CompileAndExecute (string,string) (at ./Library/PackageCache/com.coplaydev.unity-mcp@da7b9ae4aeeb/Editor/Tools/ExecuteCode.cs:257)
+  MCPForUnity.Editor.Tools.ExecuteCode:HandleExecute (Newtonsoft.Json.Linq.JObject) (at ./Library/PackageCache/com.coplaydev.unity-mcp@da7b9ae4aeeb/Editor/Tools/ExecuteCode.cs:130)
+  MCPForUnity.Editor.Tools.ExecuteCode:HandleCommand (Newtonsoft.Json.Linq.JObject) (at ./Library/PackageCache/com.coplaydev.unity-mcp@da7b9ae4aeeb/Editor/Tools/ExecuteCode.cs:95)
+  MCPForUnity.Editor.Tools.CommandRegistry:ExecuteCommand (string,Newtonsoft.Json.Linq.JObject,System.Threading.Tasks.TaskCompletionSource`1<string>) (at ./Library/PackageCache/com.coplaydev.unity-mcp@da7b9ae4aeeb/Editor/Tools/CommandRegistry.cs:295)
+  ```
+- day 2 00:48 | **FLOATING** | FLOATING Pallet_10_Slot5_Tier0 @1D-2 bottom=2.29
+- day 2 00:48 | **FLOATING** | FLOATING Pallet_08_Slot4_Tier0 @1D-3 bottom=2.29
+- day 2 04:43 | **REPEATING** | x25 and counting: [OrderService] Order OG3585: no reserve or pick-face pallet of 248905 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 2 07:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @3A-5
+- day 2 07:18 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @3A-5 bottom=2.47
+- day 2 08:22 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 3A and it never freed up — giving up and re-queueing.
+- day 2 08:46 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (8.81, 1.11, 23.42) — walking out to (0.58, 0.08, 12.19) (12.96m to mesh).
+- day 2 08:46 | **ERROR** | FindAllObjectsOfType: The type has to be derived from UnityEngine.Object. Type is InventoryService.
+  ```
+  UnityEngine.Object:FindFirstObjectByType (System.Type)
+  MCPDynamicCode:Execute ()
+  System.Reflection.MethodBase:Invoke (object,object[])
+  MCPForUnity.Editor.Tools.ExecuteCode:InvokeCompiled (System.Reflection.Assembly,string) (at ./Library/PackageCache/com.coplaydev.unity-mcp@da7b9ae4aeeb/Editor/Tools/ExecuteCode.cs:275)
+  MCPForUnity.Editor.Tools.ExecuteCode:CompileAndExecute (string,string) (at ./Library/PackageCache/com.coplaydev.unity-mcp@da7b9ae4aeeb/Editor/Tools/ExecuteCode.cs:257)
+  MCPForUnity.Editor.Tools.ExecuteCode:HandleExecute (Newtonsoft.Json.Linq.JObject) (at ./Library/PackageCache/com.coplaydev.unity-mcp@da7b9ae4aeeb/Editor/Tools/ExecuteCode.cs:130)
+  MCPForUnity.Editor.Tools.ExecuteCode:HandleCommand (Newtonsoft.Json.Linq.JObject) (at ./Library/PackageCache/com.coplaydev.unity-mcp@da7b9ae4aeeb/Editor/Tools/ExecuteCode.cs:95)
+  MCPForUnity.Editor.Tools.CommandRegistry:ExecuteCommand (string,Newtonsoft.Json.Linq.JObject,System.Threading.Tasks.TaskCompletionSource`1<string>) (at ./Library/PackageCache/com.coplaydev.unity-mcp@da7b9ae4aeeb/Editor/Tools/CommandRegistry.cs:295)
+  ```
+- day 2 12:58 | **OVERLAP** | OVERLAP A Chep & Pallet_03_Slot1_Tier1 @2A-5
+- day 2 12:58 | **FLOATING** | FLOATING Pallet_03_Slot1_Tier1 @2A-5 bottom=2.33
+- day 2 12:58 | **OVERLAP** | OVERLAP A Chep & A Chep @2A-4
+- day 2 08:03 | **FLOATING** | FLOATING Pallet_00_Slot2_Tier0 @1B-3 bottom=2.06
+- day 2 08:03 | **OVERLAP** | OVERLAP Pallet_00_Slot2_Tier0 & Pallet_01_Slot2_Tier1 @1B-3
+- day 2 08:13 | **FLOATING** | FLOATING Pallet_00_Slot2_Tier0 @1B-3 bottom=2.06
+- day 2 08:13 | **OVERLAP** | OVERLAP Pallet_00_Slot2_Tier0 & Pallet_01_Slot2_Tier1 @1B-3
+- day 2 08:21 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 3A and it never freed up — giving up and re-queueing.
+- day 2 08:21 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 3A and it never freed up — giving up and re-queueing.
+- day 2 08:21 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 3A and it never freed up — giving up and re-queueing.
+- day 2 09:03 | **NO-TASK** | NO-TASK lane pallet 2B-4 sku=189432 load=4740918438
+- day 2 10:24 | **GHOST-SLOT** | RECORD 18289818 189432 x36 cell=(-1, -1) lane= - no object
+- day 2 10:52 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (19.76, 1.11, 13.88) (cell (64, 60)). Putting it back on its last inside spot (19.76, 1.11, 14.54). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:62)
+  ```
+- day 2 10:54 | **OVERLAP** | OVERLAP A Chep & A Chep @2A-1
+- day 2 10:54 | **OVERLAP** | OVERLAP A Chep & A Chep @2A-3
+- day 2 10:54 | **FLOATING** | FLOATING A Chep @2A-4 bottom=2.47
+- day 2 10:54 | **OVERLAP** | OVERLAP A Chep & A Chep @2A-4
+- day 2 10:54 | **OVERLAP** | OVERLAP A Chep & A Chep @2A-2
+- day 2 11:10 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (19.76, 1.11, 13.45) (cell (64, 60)). Putting it back on its last inside spot (19.76, 1.11, 14.63). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 2 10:24 | **GHOST-SLOT** | RECORD 18289818 189432 x36 cell=(-1, -1) lane= - no object
+- day 2 10:24 | **GHOST-SLOT** | RECORD 18289818 189432 x36 cell=(-1, -1) lane= - no object
+- day 2 10:54 | **OVERLAP** | OVERLAP A Chep & A Chep @2A-2
+- day 2 10:54 | **OVERLAP** | OVERLAP A Chep & A Chep @2A-4
+- day 2 10:54 | **OVERLAP** | OVERLAP A Chep & A Chep @2A-1
+- day 2 10:54 | **OVERLAP** | OVERLAP A Chep & A Chep @2A-3
+- day 2 10:54 | **FLOATING** | FLOATING A Chep @2A-4 bottom=2.47
+- day 2 15:54 | **OVERLAP** | OVERLAP A Chep & A Chep @1A-2
+- day 2 15:54 | **OVERLAP** | OVERLAP A Chep & OutboundPallet_6619460b-875b-45bf-8c12-d8d831990b26_restored @1A-1
+- day 2 15:54 | **OVERLAP** | OVERLAP A Chep & OutboundPallet_6619460b-875b-45bf-8c12-d8d831990b26_restored @1A-5
+- day 2 15:54 | **FLOATING** | FLOATING A Chep @1A-2 bottom=2.57
+- day 2 15:54 | **OVERLAP** | OVERLAP OutboundPallet_6619460b-875b-45bf-8c12-d8d831990b26_restored & OutboundPallet_6619460b-875b-45bf-8c12-d8d831990b26_restored @1A-3
+- day 2 15:54 | **FLOATING** | FLOATING OutboundPallet_6619460b-875b-45bf-8c12-d8d831990b26_restored @1A-4 bottom=2.17
+- day 2 15:54 | **OVERLAP** | OVERLAP OutboundPallet_6619460b-875b-45bf-8c12-d8d831990b26_restored & OutboundPallet_6619460b-875b-45bf-8c12-d8d831990b26_restored @1A-4
+- day 1 21:18 | **FLOATING** | FLOATING Pallet_10_Slot8_Tier1 @1B-3 bottom=2.19
+- day 1 21:18 | **OVERLAP** | OVERLAP Pallet_08_Slot7_Tier1 & Pallet_01_Slot1_Tier0 @1B-4
+- day 1 21:18 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @1B-4 bottom=2.06
+- day 1 22:07 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (19.99, 1.17, 18.66) — walking out to (31.25, 0.04, 25.16) (12.05m to mesh).
+- day 1 22:48 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @2A-1 bottom=1.86
+- day 1 23:10 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 2 00:48 | **STALE-ASSIGNED** | STALE-ASSIGNED PalletPick Pallet pick — 32 cs of 678132 for Puff & Stuff Pastries 1416s
+- day 2 00:52 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (16.35, 1.11, 37.39) — walking out to (19.35, 0.08, 42.59) (5.11m to mesh).
+- day 2 00:56 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (18.72, 0.80, 41.49) (cell (64, 81)). Putting it back on its last inside spot (18.44, 1.11, 41.00). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 2 01:18 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @2A-1 bottom=1.99
+- day 2 01:18 | **FLOATING** | FLOATING Pallet_10_Slot8_Tier1 @1B-3 bottom=2.06
+- day 2 01:22 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.00, 1.11, 37.73) — walking out to (22.00, 0.08, 42.92) (5.11m to mesh).
+- day 2 01:25 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (21.20, 0.82, 41.55) (cell (66, 81)). Putting it back on its last inside spot (20.90, 1.11, 41.02). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(37, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(40, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(45, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(38, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(37, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(46, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(44, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(44, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(40, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(42, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(43, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(43, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(43, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(46, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(40, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(45, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(46, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(40, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(43, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(43, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(39, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(43, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(36, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(42, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(37, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(46, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(39, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(41, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(44, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(43, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(42, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(38, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(39, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(42, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(41, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(41, 67)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(38, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(44, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(45, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(38, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(41, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(44, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(42, 62)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(40, 66)
+- day 2 19:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(40, 66)
+- day 2 20:00 | **REPEATING** | x25 and counting: [NoWaypointIndicator] Alert emote 'emote_exclamations' not found in Resources/Emotes.
+- day 3 05:25 | **OVERLAP** | OVERLAP Pallet_02_Slot2_Tier0 & Pallet_03_Slot3_Tier0 @1B-1
+- day 3 05:25 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-2 bottom=2.47
+- day 3 05:25 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot1_Tier0 @1B-2
+- day 3 05:55 | **FLOATING** | FLOATING Pallet_10_Slot5_Tier0 @2D-3 bottom=2.47
+- day 3 05:55 | **OVERLAP** | OVERLAP Pallet_10_Slot5_Tier0 & Pallet_00_Slot0_Tier0 @2D-3
+- day 3 05:55 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier0 & Pallet_07_Slot3_Tier1 @2D-1
+- day 3 05:55 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_08_Slot4_Tier0 @2D-2
+- day 3 06:55 | **OVERLAP** | OVERLAP Pallet_10_Slot5_Tier0 & Pallet_00_Slot0_Tier0 @2D-3
+- day 3 13:22 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (16.59, 1.11, 31.95) — walking out to (10.09, 1.25, 20.69) (12.00m to mesh).
+- day 3 13:22 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (16.59, 1.11, 31.95) — walking out to (10.09, 1.25, 20.69) (12.00m to mesh).
+- day 3 13:25 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_04_Slot2_Tier0 @3C-4
+- day 3 13:25 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_00_Slot0_Tier0 @3C-1
+- day 3 13:25 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_04_Slot2_Tier0 @3C-4
+- day 3 13:25 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_00_Slot0_Tier0 @3C-1
+- day 3 13:40 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @3C-1 bottom=1.30
+- day 3 13:40 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @3C-1 bottom=1.30
+- day 3 14:17 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (24.63, 0.00, 23.12) (cell (68, 67)). Putting it back on its last inside spot (24.66, 0.00, 21.92). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 3 14:17 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (24.63, 0.00, 23.12) (cell (68, 67)). Putting it back on its last inside spot (24.66, 0.00, 21.92). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 3 14:28 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (24.20, 0.00, 23.21) (cell (68, 67)). Putting it back on its last inside spot (24.48, 0.00, 22.42). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 3 14:28 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (24.20, 0.00, 23.21) (cell (68, 67)). Putting it back on its last inside spot (24.48, 0.00, 22.42). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 3 14:31 | **REPEATING** | x25 and counting: [NoWaypointIndicator] Alert emote 'emote_exclamations' not found in Resources/Emotes.
+- day 3 13:38 | **FLOATING** | FLOATING A Chep @3C-1 bottom=1.30
+- day 3 13:38 | **OVERLAP** | OVERLAP A Chep & A Chep @3C-1
+- day 3 15:53 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.25, 1.19, 22.64) — walking out to (24.75, 0.04, 33.89) (12.05m to mesh).
+- day 3 16:48 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1A and it never freed up — giving up and re-queueing.
+- day 3 18:53 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (14.40, 1.21, 20.83) — walking out to (27.40, 0.04, 20.83) (12.06m to mesh).
+- day 3 19:53 | **FLOATING** | FLOATING Pallet_10_Slot5_Tier0 @1B-5 bottom=2.06
+- day 3 20:23 | **OVERLAP** | OVERLAP Pallet_10_Slot5_Tier0 & Pallet_07_Slot3_Tier1 @3A-1
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-10.49, 1.11, 19.71) (cell (42, 64)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (20.49, 1.11, 36.39) (cell (65, 77)). Putting it back on its last inside spot (20.49, 1.11, 36.39). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (-9.73, 1.11, 20.05) (cell (42, 65)). Putting it back on its last inside spot (-10.49, 1.11, 19.71). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-29.86, 1.11, 32.41) (cell (27, 74)). Putting it back on its last inside spot (-29.86, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 4 01:06 | **DOOR-DEADLOCK** | OG4586 is Staged but door 3's truck has waited 90 min with no one loading it.
+- day 4 03:06 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-5 bottom=2.15
+- day 4 03:06 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @1A-5
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 4 01:06 | **DOOR-DEADLOCK** | OG4586 is Staged but door 3's truck has waited 90 min with no one loading it.
+- day 4 01:06 | **DOOR-DEADLOCK** | OG4586 is Staged but door 3's truck has waited 90 min with no one loading it.
+- day 4 01:06 | **DOOR-DEADLOCK** | OG4586 is Staged but door 3's truck has waited 90 min with no one loading it.
+- day 3 23:36 | **REPEATING** | x25 and counting: [NoWaypointIndicator] Alert emote 'emote_exclamations' not found in Resources/Emotes.
+- day 3 23:36 | **REPEATING** | x25 and counting: [NoWaypointIndicator] Alert emote 'emote_exclamations' not found in Resources/Emotes.
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 4 01:06 | **DOOR-DEADLOCK** | OG4586 is Staged but door 3's truck has waited 90 min with no one loading it.
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.45, 1.16, 38.73) (cell (47, 79)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.81, 1.11, 31.09) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.31, 1.21, 31.46) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (13.86, 1.11, 40.36) (cell (60, 80)). Putting it back on its last inside spot (13.86, 1.11, 40.36). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-0.67, 1.11, 36.96) (cell (49, 77)). Putting it back on its last inside spot (-0.67, 1.11, 36.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (21.73, 1.21, 31.15) (cell (66, 73)). Putting it back on its last inside spot (21.81, 1.11, 31.09). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 2A-2 A Chep
+- day 1 08:03 | **NO-RECORD** | NO-RECORD lane pallet 2A-2 A Chep
+- day 1 08:03 | **GHOST-SLOT** | SLOT 01-06-A1 names fd5ddb8d - no object
+- day 1 08:03 | **GHOST-SLOT** | SLOT 02-01-00 names 647a9e6a - no object
+- day 1 08:03 | **GHOST-SLOT** | SLOT 01-11-B0 names 81a0f98b - no object
+- day 3 23:36 | **GHOST-SLOT** | RECORD 78a70362 999999 x32 cell=(-1, -1) lane= - no object
+- day 1 08:00 | **REPEATING** | x25 and counting: [NoWaypointIndicator] Alert emote 'emote_exclamations' not found in Resources/Emotes.
+- day 1 08:00 | **REPEATING** | x25 and counting: [NoWaypointIndicator] Alert emote 'emote_exclamations' not found in Resources/Emotes.
+- day 1 08:00 | **ERROR** | Assertion failed
+  ```
+  UnityEngine.UIElements.UIElementsRuntimeUtilityNative:RepaintPanels (bool)
+  ```
+- day 1 08:00 | **ERROR** | Assertion failed
+  ```
+  UnityEngine.UIElements.UIElementsRuntimeUtilityNative:RepaintPanels (bool)
+  ```
+- day 1 08:00 | **ERROR** | Assertion failed
+  ```
+  UnityEngine.UIElements.UIElementsRuntimeUtilityNative:RepaintPanels (bool)
+  ```
+- day 1 08:00 | **ERROR** | Assertion failed
+  ```
+  UnityEngine.UIElements.UIElementsRuntimeUtilityNative:RepaintPanels (bool)
+  ```
+- day 1 08:00 | **REPEATING** | x25 and counting: Assertion failed
+- day 1 08:00 | **REPEATING** | x25 and counting: Assertion failed
+- day 1 08:00 | **REPEATING** | x25 and counting: Assertion failed
+- day 1 08:00 | **REPEATING** | x25 and counting: Assertion failed
+- day 1 12:01 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (3.52, 1.11, 22.06) — walking out to (3.52, 0.08, 9.06) (12.04m to mesh).
+- day 1 12:54 | **WARN** | [AiNavigation] Employee_Madison Shelton: stuck at (6.69, 1.23, 20.84) — walking out to (-4.54, 1.08, 14.00) (12.30m to mesh).
+- day 1 15:21 | **WARN** | [AiNavigation] Employee_Madison Shelton: stuck at (18.32, 1.20, 25.29) — walking out to (11.82, 1.08, 14.00) (12.08m to mesh).
+- day 1 17:14 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (3.51, 1.11, 23.42) — walking out to (3.51, 0.08, 10.42) (12.04m to mesh).
+- day 1 19:55 | **WARN** | [AiNavigation] Employee_Madison Shelton: stuck at (19.69, 1.20, 23.97) — walking out to (32.69, 0.04, 23.97) (12.06m to mesh).
+- day 1 20:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1B-1 bottom=2.33
+- day 1 20:00 | **FLOATING** | FLOATING Pallet_05_Slot4_Tier0 @2A-1 bottom=2.16
+- day 1 20:15 | **FLOATING** | FLOATING Pallet_05_Slot2_Tier1 @1C-4 bottom=2.02
+- day 1 20:45 | **OVERLAP** | OVERLAP Pallet_04_Slot2_Tier0 & Pallet_07_Slot3_Tier1 @1A-5
+- day 1 20:45 | **FLOATING** | FLOATING Pallet_07_Slot3_Tier1 @1A-5 bottom=2.02
+- day 1 21:52 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (14.12, 1.11, 22.06) — walking out to (7.62, 0.08, 10.81) (12.04m to mesh).
+- day 1 22:11 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (24.68, 0.00, 21.51) (cell (68, 66)). Putting it back on its last inside spot (24.70, 0.00, 20.59). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 1 22:23 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (24.42, 0.00, 21.81) (cell (68, 66)). Putting it back on its last inside spot (24.60, 0.00, 21.00). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 1 23:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_06_Slot6_Tier0 @1A-1
+- day 1 23:45 | **FLOATING** | FLOATING Pallet_06_Slot6_Tier0 @1A-1 bottom=2.79
+- day 1 23:45 | **FLOATING** | FLOATING Pallet_07_Slot6_Tier1 @1A-2 bottom=2.02
+- day 2 00:00 | **TRUCK-STALLED** | TRUCK-STALLED Truck→PO_IG1901 state=DepartToApproach 90s at (17.8, 0.0, 6.7)
+- day 2 02:15 | **OVERLAP** | OVERLAP Pallet_08_Slot4_Tier0 & Pallet_11_Slot5_Tier1 @1A-3
+- day 2 02:15 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier0 & Pallet_09_Slot4_Tier1 @1A-4
+- day 2 02:15 | **FLOATING** | FLOATING Pallet_09_Slot7_Tier1 @1C-4 bottom=2.16
+- day 2 02:15 | **FLOATING** | FLOATING Pallet_11_Slot5_Tier1 @1A-3 bottom=2.02
+- day 2 02:15 | **FLOATING** | FLOATING Pallet_09_Slot4_Tier1 @1A-4 bottom=2.02
+- day 2 02:15 | **FLOATING** | FLOATING Pallet_07_Slot6_Tier1 @1A-2 bottom=2.16
+- day 2 02:15 | **OVERLAP** | OVERLAP Pallet_04_Slot2_Tier0 & Pallet_03_Slot1_Tier1 @1D-1
+- day 2 03:30 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier0 @1D-1 bottom=2.42
+- day 2 03:55 | **WARN** | [OrderService] Order OG4601 closed with a LOADING pallet (28 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 03:55 | **WARN** | [OrderService] Order OG4601 closed with a STAGED pallet (60 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 04:00 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier0 @1D-1 bottom=1.30
+- day 2 04:00 | **FLOATING** | FLOATING Pallet_04_Slot2_Tier0 @1D-1 bottom=1.30
+- day 2 04:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1D-4 bottom=2.44
+- day 2 04:00 | **FLOATING** | FLOATING Pallet_09_Slot4_Tier1 @1D-4 bottom=1.30
+- day 2 15:45 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_01_Slot0_Tier1 @2C-1
+- day 2 15:45 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_06_Slot4_Tier1 @2C-2
+- day 2 15:45 | **FLOATING** | FLOATING Pallet_06_Slot4_Tier1 @2C-2 bottom=2.47
+- day 2 15:45 | **OVERLAP** | OVERLAP Pallet_08_Slot5_Tier1 & Pallet_11_Slot7_Tier0 @1E-1
+- day 2 15:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & OutboundPallet_a766c466-79f7-482f-bf23-617691b2cfc7_1 @1E-5
+- day 2 15:45 | **OVERLAP** | OVERLAP OutboundPallet_a766c466-79f7-482f-bf23-617691b2cfc7_2 & OutboundPallet_a766c466-79f7-482f-bf23-617691b2cfc7_1 @1E-3
+- day 2 15:45 | **OVERLAP** | OVERLAP OutboundPallet_a766c466-79f7-482f-bf23-617691b2cfc7_2 & OutboundPallet_a766c466-79f7-482f-bf23-617691b2cfc7_1 @1E-4
+- day 2 15:45 | **FLOATING** | FLOATING OutboundPallet_a766c466-79f7-482f-bf23-617691b2cfc7_2 @1E-2 bottom=2.29
+- day 2 15:45 | **OVERLAP** | OVERLAP OutboundPallet_a766c466-79f7-482f-bf23-617691b2cfc7_2 & OutboundPallet_a766c466-79f7-482f-bf23-617691b2cfc7_1 @1E-2
+- day 2 16:45 | **FLOATING** | FLOATING Pallet_11_Slot7_Tier0 @1E-1 bottom=1.30
+- day 2 17:21 | **REPEATING** | x25 and counting: [OrderService] Order OG2605: no reserve or pick-face pallet of 189432 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 2 18:30 | **FLOATING** | FLOATING OutboundPallet_a766c466-79f7-482f-bf23-617691b2cfc7_1 @1E-5 bottom=1.30
+- day 2 21:43 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (0.00, 1.16, 40.50) — walking out to (-11.24, 1.16, 33.40) (12.29m to mesh).
+- day 2 22:00 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_00_Slot0_Tier0 @1A-5
+- day 2 22:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-5 bottom=2.16
+- day 2 23:15 | **OVERLAP** | OVERLAP Pallet_05_Slot2_Tier1 & Pallet_04_Slot2_Tier0 @1A-3
+- day 2 23:15 | **FLOATING** | FLOATING Pallet_04_Slot2_Tier0 @1A-3 bottom=2.16
+- day 2 23:45 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier0 @1A-2 bottom=2.16
+- day 2 23:45 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier0 & Pallet_07_Slot3_Tier1 @1A-2
+- day 2 23:45 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_04_Slot2_Tier0 @2A-1
+- day 3 00:15 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier0 @2A-1 bottom=1.30
+- day 3 04:00 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_00_Slot0_Tier0 @1E-5
+- day 3 04:00 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1E-5 bottom=2.15
+- day 3 05:45 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier0 & Pallet_04_Slot3_Tier1 @1A-1
+- day 3 14:38 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet d70c1b1f-8236-4d79-b27e-5e8927fde05b
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:966)
+  ```
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_06_Slot4_Tier0 & A Chep @(37, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & A Chep @(40, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & A Chep @(45, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier0 & A Chep @(48, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_11_Slot6_Tier1 @(35, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_10_Slot6_Tier1 & A Chep @(44, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_00_Slot0_Tier0 @(48, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_04_Slot3_Tier0 @(36, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_07_Slot3_Tier1 & A Chep @(37, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @(40, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_07_Slot3_Tier1 & A Chep @(40, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & A Chep @(41, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_02_Slot1_Tier0 @(39, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_02_Slot2_Tier0 & A Chep @(43, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_07_Slot4_Tier1 & A Chep @(35, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & A Chep @(46, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_00_Slot0_Tier0 @(43, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_09_Slot7_Tier1 & A Chep @(42, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_00_Slot0_Tier0 @(35, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_12_Slot7_Tier1 @(41, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_08_Slot5_Tier0 @(37, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_00_Slot0_Tier0 @(38, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_02_Slot1_Tier0 & A Chep @(35, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_08_Slot4_Tier0 @(36, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_06_Slot6_Tier0 & A Chep @(42, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_08_Slot7_Tier0 @(42, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_05_Slot2_Tier1 & A Chep @(37, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & A Chep @(43, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_05_Slot2_Tier1 @(36, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_08_Slot4_Tier0 & A Chep @(43, 67)
+- day 3 02:45 | **NO-RECORD** | NO-RECORD lane pallet 2C-5 Pallet_01_Slot0_Tier1
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_04_Slot2_Tier0 & A Chep @(35, 71)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_06_Slot3_Tier0 @(39, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_10_Slot6_Tier0 @(38, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & A Chep @(40, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_02_Slot2_Tier0 & A Chep @(42, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_03_Slot3_Tier0 @(44, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & A Chep @(39, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_07_Slot6_Tier1 @(42, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_09_Slot6_Tier0 & A Chep @(42, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & A Chep @(40, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & A Chep @(46, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_11_Slot8_Tier1 @(42, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_03_Slot3_Tier0 @(41, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_05_Slot2_Tier1 & A Chep @(39, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_10_Slot5_Tier0 @(43, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_01_Slot1_Tier0 @(43, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & A Chep @(39, 66)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_02_Slot1_Tier0 @(47, 62)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_08_Slot4_Tier0 & A Chep @(38, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_09_Slot4_Tier1 & A Chep @(36, 67)
+- day 3 02:45 | **OVERLAP** | OVERLAP A Chep & Pallet_05_Slot3_Tier1 @(36, 62)
+- day 3 02:45 | **NO-RECORD** | NO-RECORD lane pallet 2C-5 Pallet_00_Slot0_Tier0
+- day 3 02:45 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & A Chep @(46, 62)
+- day 3 02:45 | **NO-RECORD** | NO-RECORD lane pallet 1A-4 Pallet_03_Slot1_Tier1
+- day 3 02:45 | **STALE-ASSIGNED** | STALE-ASSIGNED PalletPick Pallet pick — 8 cs of 193587 for Sneaky Pete's Seafood 2350s
+- day 3 02:45 | **STALE-ASSIGNED** | STALE-ASSIGNED PalletPick Pallet pick — 8 cs of 193587 for Sneaky Pete's Seafood 2350s
+- day 3 02:45 | **GHOST-SLOT** | SLOT 01-09-A1 names 98ddae4e - no object
+- day 3 02:45 | **GHOST-SLOT** | SLOT 01-07-B1 names f4c53a8c - no object
+- day 3 02:45 | **GHOST-SLOT** | SLOT 01-09-01 names 04e28134 - no object
+- day 3 02:45 | **GHOST-SLOT** | RECORD d57ab47b 193587 x8 cell=(-1, -1) lane= - no object
+- day 3 02:45 | **EXCEPTION** | MissingReferenceException: The object of type 'UnityEngine.Transform' has been destroyed but you are still trying to access it.
+  ```
+  UnityEngine.Object+MarshalledUnityObject.TryThrowEditorNullExceptionObject (UnityEngine.Object unityObj, System.String parameterName) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Bindings.ThrowHelper.ThrowNullReferenceException (System.Object obj) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Transform.get_rotation () (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Transform.get_forward () (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  GameCore.Labor.TrailerOffloadController+<OffloadOnePallet>d__41.MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerOffloadController.cs:586)
+  UnityEngine.SetupCoroutine.InvokeMoveNext (System.Collections.IEnumerator enumerator, System.IntPtr returnValueAddress) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- day 3 04:31 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet 8130de07-f296-452c-b100-6d73ca52ef64
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:966)
+  ```
+- day 3 08:15 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_00_Slot0_Tier0 @2B-1
+- day 3 08:15 | **OVERLAP** | OVERLAP Pallet_05_Slot2_Tier1 & Pallet_04_Slot2_Tier0 @2C-3
+- day 3 08:15 | **FLOATING** | FLOATING Pallet_04_Slot2_Tier0 @2C-3 bottom=2.04
+- day 3 08:21 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2C and it never freed up — giving up and re-queueing.
+- day 3 09:00 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @2B-1 bottom=1.30
+- day 3 09:30 | **NO-TASK** | NO-TASK lane pallet 1A-1 sku=615873 load=4829157873
+- day 3 10:15 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2A-2
+- day 3 10:15 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2A-1
+- day 3 11:03 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2C and it never freed up — giving up and re-queueing.
+- day 3 12:52 | **REPEATING** | x25 and counting: [OrderService] Order OG3610: no reserve or pick-face pallet of 864209 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 3 13:30 | **OVERLAP** | OVERLAP Pallet_05_Slot2_Tier1 & Pallet_04_Slot2_Tier0 @2B-1
+- day 3 13:42 | **FLOATING** | FLOATING A Chep @2B-1 bottom=1.30
+- day 3 13:42 | **OVERLAP** | OVERLAP A Chep & A Chep @2B-1
+- day 3 13:42 | **FLOATING** | FLOATING A Chep @2B-1 bottom=1.30
+- day 3 13:42 | **GHOST-SLOT** | RECORD 2791fdf3 152431 x48 cell=(-1, -1) lane= - no object
+- day 3 15:27 | **FLOATING** | FLOATING A Chep @2B-1 bottom=1.30
+- day 3 15:27 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_02_Slot1_Tier0 @1A-4
+- day 3 15:27 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_00_Slot0_Tier0 @1A-5
+- day 3 15:27 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-5 bottom=2.02
+- day 3 15:27 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-4 bottom=2.02
+- day 3 15:27 | **FLOATING** | FLOATING A Chep @2B-1 bottom=1.30
+- day 3 16:17 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1A and it never freed up — giving up and re-queueing.
+- day 3 17:12 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_02_Slot1_Tier0 @1A-4
+- day 3 17:12 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_00_Slot0_Tier0 @1A-5
+- day 3 17:12 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-5 bottom=2.02
+- day 3 17:12 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-4 bottom=2.02
+- day 3 18:01 | **WARN** | [AiNavigation] Employee_Madison Shelton: stuck at (13.74, 1.18, 22.74) — walking out to (7.24, 1.50, 11.48) (12.00m to mesh).
+- day 3 18:57 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-3
+- day 3 18:57 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 3 18:57 | **FLOATING** | FLOATING A Chep @1B-3 bottom=1.77
+- day 3 18:57 | **OVERLAP** | OVERLAP OutboundPallet_046f5486-9034-43b9-9743-19724ae9bae9_restored & OutboundPallet_046f5486-9034-43b9-9743-19724ae9bae9_restored @1B-2
+- day 3 19:42 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 3 20:57 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.00, 1.11, 40.50) — walking out to (-11.24, 1.14, 33.40) (12.29m to mesh).
+- day 3 23:12 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier0 @1A-4 bottom=1.99
+- day 3 23:14 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1A and it never freed up — giving up and re-queueing.
+- day 4 01:12 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_00_Slot0_Tier0 @1A-3
+- day 4 01:12 | **FLOATING** | FLOATING Pallet_00_Slot0_Tier0 @1A-3 bottom=1.99
+- day 4 02:12 | **WARN** | [AiNavigation] Employee_Madison Shelton: stuck at (18.13, 1.20, 25.31) — walking out to (11.64, 1.08, 14.00) (12.08m to mesh).
+- day 4 02:43 | **ERROR** | [ReceiverReceivingWorkflow] No master record for pallet dc934842-9339-40b0-ac20-9825d1287a27
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.ReceiverReceivingWorkflow:BeginReceivingAt (GameCore.Labor.WorkTask,UnityEngine.Transform,single) (at Assets/_Project/Scripts/1. FSM/Core/Labor/ReceiverReceivingWorkflow.cs:247)
+  GameCore.Actors.ReceivingTaskDriver:OnArrivedAtStandPosition (GameCore.Labor.WorkTask,UnityEngine.Transform,int) (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:213)
+  GameCore.Actors.ReceivingTaskDriver/<>c__DisplayClass22_0:<OnArrivedAtStandPosition>b__0 () (at Assets/_Project/Scripts/Actors/Receivers/ReceivingTaskDriver.cs:226)
+  AiNavigation:Update () (at Assets/_Project/Scripts/Actors/AiNavigation.cs:966)
+  ```
+- day 4 02:57 | **OVERLAP** | OVERLAP Pallet_03_Slot1_Tier1 & Pallet_06_Slot3_Tier0 @2A-2
+- day 4 02:57 | **FLOATING** | FLOATING Pallet_04_Slot2_Tier0 @1A-1 bottom=1.99
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.33, 1.20, 40.22) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (21.13, 1.11, 33.74) (cell (65, 75)). Putting it back on its last inside spot (21.13, 1.11, 33.74). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (16.42, 1.11, 40.20) (cell (62, 80)). Putting it back on its last inside spot (16.42, 1.11, 40.20). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- ? | **REPEATING** | x25 and counting: [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (11.21, 1.11, 32.41) (cell (58, 74)). Putting it back on its last inside spot (11.21, 1.11, 32.41). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 4 23:55 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (6.59, 1.20, 25.36) — walking out to (0.10, 0.04, 13.38) (12.63m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:37 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (5.67, 1.11, 21.56) — walking out to (1.24, 0.08, 12.26) (9.35m to mesh).
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 01:46 | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-1.88, 0.78, 14.13) (cell (48, 60)). Putting it back on its last inside spot (-1.56, 0.00, 13.30). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 5 12:12 | **FLOATING** | FLOATING A Chep @2D-3 bottom=1.30
+- day 5 12:12 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 5 12:18 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 16:18 | **FLOATING** | FLOATING Pallet_01_Slot0_Tier1 @1D-3 bottom=2.15
+- day 5 22:27 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 5 22:33 | **DOOR-DEADLOCK** | OG6613 is Staged but door 2's truck has waited 90 min with no one loading it.
+- day 6 08:12 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:12 | **FLOATING** | FLOATING A Chep @1C-3 bottom=2.79
+- day 6 08:12 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-3
+- day 6 08:12 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-1
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-1 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 08:18 | **FLOATING** | FLOATING A Chep @1C-2 bottom=1.30
+- day 6 08:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1C-2
+- day 6 08:27 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_03_Slot1_Tier1 @2B-1
+- day 6 08:27 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_04_Slot2_Tier0 @2B-2
+- day 6 11:57 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.50
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:03 | **FLOATING** | FLOATING Pallet_01_Slot1_Tier0 @2B-5 bottom=2.36
+- day 6 12:03 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 12:12 | **OVERLAP** | OVERLAP Pallet_01_Slot1_Tier0 & Pallet_00_Slot0_Tier0 @2B-5
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 13:18 | **OVERLAP** | OVERLAP Pallet_05_Slot4_Tier1 & Pallet_04_Slot4_Tier0 @2B-3
+- day 6 13:18 | **FLOATING** | FLOATING Pallet_04_Slot4_Tier0 @2B-3 bottom=2.28
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:10 | **REPEATING** | x25 and counting: [OrderService] Order OG7619: no reserve or pick-face pallet of 172495 left to fill a pallet pick — filed unassigned; a Reach Truck resolves a source once one claims it.
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:18 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:18 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:18 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 17:27 | **OVERLAP** | OVERLAP A Chep & A Chep @1B-1
+- day 6 17:27 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-4
+- day 6 17:27 | **FLOATING** | FLOATING OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 @1A-3 bottom=2.08
+- day 6 17:27 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-3
+- day 6 17:27 | **OVERLAP** | OVERLAP OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_2 & OutboundPallet_9c863a73-4226-42e5-a3b8-0af4c38d5883_1 @1A-2
+- day 6 21:57 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:03 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-1 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 22:33 | **FLOATING** | FLOATING Pallet_16_Slot8_Tier1 @2E-2 bottom=1.90
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:04 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 2E and it never freed up — giving up and re-queueing.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 6 23:09 | **REPEATING** | x25 and counting: [AiNavigation] PltJack_FULL(Clone): no progress toward task target (17.84, 1.13, 30.13) for 10s (stopped Infinitym short, path PathComplete) — treating as arrived.
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:40 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (18.66, 1.20, 23.64) — walking out to (25.16, 0.04, 34.90) (12.06m to mesh).
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 01:57 | **REPEATING** | x25 and counting: [JackStall] 'bay 01-02' at (17.54, 1.11, 39.54) (target (-6.69, 1.11, 19.71)) remaining=Infinity pathStatus=PathComplete hasPath=True pathPending=False desiredVel=(-0.61, 0.00, 0.96) stopped=False onMesh=True jackBlocked=False elapsed=3.9s reissues=0
+- day 7 02:27 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:27 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:27 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:27 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:27 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_11_Slot6_Tier0 @1B-3 bottom=2.47
+- day 7 02:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_00_Slot0_Tier0 @1B-3
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_02_Slot1_Tier1 @1B-2 bottom=1.90
+- day 7 02:33 | **FLOATING** | FLOATING Pallet_22_Slot11_Tier1 @1B-4 bottom=2.39
+- day 7 04:57 | **FLOATING** | FLOATING Pallet_13_Slot7_Tier0 @2E-5 bottom=2.47
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 05:27 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 06:12 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:18 | **FLOATING** | FLOATING Pallet_15_Slot8_Tier0 @2E-2 bottom=2.70
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 06:30 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (11.17, 1.18, 20.66) — walking out to (-2.64, 1.12, 20.66) (12.81m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (15.49, 1.11, 33.87) — walking out to (22.07, 1.21, 22.61) (12.04m to mesh).
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:12 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.98, 1.11, 13.02) (cell (47, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:65)
+  ```
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:24 | **REPEATING** | x25 and counting: [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.60, 1.11, 13.18) (cell (48, 59)). Putting it back on its last inside spot (-1.43, 1.11, 13.68). Forklifts, dock stockers and pallet jacks must stay inside.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 08:45 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 1B and it never freed up — giving up and re-queueing.
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:33 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:33 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 12:42 | **OVERLAP** | OVERLAP Pallet_11_Slot6_Tier0 & Pallet_14_Slot7_Tier1 @1E-2
+- day 7 12:42 | **OVERLAP** | OVERLAP Pallet_12_Slot6_Tier1 & A Chep @1E-1
+- day 7 12:42 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @1E-5 bottom=2.06
+- day 7 12:42 | **OVERLAP** | OVERLAP Pallet_06_Slot3_Tier1 & Pallet_17_Slot9_Tier0 @1E-5
+- day 7 12:42 | **OVERLAP** | OVERLAP Pallet_18_Slot9_Tier1 & Pallet_03_Slot2_Tier0 @1E-3
+- day 7 12:42 | **OVERLAP** | OVERLAP Pallet_01_Slot0_Tier1 & Pallet_05_Slot3_Tier0 @1E-4
+- day 7 12:42 | **FLOATING** | FLOATING Pallet_03_Slot2_Tier0 @1E-3 bottom=2.06
+- day 7 17:27 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→Outbound_Door1 & Truck→Outbound_Door2 at (14.3, 0.0, -2.9)
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 18:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (19.45, 1.11, 33.36) — walking out to (19.45, 1.24, 18.41) (13.95m to mesh).
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:48 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:57 | **FLOATING** | FLOATING Pallet_14_Slot7_Tier1 @1B-1 bottom=1.90
+- day 7 20:57 | **FLOATING** | FLOATING Pallet_06_Slot3_Tier1 @2B-4 bottom=2.39
+- day 7 20:52 | **FLOATING** | FLOATING A Chep @1E-2 bottom=1.30
+- day 7 20:52 | **OVERLAP** | OVERLAP A Chep & A Chep @1E-2
+- day 7 20:52 | **FLOATING** | FLOATING A Chep @1E-4 bottom=1.30
+- day 7 20:52 | **OVERLAP** | OVERLAP A Chep & A Chep @1E-4
+- day 7 20:52 | **FLOATING** | FLOATING A Chep @1E-1 bottom=1.30
+- day 7 20:52 | **OVERLAP** | OVERLAP A Chep & A Chep @1E-1
+- day 7 20:52 | **GHOST-SLOT** | RECORD 49170c7a 615873 x16 cell=(-1, -1) lane= - no object
+- day 7 20:52 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-2.40, 1.11, 13.27) (cell (48, 60)). Putting it back on its last inside spot (-2.40, 1.11, 13.27). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:89)
+  ```
+- day 7 20:54 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (-2.40, 1.11, 13.27)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:85)
+  ```
+- day 7 20:56 | **WARN** | [AiNavigation] Employee_Kimberly Reyes: stuck at (-3.50, 1.25, 38.42) — walking out to (-9.98, 1.14, 26.69) (12.40m to mesh).
+- day 7 21:52 | **FLOATING** | FLOATING A Chep @2B-4 bottom=2.39
+- day 7 21:52 | **FLOATING** | FLOATING A Chep @1B-1 bottom=1.90
+- day 7 22:39 | **WARN** | [AiNavigation] Employee_Tyler Walker: stuck at (-3.50, 1.25, 38.42) — walking out to (-9.98, 1.14, 26.69) (12.40m to mesh).
+- day 7 23:04 | **WARN** | [OrderService] Order OG9622 closed with a STAGED pallet (16 cs) that never made the trailer - not billed, returning it to stock.
+- day 7 23:07 | **OVERLAP** | OVERLAP A Chep & A Chep @2B-4
+- day 7 23:22 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-2
+- day 7 23:22 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-4
+- day 7 23:22 | **OVERLAP** | OVERLAP A Chep & A Chep @2D-3

@@ -24,10 +24,14 @@ public static class EmoteLibrary
     }
 
     /// <summary>Look up a single bubble by file name, e.g. "emote_exclamations". Null if missing.</summary>
+    private static bool _retriedEmpty;
     public static Sprite Get(string name)
     {
         EnsureLoaded();
-        return _byName.TryGetValue(name, out var s) ? s : null;
+        if (_byName.TryGetValue(name, out var s)) return s;
+        // An empty library can be a load that ran before the folder was readable (statics survive Play sessions here): try once more.
+        if (_all != null && _all.Length == 0 && !_retriedEmpty) { _retriedEmpty = true; _all = null; EnsureLoaded(); return _byName.TryGetValue(name, out s) ? s : null; }
+        return null;
     }
 
     private static void EnsureLoaded()

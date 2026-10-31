@@ -1918,11 +1918,15 @@ public class PurchasingPanel : IUIPanel
             MultiVendorSortMode.PartnershipLowToHigh => vendors.Where(v => v != null)
                 .OrderBy(v => Economy()?.GetState(v.VendorId)?.PartnershipLevel ?? 0)
                 .ThenBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
+            // Sort on the number the header shows: "[N] potential scratches" counts SKUs short (TotalCriticalShortfall).
+            // Ties break on total cases short, then name. Sorting on cases instead made a vendor showing [1] jump above one showing [7].
             MultiVendorSortMode.ScratchesHighToLow => vendors.Where(v => v != null)
-                .OrderByDescending(v => VendorScratchCases(v.VendorId))
+                .OrderByDescending(v => TotalCriticalShortfall(v.VendorId))
+                .ThenByDescending(v => VendorScratchCases(v.VendorId))
                 .ThenBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
             MultiVendorSortMode.ScratchesLowToHigh => vendors.Where(v => v != null)
-                .OrderBy(v => VendorScratchCases(v.VendorId))
+                .OrderBy(v => TotalCriticalShortfall(v.VendorId))
+                .ThenBy(v => VendorScratchCases(v.VendorId))
                 .ThenBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
             _ => vendors.Where(v => v != null)
                 .OrderBy(v => v.DisplayName, System.StringComparer.OrdinalIgnoreCase),
@@ -3118,8 +3122,9 @@ public class PurchasingPanel : IUIPanel
         if (string.IsNullOrEmpty(skuId) || !_shortBySku.TryGetValue(skuId, out int short_)) return 0;
         // Cases already on a dispatched PO count as covered too (Tad 2026-10-30): ordering must not make the figure
         // jump back up once the truck is dispatched. When the stock arrives it moves from on-order to on-hand.
-        int onOrder = Economy()?.GetTotalOnOrder(skuId) ?? 0;
-        return Mathf.Max(0, short_ - TotalInProgressCases(skuId) - onOrder);
+        // Cases on open POs are already netted into the listing's shortage (ItemAvailability.ShortCasesBySku), so they are not
+        // subtracted again here.
+        return Mathf.Max(0, short_ - TotalInProgressCases(skuId));
     }
 
     // Everything on screen that shows a scratch figure registers a small updater here (rebuilt with the tab), so a

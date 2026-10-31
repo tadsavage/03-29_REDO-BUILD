@@ -143,6 +143,7 @@ namespace GameCore.Inventory
             // Set the world Y position based on stack height at receiving location
             pallet.WorldHeightY = CalculateWorldHeightForPalletAtLocation(pallet.CurrentLocation, pallet.PalletId);
 
+            GameCore.Diagnostics.PalletHistory.Note(pallet.PalletId, $"received {quantity}x{skuId} load {pallet.LoadId}", nameCaller: true);
             OnPalletReceived?.Invoke(pallet);
             Debug.Log($"[InventoryService] Received pallet {pallet.PalletId} (Load ID {pallet.LoadId}): {quantity} x {skuId} (Y={pallet.WorldHeightY:F2})");
             return pallet;
@@ -166,6 +167,7 @@ namespace GameCore.Inventory
             // Set the world Y position based on stack height at the cell
             pallet.WorldHeightY = CalculateWorldHeightForPalletAtLocation(cell, pallet.PalletId);
 
+            GameCore.Diagnostics.PalletHistory.Note(pallet.PalletId, $"registered at {cell} {quantity}x{skuId}", nameCaller: true);
             OnPalletReceived?.Invoke(pallet);
             return pallet;
         }
@@ -194,6 +196,7 @@ namespace GameCore.Inventory
             // The pallet goes on top of any existing pallets at this location
             pallet.WorldHeightY = CalculateWorldHeightForPalletAtLocation(newLocation, palletId);
 
+            GameCore.Diagnostics.PalletHistory.Note(palletId, $"moved {oldLocation}->{newLocation}", nameCaller: true);
             OnPalletMoved?.Invoke(pallet, oldLocation, newLocation);
             Debug.Log($"[InventoryService] Moved pallet {palletId} from {oldLocation} to {newLocation} (Y={pallet.WorldHeightY:F2})");
 
@@ -212,6 +215,7 @@ namespace GameCore.Inventory
             int actualRemoved = Mathf.Min(quantityToRemove, pallet.Quantity);
             pallet.Quantity -= actualRemoved;
 
+            GameCore.Diagnostics.PalletHistory.Note(palletId, $"picked {actualRemoved} (left {pallet.Quantity})", nameCaller: true);
             OnPalletPartialPicked?.Invoke(pallet, actualRemoved);
 
             if (pallet.Quantity <= 0)
@@ -230,6 +234,7 @@ namespace GameCore.Inventory
             if (_palletsByLocation.TryGetValue(pallet.CurrentLocation, out var list))
                 list.Remove(palletId);
 
+            GameCore.Diagnostics.PalletHistory.Note(palletId, "record destroyed", nameCaller: true);
             _palletsByID.Remove(palletId);
             OnPalletDestroyed?.Invoke(pallet);
 
@@ -860,8 +865,10 @@ namespace GameCore.Inventory
             if (_palletsByID.ContainsKey(pallet.PalletId))
             {
                 Debug.LogWarning($"[InventoryService] Skipping duplicate pallet registration for {pallet.PalletId} ({pallet.SkuId}) at {pallet.CurrentLocation}.");
+                GameCore.Diagnostics.PalletHistory.Note(pallet.PalletId, "duplicate restore skipped", nameCaller: true);
                 return;
             }
+            GameCore.Diagnostics.PalletHistory.Note(pallet.PalletId, $"restored from save at {pallet.CurrentLocation} {pallet.Quantity}x{pallet.SkuId}", nameCaller: true);
 
             // Track idempotently so reloading a save does not create multiple entries for the same
             // pallet and stutter the same pallet into multiple stacks or tasks.

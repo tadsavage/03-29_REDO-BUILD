@@ -63,6 +63,7 @@ public class DockLightController : MonoBehaviour
     private void WriteEmission(Renderer r, Color color)
     {
         if (r == null) return;
+        _mpb ??= new MaterialPropertyBlock();   // SetOccupied can run before Awake (a truck docking right after a load): block 1023 logged 46 NREs here
         _mpb.SetColor("_EmissionColor", color);
         r.SetPropertyBlock(_mpb);
     }

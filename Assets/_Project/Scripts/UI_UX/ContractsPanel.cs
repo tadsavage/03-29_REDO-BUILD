@@ -1267,7 +1267,7 @@ public class ContractsPanel : IUIPanel
     private VisualElement BuildRecurringDeadlineBadge(ContractData contract)
     {
         int block = DockScheduleService.BlockForHour(contract.CutoffHour);
-        int endHour = (block + 1) * DockScheduleService.BlockHours;
+        int endHour = ((block + 1) * DockScheduleService.BlockMinutes + 59) / 60;
 
         var box = new VisualElement();
         box.style.marginTop = 8;

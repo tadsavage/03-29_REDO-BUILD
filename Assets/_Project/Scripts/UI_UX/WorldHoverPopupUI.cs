@@ -1545,7 +1545,7 @@ private void ShowLocation(LocationData location)
                 a.Kind != AppointmentKind.Inbound && a.OrderIds.Contains(candidate.OrderId));
             string when = orderAppt == null
                 ? "unscheduled"
-                : (orderAppt.Day == dockSchedule.CurrentDay ? "Today" : $"Day {orderAppt.Day}") + $" @ {orderAppt.EndHour:00}:00";
+                : dockSchedule.DeadlineLabel(orderAppt);
             return (orderNumber, when);
         }
 
@@ -1688,31 +1688,7 @@ private void ShowLocation(LocationData location)
                 fallbackCustomer = remembered.customer;
             }
 
-            if (appt == null && fallbackOrderIds == null && doorNumber > 0 && ServiceLocator.TryGet<OrderService>(out var fbOrders) && fbOrders != null)
-            {
-                var atDoor = fbOrders.ActiveOrders.Where(o => o.AssignedDoorNumber == doorNumber &&
-                    (o.Status == OrderData.OrderStatus.Staged || o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded ||
-                     o.Status == OrderData.OrderStatus.FullyPicked || o.Status == OrderData.OrderStatus.PartiallyPicked)).ToList();
-                // Only orders whose goods are actually aboard, when anything is: the door alone can match the wrong order.
-                var aboardSkus = new HashSet<string>();
-                if (truck.LoadContainer != null)
-                    foreach (var ob in truck.LoadContainer.GetComponentsInChildren<OutboundPalletBuilder>(true))
-                    {
-                        foreach (var kv in ob.CaseCountsBySku) aboardSkus.Add(kv.Key);
-                        var pdA = ob.GetComponent<PalletData>();
-                        if (pdA != null && !string.IsNullOrEmpty(pdA.ItemNumber)) aboardSkus.Add(pdA.ItemNumber);
-                    }
-                if (aboardSkus.Count > 0)
-                {
-                    var matching = atDoor.Where(o => o.LineItems.Any(li => aboardSkus.Contains(li.SkuId))).ToList();
-                    if (matching.Count > 0) atDoor = matching;
-                }
-                if (atDoor.Count > 0)
-                {
-                    fallbackOrderIds = atDoor.Select(o => o.OrderId).ToList();
-                    fallbackCustomer = atDoor[0].CustomerName;
-                }
-            }
+            // No door-based guessing of the orders: a trailer is described by its own appointment (or the manifest remembered from it).
 
             if (appt != null || fallbackOrderIds != null)
             {

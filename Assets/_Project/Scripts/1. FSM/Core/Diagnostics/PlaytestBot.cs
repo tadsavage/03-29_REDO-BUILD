@@ -182,7 +182,7 @@ namespace GameCore.Diagnostics
             _shipped = _shippedOnTime = _late = _movedFines = _cashDipHours = _cashSamples = _purchases = _rushes = _signed = _booked = _released = _errors = 0;
             _palletsAtStart = PalletsShippedTotal(0, time.Day);
             HalMetrics.Reset();
-            _repeatCounts.Clear();
+            _repeatCounts.Clear(); _spotsSeen.Clear();
             _recentScore.Clear(); _scoreInit = false; LiveScore = 0f; _startKey = Key(time);
             _lastLateWhy = _lastShortWhy = _lastDeadlockWhy = _lastRepeatWhy = null; _unclaimedSince.Clear(); _streakBlock = -1;
             _activeBugKeys.Clear(); _incidents.Clear(); _firstSeen.Clear(); _actions.Clear(); _vehicleTrack.Clear();
@@ -257,7 +257,7 @@ namespace GameCore.Diagnostics
             _incidents.Clear(); for (int i = 0; i < st.incKeys.Count && i < st.incCounts.Count; i++) _incidents[st.incKeys[i]] = st.incCounts[i];
             _firstSeen.Clear(); for (int i = 0; i < st.seenKeys.Count && i < st.seenVals.Count; i++) _firstSeen[st.seenKeys[i]] = st.seenVals[i];
             _activeBugKeys.Clear(); foreach (var k in st.activeKeys) _activeBugKeys.Add(k);
-            _actions.Clear(); _vehicleTrack.Clear(); _repeatCounts.Clear();
+            _actions.Clear(); _vehicleTrack.Clear(); _repeatCounts.Clear(); _spotsSeen.Clear();
             HalMetrics.Reset();
             _recentScore.Clear(); _scoreInit = false;
             _bugLog = new StringBuilder(); _bugLines = 0;
@@ -432,7 +432,7 @@ namespace GameCore.Diagnostics
         IEnumerable<(int day, int block)> Slots(SimulationTimeService time, int lastDay)
         {
             for (int d = time.Day; d <= Mathf.Max(lastDay, time.Day); d++)
-                for (int b = (d == time.Day ? Mathf.Min(DockScheduleService.BlocksPerDay - 1, time.Hour / DockScheduleService.BlockHours + 1) : 0); b < DockScheduleService.BlocksPerDay; b++)
+                for (int b = (d == time.Day ? Mathf.Min(DockScheduleService.BlocksPerDay - 1, (time.Hour * 60 + time.Minute) / DockScheduleService.BlockMinutes + 1) : 0); b < DockScheduleService.BlocksPerDay; b++)
                     yield return (d, b);
         }
 
@@ -474,7 +474,7 @@ namespace GameCore.Diagnostics
                 bool done = false;
                 foreach (var (d, b) in Slots(time, Mathf.Max(appt.Day, time.Day) + 2))
                 {
-                    if (d < appt.Day || !schedule.HasRoom(d, b, DockScheduleService.SpanFor(appt.Kind))) continue;
+                    if (d < appt.Day || !schedule.HasRoom(d, b, appt.SpanBlocks)) continue;
                     foreach (int door in doors)
                         if (schedule.TryMoveToDoor(appt.Id, d, b, door, out _)) { done = true; _booked++; Act($"placed parked {appt.Kind} {appt.CustomerName} day {d} block {b} door {door}"); break; }
                     if (done) break;
@@ -501,18 +501,18 @@ namespace GameCore.Diagnostics
                 bool done = false;
                 foreach (var (d, b) in Slots(time, Mathf.Max(g.EarliestDueDay, earliestDay)))
                 {
-                    if ((d - 1) * 24 + b * DockScheduleService.BlockHours < earliestStart) continue;
-                    if (!schedule.HasRoom(d, b, DockScheduleService.SpanFor(g.Kind))) continue;
+                    if ((d - 1) * 24 * 60 + b * DockScheduleService.BlockMinutes < earliestStart * 60) continue;
+                    if (!schedule.HasRoom(d, b, DockScheduleService.SpanForPallets(schedule.PalletsFor(g.OrderIds, null)))) continue;
                     // DOOR RESERVE (Tad, 2026-10-27): never let case-pick outbound trailers take every door at once; one door stays free for inbound.
                     // Only when all the product is already in hand and there is time to pick it all may a trailer overlap another.
                     if (kind.StartsWith("case-pick") && doors.Count > 0)
                     {
-                        int span = DockScheduleService.SpanFor(g.Kind);
+                        int span = DockScheduleService.SpanForPallets(schedule.PalletsFor(g.OrderIds, null));
                         int overlapping = schedule.Appointments.Count(a => a != null && a.Kind != AppointmentKind.Inbound && a.Day == d &&
                                                                           a.BlockIndex < b + span && a.LastBlockIndex >= b);
                         if (overlapping >= doors.Count - 1)
                         {
-                            int startHour = (d - 1) * 24 + b * DockScheduleService.BlockHours;
+                            int startHour = (d - 1) * 24 + b * DockScheduleService.BlockMinutes / 60;
                             bool inHand = readyHour <= nowHours && startHour - nowHours >= turnHours * (overlapping + 1);
                             if (!inHand) continue;
                         }
@@ -1155,6 +1155,56 @@ namespace GameCore.Diagnostics
             return rows;
         }
 
+        // ── what is a bug and what is just the game ──────────────────────────────────────────────────────────
+        static readonly Regex LaneWaitRx = new(@"for lane (\d+)([A-Za-z]+)", RegexOptions.Compiled);
+        static readonly Regex AtPosRx = new(@"\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)", RegexOptions.Compiled);
+        static readonly Regex GuidRx = new(@"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", RegexOptions.Compiled);
+        readonly HashSet<string> _spotsSeen = new();
+
+        /// <summary>True for a message that describes the game doing what it is meant to do. Today: a reach truck that gave up waiting for a
+        /// lane, WHILE another machine that has work is inside that lane (a real lock leak - nobody in the lane - still counts).</summary>
+        static bool IsGameMechanic(string msg)
+        {
+            if (!msg.Contains("never freed up")) return false;
+            var m = LaneWaitRx.Match(msg);
+            if (!m.Success || !int.TryParse(m.Groups[1].Value, out int door)) return false;
+            if (!LaneNamingService.TryGetLaneGeometry(door, m.Groups[2].Value, out var geo)) return false;
+            Vector3 a = geo.EntryPoint, b = geo.ExitPoint - geo.DepthAxis * 3f;   // inside the lane: not the waiting spot at its mouth
+            a.y = b.y = 0f;
+            foreach (var slot in FindObjectsByType<MHEOperatorSlot>())
+            {
+                if (slot == null || !slot.IsOccupied) continue;
+                var batt = slot.GetComponent<EquipmentBattery>();
+                if (batt == null || !batt.IsBusy) continue;
+                Vector3 p = slot.transform.position; p.y = 0f;
+                Vector3 ab = b - a; float len2 = ab.sqrMagnitude;
+                float t = len2 > 0.01f ? Mathf.Clamp01(Vector3.Dot(p - a, ab) / len2) : 0f;
+                if ((p - (a + ab * t)).magnitude < 1.5f) return true;
+            }
+            return false;
+        }
+
+        /// <summary>True when this message is one of the location-bound kinds (stuck, left the building, stalled, no master record) and the
+        /// same one was already counted this block. Keyed by who + a 3 m cell for positions, by pallet id for record errors.</summary>
+        bool SeenSameSpotBefore(string msg)
+        {
+            string first = msg.Split((char)10)[0];
+            string key = null;
+            if (first.Contains("No master record for pallet")) { var g = GuidRx.Match(first); key = "norec|" + (g.Success ? g.Value : first); }
+            else if (first.Contains("stuck at (") || first.Contains("drove OUT of the building at (") || first.Contains("[JackStall]")
+                  || first.Contains("no progress toward task target") || first.Contains("timed out waiting for NavMesh"))
+            {
+                var p = AtPosRx.Match(first);
+                string who = p.Success ? first.Substring(0, p.Index) : first;
+                key = p.Success && float.TryParse(p.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float x)
+                      && float.TryParse(p.Groups[3].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float z)
+                    ? $"spot|{who}|{Mathf.RoundToInt(x / 3f)},{Mathf.RoundToInt(z / 3f)}"
+                    : "spot|" + who;
+            }
+            if (key == null) return false;
+            return !_spotsSeen.Add(key);
+        }
+
         void OnLog(string msg, string stack, LogType type)
         {
             if (!Running) return;
@@ -1163,6 +1213,10 @@ namespace GameCore.Diagnostics
             // The same line over and over is a bug by itself (a stuck loop), even when each copy is only a warning or an info line.
             // Compiler warnings/errors ("Foo.cs(12,3): warning CS0414: ...") are not game events; they logged "never used" as a bug at the start of block 12.
             if (msg.Contains("): warning CS") || msg.Contains("): error CS")) return;
+            // Waiting is not a failure (Tad, 2026-10-31): a machine queued behind another machine that is working in the lane is the game
+            // working. And one physical problem is one bug: the same vehicle stuck at the same spot, or the same pallet without a record,
+            // counts once per block, not once per health check.
+            if (type != LogType.Log && (IsGameMechanic(msg) || SeenSameSpotBefore(msg))) return;
             if (type != LogType.Log)
             {
                 string rk = Digits.Replace(msg.Split((char)10)[0], "#");
@@ -1241,17 +1295,21 @@ namespace GameCore.Diagnostics
                 if (line.Length == 0) continue;
                 string tag = line.Split(' ')[0];
                 if (!Weight.ContainsKey(tag)) continue;
+                // The pallet's trail (<<HISTORY: ...>>) is kept for the log but is not part of the bug's identity.
+                string hist = "";
+                int hi = line.IndexOf("  <<HISTORY:", System.StringComparison.Ordinal);
+                if (hi >= 0) { hist = line.Substring(hi); line = line.Substring(0, hi); }
                 string key = tag + "|" + Digits.Replace(line.Substring(tag.Length), "#");
                 present.Add(key);
                 if (_activeBugKeys.Contains(key)) continue;           // still the same episode
                 newTag ??= tag;
                 _incidents[key] = _incidents.TryGetValue(key, out int n) ? n + 1 : 1;
-                WriteBug(tag, line);
+                WriteBug(tag, line + hist);
                 HalPop(tag, $"BUG: {line}");
                 if (!_firstSeen.ContainsKey(key))
                 {
                     _firstSeen[key] = $"day {CurrentDay()}";
-                    _bugLog.AppendLine($"- **{tag}** (day {CurrentDay()}): {line}");
+                    _bugLog.AppendLine($"- **{tag}** (day {CurrentDay()}): {line}{hist}");
                 }
             }
             _activeBugKeys.Clear(); foreach (var k in present) _activeBugKeys.Add(k);
