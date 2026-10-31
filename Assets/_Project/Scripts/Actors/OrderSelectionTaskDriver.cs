@@ -777,10 +777,8 @@ namespace GameCore.Actors
             // the order stays PartiallyPicked until the last trip stages, and AutoCloseLoadedOrders waits
             // while any OrderSelect task for it is live.
             //
-            // SCRATCHES (Tad, 2026-10-18): a trip that ended with loose cases still owed because no pick face had any left
-            // (the selector already took every last case from every reachable slot, down to zero) stages what it picked as
-            // usual; the deficit becomes a brand new SCRATCHES pick list that must be picked before the truck departs,
-            // unless the player cancels the rest of the order.
+            // SHORT (Tad, 2026-10-30): a trip that ended with loose cases still owed because no pick face had any left stages
+            // what it picked as usual; the deficit is cut from the order (not billed). No SCRATCHES status any more.
             // The route was closed while this trip was already heading for the lane: the pallets it just staged are
             // returned to their pick slots by RETURNS tasks (OrderService.CompleteReturnedOrder -> ReclaimOrphanedFreight).
             if (_currentOrder != null && _currentOrder.ReturnsMode)

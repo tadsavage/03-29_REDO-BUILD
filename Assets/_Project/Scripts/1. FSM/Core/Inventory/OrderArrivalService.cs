@@ -714,7 +714,10 @@ namespace GameCore.Inventory
         public void MaintainRecurringSchedule()
         {
             if (_dockSchedule == null || _timeService == null) return;
-            if (_dockSchedule.CapacityPerBlock <= 0) return; // no outbound door yet — nothing to book against
+
+            // Old pre-booking ghosts (empty, drawn on the grid) from before holds existed are cleared here.
+            _dockSchedule.RemoveEmptyOutboundBookings();
+            if (_dockSchedule.CapacityPerBlock <= 0) return; // no outbound door yet — nothing to hold against
 
             int today = _timeService.Day;
 
@@ -723,30 +726,20 @@ namespace GameCore.Inventory
                 if (!signed.Active) continue;
                 var contract = GetContract(signed.ContractId);
                 if (contract == null || contract.Customer == null) continue;
-                // One-offs and bulk have nothing recurring to project forward.
                 if (contract.IsBulk || contract.IsOneTime) continue;
 
-                // Pre-book through the notice window: every trailer booked here has (or is about to get) an order,
-                // so the schedule never fills with empty slots that no order will ever land on.
                 int horizon = Mathf.Max(ScheduleHorizonDays, NoticeDaysFor(signed, contract));
                 for (int day = today; day <= today + horizon; day++)
                 {
                     if (!DeliversOn(contract, signed, day)) continue;
                     if (_dockSchedule.HasAppointmentFor(signed.ContractId, day)) continue;
 
-                    // lastDay == day: a recurring trailer that can't fit on its OWN day is not booked
-                    // at all rather than pushed to tomorrow. Its deadline is a block on this day, so a
-                    // slot on any other day isn't a late booking — it's a booking for the wrong order.
-                    // The freight then shows up in the unscheduled pool where the player can see the
-                    // dock is over-committed, which is the honest outcome.
-                    //
-                    // A full day is skipped, NOT treated as the end of the horizon: today being
-                    // over-committed says nothing about next Tuesday, and giving up on the first
-                    // failure would leave the rest of the week blank for exactly the account whose
-                    // schedule the player most needs to see.
-                    _dockSchedule.TryAutoPlace(day, contract.CutoffHour, day, AppointmentKind.Outbound,
-                        contract.Customer.CustomerId, contract.Customer.CompanyName,
-                        signed.ContractId, out _);
+                    // A capacity hold: the trailer takes its door and block now, but stays off the Scheduler grid
+                    // until its order lands (DockAppointment.IsHold). A full day is skipped, not the end of the horizon.
+                    if (_dockSchedule.TryAutoPlace(day, contract.CutoffHour, day, AppointmentKind.Outbound,
+                            contract.Customer.CustomerId, contract.Customer.CompanyName,
+                            signed.ContractId, out var hold) && hold != null)
+                        hold.IsHold = true;
                 }
             }
         }

@@ -74,6 +74,15 @@ namespace GameCore.Inventory
         public bool Parked;
 
         /// <summary>
+        /// A recurring account's capacity hold: a trailer pre-booked for a delivery day whose order has not
+        /// arrived yet. It holds its door and block (GetBlock, HasRoom, DoorBusy count it) but is NOT drawn on
+        /// the Scheduler grid and is never dispatched. The first order that attaches clears this flag, and
+        /// the sweep removes an elapsed hold that nothing ever filled. (Tad, 2026-10-31: an empty "They
+        /// haven't placed this order yet" box on the grid read as a fake order, so holds stay out of sight.)
+        /// </summary>
+        public bool IsHold;
+
+        /// <summary>
         /// This block's time has been swept past by DockScheduleService.SweepElapsedAppointments — its
         /// window has closed, so it no longer holds real dock capacity (GetBlock excludes it by default,
         /// the same way it excludes Parked). It's kept in the list rather than deleted so the Scheduler
@@ -200,6 +209,9 @@ namespace GameCore.Inventory
         /// <summary>False in a save written before parking existed — correct, since every appointment
         /// in such a save was on the grid.</summary>
         public bool parked;
+        /// <summary>False in a save written before recurring capacity holds existed. Such an empty outbound
+        /// booking is an old pre-booking ghost, and MaintainRecurringSchedule removes it.</summary>
+        public bool isHold;
         /// <summary>Null in a save written before player purchasing existed — correct, since no
         /// appointment in such a save was ever a PO reservation.</summary>
         public string shipmentPoNumber;
@@ -1394,11 +1406,18 @@ namespace GameCore.Inventory
             var candidates = UpcomingFor(order.CustomerId)
                 .Where(a => a.Kind != AppointmentKind.Inbound && a.ContractId == order.ContractId)
                 .ToList();
-            var existing = candidates.FirstOrDefault(a => a.Day == scheduledDay && FitsWith(a, order)) ??
+            // Same day is not enough: a contract can hold several blocks a day (10:00, 20:00...). Matching on day alone
+            // put a 20:00 order on the 10:00 trailer, so its revenue rode the wrong appointment (block 1023). When the
+            // contract names an hour, only that block counts.
+            int? wantedBlock = RequestedBlockFor(order);
+            var existing = candidates.FirstOrDefault(a => a.Day == scheduledDay
+                                                         && (wantedBlock == null || a.BlockIndex == wantedBlock.Value)
+                                                         && FitsWith(a, order)) ??
                            (order.IsBulk ? candidates.FirstOrDefault(a => FitsWith(a, order)) : null);
             if (existing != null)
             {
                 if (!existing.OrderIds.Contains(order.OrderId)) existing.OrderIds.Add(order.OrderId);
+                existing.IsHold = false; // the order has arrived, so the hold becomes a real trailer
                 ReconcileFutureRecurringAppointments();
                 AnnounceOrderArrival(order, existing.DoorNumber);
                 return;
@@ -1493,6 +1512,16 @@ namespace GameCore.Inventory
         /// runs right after every HandleOrderArrived call, it was re-attaching orders back to the wrong
         /// early day every time, undoing any correction. DueDay is the field that means "delivery slot."
         /// </summary>
+        /// <summary>The block index a contract's customer asked for (its CutoffHour), or null when the order
+        /// has no contract or the contract names no hour, meaning any block that day will do.</summary>
+        private int? RequestedBlockFor(OrderData order)
+        {
+            if (order == null || string.IsNullOrEmpty(order.ContractId)) return null;
+            ServiceLocator.TryGet(out OrderArrivalService arrivals);
+            int? hour = arrivals?.GetContract(order.ContractId)?.CutoffHour;
+            return hour.HasValue ? BlockForHour(hour.Value) : (int?)null;
+        }
+
         private void ReconcileFutureRecurringAppointments()
         {
             if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return;
@@ -1504,16 +1533,24 @@ namespace GameCore.Inventory
                     || order.Status == OrderData.OrderStatus.Cancelled
                     || order.DueDay < CurrentDay) continue;
 
-                var target = _appointments.FirstOrDefault(a => a.Kind != AppointmentKind.Inbound
+                // An order already riding a correct-day appointment stays put. Re-homing it on every pass is what
+                // dragged a later block's orders onto an earlier trailer (block 1023).
+                var sameDay = _appointments.Where(a => a.Kind != AppointmentKind.Inbound
                     && a.ContractId == order.ContractId && a.CustomerId == order.CustomerId
-                    && a.Day == order.DueDay);
-                if (target == null) continue;
+                    && a.Day == order.DueDay).ToList();
+                if (sameDay.Count == 0) continue;
+                if (sameDay.Any(a => a.OrderIds.Contains(order.OrderId))) continue;
+
+                int? wantedBlock = RequestedBlockFor(order);
+                var target = sameDay.FirstOrDefault(a => wantedBlock == null || a.BlockIndex == wantedBlock.Value)
+                             ?? sameDay[0];
 
                 foreach (var appointment in _appointments)
                 {
                     if (appointment != target) appointment.OrderIds.Remove(order.OrderId);
                 }
                 if (!target.OrderIds.Contains(order.OrderId)) target.OrderIds.Add(order.OrderId);
+                target.IsHold = false;
             }
         }
 
@@ -1532,6 +1569,12 @@ namespace GameCore.Inventory
         /// on the Schedule tab until its first order actually generated at the contract's cutoff hour,
         /// which read as broken to a player expecting to see it the moment they signed.
         /// </summary>
+        /// <summary>Drops outbound trailers that have no orders on them. Only pre-bookings from the retired recurring
+        /// schedule ever looked like this; a real trailer always carries the order that booked it. Returns how many were removed.</summary>
+        public int RemoveEmptyOutboundBookings()
+            => _appointments.RemoveAll(a => a.Kind != AppointmentKind.Inbound && a.OrderIds.Count == 0 && !a.IsHold
+                                         && string.IsNullOrEmpty(a.ShipmentPoNumber));
+
         public bool TryAutoPlace(int day, int? requestedHour, int lastDay, AppointmentKind kind,
                                  string customerId, string customerName, string contractId,
                                  out DockAppointment booked)
@@ -1651,6 +1694,7 @@ namespace GameCore.Inventory
                 return false;
 
             booked.OrderIds.AddRange(group.OrderIds);
+            booked.IsHold = false;
             return true;
         }
 
@@ -1935,6 +1979,7 @@ namespace GameCore.Inventory
             contractId = a.ContractId,
             orderIds = new List<string>(a.OrderIds),
             parked = a.Parked,
+            isHold = a.IsHold,
             shipmentPoNumber = a.ShipmentPoNumber,
             offSlotPenaltyApplied = a.OffSlotPenaltyApplied,
             closedOut = a.ClosedOut,
@@ -1963,6 +2008,7 @@ namespace GameCore.Inventory
                     ContractId = s.contractId,
                     OrderIds = s.orderIds ?? new List<string>(),
                     Parked = s.parked,
+                    IsHold = s.isHold,
                     ShipmentPoNumber = s.shipmentPoNumber,
                     RequestedDay = s.requestedDay,
                     OffSlotPenaltyApplied = s.offSlotPenaltyApplied,

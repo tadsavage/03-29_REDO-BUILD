@@ -4083,8 +4083,9 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             // includeClosedOut so a block whose window has elapsed still renders (struck through)
             // instead of going blank — see DockAppointment.ClosedOut. Ordered so an active rebooking
             // into the same now-freed slot is shown in preference to the stale closed-out record.
+            // IsHold: a recurring capacity hold keeps its door (GetBlock counts it) but is not drawn — see DockAppointment.IsHold.
             var appt = schedule.GetBlock(_scheduleDay, block, includeClosedOut: true)
-                .Where(a => a.DoorNumber == doorNumber)
+                .Where(a => a.DoorNumber == doorNumber && !a.IsHold)
                 .OrderBy(a => a.ClosedOut)
                 .FirstOrDefault();
             // A tile longer than one step is drawn ONCE, at its start, across all its steps; the steps it covers draw nothing of their own.

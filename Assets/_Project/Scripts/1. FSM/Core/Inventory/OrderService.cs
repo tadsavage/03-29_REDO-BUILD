@@ -257,21 +257,21 @@ namespace GameCore.Inventory
                                          $"Reach Truck resolves a source once one claims it.");
                     }
 
-                    // No pallet anywhere to fill it: this pallet pick is a SCRATCH run (Tad, 2026-10-20). It is filed
-                    // Open - nobody can claim it - and only becomes Available once stock of that SKU exists (PromoteScratches).
-                    bool isScratchPick = sourcePalletId == null;
+                    // No pallet anywhere yet (stock still inbound, or not put away): the pick is filed Open - nobody can claim it -
+                    // and becomes Available once stock of that SKU exists (PromoteWaitingPicks). No separate status for it.
+                    bool waitingForStock = sourcePalletId == null;
                     var pt = _workQueue?.CreateTask(
                         WorkTaskType.PalletPick,
                         EmployeeRole.ReachTruckOperator,
                         palletId: sourcePalletId,
-                        description: $"{(isScratchPick ? WorkTask.ScratchPrefix + ": " : "")}Pallet pick — {fullPallet} cs of {li.SkuId} for {order.CustomerName}",
+                        description: $"Pallet pick — {fullPallet} cs of {li.SkuId} for {order.CustomerName}",
                         fromLocation: sourceAddress,
                         toLocation: toLocation,
                         area: area,
                         priority: PalletPickPriority,
                         orderId: order.OrderId,
                         skuId: li.SkuId);
-                    if (pt != null) pt.Status = hasLane && !isScratchPick ? WorkTaskStatus.Available : WorkTaskStatus.Open;   // no lane yet = HELD (Open): unclaimable, and AssignWaitingLanes / the Work Queue can release it
+                    if (pt != null) pt.Status = hasLane && !waitingForStock ? WorkTaskStatus.Available : WorkTaskStatus.Open;   // no lane yet = HELD (Open): unclaimable, and AssignWaitingLanes / the Work Queue can release it
                     palletTasks++;
                 }
             }
@@ -534,27 +534,25 @@ namespace GameCore.Inventory
         {
             if (order == null || _workQueue == null) return false;
             if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return false;
-            if (LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect)) return LiveScratchTask(order.OrderId) != null;
+            if (LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect)) return false;
 
+            // No SCRATCHES status any more (Tad): cases the pick faces no longer hold are not queued for a second pass. They
+            // are cut from the order - not billed - and the order finishes with what was staged, like a release that
+            // leaves the trailer unfilled.
             int deficit = 0;
             foreach (var li in order.LineItems) deficit += SelectableRemaining(order, li);
             if (deficit <= 0) return false;
 
-            var st = _workQueue.CreateTask(
-                WorkTaskType.OrderSelect,
-                EmployeeRole.OrderSelector,
-                palletId: null,
-                description: $"{WorkTask.ScratchPrefix}: {deficit} short case(s) for {order.CustomerName}",
-                area: DominantArea(order),
-                orderId: order.OrderId);
-            if (st == null) return false;
-            st.Status = ScratchCanBePicked(order) ? WorkTaskStatus.Available : WorkTaskStatus.Open;
-            string msg = $"Order {order.OrderNumber}: {deficit} case(s) short - filed a SCRATCHES pick list" +
-                         (st.Status == WorkTaskStatus.Open ? " (waiting for stock in a pick slot)." : ".");
+            string msg = $"Order {order.OrderNumber}: {deficit} case(s) not in stock - cut from the order, not billed.";
             Debug.LogWarning($"[OrderService] {msg}");
             SystemsLogWindow.LogWarning(msg);
-            return true;
+            return false;
         }
+
+        /// <summary>A pallet pick filed before any stock of its SKU existed (stock still inbound, or not put away yet). It is
+        /// Open with no source and waits for a pallet to appear.</summary>
+        public static bool IsWaitingForStock(WorkTask t)
+            => t != null && t.Type == WorkTaskType.PalletPick && t.Status == WorkTaskStatus.Open && string.IsNullOrEmpty(t.PalletId);
 
         /// <summary>True when some line of the order still owed to a case picker has stock in an assigned pick face right now.</summary>
         private bool ScratchCanBePicked(OrderData order)
@@ -576,8 +574,7 @@ namespace GameCore.Inventory
         private void AssignLanesToScratchPicks()
         {
             if (_workQueue == null) return;
-            var pending = _workQueue.Tasks.Where(t => t.IsScratch && t.Type == WorkTaskType.PalletPick &&
-                                                     t.Status == WorkTaskStatus.Open && string.IsNullOrEmpty(t.ToLocation)).ToList();
+            var pending = _workQueue.Tasks.Where(t => IsWaitingForStock(t) && string.IsNullOrEmpty(t.ToLocation)).ToList();
             if (pending.Count == 0) return;
             ServiceLocator.TryGet<InventoryService>(out var inv);
 
@@ -614,7 +611,7 @@ namespace GameCore.Inventory
         private void PromoteScratches()
         {
             if (_workQueue == null) return;
-            foreach (var t in _workQueue.Tasks.Where(t => t.IsScratch && t.Status == WorkTaskStatus.Open).ToList())
+            foreach (var t in _workQueue.Tasks.Where(t => IsWaitingForStock(t) || (t.IsScratch && t.Status == WorkTaskStatus.Open)).ToList())
             {
                 var order = _activeOrders.FirstOrDefault(o => o.OrderId == t.OrderId);
                 if (order == null) { t.Status = WorkTaskStatus.Cancelled; continue; }
@@ -640,7 +637,7 @@ namespace GameCore.Inventory
         private IEnumerable<WorkTask> HeldTasks(OrderData order)
         {
             if (order == null || !order.ReleasedToFloor) return Enumerable.Empty<WorkTask>();
-            return LiveTasksForOrder(order.OrderId).Where(t => t.Status == WorkTaskStatus.Open && !t.IsScratch &&
+            return LiveTasksForOrder(order.OrderId).Where(t => t.Status == WorkTaskStatus.Open && !t.IsScratch && !IsWaitingForStock(t) &&
                 (t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.OrderSelect));
         }
 

@@ -126,7 +126,7 @@ namespace GameCore.Labor
             foreach (var appt in schedule.Appointments)
             {
                 if (appt.Kind == AppointmentKind.Inbound) continue;
-                if (appt.Parked || appt.ClosedOut) continue;
+                if (appt.Parked || appt.ClosedOut || appt.IsHold) continue;
                 // Dispatch ArrivalLeadHours before the block opens (Tad, 2026-10-11: an 08:00 appointment's truck turned up at 09:00 because the
                 // trip from the gate to the door takes about an hour of game time). Also still dispatches when the block is already open.
                 int nowMinute = ServiceLocator.TryGet<SimulationTimeService>(out var clk) && clk != null ? clk.Minute : 0;

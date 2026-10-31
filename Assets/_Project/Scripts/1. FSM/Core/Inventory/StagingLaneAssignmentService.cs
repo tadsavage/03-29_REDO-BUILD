@@ -139,13 +139,8 @@ namespace GameCore.Inventory
                 door = d; lane = candidate;
                 return true;
             }
-            // Last resort: a lane with room that another customer is also using.
-            foreach (var (d, candidate) in EnumerateSharedLanes(orderService, inv, order.EffectiveStagingDoor, null))
-            {
-                if (inv.CountFreeStagingSlotsInLane(d, candidate) < pallets) continue;
-                door = d; lane = candidate;
-                return true;
-            }
+            // No shared-lane last resort (block 1023): staging into a lane another customer is using put this order's
+            // pallets in front of theirs, and the loader stopped on the foreign pallet forever. No empty lane = no trip.
             lane = null;
             return false;
         }
