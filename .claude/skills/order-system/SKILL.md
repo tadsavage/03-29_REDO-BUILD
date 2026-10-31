@@ -101,3 +101,9 @@ At RELEASE (`OrderService.FileReleasedOrderTasks`) an order's loose (case-picked
 - Truck card (WorldHoverPopupUI) total is exact from release: aboard + waiting + unbuilt planned tasks + pallet picks. Legacy/SCRATCHES tasks fall back to the "STILL TO PICK" text.
 - `AnyPalletInHand(order)` blocks close-out while a pallet of the order is still on a selector/jack/forks.
 - Order sizing (`OrderArrivalService`) no longer holds back slack pallets for part-built selector pallets.
+
+## Gotchas added 2026-10-31
+
+- Stopping a routine with `StopAllCoroutines()` skips its `finally`/cleanup, so any lane-entry lock or staging reservation it held stays held. Release them explicitly at the stop site (`ReachTruckOperator.CheckStuckTask` is the reference).
+- Recurring accounts book hidden holds (`DockAppointment.IsHold`), not visible trailers. Holds are excluded from the Scheduler and from dispatch.
+- Scheduler yesterday is kept for one day (`DockScheduleService.KeepPastDays = 1`) and purged on rollover.
