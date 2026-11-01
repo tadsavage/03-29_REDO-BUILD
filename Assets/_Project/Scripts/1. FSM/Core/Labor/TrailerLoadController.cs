@@ -140,11 +140,22 @@ namespace GameCore.Labor
             // Duplicate Load tasks (same lane, same dock door) are pure churn: each one sends the loader out
             // to do an empty pass. A bug filed hundreds of them; keep the oldest and cancel the rest, so a
             // save that already carries them heals itself.
+            // The key includes the appointment: two tasks for the same lane but different trailers are NOT duplicates. Keyed by lane
+            // alone, a stale task left by a deleted appointment survived (oldest) and the live trailer's task was cancelled, so OG6297
+            // sat Loaded with 10 staged pallets and its trailer waiting (2026-11-01). A task whose appointment no longer exists is
+            // cancelled outright: the loader can never find its truck, and it would keep blocking the reopen check in AutoFileLoadTasks.
+            ServiceLocator.TryGet<DockScheduleService>(out var loadSched);
             var seenLoads = new HashSet<string>();
             foreach (var t in workQueue.Tasks)
             {
                 if (t.Type != WorkTaskType.Load || t.Status != WorkTaskStatus.Available) continue;
-                if (!seenLoads.Add($"{t.FromLocation}>{t.ToLocation}")) t.Status = WorkTaskStatus.Cancelled;
+                if (!string.IsNullOrEmpty(t.AppointmentId) && loadSched != null && loadSched.FindById(t.AppointmentId) == null)
+                {
+                    t.Status = WorkTaskStatus.Cancelled;
+                    Debug.LogWarning($"[TrailerLoad] Cancelled Load task {t.FromLocation} -> Door {t.ToLocation}: its appointment no longer exists.");
+                    continue;
+                }
+                if (!seenLoads.Add($"{t.FromLocation}>{t.ToLocation}>{t.AppointmentId}")) t.Status = WorkTaskStatus.Cancelled;
             }
 
             var byLane = new List<(WorkTask task, int door, string lane, int dock)>();
@@ -324,9 +335,12 @@ namespace GameCore.Labor
                     }
                     if (!HasStagedPalletForOrder(order.OrderId)) continue;
                     var addresses = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
+                    // Only a task for THIS order's trailer counts; another appointment's task for the same lane never loads it.
+                    string orderAppt = AppointmentOfOrder(order.OrderId);
                     bool loadPending = reopenQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
                         (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned) &&
-                        addresses.Contains(t.FromLocation));
+                        addresses.Contains(t.FromLocation) &&
+                        (string.IsNullOrEmpty(t.AppointmentId) || t.AppointmentId == orderAppt));
                     if (loadPending) continue;
                     order.Status = OrderData.OrderStatus.Staged;
                     Debug.Log($"[TrailerLoad] Order {order.OrderNumber} has staged pallets again after its load pass (no Load task pending) — reopened for loading.");

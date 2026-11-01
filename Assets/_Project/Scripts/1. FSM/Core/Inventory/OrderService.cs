@@ -1683,9 +1683,19 @@ namespace GameCore.Inventory
         private void CancelIdleLoadTasksForUnusedLanes()
         {
             if (_workQueue == null) return;
+            ServiceLocator.TryGet<DockScheduleService>(out var sched);
             foreach (var t in _workQueue.Tasks.Where(t => t.Type == WorkTaskType.Load &&
                                                           (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Open)).ToList())
             {
+                // A task tied to an appointment that no longer exists has no trailer to load onto, even when its lane is still
+                // in use by another order (2026-11-01: such a task blocked OG6297's reopen at 1B).
+                if (!string.IsNullOrEmpty(t.AppointmentId) && sched != null && sched.FindById(t.AppointmentId) == null)
+                {
+                    t.Status = WorkTaskStatus.Cancelled;
+                    t.AssignedToEmployeeGuid = null;
+                    Debug.LogWarning($"[OrderService] Cancelled Load task for lane {t.FromLocation}: its appointment no longer exists.");
+                    continue;
+                }
                 string from = t.FromLocation ?? "";
                 int i = 0;
                 while (i < from.Length && char.IsDigit(from[i])) i++;
