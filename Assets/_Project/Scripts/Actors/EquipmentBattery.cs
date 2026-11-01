@@ -248,7 +248,7 @@ public class EquipmentBattery : MonoBehaviour
             {
                 if (f.name != "Forks") continue;
                 if (f.GetComponentInChildren<GameCore.Inventory.PalletMasterLink>(true) != null ||
-                    f.GetComponentInChildren<GameCore.Inventory.OutboundPalletBuilder>(true) != null ||
+                    f.GetComponentInChildren<OutboundPalletBuilder>(true) != null ||
                     f.GetComponentInChildren<GameCore.Inventory.PalletData>(true) != null)
                 {
                     _carryCached = true;
