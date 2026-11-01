@@ -461,6 +461,7 @@ namespace GameCore.Actors
             // priority tier. Proximity/lane-slot-number scoring was deliberately removed: pick order
             // should be driven by priority only, not by which lane happens to be closest to this truck.
             WorkTask best = null;
+            WorkTask bestBlocker = null;
 
             foreach (var t in pending)
             {
@@ -566,11 +567,21 @@ namespace GameCore.Actors
                 // Skip pallets that recently found no rack destination (warehouse full) — retried after backoff.
                 if (IsPalletBlocked(t.PalletId) || IsPalletBlocked(TaskBlockKey(t))) continue;
 
+                // A putaway that clears stock out of the way of a waiting trailer beats everything else (Tad, 2026-10-31):
+                // getting the trailer loaded is the priority, ordinary putaways wait.
+                if (t.Type == WorkTaskType.Putaway && !string.IsNullOrEmpty(t.PalletId) &&
+                    GameCore.Labor.TrailerLoadController.BlockingStockPalletIds.Contains(t.PalletId))
+                {
+                    if (bestBlocker == null) bestBlocker = t;
+                    continue;
+                }
+
                 // Higher Priority value wins (Replenish defaults to 250, Putaway to 100).
                 if (best == null || t.Priority > best.Priority)
                     best = t;
             }
 
+            if (bestBlocker != null) best = bestBlocker;
             if (best == null) return;
 
             if (!_workQueue.TryClaimSpecificTask(best, guid)) return;

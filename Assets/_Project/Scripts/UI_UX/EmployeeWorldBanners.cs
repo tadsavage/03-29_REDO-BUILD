@@ -428,6 +428,7 @@ public static class EmployeeTaskText
             case WorkTaskType.Load:       return "Loading" + (string.IsNullOrEmpty(order) ? " trailer" : order);
             case WorkTaskType.PalletPick: return "Pulling pallet" + order;
             case WorkTaskType.ChargeMHE:  return "Taking equipment to charge";
+            case WorkTaskType.Dig:        return "Digging out a blocked lane";
             case WorkTaskType.Receive:    return "Receiving pallet";
             default:                      return string.IsNullOrEmpty(t.Description) ? t.Type.ToString() : t.Description;
         }

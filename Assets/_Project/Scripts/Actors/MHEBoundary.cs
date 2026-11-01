@@ -23,7 +23,7 @@ public class MHEBoundary : MonoBehaviour
     // unload. Anything within this many metres of a dock door counts as inside. Further out is still outside.
     private const float DockApronMeters = 9f;
     // The building floor sits at y ~1.1. A machine measured lower than this has fallen through to the yard-level mesh beneath it.
-    private const float MinFloorY = 0.6f;
+    private const float MinFloorY = 0.9f;
 
     // A dock stocker under a dock routine (offload / load / dig-out) drives scripted legs to a trailer that can sit well past the
     // 9 m apron; the routine and this boundary fought, bouncing the machine back every second (2026-10-31).
@@ -163,7 +163,14 @@ public class MHEBoundary : MonoBehaviour
 
         var agent = GetComponent<NavMeshAgent>();
         if (agent != null && agent.enabled && agent.isOnNavMesh)
+        {
+            // Warp lands on the NEAREST mesh, which under a carved rack or at the building edge is the yard layer a metre below
+            // (that is how a machine fell through the floor in the first place). Take a floor-level spot or none.
+            var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
+            if (NavMesh.SamplePosition(back, out NavMeshHit hit, 2.5f, filter) && hit.position.y >= MinFloorY) back = hit.position;
             agent.Warp(back);
+            transform.position = back;
+        }
         else
             transform.position = back;
     }

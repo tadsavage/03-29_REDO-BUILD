@@ -580,7 +580,8 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
         foreach (float r in k_RescueRadii)
         {
-            if (NavMesh.SamplePosition(origin, out NavMeshHit hit, r, filter))
+            if (NavMesh.SamplePosition(origin, out NavMeshHit hit, r, filter) &&
+                !(MHEBoundary.Restricts(gameObject) && hit.position.y < MachineMinFloorY && origin.y >= MachineMinFloorY))
             {
                 point = hit.position;
                 distance = Vector3.Distance(origin, hit.position);
@@ -622,6 +623,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
                 if (!NavMesh.SamplePosition(probe, out NavMeshHit hit, 2f, filter)) continue;
                 if (restricted && !MHEBoundary.IsInside(hit.position)) continue;
+                // A machine's escape point must be on the FLOOR: the yard-level layer under the building edge is "inside" by the
+                // boundary's tolerance, and walking there put a reach truck through the floor (block 27, 2026-11-01).
+                if (restricted && hit.position.y < MachineMinFloorY) continue;
 
                 float d = Vector3.Distance(origin, hit.position);
                 if (d < MinEscapeDistance) continue;   // too close — still inside the pocket
@@ -669,7 +673,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         if (!haveTarget)
             haveTarget = TryFindNavMeshNear(from, out target, out _);
         // A boundary-restricted vehicle with no inside escape stays where it is. Walking it out would only fight MHEBoundary.
-        if (haveTarget && MHEBoundary.Restricts(gameObject) && !MHEBoundary.IsInside(target)) haveTarget = false;
+        if (haveTarget && MHEBoundary.Restricts(gameObject) && (!MHEBoundary.IsInside(target) || target.y < MachineMinFloorY)) haveTarget = false;
 
         if (!haveTarget)
         {
@@ -1200,11 +1204,53 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         if (_unsticking) return;
 
         Vector3 np = agent.nextPosition;
+
+        // MACHINES NEVER DESCEND (Tad, 2026-10-31: "things falling through the floor should never be happening"). The NavMesh holds a
+        // second, yard-level layer (y ~0.1) right under and beside the building's edge; any Warp / sample / rescue that lands a
+        // reach truck, dock stocker or pallet jack on it dropped the machine a metre through the floor. Whatever put the agent
+        // there, the transform simply refuses to follow, and the agent is put back on the floor it came from.
+        if (_isMachine == null) _isMachine = GetComponent<MHEOperatorSlot>() != null;
+        if (_isMachine.Value)
+        {
+            if (np.y >= MachineMinFloorY) { _lastMachineFloorPos = np; _haveMachineFloorPos = true; }
+            else if (_haveMachineFloorPos && transform.position.y >= MachineMinFloorY)
+            {
+                RejectYardLevelSnap(np);
+                return;
+            }
+        }
+
         transform.position = np;
         if (_rb != null)
             _rb.MovePosition(np);
         // Rotation is owned by AgentAnimation.LateUpdate() — do not set _rb.rotation
         // here, as it fires before AgentAnimation's LateUpdate and would overwrite it.
+    }
+
+    private const float MachineMinFloorY = 0.9f;   // the building / dock floor is ~1.1; the yard layer underneath is ~0.1
+    private Vector3 _lastMachineFloorPos;
+    private bool _haveMachineFloorPos;
+    private float _lastSnapWarn = -999f;
+
+    private void RejectYardLevelSnap(Vector3 lowPos)
+    {
+        if (Time.unscaledTime - _lastSnapWarn > 10f)
+        {
+            _lastSnapWarn = Time.unscaledTime;
+            Debug.LogWarning($"[AiNavigation] '{name}' was snapped onto the yard-level NavMesh at {lowPos} (it was at {transform.position}); keeping it on the floor and putting its agent back.");
+        }
+        var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
+        bool back = false;
+        // Sample from the last floor spot at floor height and accept only a floor-level hit.
+        for (float r = 0.5f; r <= 3f && !back; r += 0.75f)
+        {
+            if (NavMesh.SamplePosition(_lastMachineFloorPos, out NavMeshHit hit, r, filter) && hit.position.y >= MachineMinFloorY)
+            {
+                agent.Warp(hit.position);
+                back = true;
+            }
+        }
+        if (!back) CancelSeekPosition();   // no floor-level mesh to stand on: drop the leg rather than chase the yard layer
     }
 
     // ── Stranded-on-NavMesh recovery ─────────────────────────────────────────

@@ -1858,6 +1858,7 @@ public class WorkQueuePanel : IUIPanel
     {
         WorkTaskType.Replenish => "Replenishment",
         WorkTaskType.Return => "RETURNS",
+        WorkTaskType.Dig => "DIG OUT",
         _ => type.ToString()
     };
 

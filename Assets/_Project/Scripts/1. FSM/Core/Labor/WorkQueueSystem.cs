@@ -12,7 +12,7 @@ namespace GameCore.Labor
     /// PalletPick moves ONE full pallet from a reserve slot straight to an outbound staging lane,
     /// for a bulk order that asked for full-pallet quantities. It's the outbound mirror of Putaway,
     /// and shares Replenish's reserve-extraction half.</summary>
-    public enum WorkTaskType { Receive, Putaway, Replenish, OrderSelect, Load, PalletPick, Return, ChargeMHE }   // append only: saved as int
+    public enum WorkTaskType { Receive, Putaway, Replenish, OrderSelect, Load, PalletPick, Return, ChargeMHE, Dig }   // append only: saved as int
 
     /// <summary>Open: exists but not yet claimable -- OrderSelect and PalletPick tasks start here,
     /// created "in limbo" until the player releases them to a staging lane via the Work Queue panel.

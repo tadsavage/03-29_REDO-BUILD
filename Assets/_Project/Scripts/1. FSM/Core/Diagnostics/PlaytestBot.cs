@@ -977,9 +977,41 @@ namespace GameCore.Diagnostics
                 if (!_unclaimedSince.TryGetValue(o.OrderId, out long since)) { _unclaimedSince[o.OrderId] = now; continue; }
                 if (now - since < 90) continue;
                 _lastDeadlockWhy = $"{o.OrderNumber ?? o.OrderId} is {o.Status} but door {o.AssignedDoorNumber}'s truck has waited {now - since} min with no one loading it.";
-                Note("DOOR-DEADLOCK", _lastDeadlockWhy);
+                Note("DOOR-DEADLOCK", _lastDeadlockWhy + " | " + DescribeLanes(o));
             }
             foreach (var k in _unclaimedSince.Keys.Where(k => !seen.Contains(k)).ToList()) _unclaimedSince.Remove(k);
+        }
+
+        /// <summary>What stands in each staging lane of an order and which Load / Dig tasks exist for it - so a deadlock report says WHY.</summary>
+        string DescribeLanes(OrderData o)
+        {
+            try
+            {
+                var grid = FindAnyObjectByType<PlacementGrid>();
+                ServiceLocator.TryGet<WorkQueueSystem>(out var wq);
+                var sb = new System.Text.StringBuilder();
+                foreach (var (door, lane) in o.AllStagingLanes())
+                {
+                    sb.Append($"lane {door}{lane}: ");
+                    foreach (var s in LaneNamingService.GetLane(door, lane))
+                    {
+                        var parts = new List<string>();
+                        foreach (var p in FindObjectsByType<OutboundPalletBuilder>())
+                            if (p != null && p.IsOnFloor && grid != null && grid.WorldToCell(p.transform.position) == s.Cell)
+                                parts.Add($"{(p.OrderId == o.OrderId ? "own" : "OTHER " + p.OrderId)}/{p.Stage}/y{p.transform.position.y:0.0}");
+                        if (ServiceLocator.TryGet<InventoryService>(out var inv) && inv != null)
+                            foreach (var rec in inv.GetPalletsAtLocation(s.Cell)) parts.Add("stock " + rec.PalletId);
+                        if (parts.Count > 0) sb.Append($"[{s.Slot}: {string.Join(", ", parts)}] ");
+                    }
+                    if (wq != null)
+                        foreach (var t in wq.Tasks)
+                            if ((t.Type == WorkTaskType.Load || t.Type == WorkTaskType.Dig) && t.FromLocation == $"{door}{lane}" &&
+                                t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled)
+                                sb.Append($"<{t.Type} {t.Status}> ");
+                }
+                return sb.ToString();
+            }
+            catch (System.Exception e) { return "(lane dump failed: " + e.Message + ")"; }
         }
 
         static bool BlockPassed(PlaytestBlockResult r) =>

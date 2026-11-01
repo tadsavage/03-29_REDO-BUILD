@@ -484,7 +484,7 @@ public class PlacementSystem : MonoBehaviour
             save.workQueue = new List<WorkTaskSnapshot>();
             foreach (var task in workQueueSystem.GetAllTasks())
             {
-                if (task == null || task.Type == WorkTaskType.ChargeMHE) continue;   // transient: tied to a live machine
+                if (task == null || task.Type == WorkTaskType.ChargeMHE || task.Type == WorkTaskType.Dig) continue;   // transient: tied to a live machine
                 save.workQueue.Add(new WorkTaskSnapshot
                 {
                     taskId = task.TaskId,

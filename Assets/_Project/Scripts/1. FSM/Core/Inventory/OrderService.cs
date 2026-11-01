@@ -3180,6 +3180,16 @@ namespace GameCore.Inventory
             return true;
         }
 
+        /// <summary>True once the booked slot of the order's trailer is over (or the order's day has passed).</summary>
+        private bool AppointmentElapsed(OrderData order)
+        {
+            if (_timeService == null || order == null) return false;
+            var appt = ServiceLocator.TryGet<DockScheduleService>(out var sched) && sched != null ? sched.FindForOrder(order.OrderId) : null;
+            if (appt == null) return false;
+            if (appt.Day != _timeService.Day) return appt.Day < _timeService.Day;
+            return _timeService.Hour * 60 + _timeService.Minute >= appt.EndMinute;
+        }
+
         public int AutoCloseLoadedOrders()
         {
             CheckScratchPrompts();
@@ -3187,7 +3197,10 @@ namespace GameCore.Inventory
             // SHIP-SHORT VALVE (block 20, 2026-10-31): a Loaded order that is already late and whose only remaining work is pallet picks
             // for stock that does not exist anywhere (Open, no source pallet) would hold its trailer at the door for days. Cut those
             // cases (not billed) and let it ship what is aboard. Until it is late the stock may still arrive, so it waits.
-            foreach (var stuck in _activeOrders.Where(o => o != null && o.Status == OrderData.OrderStatus.Loaded && o.CancelledCases == 0 && o.HasBeenFined).ToList())
+            // It is no longer enough to wait for the fine: block 27 (2026-11-01) fined four loaded seafood orders for a truck that sat at the
+            // door until midnight waiting for stock that never came. Once the booked slot is over, the trailer leaves with what is aboard.
+            foreach (var stuck in _activeOrders.Where(o => o != null && o.Status == OrderData.OrderStatus.Loaded && o.CancelledCases == 0 &&
+                                                          (o.HasBeenFined || AppointmentElapsed(o))).ToList())
             {
                 var liveTasks = LiveTasksForOrder(stuck.OrderId).ToList();
                 // Nothing left that can actually be done: pallet picks with no source pallet, and loose-case trips with no stock to pick.

@@ -123,6 +123,10 @@ namespace GameCore.Labor
 
             if (!ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue) || workQueue == null) return;
 
+            // A lane that buries a trailer's pallets under (or behind) something else comes FIRST: the dock stocker digs it out
+            // before any ordinary load pass or putaway (Tad, 2026-10-31). See TrailerLoadController.Blockers.cs.
+            if (TryStartBlockerDig(workQueue)) return;
+
             // A Staged order with a trailer already waiting at its door needs no player action any
             // more — file its Load task automatically the instant both are true. See AutoFileLoadTasks.
             using (_mTc2.Auto()) AutoFileLoadTasks();
@@ -153,6 +157,7 @@ namespace GameCore.Labor
 
             foreach (var (task, door, lane, dockDoor) in byLane)
             {
+                if (_digLanes.Contains($"{door}{lane}")) continue;   // being dug out right now
                 // The trailer is at the DOCK door; the lane being emptied may be at a different door.
                 // By appointment id when the task carries one; only an old save's task (no id) falls back to the door.
                 var truck = !string.IsNullOrEmpty(task.AppointmentId) ? FindTruckForAppointment(task.AppointmentId) : FindDockedOutboundTruck(dockDoor);

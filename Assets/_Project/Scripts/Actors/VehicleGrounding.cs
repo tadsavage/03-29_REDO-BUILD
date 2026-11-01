@@ -25,6 +25,7 @@ public class VehicleGrounding : MonoBehaviour
     // Tuning ---------------------------------------------------------------------------------------------------
     private const float RayStartAbove = 0.6f;   // cast from this far above the pivot
     private const float RayLength     = 1.6f;
+    private const float MinBuildingFloorY = 0.9f;   // the building / dock floor is ~1.1, the yard ~0.1
     private const float MaxSnap       = 0.35f;  // never move further than this in one go (guards against a stray collider)
     private const float RestAboveFloor = 0.004f;// pivot height above the floor surface
     private const float TruckWheelShadowStrength = 3f;    // per-tyre blobs: the strength the whole-truck blob had
@@ -170,6 +171,10 @@ public class VehicleGrounding : MonoBehaviour
         Vector3 p = transform.position;
         if (!Physics.Raycast(p + Vector3.up * RayStartAbove, Vector3.down, out var hit, RayLength, _groundMask, QueryTriggerInteraction.Ignore))
             return;
+
+        // Never follow the ground DOWN off the building: at the south edge the ray runs out past the foundation and finds the yard a
+        // metre below, and a few 0.3 m steps put the truck through the floor (block 27, 2026-11-01).
+        if (hit.point.y < MinBuildingFloorY && p.y >= MinBuildingFloorY) return;
 
         float target = hit.point.y + RestAboveFloor;
         float delta = target - p.y;
