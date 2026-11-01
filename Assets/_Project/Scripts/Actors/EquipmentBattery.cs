@@ -684,8 +684,25 @@ public class EquipmentBattery : MonoBehaviour
                 yield return new WaitForSeconds(3f);
                 continue;
             }
+            // The approach point can sit off the mesh (a rack or another bay in the way), so the agent stopped at the nearest mesh point,
+            // which may be 4-6 m from the bay. Navigate to the bay itself before the short hand-driven finish.
+            if (Flat(transform.position - park).magnitude > MaxHandDriveMeters - 0.5f)
+            {
+                bool okBay = false;
+                yield return NavTo(park, r => okBay = r);
+            }
             yield return Face(fwd);
             yield return MoveStraight(park);
+            if (Flat(transform.position - park).magnitude > 1.5f)
+            {
+                // The hand-driven finish refused (too far): the navigation step had not really arrived. Wait a little longer each time
+                // (this logged 25+ warnings in a block when it retried every second) and go round again.
+                if (_reserved != null) { _reserved.Release(Slot); _reserved = null; }
+                _slideRefusals++;
+                yield return new WaitForSeconds(Mathf.Min(30f, 1f + 4f * _slideRefusals));
+                continue;
+            }
+            _slideRefusals = 0;
             Debug.Log($"[EquipmentBattery] {name}#{LinkId} ChargeTrip: reached the bay at {transform.position}");
             DismountIfNotStaying();   // parked: a driver on a battery change STAYS aboard; helpers / Switch Machines step off
 
@@ -1063,6 +1080,7 @@ public class EquipmentBattery : MonoBehaviour
 
     private bool _inNavTo;
     private float _tripNavStray;
+    private int _slideRefusals;
 
     private void ParkNav()
     {
@@ -1088,9 +1106,20 @@ public class EquipmentBattery : MonoBehaviour
         if (this != null) transform.rotation = goal;
     }
 
+    /// <summary>The longest hop the hand-driven finish may cover. It exists to park the last metre or two exactly on a spot; the
+    /// navigation step is meant to have done everything else. When that step reports "arrived" without having (a partial path, "no
+    /// progress ... treating as arrived"), a long MoveStraight slid the whole machine across the dock like a hockey puck, with no path and
+    /// no turning (Tad, 2026-10-31). Beyond this distance the slide is refused and the trip simply tries its navigation again.</summary>
+    private const float MaxHandDriveMeters = 4.5f;
+
     private IEnumerator MoveStraight(Vector3 target)
     {
         target.y = transform.position.y;
+        if (Flat(transform.position - target).magnitude > MaxHandDriveMeters)
+        {
+            Debug.LogWarning($"[EquipmentBattery] {name}: not sliding {Flat(transform.position - target).magnitude:0.0} m by hand - that is a navigation job. Trying the path again.");
+            yield break;
+        }
         while (this != null && Vector3.Distance(Flat(transform.position), Flat(target)) > 0.02f)
         {
             transform.position = Vector3.MoveTowards(transform.position, target, TripDriveSpeed * Time.deltaTime);

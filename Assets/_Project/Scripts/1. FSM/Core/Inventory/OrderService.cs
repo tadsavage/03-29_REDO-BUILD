@@ -1534,8 +1534,7 @@ namespace GameCore.Inventory
             foreach (var order in _activeOrders.ToList())
             {
                 if (order == null || !order.ReleasedToFloor || order.CancelledCases > 0 || string.IsNullOrEmpty(order.AssignedLane)) continue;
-                if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled
-                    || order.Status == OrderData.OrderStatus.Loaded) continue;
+                if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) continue;
                 if (order.ReturnsMode) continue;
                 if (LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect)) continue;
                 if (_recoverySelectTick.TryGetValue(order.OrderId, out int last) && _waitingLaneTick - last < 5) continue;
@@ -1555,6 +1554,8 @@ namespace GameCore.Inventory
                     area: DominantArea(order), orderId: order.OrderId);
                 if (st == null) continue;
                 st.Status = WorkTaskStatus.Available;
+                // Marked Loaded by a loader pass that ran while these cases had no stock: picking again, so it cannot close out meanwhile.
+                if (order.Status == OrderData.OrderStatus.Loaded) order.Status = OrderData.OrderStatus.PartiallyPicked;
                 _recoverySelectTick[order.OrderId] = _waitingLaneTick;
                 Debug.LogWarning($"[OrderService] Order {order.OrderNumber}: stock is back for {remaining} case(s) that were cut - filed another selector trip.");
             }
@@ -1642,6 +1643,7 @@ namespace GameCore.Inventory
             PromoteScratches();
             ReclaimOrphanedFreight();
             HealPhantomStagedOrders();
+            AdoptStrayStagedPallets();
             // Loaders call this when a pass ends, but an order can become closable later (its last pallet pick
             // lands, or turns out to be unfillable) with no loader pass left to notice. Re-check on the tick.
             AutoCloseLoadedOrders();
@@ -1695,6 +1697,36 @@ namespace GameCore.Inventory
                 t.Status = WorkTaskStatus.Cancelled;
                 t.AssignedToEmployeeGuid = null;
                 Debug.LogWarning($"[OrderService] Cancelled Load task for lane {door}{lane}: no active order uses that lane any more.");
+            }
+        }
+
+        /// <summary>
+        /// A staged pallet that stands in a lane its order does not use (block 21: one pallet of OG2705 sat in 1B, the neighbouring lane,
+        /// while the order was staged in 1A). The loader only works the lanes an order owns, so the order stayed Staged for ever with
+        /// its trailer waiting at the door. The lane the pallet really stands in becomes one of the order's overflow lanes, so a Load
+        /// task is filed for it like any other.
+        /// </summary>
+        private void AdoptStrayStagedPallets()
+        {
+            if (_activeOrders.Count == 0) return;
+            var live = new Dictionary<string, OrderData>();
+            foreach (var o in _activeOrders)
+                if (o != null && o.ReleasedToFloor &&
+                    (o.Status == OrderData.OrderStatus.Staged || o.Status == OrderData.OrderStatus.PartiallyPicked ||
+                     o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded))
+                    live[o.OrderId] = o;
+            if (live.Count == 0) return;
+            var grid = Object.FindAnyObjectByType<PlacementGrid>();
+            if (grid == null) return;
+
+            foreach (var p in Object.FindObjectsByType<OutboundPalletBuilder>())
+            {
+                if (p == null || !p.IsOnFloor || p.Stage != OutboundPalletBuilder.PalletStage.Staged || string.IsNullOrEmpty(p.OrderId)) continue;
+                if (!live.TryGetValue(p.OrderId, out var order)) continue;
+                if (!LaneNamingService.TryGetSlot(grid.WorldToCell(p.transform.position), out var slot)) continue;
+                if (order.UsesLane(slot.DoorNumber, slot.Lane)) continue;
+                order.AddOverflowLane(slot.DoorNumber, slot.Lane);
+                Debug.LogWarning($"[OrderService] Order {order.OrderNumber} has a staged pallet in lane {slot.DoorNumber}{slot.Lane}, which was not one of its lanes - added it so the loader collects it.");
             }
         }
 
@@ -3151,6 +3183,24 @@ namespace GameCore.Inventory
         public int AutoCloseLoadedOrders()
         {
             CheckScratchPrompts();
+
+            // SHIP-SHORT VALVE (block 20, 2026-10-31): a Loaded order that is already late and whose only remaining work is pallet picks
+            // for stock that does not exist anywhere (Open, no source pallet) would hold its trailer at the door for days. Cut those
+            // cases (not billed) and let it ship what is aboard. Until it is late the stock may still arrive, so it waits.
+            foreach (var stuck in _activeOrders.Where(o => o != null && o.Status == OrderData.OrderStatus.Loaded && o.CancelledCases == 0 && o.HasBeenFined).ToList())
+            {
+                var liveTasks = LiveTasksForOrder(stuck.OrderId).ToList();
+                // Nothing left that can actually be done: pallet picks with no source pallet, and loose-case trips with no stock to pick.
+                if (liveTasks.Count == 0 || !liveTasks.All(t => t.Status != WorkTaskStatus.Assigned &&
+                        (IsWaitingForStock(t) || (t.Type == WorkTaskType.OrderSelect && !ScratchCanBePicked(stuck))))) continue;
+                int cut = CancelLeftoverTasks(stuck.OrderId);
+                if (cut > 0)
+                {
+                    string cutMsg = $"Order {stuck.OrderNumber}: {cut} pallet pick(s) had no stock anywhere - cut from the order, not billed. The trailer can leave with what is aboard.";
+                    Debug.LogWarning($"[OrderService] {cutMsg}");
+                    SystemsLogWindow.LogWarning(cutMsg);
+                }
+            }
             var ready = _activeOrders
                 .Where(o => o.Status == OrderData.OrderStatus.Loaded
                             && CanCloseOut(o, out _)

@@ -4392,6 +4392,20 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         TightenLine(palletsLine, 1);
         cell.Add(palletsLine);
 
+        // Estimated time to pick the order: pallet picks over the reach trucks, selector trips over the selectors (OrderPickEstimate).
+        if (!isInbound && appt.OrderIds.Count > 0 && ServiceLocator.TryGet<OrderService>(out var estOrders) && estOrders != null)
+        {
+            var estList = estOrders.ActiveOrders.Where(o => o != null && appt.OrderIds.Contains(o.OrderId)).ToList();
+            if (estList.Count > 0)
+            {
+                var est = OrderPickEstimate.For(estList);
+                var estLine = MakeText(est.HasWork ? $"Est. pick: {OrderPickEstimate.Format(est.Hours)}" : "Est. pick: done", SummaryFontSize, est.NoPeople ? ColDangerSoft : labelColor);
+                estLine.style.whiteSpace = WhiteSpace.NoWrap; estLine.style.overflow = Overflow.Hidden;
+                TightenLine(estLine, 1);
+                cell.Add(estLine);
+            }
+        }
+
         // "Considered Late" block: when this trailer is judged late (SweepElapsedAppointments fires the
         // instant its block ends) and what that costs. One short line each, no wrap.
         if (appt.Kind != AppointmentKind.Inbound || isInbound)
@@ -5398,6 +5412,14 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
         var revenueLabel = MakeText($"Expected revenue: ${totalRevenue:N0}", 24, ColMoney, bold: true);
         revenueLabel.style.marginBottom = 6;
         col.Add(revenueLabel);
+        if (orderList.Count > 0)
+        {
+            var estimate = OrderPickEstimate.For(orderList);
+            var estText = MakeText("Estimated time to pick: " + OrderPickEstimate.Describe(estimate), 22, estimate.NoPeople ? ColDangerSoft : ColSubtleText);
+            estText.style.whiteSpace = WhiteSpace.Normal;
+            estText.style.marginBottom = 6;
+            col.Add(estText);
+        }
         col.Add(BuildTooltipDivider());
 
         if (orderList.Count == 0)
@@ -5431,7 +5453,11 @@ private VisualElement BuildInboundTooltipContent(DockAppointment appt)
             // On-hand alone already covers what this trailer needs -- item reads green, per Tad's
             // explicit call, same as everywhere else "good coverage" is called out (see OutsColor).
             // Already-picked cases left the shelf, so only the unpicked remainder needs covering.
-            Color? itemColor = onHand >= kv.Value - pickedSoFar ? ColMoney : (Color?)null;
+            // Red = cannot be filled (not here, not on order); amber = covered only by a PO still on its way (Tad, 2026-10-31).
+            int stillNeeded = kv.Value - pickedSoFar;
+            Color? itemColor = onHand >= stillNeeded ? ColMoney
+                             : onHand + onPo < stillNeeded ? ColDanger
+                             : (Color?)new Color(1f, 0.78f, 0.3f, 1f);
             col.Add(BuildTooltipItemRow(sku, BuildOutboundItemDetail(kv.Value, onHand, onPo, nextPo, Mathf.Max(0, kv.Value - pickedSoFar)), itemColor));
         }
 

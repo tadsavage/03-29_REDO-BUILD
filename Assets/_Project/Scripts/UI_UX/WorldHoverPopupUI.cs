@@ -1970,12 +1970,14 @@ private void ShowLocation(LocationData location)
             // manifest. A critical line's shortfall now prints on its OWN row below the item, naming
             // which order it's covering and when that order's own trailer goes — "8 cases needed for
             // Order X @ Today @ 08:00–10:00" — instead of being tacked onto the item line itself.
+            Label stockLegend = null;
+            bool anyOutOfStock = false;
             if (loadedPalletCount >= 0)
             {
                 // Column header for the bars below (outbound cards only), right-aligned under TOTAL PALLETS.
                 var head = new VisualElement { pickingMode = PickingMode.Ignore };
                 head.style.flexDirection = FlexDirection.Row;
-                head.style.justifyContent = Justify.FlexEnd;
+                head.style.justifyContent = Justify.SpaceBetween;
                 head.style.paddingBottom = 3;
                 head.style.marginBottom = 6;
                 head.style.borderBottomWidth = 1;
@@ -1986,6 +1988,15 @@ private void ShowLocation(LocationData location)
                 headLbl.style.letterSpacing = 1f;
                 headLbl.style.color = new Color(0.55f, 0.78f, 0.95f, 1f);
                 headLbl.style.marginLeft = headLbl.style.marginRight = headLbl.style.marginTop = headLbl.style.marginBottom = 0;
+                // Left of the column title: what red means on the rows below. Shown only when a row is actually red.
+                stockLegend = new Label("RED BAR = OUT OF STOCK") { pickingMode = PickingMode.Ignore };
+                stockLegend.style.fontSize = 12;
+                stockLegend.style.unityFontStyleAndWeight = FontStyle.Bold;
+                stockLegend.style.letterSpacing = 1f;
+                stockLegend.style.color = new Color(1f, 0.38f, 0.34f, 1f);
+                stockLegend.style.marginLeft = stockLegend.style.marginRight = stockLegend.style.marginTop = stockLegend.style.marginBottom = 0;
+                stockLegend.style.display = DisplayStyle.None;
+                head.Add(stockLegend);
                 head.Add(headLbl);
                 ui.ItemsList.Add(head);
             }
@@ -2049,6 +2060,26 @@ private void ShowLocation(LocationData location)
                     string pickTag = isPp && isCp ? "  [PALLET + CASE PICK]" : isPp ? "  [PALLET PICK]" : isCp ? "  [CASE PICK]" : "";
                     row.text = $"{desc} x{casesPerPallet}{pickTag}";
                     row.style.color = done ? new Color(0.55f, 0.9f, 0.62f, 1f) : row.style.color;
+                    if (!done && remainCases > 0 && !string.IsNullOrEmpty(skuId))
+                    {
+                        ServiceLocator.TryGet<InventoryService>(out var stockInv);
+                        ServiceLocator.TryGet<VendorEconomyService>(out var stockEco);
+                        int haveCases = stockInv != null ? stockInv.TotalOnHand(skuId) : 0;
+                        int onOrderCases = stockEco != null ? stockEco.GetTotalOnOrder(skuId) : 0;
+                        if (haveCases + onOrderCases < remainCases)
+                        {
+                            row.text += haveCases + onOrderCases <= 0 ? "  - NONE ON ORDER" : $"  - SHORT: {haveCases} here, {onOrderCases} on order";
+                            // The empty part of the bar (where the remaining cases should be) turns red, so the missing item stands out in the column.
+                            track.style.backgroundColor = new Color(0.72f, 0.16f, 0.16f, 1f);
+                            track.style.borderTopColor = track.style.borderBottomColor = track.style.borderLeftColor = track.style.borderRightColor = new Color(1f, 0.38f, 0.34f, 1f);
+                            anyOutOfStock = true;
+                        }
+                        else if (haveCases < remainCases)
+                        {
+                            row.text += $"  - on order ({onOrderCases} cs)";
+                            row.style.color = new Color(1f, 0.78f, 0.3f, 1f);
+                        }
+                    }
 
                     line.Add(track);
                     line.Add(row);
@@ -2077,6 +2108,7 @@ private void ShowLocation(LocationData location)
                     ui.ItemsList.Add(criticalRow);
                 }
             }
+            if (stockLegend != null && anyOutOfStock) stockLegend.style.display = DisplayStyle.Flex;
         }
     }
 

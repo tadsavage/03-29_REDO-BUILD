@@ -544,13 +544,15 @@ namespace GameCore.Inventory
         public DockAppointment FindForOrder(string orderId)
             => string.IsNullOrEmpty(orderId)
              ? null
-             : _appointments.FirstOrDefault(a => !a.Parked && a.OrderIds.Contains(orderId));
+             : _appointments.Where(a => !a.Parked && a.OrderIds.Contains(orderId))
+                            .OrderBy(a => a.ClosedOut ? 1 : 0)      // a missed (closed-out) slot only counts when no open one exists
+                            .FirstOrDefault();
 
         /// <summary>Is this order attached to any appointment at all, parked or booked? Used only to
         /// keep the pool from listing an order twice — once inside its parked trailer's box and again
         /// as a loose stranded group.</summary>
         private bool IsOnAnyAppointment(string orderId)
-            => !string.IsNullOrEmpty(orderId) && _appointments.Any(a => a.OrderIds.Contains(orderId));
+            => !string.IsNullOrEmpty(orderId) && _appointments.Any(a => a.OrderIds.Contains(orderId) && !(a.ClosedOut && a.Kind != AppointmentKind.Inbound));
 
         /// <summary>
         /// Is there already a trailer booked for this contract on this day?
@@ -1815,6 +1817,20 @@ namespace GameCore.Inventory
 
             booked.OrderIds.AddRange(group.OrderIds);
             booked.IsHold = false;
+            // These orders may still be listed on a missed (closed-out) slot; they ride the new one now.
+            foreach (var old in _appointments)
+                if (old != booked && old.ClosedOut && old.Kind != AppointmentKind.Inbound)
+                    old.OrderIds.RemoveAll(id => group.OrderIds.Contains(id));
+            // The order's DOCK door follows its trailer (block 20: orders released while booked at door 1, then re-booked at door 2 or 3,
+            // kept door 1 as their dock door, so their pallets and their trailer ended up at different doors). The pallets stay where
+            // they are staged; only the dock door moves.
+            if (ServiceLocator.TryGet(out OrderService doorOrders) && doorOrders != null)
+                foreach (var o in doorOrders.ActiveOrders)
+                {
+                    if (o == null || !booked.OrderIds.Contains(o.OrderId) || o.AssignedDoorNumber <= 0 || o.AssignedDoorNumber == booked.DoorNumber) continue;
+                    if (o.StagingDoorNumber <= 0) o.StagingDoorNumber = o.AssignedDoorNumber;
+                    o.AssignedDoorNumber = booked.DoorNumber;
+                }
             return true;
         }
 
@@ -1826,7 +1842,13 @@ namespace GameCore.Inventory
             // Purging it at midnight used to strand trailers still being loaded (2026-10-18) and left the Scheduler with
             // nothing to show for the day just gone. Anything older than that goes now.
             int cutoff = newDay - KeepPastDays;
-            _appointments.RemoveAll(a => a.Day < cutoff);
+            // An appointment whose order has not shipped is NOT yesterday's news: its trailer may still be docked and loading. Purging it
+            // left a trailer waiting at door 1 for days (block 19, 2026-10-31) because the loader finds a trailer through its appointment.
+            ServiceLocator.TryGet(out OrderService liveOrders);
+            _appointments.RemoveAll(a => a.Day < cutoff &&
+                !(a.Kind != AppointmentKind.Inbound && liveOrders != null &&
+                  liveOrders.ActiveOrders.Any(o => o != null && a.OrderIds.Contains(o.OrderId) &&
+                                                   o.Status != OrderData.OrderStatus.Shipped && o.Status != OrderData.OrderStatus.Cancelled)));
 
             // NOTE: no re-booking sweep here any more. The purge does strand orders that outlived
             // their appointment, but re-booking them automatically is exactly the behaviour that made

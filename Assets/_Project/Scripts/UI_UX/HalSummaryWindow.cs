@@ -560,6 +560,9 @@ public static class HalSummaryWindow
         {
             case OpsMetrics.Kind.CasePick: return s.perHourAvg.ToString("0") + " cases/hr";
             case OpsMetrics.Kind.PalletPick: return s.perHourAvg.ToString("0.0") + " picks/hr";
+            case OpsMetrics.Kind.CaseCycle: return s.perHourAvg.ToString("0") + " cases/hr";
+            case OpsMetrics.Kind.JackBayMove: return s.perHourAvg.ToString("0.0") + " moves/hr";
+            case OpsMetrics.Kind.JackStaging: return s.perHourAvg.ToString("0.0") + " trips/hr";
             case OpsMetrics.Kind.OffloadCycle:
             case OpsMetrics.Kind.Receive:
             case OpsMetrics.Kind.LoadCycle: return s.perHourAvg.ToString("0.0") + " pallets/hr";

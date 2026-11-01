@@ -22,6 +22,8 @@ public class MHEBoundary : MonoBehaviour
     // The dock apron: trailers park in the yard right outside each door, and a dock stocker has to drive out to them to
     // unload. Anything within this many metres of a dock door counts as inside. Further out is still outside.
     private const float DockApronMeters = 9f;
+    // The building floor sits at y ~1.1. A machine measured lower than this has fallen through to the yard-level mesh beneath it.
+    private const float MinFloorY = 0.6f;
 
     // A dock stocker under a dock routine (offload / load / dig-out) drives scripted legs to a trailer that can sit well past the
     // 9 m apron; the routine and this boundary fought, bouncing the machine back every second (2026-10-31).
@@ -51,7 +53,7 @@ public class MHEBoundary : MonoBehaviour
     {
         _grid = FindAnyObjectByType<PlacementGrid>();
         _lastInside = transform.position;
-        _haveLastInside = IsInside(transform.position);
+        _haveLastInside = IsInside(transform.position) && transform.position.y >= MinFloorY;
     }
 
     private void Update()
@@ -63,10 +65,10 @@ public class MHEBoundary : MonoBehaviour
         Vector3 pos = transform.position;
         if (_slot == null) _slot = GetComponent<MHEOperatorSlot>();
         bool dockWork = GameCore.Labor.DockEquipmentCommandeerRegistry.IsCommandeered(_slot);
-        if (IsInside(pos) || (dockWork && NearDoor(pos, DockWorkApronMeters)))
+        bool sunk = pos.y < MinFloorY && _haveLastInside;
+        if (!sunk && (IsInside(pos) || (dockWork && NearDoor(pos, DockWorkApronMeters))))
         {
-            _lastInside = pos;
-            _haveLastInside = true;
+            if (pos.y >= MinFloorY) { _lastInside = pos; _haveLastInside = true; }
             _outsideStreak = 0;
             _gaveUp = false;
             return;
@@ -86,7 +88,7 @@ public class MHEBoundary : MonoBehaviour
             return;
         }
 
-        Debug.LogError($"[MHEBoundary] '{name}' drove OUT of the building at {pos} (cell {_grid.WorldToCell(pos)}). " +
+        Debug.LogError($"[MHEBoundary] '{name}' {(sunk ? "fell below the floor" : "drove OUT of the building")} at {pos} (cell {_grid.WorldToCell(pos)}). " +
                        $"Putting it back on its last inside spot {_lastInside}. Forklifts, dock stockers and pallet jacks must stay inside.");
         ReturnToLastInside();
     }
@@ -111,6 +113,20 @@ public class MHEBoundary : MonoBehaviour
         return s_grid;
     }
 
+    private static bool CellIsBuilding(PlacementGrid grid, Vector3 worldPos)
+    {
+        Vector2Int cell = grid.WorldToCell(worldPos);
+        if (!grid.IsInsideGrid(cell)) return false;
+        var entries = grid.GetObjectsInCell(cell);
+        if (entries == null) return false;
+        foreach (var e in entries)
+        {
+            var cat = e.data != null ? e.data.category : null;
+            if (cat == "Foundation" || cat == "Grounds") return true;
+        }
+        return false;
+    }
+
     /// <summary>True for a vehicle this boundary restricts. AiNavigation's walk-out uses it so an escape never leads outside.</summary>
     public static bool Restricts(GameObject go) => go != null && go.GetComponent<MHEBoundary>() != null;
 
@@ -120,19 +136,14 @@ public class MHEBoundary : MonoBehaviour
     {
         var grid = Grid();
         if (grid == null) return true; // no grid yet: never block a vehicle on a missing reference
-        Vector2Int cell = grid.WorldToCell(worldPos);
-        if (grid.IsInsideGrid(cell))
-        {
-            var entries = grid.GetObjectsInCell(cell);
-            if (entries != null)
-            {
-                foreach (var e in entries)
-                {
-                    var cat = e.data != null ? e.data.category : null;
-                    if (cat == "Foundation" || cat == "Grounds") return true;
-                }
-            }
-        }
+        if (CellIsBuilding(grid, worldPos)) return true;
+        // A vehicle is ~2 m long: with its centre on the very edge of the last foundation tile it is still on the building.
+        // Check a point a little way out in each direction before calling it outside.
+        const float EdgeTolerance = 0.9f;
+        if (CellIsBuilding(grid, worldPos + new Vector3(EdgeTolerance, 0f, 0f)) ||
+            CellIsBuilding(grid, worldPos - new Vector3(EdgeTolerance, 0f, 0f)) ||
+            CellIsBuilding(grid, worldPos + new Vector3(0f, 0f, EdgeTolerance)) ||
+            CellIsBuilding(grid, worldPos - new Vector3(0f, 0f, EdgeTolerance))) return true;
 
         // Not on the building floor, but it may be on the dock apron in front of a door.
         foreach (var door in DockSlot.All)

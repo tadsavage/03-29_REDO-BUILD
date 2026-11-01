@@ -1272,6 +1272,8 @@ namespace GameCore.Actors
                 }
                 extended += step;
 
+                // The pallet or the rack slot can be destroyed while the forks are still extending (a deleted rack, a reload).
+                if (pallet == null || locationTr == null) { yield break; }
                 float xzDist = new Vector2(pallet.position.x - locationTr.position.x, pallet.position.z - locationTr.position.z).magnitude;
                 // Tighten the drop variance to 0.05m to minimize visual "snapping" when the pallet is released.
                 if (xzDist <= 0.05f) { varianceMet = true; break; }
@@ -1841,8 +1843,8 @@ namespace GameCore.Actors
                                                        int palletCases, int door, string lane,
                                                        WorkTask task, NavMeshObstacle obstacle)
         {
-            if (!_inventoryService.TryFindStagingLaneForPallets(door, lane, 1, out string resolvedLane) ||
-                !_inventoryService.TryFindStagingSlotInLane(door, resolvedLane, out var slot) ||
+            if (!_inventoryService.TryFindStagingLaneForPallets(door, lane, 1, out string resolvedLane, task?.OrderId) ||
+                !_inventoryService.TryFindStagingSlotInLane(door, resolvedLane, out var slot, task?.OrderId) ||
                 !LaneNamingService.TryGetSlotWorldPos(slot.Cell, out Vector3 slotPos))
             {
                 Debug.LogWarning($"[ReachTruckOperator] PalletPick: no free staging slot in Stage {door} " +
@@ -1860,8 +1862,9 @@ namespace GameCore.Actors
             // no other delivery can interleave and be handed the same cell; from here until the pallet
             // is standing in it, TryGetNextFreeSlot/CountFreeStagingSlotsInLane skip it. Released in
             // Restore() (success) and AbortRoutine() (failure).
-            _inventoryService.TryReserveStagingSlot(slot.Cell);
+            _inventoryService.TryReserveStagingSlot(slot.Cell, task?.OrderId);
             _reservedStagingCell = slot.Cell;
+            _reservedStagingOrder = task?.OrderId;
 
             Vector3 depthAxis = Vector3.forward;
             bool haveGeo = LaneNamingService.TryGetLaneGeometry(door, resolvedLane, out var geo);
@@ -2369,6 +2372,7 @@ namespace GameCore.Actors
         /// pallet is actually standing in it (or the run aborts), so a second delivery resolving during
         /// the drive is handed the NEXT slot instead of this one.</summary>
         private Vector2Int? _reservedStagingCell;
+        private string _reservedStagingOrder;
 
         /// <summary>Hands back <see cref="_reservedStagingCell"/> if one is held. Called from both
         /// choke points every path out of a delivery passes through — Restore() on success and
@@ -2376,8 +2380,9 @@ namespace GameCore.Actors
         private void ReleaseStagingReservation()
         {
             if (_reservedStagingCell == null) return;
-            _inventoryService?.ReleaseStagingSlot(_reservedStagingCell.Value);
+            _inventoryService?.ReleaseStagingSlot(_reservedStagingCell.Value, _reservedStagingOrder);
             _reservedStagingCell = null;
+            _reservedStagingOrder = null;
         }
 
         /// <summary>Lane this truck currently holds exclusive physical-entry rights to, if any. See

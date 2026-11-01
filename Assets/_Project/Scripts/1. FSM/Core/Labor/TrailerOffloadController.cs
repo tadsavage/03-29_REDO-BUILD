@@ -569,8 +569,10 @@ namespace GameCore.Labor
 
                 // 10. Drive forward down the lane until the carried pallet's XZ lines up over the target tile
                 //     (aim so the PALLET — offset ahead on the forks — lands on the tile, not the DS root).
+                if (ds == null || pallet == null) yield break;   // destroyed mid-run (scene reload, fired operator)
                 Vector3 palletOffset = pallet.position - ds.position; palletOffset.y = 0f;
                 yield return DriveForksFirst(ds, targetXZ - palletOffset);
+                if (ds == null || pallet == null) yield break;
                 // 11. Register the pallet to InventoryService FIRST so it has a master record + link, THEN
                 //     compute where it lands. dropBaseY is derived from the pallets ALREADY SETTLED in this
                 //     cell, explicitly EXCLUDING this pallet (which is still up on the forks) — see
@@ -951,10 +953,54 @@ namespace GameCore.Labor
         private static float MeasureTopY(GameObject go)
         {
             float maxY = 0f;
-            var renderers = go.GetComponentsInChildren<MeshRenderer>();
-            foreach (var r in renderers)
+            foreach (var r in go.GetComponentsInChildren<MeshRenderer>())
                 if (r.bounds.max.y > maxY) maxY = r.bounds.max.y;
+            foreach (var r in go.GetComponentsInChildren<SkinnedMeshRenderer>())
+                if (r.bounds.max.y > maxY) maxY = r.bounds.max.y;
+
+            // Block 20 (2026-10-31): 20+ pallets overlapped or hung at 1.30 m, a pallet-height (0.15 m) above the floor, inside outbound
+            // lanes: the pallet below was measured as a bare CHEP, so the next one was set down nearly on top of it. When the renderers
+            // say a pallet is much shorter than its own product says it should be, trust the product (pallet height = cases x Hi + deck).
+            float expected = ExpectedPalletHeight(go);
+            if (expected > 0.4f)
+            {
+                float byData = go.transform.position.y + expected;
+                if (maxY < byData - 0.3f)
+                {
+                    ThrottledLog.Warn("stack-measure-" + go.name,
+                        $"[Stacking] {go.name}: its renderers reach {maxY:F2} m but a full pallet of its product stands {expected:F2} m tall (base {go.transform.position.y:F2}) - stacking on the taller figure.");
+                    maxY = byData;
+                }
+            }
             return maxY;
+        }
+
+        /// <summary>Height a full pallet of this pallet's product should stand (0 when unknown): from its inventory record, or its PalletData.</summary>
+        private static float ExpectedPalletHeight(GameObject go)
+        {
+            if (!ServiceLocator.TryGet<InventoryService>(out var inv) || inv == null) return 0f;
+            string sku = null;
+            int cases = 0;
+            var link = go.GetComponent<PalletMasterLink>();
+            if (link != null)
+            {
+                var rec = inv.GetPallet(link.PalletId);
+                if (rec != null) { sku = rec.SkuId; cases = rec.Quantity; }
+            }
+            if (string.IsNullOrEmpty(sku))
+            {
+                var pd = go.GetComponent<PalletData>();
+                if (pd != null) { sku = pd.ItemNumber; cases = pd.CaseQuantity; }
+            }
+            var data = string.IsNullOrEmpty(sku) ? null : inv.GetSkuData(sku);
+            if (data == null) return 0f;
+            // A PARTIAL pallet (16 or 24 cases of a 48-case item) is shorter than a full one: size it by the layers it actually holds.
+            if (cases > 0 && data.Ti > 0 && data.Hi > 0)
+            {
+                int layers = Mathf.Clamp(Mathf.CeilToInt(cases / (float)data.Ti), 1, data.Hi);
+                return data.CaseHeight * layers + 0.165f;
+            }
+            return data.PltHeight;
         }
 
         // ── Lane targeting + inventory/task creation ─────────────────────────────────────────────

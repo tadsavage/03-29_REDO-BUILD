@@ -123,12 +123,12 @@ namespace GameCore.Inventory
             if (order == null || inv == null) return false;
             if (pallets < 1) pallets = 1;
 
-            if (door > 0 && inv.TryFindStagingLaneForPallets(door, order.AssignedLane, pallets, out lane)) return true;
+            if (door > 0 && inv.TryFindStagingLaneForPallets(door, order.AssignedLane, pallets, out lane, order.OrderId)) return true;
 
             foreach (var used in order.AllStagingLanes())
             {
                 if (!inv.LaneAllowsPicking(used.door, used.lane)) continue;
-                if (inv.CountFreeStagingSlotsInLane(used.door, used.lane) < pallets) continue;
+                if (inv.CountFreeStagingSlotsInLane(used.door, used.lane, order.OrderId) < pallets) continue;
                 door = used.door; lane = used.lane;
                 return true;
             }

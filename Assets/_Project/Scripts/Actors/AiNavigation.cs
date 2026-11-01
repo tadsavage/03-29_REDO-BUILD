@@ -1222,6 +1222,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     // a slow timer and bailing at the first reachable waypoint, so the usual cost is one CalculatePath.
     private const float StrandedCheckPeriod  = 2.5f; // seconds between reachability probes
     private const float StrandedRescueSeconds = 7.5f; // must be unreachable this long before we teleport
+    private bool? _isMachine;
     private float _strandedCheckTimer;
     private float _strandedSeconds;
     private NavMeshPath _strandedPath;
@@ -1233,6 +1234,10 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         if (_traversingLink || _unsticking || agent.isOnOffMeshLink) return;
         if (_taskBusy || _seekingTask || _seekingEquipment) return;
         if (waypoints == null || waypoints.Length == 0) return;
+        // Machines never patrol (they park, charge or work), so "no waypoint reachable" is normal for them and the nearest waypoint is on the
+        // yard-level mesh: the rescue below warped parked reach trucks and dock stockers through the floor (block 19, 2026-10-31).
+        if (_isMachine == null) _isMachine = GetComponent<MHEOperatorSlot>() != null;
+        if (_isMachine.Value) return;
 
         _strandedCheckTimer += Time.deltaTime;
         if (_strandedCheckTimer < StrandedCheckPeriod) return;
@@ -1354,6 +1359,10 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     private void CheckDockLedge()
     {
         if (agent.pathPending) { _ledgeCheckTimer = 0f; return; }
+        // Reach trucks, dock stockers and pallet jacks never jump down off the dock or climb up: a path they cannot walk is a failed leg,
+        // not a ledge (block 21, 2026-10-31: machines "fell below the floor" at the dock's south edge, again and again).
+        if (_isMachine == null) _isMachine = GetComponent<MHEOperatorSlot>() != null;
+        if (_isMachine.Value) { _ledgeCheckTimer = 0f; return; }
 
         // Use the CURRENT TARGET's true height, not agent.destination.y — the latter is mapped
         // onto the nearest NavMesh and can read ground even when targeting the dock. The target

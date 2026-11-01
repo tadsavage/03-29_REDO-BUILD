@@ -387,7 +387,7 @@ namespace GameCore.Inventory
         /// staging pallet is already sitting on (see OutboundOccupiedCells) so two different orders can't
         /// be handed the same "free" slot and end up superimposed. False if every slot is full/occupied.
         /// </summary>
-        public bool TryGetNextFreeSlot(int doorNumber, string lane, out LaneNamingService.LaneSlot slot)
+        public bool TryGetNextFreeSlot(int doorNumber, string lane, out LaneNamingService.LaneSlot slot, string forOrderId = null)
         {
             int maxHeight = Mathf.Max(1, LaneConfigRegistry.Get(doorNumber, lane).MaxStackHeight);
             var laneSlots = LaneNamingService.GetLane(doorNumber, lane);
@@ -395,7 +395,7 @@ namespace GameCore.Inventory
 
             foreach (var s in laneSlots)
             {
-                if (OccupiedTiersAt(s.Cell, outboundByCell) < maxHeight) { slot = s; return true; }
+                if (OccupiedTiersAt(s.Cell, outboundByCell, forOrderId) < maxHeight) { slot = s; return true; }
             }
             slot = default;
             return false;
@@ -466,17 +466,31 @@ namespace GameCore.Inventory
         /// Resolve-then-reserve needs no locking: coroutines only interleave at yield points and callers
         /// do both in one uninterrupted block. Every call MUST be paired with ReleaseStagingSlot on
         /// every exit path, or that tier is blocked for the rest of the session.</summary>
-        public bool TryReserveStagingSlot(Vector2Int cell)
+        public bool TryReserveStagingSlot(Vector2Int cell, string orderId = null)
         {
             _stagingSlotReservations.TryGetValue(cell, out int n);
             _stagingSlotReservations[cell] = n + 1;
+            // Who the tier is held FOR: another order must not be handed the same cell while this pallet is on its way, or it lands first and
+            // this one is then set down ON it - two orders in one stack, the lower one buried for days (block 25, 2026-10-31).
+            if (!string.IsNullOrEmpty(orderId))
+            {
+                if (!_reservationOwners.TryGetValue(cell, out var owners)) _reservationOwners[cell] = owners = new List<string>();
+                owners.Add(orderId);
+            }
             return true;
         }
 
+        private readonly Dictionary<Vector2Int, List<string>> _reservationOwners = new Dictionary<Vector2Int, List<string>>();
+
         /// <summary>Hand a tier back — on arrival (the dropped pallet takes over as the marker) or on
         /// abort. Safe to call for a cell that was never reserved.</summary>
-        public void ReleaseStagingSlot(Vector2Int cell)
+        public void ReleaseStagingSlot(Vector2Int cell, string orderId = null)
         {
+            if (!string.IsNullOrEmpty(orderId) && _reservationOwners.TryGetValue(cell, out var owners))
+            {
+                owners.Remove(orderId);
+                if (owners.Count == 0) _reservationOwners.Remove(cell);
+            }
             if (!_stagingSlotReservations.TryGetValue(cell, out int n)) return;
             if (n <= 1) _stagingSlotReservations.Remove(cell);
             else _stagingSlotReservations[cell] = n - 1;
@@ -492,10 +506,22 @@ namespace GameCore.Inventory
         /// <summary>Pallets already standing in, or on their way to, one staging cell — inbound stock,
         /// staged outbound freight and in-flight reservations together. This is the number that has to
         /// stay under the lane MaxStackHeight.</summary>
-        private int OccupiedTiersAt(Vector2Int cell, Dictionary<Vector2Int, List<GameObject>> outboundByCell)
+        private int OccupiedTiersAt(Vector2Int cell, Dictionary<Vector2Int, List<GameObject>> outboundByCell, string forOrderId = null)
         {
             int inbound  = _palletsByLocation.TryGetValue(cell, out var ids) ? ids.Count : 0;
             int outbound = outboundByCell.TryGetValue(cell, out var list) ? list.Count : 0;
+            // A pallet is never stacked on, or set beside in the same slot as, another ORDER's pallet: the loader takes a stack top-first,
+            // so a pallet of a different trailer on top of ours buries ours until that other truck comes (two orders of one customer share
+            // a stage and a lane, and one of them used to be buried for days).
+            if (forOrderId != null && list != null)
+                foreach (var go in list)
+                {
+                    var other = go != null ? go.GetComponent<OutboundPalletBuilder>() : null;
+                    if (other != null && !string.IsNullOrEmpty(other.OrderId) && other.OrderId != forOrderId) return int.MaxValue / 2;
+                }
+            if (forOrderId != null && _reservationOwners.TryGetValue(cell, out var holders))
+                foreach (var h in holders)
+                    if (h != forOrderId) return int.MaxValue / 2;
             return inbound + outbound + ReservedTiersAt(cell);
         }
 
@@ -571,7 +597,7 @@ namespace GameCore.Inventory
         /// TryGetNextFreeSlot uses for inbound putaway — slot 1 fills first, e.g. 2A-1 then 2A-2,
         /// 2A-3...) — used once an order has been released to a particular staging lane via the
         /// Work Queue panel. See OrderService.ReleaseOrdersToLane / OrderData.AssignedLane.</summary>
-        public bool TryFindStagingSlotInLane(int doorNumber, string lane, out LaneNamingService.LaneSlot slot)
+        public bool TryFindStagingSlotInLane(int doorNumber, string lane, out LaneNamingService.LaneSlot slot, string forOrderId = null)
         {
             slot = default;
             if (string.IsNullOrEmpty(lane) || !LaneAllowsPicking(doorNumber, lane)) return false;
@@ -583,7 +609,7 @@ namespace GameCore.Inventory
             // AssignedLane before falling back to LanesInStage). That walked the selector straight into
             // the lane the dock stocker was filling instead of overflowing to the next free lane.
             if (StagingLaneAssignmentService.LaneHasInboundStock(this, doorNumber, lane)) return false;
-            return TryGetNextFreeSlot(doorNumber, lane, out slot);
+            return TryGetNextFreeSlot(doorNumber, lane, out slot, forOrderId);
         }
 
         /// <summary>
@@ -625,7 +651,7 @@ namespace GameCore.Inventory
         /// OutboundStackTier) and OutboundOccupiedCells claims a whole cell per staged pallet.
         /// 0 if the lane can't be staged into at all.
         /// </summary>
-        public int CountFreeStagingSlotsInLane(int doorNumber, string lane)
+        public int CountFreeStagingSlotsInLane(int doorNumber, string lane, string forOrderId = null)
         {
             if (string.IsNullOrEmpty(lane) || !LaneAllowsPicking(doorNumber, lane)) return 0;
             if (StagingLaneAssignmentService.LaneHasInboundStock(this, doorNumber, lane)) return 0;
@@ -638,7 +664,7 @@ namespace GameCore.Inventory
             // TryFindStagingLaneForPallets compares this against a whole order pallet count.
             int free = 0;
             foreach (var s in laneSlots)
-                free += Mathf.Max(0, maxHeight - OccupiedTiersAt(s.Cell, outboundByCell));
+                free += Mathf.Max(0, maxHeight - OccupiedTiersAt(s.Cell, outboundByCell, forOrderId));
             return free;
         }
 
@@ -660,13 +686,13 @@ namespace GameCore.Inventory
         /// how it would really be staged.
         /// </summary>
         public bool TryFindStagingLaneForPallets(int doorNumber, string preferredLane, int palletCount,
-                                                 out string lane)
+                                                 out string lane, string forOrderId = null)
         {
             lane = null;
             if (palletCount < 1) palletCount = 1;
 
             if (!string.IsNullOrEmpty(preferredLane) &&
-                CountFreeStagingSlotsInLane(doorNumber, preferredLane) >= palletCount)
+                CountFreeStagingSlotsInLane(doorNumber, preferredLane, forOrderId) >= palletCount)
             {
                 lane = preferredLane;
                 return true;
@@ -675,7 +701,7 @@ namespace GameCore.Inventory
             foreach (var candidate in StagingLaneAssignmentService.LanesInStage(this, doorNumber))
             {
                 if (candidate == preferredLane) continue; // already tried
-                if (CountFreeStagingSlotsInLane(doorNumber, candidate) < palletCount) continue;
+                if (CountFreeStagingSlotsInLane(doorNumber, candidate, forOrderId) < palletCount) continue;
                 lane = candidate;
                 return true;
             }

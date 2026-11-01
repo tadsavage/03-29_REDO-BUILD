@@ -14,6 +14,7 @@ public class EmployeeClickHandler : MonoBehaviour
     private Camera _mainCamera;
 
     private EmployeeIdentity _identity;
+    private float _lastBlockedLog = -999f;
 
     private void Start()
     {
@@ -48,6 +49,15 @@ public class EmployeeClickHandler : MonoBehaviour
         if ((UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
             || UIInputGuard.IsPointerOverUIToolkit())
         {
+            // Tad (2026-10-31): clicking an avatar did nothing. If the click was aimed at THIS employee but a UI element ate it,
+            // say which one (a warning, so it shows with info logs muted). Once per 30 s per employee.
+            if (_mainCamera != null && Time.unscaledTime - _lastBlockedLog > 30f &&
+                WorldClickPick.Hits(_mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue()), transform))
+            {
+                _lastBlockedLog = Time.unscaledTime;
+                Debug.LogWarning($"[ClickDiag] Click on '{name}' was swallowed by UI: " +
+                                 $"{(string.IsNullOrEmpty(UIInputGuard.LastBlocker) ? "EventSystem pointer-over-object" : UIInputGuard.LastBlocker)}");
+            }
             return;
         }
 

@@ -273,7 +273,7 @@ namespace GameCore.Diagnostics
                 float bottom = bb[i].min.y;
                 bool supported = bottom < 1.25f;
                 for (int j = 0; j < pals.Count && !supported; j++)
-                    if (j != i && hasB[j] && PD(bb[i], bb[j]) < 0.6f && bb[j].max.y > bottom - 0.12f && bb[j].max.y < bottom + 0.06f) supported = true;
+                    if (j != i && hasB[j] && PD(bb[i], bb[j]) < 0.6f && bb[j].max.y > bottom - 0.12f && bb[j].max.y < bottom + 0.16f) supported = true;
                 if (!supported)
                     foreach (var l in locs)
                     {

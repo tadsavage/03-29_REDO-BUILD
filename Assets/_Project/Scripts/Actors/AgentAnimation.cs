@@ -17,6 +17,24 @@ public class AgentAnimation : MonoBehaviour
 {
     private NavMeshAgent        _agent;
     private Animator            _animator;
+
+    // The staff controllers do not all carry every parameter (FemaleStaff has no IsWaving ...). Animator.SetBool on a missing
+    // parameter logs "Parameter 'X' does not exist" every frame, which the bot counted as a bug (block 18). Set only what exists.
+    private System.Collections.Generic.HashSet<int> _paramHashes;
+    private RuntimeAnimatorController _paramsFor;
+    private void SafeSetBool(string name, bool value)
+    {
+        if (_animator == null) return;
+        if (_paramHashes == null || _paramsFor != _animator.runtimeAnimatorController)
+        {
+            _paramsFor = _animator.runtimeAnimatorController;
+            _paramHashes = new System.Collections.Generic.HashSet<int>();
+            if (_animator.isActiveAndEnabled && _paramsFor != null)
+                foreach (var prm in _animator.parameters) if (prm.type == AnimatorControllerParameterType.Bool) _paramHashes.Add(prm.nameHash);
+        }
+        int h = Animator.StringToHash(name);
+        if (_paramHashes.Contains(h)) _animator.SetBool(h, value);
+    }
     private AiNavigation        _navigation;
     private Rigidbody           _rb;
     private NoWaypointIndicator _indicator;
@@ -125,10 +143,10 @@ public class AgentAnimation : MonoBehaviour
             // is disabled by MHEOperatorSlot.AssignOperator, which freezes IsShowingIndicator at
             // whatever it last read (NOT necessarily false), so this must never consult it. Just
             // loop whatever idle/drive pose the rig has; the vehicle's own movement carries them.
-            _animator.SetBool("IsWaving",       false);
-            _animator.SetBool("IsWalking",      false);
-            _animator.SetBool("IsTurningLeft",  false);
-            _animator.SetBool("IsTurningRight", false);
+            SafeSetBool("IsWaving",       false);
+            SafeSetBool("IsWalking",      false);
+            SafeSetBool("IsTurningLeft",  false);
+            SafeSetBool("IsTurningRight", false);
             return;
         }
 
@@ -167,23 +185,23 @@ public class AgentAnimation : MonoBehaviour
             _hasPendingRotation = true;
 
             SetAllBools(false);
-            _animator.SetBool("IsClimbing",    climbing);
-            _animator.SetBool("IsJumpingDown", jumpingDown);
+            SafeSetBool("IsClimbing",    climbing);
+            SafeSetBool("IsJumpingDown", jumpingDown);
             return;
         }
-        _animator.SetBool("IsClimbing",    false);
-        _animator.SetBool("IsJumpingDown", false);
+        SafeSetBool("IsClimbing",    false);
+        SafeSetBool("IsJumpingDown", false);
 
         // ── Priority 2: Waving ─────────────────────────────────────────────────
         bool indicatorOn = _indicator != null && _indicator.IsShowingIndicator;
         _waveTimer       = indicatorOn ? _waveTimer + Time.deltaTime : 0f;
         bool waving      = indicatorOn && _waveTimer >= waveDelay;
-        _animator.SetBool("IsWaving", waving);
+        SafeSetBool("IsWaving", waving);
         if (waving)
         {
-            _animator.SetBool("IsWalking",      false);
-            _animator.SetBool("IsTurningLeft",  false);
-            _animator.SetBool("IsTurningRight", false);
+            SafeSetBool("IsWalking",      false);
+            SafeSetBool("IsTurningLeft",  false);
+            SafeSetBool("IsTurningRight", false);
             return;
         }
 
@@ -196,7 +214,7 @@ public class AgentAnimation : MonoBehaviour
                       && !_agent.pathPending
                       && _agent.remainingDistance > _agent.stoppingDistance + 0.05f;
 
-        _animator.SetBool("IsWalking", isWalking);
+        SafeSetBool("IsWalking", isWalking);
 
         // Turn bools: compare desired heading (path intent) to current facing.
         // desiredVelocity is slightly ahead of actual movement, so turn animations
@@ -218,8 +236,8 @@ public class AgentAnimation : MonoBehaviour
             }
         }
 
-        _animator.SetBool("IsTurningLeft",  turningLeft);
-        _animator.SetBool("IsTurningRight", turningRight);
+        SafeSetBool("IsTurningLeft",  turningLeft);
+        SafeSetBool("IsTurningRight", turningRight);
 
         // ── Speed ──────────────────────────────────────────────────────────────
         UpdateSpeed(isWalking, turningLeft || turningRight);
@@ -340,11 +358,11 @@ public class AgentAnimation : MonoBehaviour
 
     private void SetAllBools(bool v)
     {
-        _animator.SetBool("IsWalking",      v);
-        _animator.SetBool("IsTurningLeft",  v);
-        _animator.SetBool("IsTurningRight", v);
-        _animator.SetBool("IsWaving",       v);
-        _animator.SetBool("IsClimbing",     v);
-        _animator.SetBool("IsJumpingDown",  v);
+        SafeSetBool("IsWalking",      v);
+        SafeSetBool("IsTurningLeft",  v);
+        SafeSetBool("IsTurningRight", v);
+        SafeSetBool("IsWaving",       v);
+        SafeSetBool("IsClimbing",     v);
+        SafeSetBool("IsJumpingDown",  v);
     }
 }

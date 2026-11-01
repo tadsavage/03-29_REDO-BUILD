@@ -316,7 +316,9 @@ namespace GameCore.Actors
                         parkHeading = (heading + toAisle).normalized;
                     park = KeepJackBodyOffWalls(park, parkHeading);
                     park = KeepClearOfOtherJacks(park, parkHeading);
+                    float bayMoveStart = OpsMetrics.Now;
                     yield return DriveJackTo(park, parkHeading, $"bay {bayKey}");
+                    if (_jackLegOk) OpsMetrics.Record(OpsMetrics.Kind.JackBayMove, OpsMetrics.Now - bayMoveStart);
                     if (!_jackLegOk)
                     {
                         yield return AbandonJackOnFoot($"could not drive the jack to bay {bayKey}");
@@ -355,7 +357,9 @@ namespace GameCore.Actors
             }
 
             // 3. Stage.
+            float stageStart = OpsMetrics.Now;
             yield return JackStageRoutine(completion);
+            OpsMetrics.Record(OpsMetrics.Kind.JackStaging, OpsMetrics.Now - stageStart);
         }
 
         /// <summary>The NavMeshAgent only plans the open-floor legs and stops short of the target; the last metres of a
@@ -429,10 +433,12 @@ namespace GameCore.Actors
 
             float y = transform.position.y;
             Vector3 faceSpot = Flat(slotFlat + toAisle * PickFaceStandOff, y);
+            if (_metTripStart < 0f) _metTripStart = OpsMetrics.Now;   // the trip time study (the jack path never started it, so it logged almost nothing)
 
             for (int i = 0; i < takeQty; i++)
             {
                 if (_jack == null || ReturnsRequested) yield break;
+                float caseStart = OpsMetrics.Now;
 
                 // To the slot, reach in, take a case.
                 yield return WalkTo(faceSpot);
@@ -466,6 +472,8 @@ namespace GameCore.Actors
                 lineItem.QuantityPicked++;
                 _orderService.NotePickedCase(_currentTask?.TaskId, lineItem.SkuId);
                 activePallet.AddCase(lineItem.SkuId, sku.Prefab, caseDim, ti, hi, location.Address);
+                _metTripCases++;
+                OpsMetrics.Record(OpsMetrics.Kind.CaseCycle, OpsMetrics.Now - caseStart);
 
                 if (_currentOrder.IsFullyPicked) yield break;
 
@@ -1435,7 +1443,7 @@ namespace GameCore.Actors
             { failReason = "order was never released to a staging lane"; return false; }
             if (!StagingLaneAssignmentService.TryFindTripLane(_orderService, _inventoryService, order, LivePalletCount(), out int door, out resolvedLane))
             { failReason = $"no lane at Stage {order.EffectiveStagingDoor} or any nearby door has room for {LivePalletCount()} pallet(s)"; return false; }
-            if (!_inventoryService.TryFindStagingSlotInLane(door, resolvedLane, out slot))
+            if (!_inventoryService.TryFindStagingSlotInLane(door, resolvedLane, out slot, order.OrderId))
             { failReason = $"lane {door}{resolvedLane} reported room but handed back no slot"; return false; }
             if (!LaneNamingService.TryGetSlotWorldPos(slot.Cell, out pos))
             { failReason = $"slot {slot.Name} has no world position yet"; return false; }

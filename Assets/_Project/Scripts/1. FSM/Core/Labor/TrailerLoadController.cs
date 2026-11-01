@@ -479,9 +479,9 @@ namespace GameCore.Labor
             Transform forks = FindDeepChild(ds, ForkChildName);
             float forkRestY = forks != null ? forks.localPosition.y : 0f;
 
-            var pallets = FindStagedPalletsInLane(doorNumber, lane, truck.DockedAt != null ? truck.DockedAt.DoorNumber : doorNumber, truck.OutboundAppointmentId);
+            var pallets = FindStagedPalletsInLane(doorNumber, lane, truck.DockedAt != null ? truck.DockedAt.DoorNumber : doorNumber, truck.OutboundAppointmentId, out bool fromFarEnd);
 
-            Debug.Log($"[TrailerLoad] Loading {pallets.Count} staged pallet(s) from lane {doorNumber}{lane} onto {truck.name} with dock stocker {ds.name}.");
+            Debug.Log($"[TrailerLoad] Loading {pallets.Count} staged pallet(s) from lane {doorNumber}{lane}{(fromFarEnd ? " (FAR end - the door end is blocked)" : "")} onto {truck.name} with dock stocker {ds.name}.");
 
             ServiceLocator.TryGet<OrderService>(out var orderService);
             ServiceLocator.TryGet<WorkQueueSystem>(out var workQueue);
@@ -524,7 +524,7 @@ namespace GameCore.Labor
                 }
 
                 float cycleStart = OpsMetrics.Now;
-                yield return LoadOnePallet(ds, forks, forkRestY, truck, pallet, slotIndex, stackBaseY);
+                yield return LoadOnePallet(ds, forks, forkRestY, truck, pallet, slotIndex, stackBaseY, fromFarEnd);
                 if (pallet != null && pallet.Stage == OutboundPalletBuilder.PalletStage.Loaded)
                     OpsMetrics.Record(OpsMetrics.Kind.LoadCycle, OpsMetrics.Now - cycleStart);
             }
@@ -607,8 +607,9 @@ namespace GameCore.Labor
         /// Order Selection already wrote instead of writing new ones. Excludes anything still
         /// parented (mid-carry, either still riding a selector or already on another DS's forks)
         /// since that pallet isn't actually staged yet/still.</summary>
-        private List<OutboundPalletBuilder> FindStagedPalletsInLane(int doorNumber, string lane, int dockDoor, string appointmentId = null)
+        private List<OutboundPalletBuilder> FindStagedPalletsInLane(int doorNumber, string lane, int dockDoor, string appointmentId, out bool fromFarEnd)
         {
+            fromFarEnd = false;
             var found = new List<(OutboundPalletBuilder pallet, int slotIndex, float y)>();
             foreach (var pallet in FindObjectsByType<OutboundPalletBuilder>())
             {
@@ -631,12 +632,11 @@ namespace GameCore.Labor
                 : b.y.CompareTo(a.y));
 
             // Received (inbound) pallets in the same lane are invisible to the scan above, but they are just as
-            // solid: one stacked ON an outbound pallet buries it, and one standing in a slot nearer the door
-            // blocks everything behind it. Stop at the first outbound pallet that can't be reached without
-            // pulling it out from under, or driving through, stock (mirror of the reach-truck fix, 2026-10-17).
+            // solid: one stacked ON an outbound pallet buries it, and one standing in a slot nearer the end we
+            // come in from blocks everything behind it (mirror of the reach-truck fix, 2026-10-17).
+            var stockTopBySlot = new Dictionary<int, float>();
             if (ServiceLocator.TryGet<InventoryService>(out var invForBlock) && invForBlock != null)
             {
-                var stockTopBySlot = new Dictionary<int, float>();
                 foreach (var s in LaneNamingService.GetLane(doorNumber, lane))
                 {
                     float top = float.NegativeInfinity;
@@ -648,45 +648,80 @@ namespace GameCore.Labor
                     }
                     if (top > float.NegativeInfinity) stockTopBySlot[s.Slot] = top;
                 }
-                int cut = found.FindIndex(f =>
-                    (stockTopBySlot.TryGetValue(f.slotIndex, out float t) && t > f.y + 0.05f) ||
-                    stockTopBySlot.Keys.Any(k => k < f.slotIndex && !found.Any(o => o.slotIndex == k)));
-                if (cut >= 0)
-                {
-                    Debug.LogWarning($"[TrailerLoad] {doorNumber}{lane}: received stock blocks the pallet at pos{found[cut].slotIndex} — loading only what's reachable.");
-                    found = found.Take(cut).ToList();
-                }
             }
 
             // Only the freight of orders actually being loaded at this door (Tad, 2026-09-23: it was
-            // loading every pallet in the lane, whoever's it was). And STOP at the first pallet that
-            // isn't theirs rather than skipping it — anything behind it can't be reached without
-            // driving through it.
+            // loading every pallet in the lane, whoever's it was). Only the orders on THIS trailer's
+            // appointment: another appointment at the same dock door is another trailer.
+            HashSet<string> loadingIds = null;
             if (ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
             {
-                // Only the orders on THIS trailer's appointment: another appointment at the same dock door is another trailer.
                 var apptSvc = ServiceLocator.TryGet<DockScheduleService>(out var sch) ? sch : null;
                 var apptForTruck = apptSvc != null && !string.IsNullOrEmpty(appointmentId) ? apptSvc.FindById(appointmentId) : null;
-                var loadingIds = new HashSet<string>(orders.ActiveOrders
+                loadingIds = new HashSet<string>(orders.ActiveOrders
                     .Where(o => (apptForTruck != null ? apptForTruck.OrderIds.Contains(o.OrderId) : o.AssignedDoorNumber == dockDoor) &&
                                 (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded))
                     .Select(o => o.OrderId));
-                int firstForeign = found.FindIndex(f => !loadingIds.Contains(f.pallet.OrderId));
-                if (firstForeign >= 0)
+            }
+
+            // Walks the list in the order a vehicle would meet the pallets and STOPS at the first one it cannot take
+            // without driving through, or pulling out from under, something else. `far` = coming in from the far end.
+            List<(OutboundPalletBuilder pallet, int slotIndex, float y)> Reachable(
+                List<(OutboundPalletBuilder pallet, int slotIndex, float y)> ordered, bool far, out string stopWhy)
+            {
+                stopWhy = null;
+                for (int i = 0; i < ordered.Count; i++)
                 {
-                    ThrottledLog.Warn("tl-foreign-" + doorNumber + lane, $"[TrailerLoad] {doorNumber}{lane}: pallet at pos{found[firstForeign].slotIndex} belongs to " +
-                                     $"order {found[firstForeign].pallet.OrderId}, not one being loaded here — stopping before it.");
-                    found = found.Take(firstForeign).ToList();
+                    var f = ordered[i];
+                    if (stockTopBySlot.TryGetValue(f.slotIndex, out float t) && t > f.y + 0.05f)
+                    { stopWhy = $"received stock stacked on the pallet at pos{f.slotIndex}"; return ordered.Take(i).ToList(); }
+                    if (stockTopBySlot.Keys.Any(k => (far ? k > f.slotIndex : k < f.slotIndex) && !found.Any(o => o.slotIndex == k)))
+                    { stopWhy = $"received stock stands in front of the pallet at pos{f.slotIndex}"; return ordered.Take(i).ToList(); }
+                    if (loadingIds != null && !loadingIds.Contains(f.pallet.OrderId))
+                    { stopWhy = $"the pallet at pos{f.slotIndex} belongs to order {f.pallet.OrderId}, not one being loaded here"; return ordered.Take(i).ToList(); }
                 }
+                return ordered;
+            }
+
+            var nearList = Reachable(found, false, out string nearWhy);
+
+            // THINK OUTSIDE THE BOX (Tad, 2026-10-31): another order's pallet at the door end used to stop the whole load
+            // ("stopping before it") even when our pallets sat right behind it. A lane has two ends: drive round and take
+            // them from the FAR end instead, whichever end yields more.
+            var finalList = nearList;
+            if (nearWhy != null && LaneNamingService.GetLane(doorNumber, lane).Count >= 2)
+            {
+                var reversed = new List<(OutboundPalletBuilder pallet, int slotIndex, float y)>(found);
+                reversed.Sort((a, b) => a.slotIndex != b.slotIndex
+                    ? b.slotIndex.CompareTo(a.slotIndex)
+                    : b.y.CompareTo(a.y));
+                var farList = Reachable(reversed, true, out string farWhy);
+                if (farList.Count > nearList.Count)
+                {
+                    fromFarEnd = true;
+                    finalList = farList;
+                    ThrottledLog.Warn("tl-farend-" + doorNumber + lane,
+                        $"[TrailerLoad] {doorNumber}{lane}: door end blocked ({nearWhy}) - loading {farList.Count} pallet(s) from the far end instead.");
+                }
+                else
+                {
+                    ThrottledLog.Warn("tl-foreign-" + doorNumber + lane,
+                        $"[TrailerLoad] {doorNumber}{lane}: door end blocked ({nearWhy}); the far end gives {farList.Count} - " +
+                        $"stopping with {nearList.Count}{(farWhy != null ? " (" + farWhy + ")" : "")}.");
+                }
+            }
+            else if (nearWhy != null)
+            {
+                ThrottledLog.Warn("tl-foreign-" + doorNumber + lane, $"[TrailerLoad] {doorNumber}{lane}: {nearWhy} - stopping before it.");
             }
 
             // The pick order was previously invisible in the log — only the destination cargo slot was
             // recorded — so "the DS grabbed lane position 6 first" could be neither confirmed nor ruled
             // out after the fact. This states the lane sequence outright.
-            Debug.Log($"[TrailerLoad][PICK ORDER] {doorNumber}{lane}: " +
-                      string.Join(" -> ", found.Select(f => $"pos{f.slotIndex}")));
+            Debug.Log($"[TrailerLoad][PICK ORDER] {doorNumber}{lane}{(fromFarEnd ? " (far end)" : "")}: " +
+                      string.Join(" -> ", finalList.Select(f => $"pos{f.slotIndex}")));
 
-            return found.Select(f => f.pallet).ToList();
+            return finalList.Select(f => f.pallet).ToList();
         }
 
         /// <summary>After a pallet leaves a stack, every pallet that was resting above it drops by the gap it left.
@@ -716,7 +751,7 @@ namespace GameCore.Labor
         }
 
         private IEnumerator LoadOnePallet(Transform ds, Transform forks, float forkRestY,
-                                          TruckController truck, OutboundPalletBuilder pallet, int slotIndex, float stackBaseY = 0f)
+                                          TruckController truck, OutboundPalletBuilder pallet, int slotIndex, float stackBaseY = 0f, bool fromFarEnd = false)
         {
             Transform palletT = pallet.transform;
             // Cached up front: the builder can be destroyed while this coroutine is yielding, and reading
@@ -740,7 +775,15 @@ namespace GameCore.Labor
             // door, so measure from that door — not from the trailer's.
             bool crossDoor = truck.DockedAt != null && laneSlot.DoorNumber != truck.DockedAt.DoorNumber;
             Vector3 laneDoorPos = crossDoor ? DoorWorldPos(laneSlot.DoorNumber, doorPos) : doorPos;
-            LaneEntryGeometry(LaneNamingService.GetLane(laneSlot.DoorNumber, laneSlot.Lane), laneDoorPos, out Vector3 entryW, out Vector3 downLane);
+            var laneSlotsAll = LaneNamingService.GetLane(laneSlot.DoorNumber, laneSlot.Lane);
+            LaneEntryGeometry(laneSlotsAll, laneDoorPos, out Vector3 entryW, out Vector3 downLane);
+            if (fromFarEnd && laneSlotsAll.Count >= 2)
+            {
+                // Come in from the FAR end: the 'entry' is the end away from the door and 'down the lane' points back toward the door.
+                entryW = entryW + downLane * Mathf.Abs(Vector3.Dot(Flat(_grid.GetCellCenter(laneSlotsAll[laneSlotsAll.Count - 1].Cell) - _grid.GetCellCenter(laneSlotsAll[0].Cell)), downLane));
+                downLane = -downLane;
+            }
+            else fromFarEnd = false;
             float driveY = ds.position.y;
             // THE STAGING-LANE PIVOT — LanePivotDistance out from the lane entry, on the door side.
             // Every lane-side turn happens here, never inside the lane.
@@ -749,7 +792,7 @@ namespace GameCore.Labor
             // Cross-door: the lane is across the dock from where the DS last was (the trailer's door). The
             // straight-line slides below only suit short, clear hops, so walk the open floor with the DS's
             // own NavMeshAgent first. Nothing is picked up yet, so on failure the pallet simply stays staged.
-            if (crossDoor)
+            if (crossDoor || fromFarEnd)
             {
                 Vector3 flatToPivot = entryPivot - ds.position; flatToPivot.y = 0f;
                 if (flatToPivot.magnitude > 3f)
@@ -759,7 +802,8 @@ namespace GameCore.Labor
                         $"cross-door load: to lane {laneSlot.DoorNumber}{laneSlot.Lane}", r => legOk = r);
                     if (!legOk)
                     {
-                        Debug.LogError($"[TrailerLoad] Could not reach lane {laneSlot.DoorNumber}{laneSlot.Lane} from the trailer at door {truck.DockedAt.DoorNumber} — leaving {pallet.name} staged.");
+                        Debug.LogError($"[TrailerLoad] Could not reach lane {laneSlot.DoorNumber}{laneSlot.Lane}{(fromFarEnd ? " (far end)" : "")} — leaving {palletName} staged.");
+                        OutboundPalletBuilder.LoadClaimed.Remove(pallet);
                         yield break;
                     }
                 }
@@ -841,7 +885,7 @@ namespace GameCore.Labor
                 if (inv != null) inv.ReleaseLaneEntry(laneSlot.DoorNumber, laneSlot.Lane);
             }
 
-            yield return PlaceCarriedInTrailer(ds, forks, truck, palletT, slotIndex, doorPos, driveY, crossDoor, stackBaseY);
+            yield return PlaceCarriedInTrailer(ds, forks, truck, palletT, slotIndex, doorPos, driveY, crossDoor || fromFarEnd, stackBaseY);
 
             // "cargoSlot" spelled out because these numbers run 0-11 over the TRAILER's 12-slot bed
             // (nose-first, alternating left/right — see CargoSlotForSequence) and read nothing like the
@@ -1089,6 +1133,8 @@ namespace GameCore.Labor
 
             while (!arrived && nav.IsSeekingTask && elapsed < MaxSeekTime)
             {
+                // The dock stocker can be destroyed under us (fired, deleted, scene reload): Unity's fake-null makes agent.isOnNavMesh throw.
+                if (ds == null || agent == null || nav == null) { onDone?.Invoke(false); yield break; }
                 elapsed += Time.deltaTime;
                 sinceRecheck += Time.deltaTime;
                 if (sinceRecheck >= RecheckInterval)

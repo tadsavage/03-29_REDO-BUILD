@@ -117,6 +117,39 @@ namespace GameCore.Labor
         /// <summary>Game minutes before its block opens that an outbound driver reaches the guard shack. The trip gate-to-door takes about an hour, so
         /// 90 minutes lets the trailer be at the door when the block starts instead of the player being fined for the driver's travel time (Tad).</summary>
         private const int ArrivalLeadMinutes = 90;
+        private const int MaxArrivalLeadMinutes = 300;
+        private const int GateToDoorMinutes = 72;      // measured guard shack to door, game minutes
+
+        private readonly Dictionary<string, (int lead, float until)> _leadCache = new Dictionary<string, (int, float)>();
+
+        /// <summary>
+        /// Game minutes before its block opens that this trailer's driver is sent. A big order cannot be loaded inside its two-and-a-half-hour
+        /// slot (block 24: orders were picked, staged and still missed their slot because a pallet takes ~15 game minutes to load and one dock
+        /// stocker loads a trailer), so the trailer arrives early enough to start loading before the block opens: the gate trip, plus the
+        /// loading time that does not fit in the slot, plus a margin. Never less than the usual 90 minutes, never more than 5 hours.
+        /// </summary>
+        private int ArrivalLeadFor(DockAppointment appt, int minutesUntil)
+        {
+            if (minutesUntil > MaxArrivalLeadMinutes) return ArrivalLeadMinutes;   // not close enough to matter yet: skip the scan
+            if (_leadCache.TryGetValue(appt.Id, out var c) && Time.unscaledTime < c.until) return c.lead;
+
+            int pallets = 0;
+            if (appt.OrderIds != null && appt.OrderIds.Count > 0)
+                foreach (var pb in FindObjectsByType<OutboundPalletBuilder>())
+                    if (pb != null && !string.IsNullOrEmpty(pb.OrderId) && appt.OrderIds.Contains(pb.OrderId)) pallets++;
+            if (pallets == 0 && appt.OrderIds != null && ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
+                foreach (var o in orders.ActiveOrders)
+                    if (o != null && appt.OrderIds.Contains(o.OrderId)) pallets += Mathf.CeilToInt(o.TotalUnits / 48f);
+
+            var stat = OpsMetrics.GetBlended(OpsMetrics.Kind.LoadCycle);
+            float perPallet = stat.n >= 3 && stat.standard > 1f ? stat.standard : 15f;
+            int stockers = Mathf.Max(1, OrderPickEstimate.Headcount(EmployeeRole.DockStockerOperator));
+            float loadMinutes = pallets * perPallet / stockers;
+            float slotMinutes = appt.EndMinute - appt.StartMinute;
+            int lead = Mathf.Clamp(Mathf.CeilToInt(GateToDoorMinutes + Mathf.Max(0f, loadMinutes - slotMinutes) + 15f), ArrivalLeadMinutes, MaxArrivalLeadMinutes);
+            _leadCache[appt.Id] = (lead, Time.unscaledTime + 20f);
+            return lead;
+        }
 
         private void DispatchDueAppointments()
         {
@@ -132,7 +165,7 @@ namespace GameCore.Labor
                 // trip from the gate to the door takes about an hour of game time). Also still dispatches when the block is already open.
                 int nowMinute = ServiceLocator.TryGet<SimulationTimeService>(out var clk) && clk != null ? clk.Minute : 0;
                 int minutesUntil = (appt.Day - schedule.CurrentDay) * 1440 + appt.StartMinute - (schedule.CurrentHour * 60 + nowMinute);
-                bool leadDue = minutesUntil > 0 && minutesUntil <= ArrivalLeadMinutes;
+                bool leadDue = minutesUntil > 0 && minutesUntil <= ArrivalLeadFor(appt, minutesUntil);
                 if (!leadDue)
                 {
                 if (appt.Day != schedule.CurrentDay) continue;

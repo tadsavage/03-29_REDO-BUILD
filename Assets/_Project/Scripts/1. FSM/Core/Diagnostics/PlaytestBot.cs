@@ -184,11 +184,12 @@ namespace GameCore.Diagnostics
             HalMetrics.Reset();
             _repeatCounts.Clear(); _spotsSeen.Clear();
             _recentScore.Clear(); _scoreInit = false; LiveScore = 0f; _startKey = Key(time);
-            _lastLateWhy = _lastShortWhy = _lastDeadlockWhy = _lastRepeatWhy = null; _unclaimedSince.Clear(); _streakBlock = -1;
+            _lastLateWhy = _lastShortWhy = _lastDeadlockWhy = _lastRepeatWhy = null; _unclaimedSince.Clear(); _streakBlock = -1; _lateLog.Clear();
             _activeBugKeys.Clear(); _incidents.Clear(); _firstSeen.Clear(); _actions.Clear(); _vehicleTrack.Clear();
             _bugLog = new StringBuilder();
             _bugLines = 0;
             _nextDecision = 0; _nextHealth = 0;
+            _spendDay = 0; _spentToday = 0; _rushToday = 0; _lastBulkDay = 0; _bulkSignedToday = 0;
             Running = true; _status = $"block {_blockNo} running";
             if (observeOnly)
             {
@@ -415,8 +416,25 @@ namespace GameCore.Diagnostics
                 foreach (var c in arrivals.AvailableOffers.Where(c => c.IsBulk).ToList())
                 {
                     if (_bulkSignedToday >= S.bulkOffersPerDay) break;
+                    // The order must be coverable BY ITS OWN SIZE: block 24 signed two 830-990 case bulk orders on a 12-pallet minimum, never had
+                    // the stock, never released them, and paid $17.5k in fines.
+                    int needPallets = Mathf.Max(S.minPalletsBeforeBulk, c.PalletCount > 0 ? c.PalletCount : Mathf.CeilToInt(c.EstimatedCasesPerDay / 48f));
+                    // Stock already promised to open orders is not available again (block 25: three 670-730 case bulk orders were each "covered" by
+                    // the same pallets, none was ever released, and the fines came to $22k). And only one bulk order is carried at a time.
+                    if (FreePallets() < needPallets) continue;
+                    if (ServiceLocator.TryGet<OrderService>(out var bulkOrders) && bulkOrders != null &&
+                        bulkOrders.ActiveOrders.Any(o => o != null && o.IsBulk && o.Status != OrderData.OrderStatus.Shipped && o.Status != OrderData.OrderStatus.Cancelled)) continue;
                     if (arrivals.Sign(c.ContractId)) { _bulkSignedToday++; _signed++; Act($"signed bulk {c.ContractId}"); }
                 }
+        }
+
+        // Pallets of product that are here or on order and NOT already promised to an open order (net of demand, per item).
+        int FreePallets()
+        {
+            int pallets = 0;
+            foreach (var r in ItemAvailability.Build())
+                if (r.CasesPerPallet > 0) pallets += Mathf.Max(0, r.OnHand + r.Inbound - r.Pending) / r.CasesPerPallet;
+            return pallets;
         }
 
         // Pallets of product physically here or already on an open purchase order. A bulk order is only accepted when this is enough
@@ -491,11 +509,21 @@ namespace GameCore.Diagnostics
             int nowHours = (time.Day - 1) * 24 + time.Hour;
             foreach (var g in schedule.UnscheduledGroups().ToList().SelectMany(grp => SplitToFit(schedule, grp)).ToList())
             {
-                if (!TryStockReadyHour(g, timeline, orders, out int readyHour)) continue;   // not coverable yet: no trailer
+                bool shipShort = false;
+                if (!TryStockReadyHour(g, timeline, orders, out int readyHour))   // not coverable yet: no trailer...
+                {
+                    // ...unless the order is part-filled and already past its slot or due day. Its picked pallets stand in the lanes (and bury
+                    // whatever is stacked under or beside them) until a trailer takes them; waiting for stock that never comes cost a day-long
+                    // jam in block 25. Ship what is there.
+                    if (!CanShipShort(g, orders, time)) continue;
+                    shipShort = true;
+                    readyHour = nowHours;
+                }
                 // The trailer must not arrive before the work of getting this order onto it can be done, counted from when the stock
                 // is in the building. Pallet-only orders are a straight roll-on / roll-off (stage + load); case-pick orders take as long
                 // as their selector trips do; rush orders are off, so there is no last-minute scratch run to catch up with.
-                float turnHours = TurnHoursFor(g.OrderIds, orders, cpp, out string kind);
+                string kind = "ship-short";
+                float turnHours = shipShort ? S.palletTurnHours : TurnHoursFor(g.OrderIds, orders, cpp, out kind);
                 int earliestStart = Mathf.Max(nowHours + Mathf.Max(0, S.outboundLeadHours), Mathf.CeilToInt(readyHour + turnHours));
                 int earliestDay = earliestStart / 24 + 1;
                 bool done = false;
@@ -522,6 +550,19 @@ namespace GameCore.Diagnostics
                     if (done) break;
                 }
             }
+        }
+
+        // A group whose every order has product picked and is already late or due: it may take a trailer for what it has.
+        static bool CanShipShort(UnscheduledGroup g, OrderService orders, SimulationTimeService time)
+        {
+            if (g == null || g.OrderIds == null || g.OrderIds.Count == 0) return false;
+            foreach (var id in g.OrderIds)
+            {
+                var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
+                if (o == null || o.TotalUnitsPicked <= 0) return false;
+                if (o.DueDay > time.Day && !o.HasBeenFined) return false;
+            }
+            return true;
         }
 
         // When each item is available, as (hour, cases) entries: what is on the shelves now, plus every inbound PO that already has a slot on
@@ -569,26 +610,26 @@ namespace GameCore.Diagnostics
         // The order is a case-pick order when any line leaves loose cases (a quantity that is not a whole number of pallets).
         float TurnHoursFor(IEnumerable<string> orderIds, OrderService orders, Dictionary<string, int> cpp, out string kind)
         {
-            float loosePalletEquivalents = 0f;
-            foreach (var id in orderIds)
+            var list = orderIds.Select(id => orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id)).Where(o => o != null).ToList();
+            var est = OrderPickEstimate.For(list);
+            if (!est.HasWork) { kind = "pallet-only"; return S.palletTurnHours; }
+            // Orders already released to the floor are picked first (same people, same queue): their remaining work comes before this order's.
+            var mine = new HashSet<string>(list.Select(o => o.OrderId));
+            var ahead = orders.ActiveOrders.Where(o => o != null && o.ReleasedToFloor && !mine.Contains(o.OrderId) &&
+                (o.Status == OrderData.OrderStatus.Pending || o.Status == OrderData.OrderStatus.PartiallyPicked)).ToList();
+            float queueHours = ahead.Count > 0 ? OrderPickEstimate.For(ahead).Hours : 0f;
+            // Pallet picks (reach trucks) and selector trips (selectors) run side by side, so the slower role sets the time; then the load.
+            // Any people who are missing count as one so the estimate stays finite; the bot hires before it books anyway.
+            // Loading is real work too: a 20-pallet trailer is ~15 game minutes a pallet shared by the dock stockers (block 23: orders were picked
+            // in time and still missed their slot while the trailer was being loaded).
+            float hours = queueHours + est.Hours + Mathf.Max(S.loadBufferHours, est.loadHours);
+            if (est.looseTrips <= 0)
             {
-                var o = orders.ActiveOrders.FirstOrDefault(x => x != null && x.OrderId == id);
-                if (o == null) continue;
-                foreach (var li in o.LineItems)
-                {
-                    if (li == null || li.QuantityRemaining <= 0) continue;
-                    if (!cpp.TryGetValue(li.SkuId, out int full) || full <= 0) { loosePalletEquivalents += li.QuantityRemaining / 48f; continue; }
-                    int loose = li.QuantityRemaining % full;
-                    if (loose > 0) loosePalletEquivalents += loose / (float)full;
-                }
+                kind = $"pallet-only, {est.palletPicks} pallet pick(s) / {Mathf.Max(1, est.reachTrucks)} reach truck(s)";
+                return Mathf.Max(S.palletTurnHours, hours);
             }
-            if (loosePalletEquivalents < 0.0001f) { kind = "pallet-only"; return S.palletTurnHours; }
-
-            int looseTrips = Mathf.Max(1, Mathf.CeilToInt(Mathf.CeilToInt(loosePalletEquivalents - 0.0001f) / (float)OrderService.SelectorPalletsPerTrip));
-            int selectors = Mathf.Max(1, HalMetrics.Headcount(EmployeeRole.OrderSelector));
-            int rounds = Mathf.CeilToInt(looseTrips / (float)selectors);
-            kind = $"case-pick, {looseTrips} picklist(s) / {selectors} selector(s)";
-            return rounds * S.pickHoursPerPicklist + S.loadBufferHours;
+            kind = $"case-pick, {est.looseTrips} picklist(s) / {Mathf.Max(1, est.selectors)} selector(s), {est.palletPicks} pallet pick(s) / {Mathf.Max(1, est.reachTrucks)} reach truck(s)";
+            return hours;
         }
 
         static bool ConsumeStock(Dictionary<string, List<(int hour, int cases)>> t, string sku, int need, out int maxHour)
@@ -661,7 +702,7 @@ namespace GameCore.Diagnostics
                 int startHours = (appt.Day - 1) * 24 + appt.StartHour;
                 // Release early enough for the work itself: this order's own estimated pick time plus the usual buffer.
                 float pick = TurnHoursFor(new[] { o.OrderId }, orders, _cppCache ??= BuildCpp(), out _);
-                return startHours - nowHours <= lead + Mathf.CeilToInt(pick);
+                return startHours - nowHours <= lead + Mathf.CeilToInt(pick * 1.25f);
             }).ToList();
             if (ready.Count == 0) return;
             if (orders.ReleaseOrdersToStages(ready.Select(o => o.OrderId).ToList(), out string why, out bool waiting, out _))
@@ -684,10 +725,11 @@ namespace GameCore.Diagnostics
             int wantPallets = bulkUp ? S.bulkUpPalletsPerSku : S.palletsPerActiveSku;
             if (_spendDay != time.Day) { _spendDay = time.Day; _spentToday = 0; _rushToday = 0; }
             int budget = Mathf.Min(cash - S.minCashBalance, Mathf.RoundToInt((cash - S.minCashBalance) * S.maxDailySpendFraction) + 0) - _spentToday;
-            if (budget <= 0) return;
+            int owedBudget = Mathf.Max(0, cash - S.minCashBalance);   // orders customers already placed: limited by cash, not by the daily cap
+            if (owedBudget <= 0) return;
 
             // Rush first: an order is owed, nothing covers it, and a vendor sells it.
-            if (S.coverRushOrders && _rushToday < S.maxRushPerDay)
+            if (S.coverRushOrders && budget > 0 && _rushToday < S.maxRushPerDay)
             {
                 var rush = rows.Where(r => r.Status == AvailabilityStatus.Insufficient && r.CasesPerPallet > 0 && r.VendorId != null && r.Inbound == 0).Take(4).ToList();
                 if (rush.Count > 0 && TryRaisePO(ship, time, rush.Select(r => (r, 1)).ToList(), ShipmentService.RushSupplierId, "Rush Courier", 2, ref budget, rushPo: true))
@@ -698,17 +740,18 @@ namespace GameCore.Diagnostics
             // Orders already promised come first, and they are bought ONE ORDER AT A TIME, soonest due first, only when the whole shortfall
             // of that order fits the budget. (Block 6 spread $123k as a pallet or two of ~45 different SKUs, so no order was ever
             // fully covered and nothing shipped: shipping needs every line of an order, not a little of every line of every order.)
-            var owed = PlanOrderCoverage(rows, budget);
+            var owed = PlanOrderCoverage(rows, owedBudget);
             foreach (var g in owed.GroupBy(x => x.row.VendorId))
             {
                 if (pending >= S.maxPendingPOs) break;
                 var vendor = VendorRegistry.Load()?.GetById(g.Key);
-                if (TryRaisePO(ship, time, g.Select(x => (x.row, x.pallets)).ToList(), g.Key, vendor != null ? vendor.DisplayName : g.Key, 1, ref budget, false, vendor != null ? vendor.MinimumOrderCases : 0))
+                if (TryRaisePO(ship, time, g.Select(x => (x.row, x.pallets)).ToList(), g.Key, vendor != null ? vendor.DisplayName : g.Key, 1, ref owedBudget, false, vendor != null ? vendor.MinimumOrderCases : 0))
                 { pending++; _purchases++; return; }   // one PO per decision; the next tick re-reads what is now on order
             }
 
             // Restock only items customers are actually ordering, and only up to a few days of that demand. (Block 2 stocked every
             // assigned pick slot to three pallets whatever was selling, and spent $123k in a week against $47k of revenue.)
+            if (budget <= 0) return;
             float stockValue = 0f;
             foreach (var r in rows) stockValue += (r.OnHand + r.Inbound) * r.PurchasePrice;
             if (stockValue >= S.inventoryValueCap) return;
@@ -866,7 +909,12 @@ namespace GameCore.Diagnostics
             if (!Running) return;
             if (o != null && IsMovedSlotFine(o)) { _movedFines++; EvaluateScore("Moved-slot fine, order " + (o.OrderNumber ?? o.OrderId)); return; }   // a penalty for breaking the requested hour, not a late order
             _late++;
-            if (o != null) { _lastLateWhy = WhyLate(o); HalPop("LATE", $"LATE ORDER {o.OrderNumber ?? o.OrderId}: fined ${amount:N0}"); }
+            if (o != null)
+            {
+                _lastLateWhy = WhyLate(o);
+                _lateLog.Add($"day {CurrentDay()}: {_lastLateWhy} Fined ${amount:N0}. Lines {o.LineItems.Count}, {o.TotalUnits} cs, released={o.ReleasedToFloor}.");
+                HalPop("LATE", $"LATE ORDER {o.OrderNumber ?? o.OrderId}: fined ${amount:N0}");
+            }
             EvaluateScore("Late fine, order " + (o != null ? (o.OrderNumber ?? o.OrderId) : ""));
         }
 
@@ -880,8 +928,18 @@ namespace GameCore.Diagnostics
         public class GoalRow { public string name, goal, actual, why, explain; public GoalState state; public bool exit; public bool scored; public float points, maxPoints; }
 
         string _lastLateWhy, _lastShortWhy, _lastDeadlockWhy, _lastRepeatWhy;
+        // Every late order this block with what state it was in when it came due, so the report says WHERE orders are lost (picking,
+        // staging, loading) instead of showing only the last one.
+        readonly List<string> _lateLog = new List<string>();
         readonly Dictionary<string, long> _unclaimedSince = new();
         int _streakBlock = -1, _streakCache;
+
+        static string LateStateOf(string line)
+        {
+            foreach (var key in new[] { "never released", "waiting for a free staging lane", "still being picked", "staged but no trailer loaded it", "still loading", "loaded but the truck had not left", "came due unfinished" })
+                if (line.Contains(key)) return key;
+            return "other";
+        }
 
         static string WhyLate(OrderData o)
         {
@@ -1516,6 +1574,15 @@ namespace GameCore.Diagnostics
             sb.AppendLine();
             sb.AppendLine($"Orders shipped **{r.ordersShipped}**, late/fined **{r.ordersLate}**, pallets shipped **{r.palletsShipped}**. Cash ${r.cashStart:N0} → ${r.cashEnd:N0} ({r.cashEnd - r.cashStart:+#,0;-#,0;0}). Stock at cost ${r.inventoryStart:N0} → ${r.inventoryEnd:N0}; cash + stock {(r.cashEnd + r.inventoryEnd) - (r.cashStart + r.inventoryStart):+#,0;-#,0;0}.");
             sb.AppendLine($"Bot did: {_signed} contracts signed, {_booked} dock bookings, {_released} orders released, {_purchases} POs, {_rushes} rush POs.");
+            if (_lateLog.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("## Late orders - state when it came due");
+                foreach (var g in _lateLog.GroupBy(l => LateStateOf(l)).OrderByDescending(g => g.Count()))
+                    sb.AppendLine($"- {g.Count()} x {g.Key}");
+                sb.AppendLine();
+                foreach (var l in _lateLog) sb.AppendLine("- " + l);
+            }
             sb.AppendLine();
 
             if (prev != null)

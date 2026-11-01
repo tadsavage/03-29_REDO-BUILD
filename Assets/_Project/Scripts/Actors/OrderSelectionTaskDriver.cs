@@ -495,7 +495,7 @@ namespace GameCore.Actors
             {
                 failReason = $"no lane at Stage {order.EffectiveStagingDoor} or any nearby door has room for {LivePalletCount()} pallet(s) (every lane full, held by another customer, or an inbound trailer is docked)";
             }
-            else if (!_inventoryService.TryFindStagingSlotInLane(tripDoor, tripLane, out var slot))
+            else if (!_inventoryService.TryFindStagingSlotInLane(tripDoor, tripLane, out var slot, order.OrderId))
             {
                 failReason = $"lane {tripDoor}{tripLane} reported room for {LivePalletCount()} pallet(s) but then handed back no slot";
             }
@@ -606,13 +606,13 @@ namespace GameCore.Actors
                 LaneNamingService.LaneSlot slot = default;
                 Vector3 slotPos = default;
                 bool found = order != null && _inventoryService != null &&
-                             _inventoryService.TryFindStagingSlotInLane(door, lane, out slot) &&
+                             _inventoryService.TryFindStagingSlotInLane(door, lane, out slot, order.OrderId) &&
                              LaneNamingService.TryGetSlotWorldPos(slot.Cell, out slotPos);
                 // The lane filled mid-drop (another vehicle claimed a tier): move on to any lane with room
                 // instead of leaving the pallet where the loader will not look.
                 if (!found && order != null && _inventoryService != null && _orderService != null &&
                     StagingLaneAssignmentService.TryFindTripLane(_orderService, _inventoryService, order, Mathf.Max(1, _pallets.Count - i), out int altDoor, out string altLane) &&
-                    _inventoryService.TryFindStagingSlotInLane(altDoor, altLane, out slot) &&
+                    _inventoryService.TryFindStagingSlotInLane(altDoor, altLane, out slot, order.OrderId) &&
                     LaneNamingService.TryGetSlotWorldPos(slot.Cell, out slotPos))
                 {
                     door = altDoor; lane = altLane; found = true;

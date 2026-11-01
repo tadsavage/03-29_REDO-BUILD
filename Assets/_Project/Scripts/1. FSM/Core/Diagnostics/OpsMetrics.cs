@@ -14,7 +14,7 @@ using UnityEngine;
 public static class OpsMetrics
 {
     // New kinds go on the end: samples are saved by number.
-    public enum Kind { GateToDoor, Offload, LoadCycle, LoadTotal, PalletPick, CasePick, OffloadCycle, Receive }
+    public enum Kind { GateToDoor, Offload, LoadCycle, LoadTotal, PalletPick, CasePick, OffloadCycle, Receive, CaseCycle, JackBayMove, JackStaging }
 
     /// <summary>Who was running the warehouse when the sample was taken. Bot = HAL playing; Player = a human (including HAL only watching).</summary>
     public enum Source { Bot, Player }
@@ -32,6 +32,9 @@ public static class OpsMetrics
         new Info { kind = Kind.LoadTotal, title = "LOAD TOTAL", what = "First pick-up at the dock until the final release of the dock stocker.", unit = "per trailer" },
         new Info { kind = Kind.PalletPick, title = "PALLET PICK", what = "Reach truck: pick-up, drop-off at the staging lane and the return trip.", unit = "per pallet" },
         new Info { kind = Kind.CasePick, title = "CASE PICK", what = "First pick face reached until the pallet is staged, divided by cases picked.", unit = "per trip" },
+        new Info { kind = Kind.CaseCycle, title = "CASE: ONE CASE", what = "One case on a pallet jack trip: walk to the slot, take it, carry it to the pallet and set it down.", unit = "per case" },
+        new Info { kind = Kind.JackBayMove, title = "CASE: JACK TO NEXT BAY", what = "The pallet jack driving from one pick stop to the next.", unit = "per move" },
+        new Info { kind = Kind.JackStaging, title = "CASE: STAGE THE PALLETS", what = "Drive to the staging lane, back in, set the pallets down and leave, per trip.", unit = "per trip" },
     };
 
     // t = real-world UTC ticks and d = difficulty, so the data can be sliced later (balance passes, difficulty levels, achievements, labor standards).

@@ -28,7 +28,10 @@ public static class EmoteLibrary
     public static Sprite Get(string name)
     {
         EnsureLoaded();
-        if (_byName.TryGetValue(name, out var s)) return s;
+        // The sprites are created at runtime and are destroyed when Play stops, while this cache survives into the next session
+        // (Domain Reload is off): a "found" entry can be a dead object. Rebuild when that happens.
+        if (_byName.TryGetValue(name, out var s) && s == null) { _all = null; EnsureLoaded(); }
+        if (_byName.TryGetValue(name, out s) && s != null) return s;
         // An empty library can be a load that ran before the folder was readable (statics survive Play sessions here): try once more.
         if (_all != null && _all.Length == 0 && !_retriedEmpty) { _retriedEmpty = true; _all = null; EnsureLoaded(); return _byName.TryGetValue(name, out s) ? s : null; }
         return null;
