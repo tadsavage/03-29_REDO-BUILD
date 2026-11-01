@@ -240,7 +240,6 @@ namespace GameCore.Labor
             int slots = TruckController.PalletSlotCount;
             var tops = new float[slots];
             var counts = new int[slots];
-            var bottomHeight = new float[slots];
 
             foreach (Transform child in truck.LoadContainer)
             {
@@ -256,14 +255,12 @@ namespace GameCore.Labor
                 if (nearest < 0) continue;
                 float h = MeasurePalletHeight(child) / scaleY;
                 counts[nearest]++;
-                if (counts[nearest] == 1 || child.localPosition.y < 0.05f) bottomHeight[nearest] = h;
                 float top = child.localPosition.y + h;
                 if (top > tops[nearest]) tops[nearest] = top;
             }
 
             float need = palletHeightWorld / scaleY;
             float roof = TrailerCapacity.SafeInteriorHeight / scaleY;
-            float stackable = TrailerCapacity.StackableHeight / scaleY;
 
             // Walk the positions nose → doors and take the FIRST one that can accept this pallet:
             //   • an empty floor position, or
@@ -275,8 +272,9 @@ namespace GameCore.Labor
             {
                 int s = CargoSlotForSequence(seq);
                 if (counts[s] == 0) { slotIndex = s; stackBaseY = 0f; return true; }
-                if (need <= stackable && counts[s] == 1 && bottomHeight[s] <= stackable &&
-                    tops[s] + TrailerCapacity.StackGap + need <= roof)
+                // Any pallet may ride on a lone pallet as long as the pair clears the roof. The old per-pallet
+                // half-height cap refused a 1.3 m bottom with a 1.1 m top (2.42 m total, fits) and cut trailers to 12.
+                if (counts[s] == 1 && tops[s] + TrailerCapacity.StackGap + need <= roof)
                 {
                     slotIndex = s; stackBaseY = tops[s] + TrailerCapacity.StackGap;
                     return true;
@@ -663,9 +661,13 @@ namespace GameCore.Labor
             {
                 var apptSvc = ServiceLocator.TryGet<DockScheduleService>(out var sch) ? sch : null;
                 var apptForTruck = apptSvc != null && !string.IsNullOrEmpty(appointmentId) ? apptSvc.FindById(appointmentId) : null;
+                // Keyed on the appointment, NOT on status: an order's status flips Staged/Loading/Loaded during a pass
+                // (a revert or a reopen can land between passes), and an order that is Staged at that moment
+                // used to fail this check for its OWN pallets, so the pass stopped with "belongs to order X, not one
+                // being loaded here" and loaded nothing (OG6297 door 1, 2026-11-01). Any live order on this trailer is ours.
                 loadingIds = new HashSet<string>(orders.ActiveOrders
                     .Where(o => (apptForTruck != null ? apptForTruck.OrderIds.Contains(o.OrderId) : o.AssignedDoorNumber == dockDoor) &&
-                                (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded))
+                                o.Status != OrderData.OrderStatus.Cancelled && o.Status != OrderData.OrderStatus.Shipped)
                     .Select(o => o.OrderId));
             }
 

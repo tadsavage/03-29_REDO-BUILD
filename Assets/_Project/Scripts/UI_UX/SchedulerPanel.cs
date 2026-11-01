@@ -185,6 +185,18 @@ public class SchedulerPanel : IUIPanel
     private Label _titleLabel;
     private Button _scaleBtn;
     private bool _visible;
+
+    // Free Move: when on, the hover tooltip can be dragged anywhere on the modal and stays where it
+    // was put. Comes on each time the panel opens and goes off when it closes; the tooltip's position
+    // is kept in PlayerPrefs so it returns to the same spot on the next open.
+    private const string FreeMoveXKey = "Scheduler.FreeMoveTipX";
+    private const string FreeMoveYKey = "Scheduler.FreeMoveTipY";
+    private bool _freeMove;
+    private Toggle _freeMoveToggle;
+    private bool _tipDragging;
+    private Vector2 _tipDragOffset;
+    private Vector2 _savedTipPos;
+    private bool _hasSavedTipPos;
     private ResizableWindow _resizeWindow;
 
     private Tab _tab = Tab.NewContracts;
@@ -405,6 +417,8 @@ public class SchedulerPanel : IUIPanel
     public void Show()
     {
         _visible = true;
+        _freeMove = true;
+        SyncFreeMoveCheckbox();
         OrdersPauseGate.Push(this);
         _overlay.style.display = DisplayStyle.Flex;
         // Order screens sit above both bars. Raising on every Show — not once at build time — because
@@ -506,6 +520,10 @@ public class SchedulerPanel : IUIPanel
     public void Hide()
     {
         _visible = false;
+        // Closing turns Free Move off and keeps wherever the card was left.
+        if (_tipDragging) EndTooltipDrag(null);
+        _freeMove = false;
+        SyncFreeMoveCheckbox();
         OrdersPauseGate.Pop(this);
         _selectedAppointmentId = null;
         _selectedUnscheduledKey = null;
@@ -873,16 +891,43 @@ public class SchedulerPanel : IUIPanel
         _newSchedulerTooltip.style.paddingTop = 10; _newSchedulerTooltip.style.paddingBottom = 10;
         _newSchedulerTooltip.style.paddingLeft = 12; _newSchedulerTooltip.style.paddingRight = 12;
         _newSchedulerTooltip.RegisterCallback<MouseEnterEvent>(_ => CancelPendingTooltipHide());
-        _newSchedulerTooltip.RegisterCallback<MouseLeaveEvent>(_ => ScheduleHideNewSchedulerTooltip());
+        // While a Free Move drag is in progress the pointer can cross the card's edge faster than the
+        // hide grace — don't let that hide a card the player is holding.
+        _newSchedulerTooltip.RegisterCallback<MouseLeaveEvent>(_ => { if (!_tipDragging) ScheduleHideNewSchedulerTooltip(); });
+        _newSchedulerTooltip.RegisterCallback<PointerDownEvent>(OnTooltipPointerDown);
+        _newSchedulerTooltip.RegisterCallback<PointerMoveEvent>(OnTooltipPointerMove);
+        _newSchedulerTooltip.RegisterCallback<PointerUpEvent>(OnTooltipPointerUp);
 
         // Content scrolls vertically once it's taller than the space left below the hovered cell,
         // rather than running off the bottom of the modal -- max-height is set per-show once we
         // know how much room is actually available (see ShowNewSchedulerTooltip).
+        // Free Move checkbox, fixed above the scroll area so it stays put while the content scrolls. Its
+        // own pointer-down stops here so clicking it toggles the box instead of starting a card drag.
+        _freeMoveToggle = new Toggle("Free Move");
+        _freeMoveToggle.name = "free-move-toggle";
+        ApplyFont(_freeMoveToggle.labelElement, bold: true, size: 22);
+        _freeMoveToggle.labelElement.style.color = new StyleColor(ColTitleText);
+        // Label hugs the checkbox instead of stretching across the row.
+        _freeMoveToggle.labelElement.style.flexGrow = 0;
+        _freeMoveToggle.labelElement.style.marginLeft = 4;
+        _freeMoveToggle.style.flexShrink = 0;
+        _freeMoveToggle.RegisterValueChangedCallback(evt => SetFreeMove(evt.newValue));
+        // Tight strip pinned to the card's upper-right corner: right-aligned, no margin, so the
+        // checkbox costs only its own line height and sits clear of the content on the left.
+        var freeMoveRow = new VisualElement();
+        freeMoveRow.style.flexShrink = 0;
+        freeMoveRow.style.flexDirection = FlexDirection.Row;
+        freeMoveRow.style.justifyContent = Justify.FlexEnd;
+        freeMoveRow.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation());
+        freeMoveRow.Add(_freeMoveToggle);
+        _newSchedulerTooltip.Add(freeMoveRow);
+
         _newSchedulerTooltipScroll = new ScrollView(ScrollViewMode.Vertical);
         _newSchedulerTooltipScroll.style.overflow = Overflow.Hidden;
         _newSchedulerTooltip.Add(_newSchedulerTooltipScroll);
 
         modal.Add(_newSchedulerTooltip);
+        LoadTooltipPosition();
         BuildHeldGhost(modal);
         modal.Add(footerMessage);
 
@@ -4156,11 +4201,15 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
         bool pending = live.Any(orders.IsAwaitingRelease);
 
+        // Pinned to the tile's bottom edge and the tile's bottom padding reserves room for it, so the
+        // buttons stay on screen however many fine-print lines the tile above has to clip.
         var row = new VisualElement();
+        row.style.position = Position.Absolute;
+        row.style.left = 4; row.style.right = 4; row.style.bottom = 4;
         row.style.flexDirection = FlexDirection.Column;   // RELEASE on top, CANCEL below, each the full tile width
         row.style.alignSelf = Align.Stretch;
         row.style.flexShrink = 0;
-        row.style.marginTop = 6;
+        cell.style.paddingBottom = pending ? 70 : 38;
         cell.Add(row);
 
         var btn = new Label(pending ? "RELEASE ORDERS" : "RELEASED");
@@ -4901,13 +4950,20 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         // Pushed further right so the card stops covering the slots next to the hovered tile (Tad). Clamped
         // so it never runs off the modal's right edge.
         left = Mathf.Clamp(left + TooltipRightShift, 4f, Mathf.Max(4f, modalW - TooltipW - 4f));
+        // Free Move with a remembered spot: the card goes where the player last left it, not beside the
+        // tile. Clamped so a smaller modal can't strand it off-screen.
+        if (_freeMove && _hasSavedTipPos)
+        {
+            left = Mathf.Clamp(_savedTipPos.x, 4f, Mathf.Max(4f, modalW - TooltipW - 4f));
+            top = Mathf.Clamp(_savedTipPos.y, 4f, Mathf.Max(4f, _modal.resolvedStyle.height - 60f));
+        }
         _newSchedulerTooltip.style.left = left;
         _newSchedulerTooltip.style.top = top;
         // Cap the scroll area to whatever room is left below it in the modal, rather than letting
         // tall item lists (see BuildOutboundTooltipContent) push the tooltip off the bottom edge --
         // it scrolls internally instead, per Tad's explicit call.
         _newSchedulerTooltipScroll.style.maxHeight =
-            Mathf.Max(120f, _modal.resolvedStyle.height - top - 36f);
+            Mathf.Max(120f, _modal.resolvedStyle.height - top - 48f);
         _newSchedulerTooltip.style.display = DisplayStyle.Flex;
         _newSchedulerTooltip.BringToFront();
     }
@@ -4933,6 +4989,80 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             _tooltipHideItem = null;
             HideNewSchedulerTooltip();
         }).StartingIn(TooltipHideGraceMs);
+    }
+
+    private void SetFreeMove(bool on)
+    {
+        _freeMove = on;
+        if (!_freeMove && _tipDragging) EndTooltipDrag(null);
+        SyncFreeMoveCheckbox();
+    }
+
+    private void SyncFreeMoveCheckbox()
+    {
+        _freeMoveToggle?.SetValueWithoutNotify(_freeMove);
+    }
+
+    // Drag handling for the hover card. Only active while Free Move is on; with it off the card is
+    // placed beside its tile exactly as before and these handlers do nothing.
+    private void OnTooltipPointerDown(PointerDownEvent evt)
+    {
+        if (!_freeMove || evt.button != 0) return;
+        Vector2 pointer = _modal.WorldToLocal(evt.position);
+        _tipDragOffset = pointer - new Vector2(_newSchedulerTooltip.resolvedStyle.left, _newSchedulerTooltip.resolvedStyle.top);
+        _tipDragging = true;
+        _newSchedulerTooltip.CapturePointer(evt.pointerId);
+        CancelPendingTooltipHide();
+        evt.StopPropagation();
+    }
+
+    private void OnTooltipPointerMove(PointerMoveEvent evt)
+    {
+        if (!_tipDragging) return;
+        Vector2 p = _modal.WorldToLocal(evt.position) - _tipDragOffset;
+        float maxX = Mathf.Max(4f, _modal.resolvedStyle.width - _newSchedulerTooltip.resolvedStyle.width - 4f);
+        float maxY = Mathf.Max(4f, _modal.resolvedStyle.height - _newSchedulerTooltip.resolvedStyle.height - 4f);
+        _newSchedulerTooltip.style.left = Mathf.Clamp(p.x, 4f, maxX);
+        _newSchedulerTooltip.style.top = Mathf.Clamp(p.y, 4f, maxY);
+        evt.StopPropagation();
+    }
+
+    private void OnTooltipPointerUp(PointerUpEvent evt)
+    {
+        if (!_tipDragging) return;
+        EndTooltipDrag(evt);
+    }
+
+    private void EndTooltipDrag(PointerUpEvent evt)
+    {
+        _tipDragging = false;
+        if (evt != null)
+        {
+            _newSchedulerTooltip.ReleasePointer(evt.pointerId);
+            evt.StopPropagation();
+        }
+        _savedTipPos = new Vector2(_newSchedulerTooltip.resolvedStyle.left, _newSchedulerTooltip.resolvedStyle.top);
+        _hasSavedTipPos = true;
+        SaveTooltipPosition();
+        // Dropped outside the card: hide it the normal way. Dropped on the card: stay until the pointer
+        // leaves it, the same as any hover.
+        if (evt != null && !_newSchedulerTooltip.worldBound.Contains(evt.position))
+            ScheduleHideNewSchedulerTooltip();
+    }
+
+    private void SaveTooltipPosition()
+    {
+        if (!_hasSavedTipPos) return;
+        PlayerPrefs.SetFloat(FreeMoveXKey, _savedTipPos.x);
+        PlayerPrefs.SetFloat(FreeMoveYKey, _savedTipPos.y);
+        PlayerPrefs.Save();
+    }
+
+    private void LoadTooltipPosition()
+    {
+        if (!PlayerPrefs.HasKey(FreeMoveXKey) || !PlayerPrefs.HasKey(FreeMoveYKey)) return;
+        _savedTipPos = new Vector2(PlayerPrefs.GetFloat(FreeMoveXKey), PlayerPrefs.GetFloat(FreeMoveYKey));
+        _hasSavedTipPos = true;
     }
 
     private void HideNewSchedulerTooltip()

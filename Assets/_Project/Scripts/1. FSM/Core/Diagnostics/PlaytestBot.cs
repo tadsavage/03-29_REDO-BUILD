@@ -319,7 +319,7 @@ namespace GameCore.Diagnostics
             float elapsed = Mathf.Max(0.25f, (Key(time) - _startKey) / 1440f);
             int pallets = PalletsShippedTotal(0, time.Day + 1) - _palletsAtStart;
             int revenue = money.LifetimeIncome.Values.Sum() - _startIncome;
-            int net = (money.CurrentCapital + InventoryValueNow()) - (_startCash + _startInventory);   // stock counts as money in the pocket
+            int net = money.CurrentCapital - _startCash;   // cash only: stock on hand is neither a cost nor a gain
             float penalty = _incidents.Sum(kv => WeightOf(kv.Key) * (1f + Mathf.Log(kv.Value, 2f)));
             int rep = ServiceLocator.TryGet<ReputationService>(out var rs) ? rs.Score : _startRep;
             c[0] = OnTimeRatio();
@@ -1017,7 +1017,7 @@ namespace GameCore.Diagnostics
         static bool BlockPassed(PlaytestBlockResult r) =>
             r != null && r.ordersShipped > 0 && r.onTime >= OnTimeGoal * 100f
             && !r.bugKeys.Any(k => k.StartsWith("DOOR-DEADLOCK") || k.StartsWith("REPEATING"))
-            && (r.cashEnd + r.inventoryEnd) - (r.cashStart + r.inventoryStart) > 0;
+            && r.cashEnd - r.cashStart > 0;
 
         /// <summary>Consecutive passing blocks, newest first, in this series (HAL's blocks, or the player's).</summary>
         public int PassStreak()
@@ -1093,8 +1093,8 @@ namespace GameCore.Diagnostics
                     return "DOOR DEADLOCKS\nCounted when a staged or loading order's outbound truck has sat docked for 90 game minutes with nobody loading it. Goal: zero.";
                 case "Repeating bugs":
                     return "REPEATING BUGS\nCounted when the same warning or error line repeats 25 times in a block, which means something is stuck in a loop. Goal: zero.";
-                case "Profit (cash + stock)":
-                    return "PROFIT\nCash plus stock on hand (valued at cost) compared with where the block started. Stock you buy counts as money in your pocket until it sells, so buying inventory is not a loss. Goal: above zero.";
+                case "Profit (cash)":
+                    return "PROFIT\nCash compared with where the block started. Stock on hand is not counted at all: buying inventory is not a loss, and unsold stock is not a gain. Goal: above zero.";
                 case "Fill rate":
                     return "FILL RATE\nThe average share of each shipped order's cases that actually went out. Scratched cases (not in stock) pull it down.";
                 case "Pallets shipped":
@@ -1158,13 +1158,13 @@ namespace GameCore.Diagnostics
             });
 
             // 4. profit
-            int net = (money.CurrentCapital + InventoryValueNow()) - (_startCash + _startInventory);
+            int net = money.CurrentCapital - _startCash;   // cash only: stock on hand is neither a cost nor a gain
             rows.Add(new GoalRow
             {
-                exit = true, name = "Profit (cash + stock)", goal = "> $0", actual = (net >= 0 ? "+$" : "-$") + Mathf.Abs(net).ToString("N0"),
+                exit = true, name = "Profit (cash)", goal = "> $0", actual = (net >= 0 ? "+$" : "-$") + Mathf.Abs(net).ToString("N0"),
                 state = net > 0 ? GoalState.Met : GoalState.Missed,
                 why = net > 0 ? "Ahead of where the block started."
-                              : $"Cash ${money.CurrentCapital:N0} + stock ${InventoryValueNow():N0} is below the start; revenue so far ${money.LifetimeIncome.Values.Sum() - _startIncome:N0}."
+                              : $"Cash ${money.CurrentCapital:N0} is below the start; revenue so far ${money.LifetimeIncome.Values.Sum() - _startIncome:N0}."
             });
 
             // supporting parts of the score
@@ -1232,7 +1232,7 @@ namespace GameCore.Diagnostics
             var compIndex = new Dictionary<string, int>
             {
                 ["On-time orders"] = 0, ["Fill rate"] = 1, ["Pallets shipped"] = 2, ["Revenue"] = 3,
-                ["Profit (cash + stock)"] = 4, ["Cash health"] = 5, ["Reliability"] = 6, ["Reputation"] = 7,
+                ["Profit (cash)"] = 4, ["Cash health"] = 5, ["Reliability"] = 6, ["Reputation"] = 7,
             };
             foreach (var r in rows)
             {
@@ -1498,7 +1498,7 @@ namespace GameCore.Diagnostics
             int revenueTotal = (money != null ? money.LifetimeIncome.Values.Sum() : 0) - _startIncome;
             float revenue = Mathf.Clamp01(revenueTotal / Mathf.Max(1f, S.targetRevenuePerDay * days));
             int inventoryEnd = InventoryValueNow();
-            int net = (cashEnd + inventoryEnd) - (_startCash + _startInventory);   // stock counts as money in the pocket
+            int net = cashEnd - _startCash;   // cash only: stock on hand is neither a cost nor a gain
             float profit = Mathf.Clamp01(0.5f + 0.5f * net / Mathf.Max(1f, S.targetProfitPerDay * days));
             float cash = _cashSamples > 0 ? 1f - (float)_cashDipHours / _cashSamples : 1f;
             float penalty = _incidents.Sum(kv => WeightOf(kv.Key) * (1f + Mathf.Log(kv.Value, 2f)));
@@ -1599,12 +1599,12 @@ namespace GameCore.Diagnostics
             sb.AppendLine($"| Fill rate | {S.wFill}% | {D(r.fill, prev?.fill)} |");
             sb.AppendLine($"| Throughput ({r.palletsShipped} plt vs target {S.targetPalletsPerDay * Mathf.Max(1, r.endDay - r.startDay):F0}) | {S.wThroughput}% | {D(r.throughput, prev?.throughput)} |");
             sb.AppendLine($"| Revenue (${r.revenueTotal:N0}) | {S.wRevenue}% | {D(r.revenue, prev?.revenue)} |");
-            sb.AppendLine($"| Profit (cash + stock {(r.cashEnd + r.inventoryEnd) - (r.cashStart + r.inventoryStart):+#,0;-#,0;0}) | {S.wProfit}% | {D(r.profit, prev?.profit)} |");
+            sb.AppendLine($"| Profit (cash {(r.cashEnd - r.cashStart):+#,0;-#,0;0}) | {S.wProfit}% | {D(r.profit, prev?.profit)} |");
             sb.AppendLine($"| Cash health (floor ${S.minCashBalance:N0}) | {S.wCash}% | {D(r.cash, prev?.cash)} |");
             sb.AppendLine($"| Reliability (bugs) | {S.wReliability}% | {D(r.reliability, prev?.reliability)} |");
             sb.AppendLine($"| Reputation ({r.repStart} to {r.repEnd}) | {S.wReputation}% | {D(r.reputation, prev?.reputation)} |");
             sb.AppendLine();
-            sb.AppendLine($"Orders shipped **{r.ordersShipped}**, late/fined **{r.ordersLate}**, pallets shipped **{r.palletsShipped}**. Cash ${r.cashStart:N0} → ${r.cashEnd:N0} ({r.cashEnd - r.cashStart:+#,0;-#,0;0}). Stock at cost ${r.inventoryStart:N0} → ${r.inventoryEnd:N0}; cash + stock {(r.cashEnd + r.inventoryEnd) - (r.cashStart + r.inventoryStart):+#,0;-#,0;0}.");
+            sb.AppendLine($"Orders shipped **{r.ordersShipped}**, late/fined **{r.ordersLate}**, pallets shipped **{r.palletsShipped}**. Cash ${r.cashStart:N0} → ${r.cashEnd:N0} ({r.cashEnd - r.cashStart:+#,0;-#,0;0}). Stock at cost ${r.inventoryStart:N0} → ${r.inventoryEnd:N0} (not part of profit).");
             sb.AppendLine($"Bot did: {_signed} contracts signed, {_booked} dock bookings, {_released} orders released, {_purchases} POs, {_rushes} rush POs.");
             if (_lateLog.Count > 0)
             {
