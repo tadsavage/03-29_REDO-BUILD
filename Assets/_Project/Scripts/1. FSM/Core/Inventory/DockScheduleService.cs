@@ -1674,6 +1674,10 @@ namespace GameCore.Inventory
                 {
                     if (appointment != target) appointment.OrderIds.Remove(order.OrderId);
                 }
+                // The order may have been riding another appointment (an earlier hold it had been attached to). That one is now empty
+                // and no longer a hold, so it would sit on the grid as "No order yet". Drop it; MaintainRecurringSchedule re-holds the slot.
+                _appointments.RemoveAll(a => a != target && a.Kind != AppointmentKind.Inbound && !a.Parked && !a.ClosedOut && !a.IsHold
+                                             && a.OrderIds.Count == 0 && string.IsNullOrEmpty(a.ShipmentPoNumber));
                 if (!target.OrderIds.Contains(order.OrderId)) target.OrderIds.Add(order.OrderId);
                 target.IsHold = false;
             }
