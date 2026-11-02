@@ -1140,6 +1140,13 @@ namespace GameCore.Labor
             nav.SeekPosition(driveTarget, () => arrived = true);
 
             yield return null;
+            // A carve update or rebake can drop a freshly issued path for a frame or two: re-issue for up to a second first.
+            for (float tw = 0f; !arrived && !agent.pathPending && !agent.hasPath && tw < 1f; tw += Time.unscaledDeltaTime)
+            {
+                agent.Warp(ds.position);
+                agent.SetDestination(driveTarget);
+                yield return null;
+            }
             if (!arrived && !agent.pathPending && !agent.hasPath)
             {
                 Debug.LogError($"[TrailerLoad] '{ds.name}' {phase}: destination did not take (no path) for {driveTarget} from {ds.position}.");

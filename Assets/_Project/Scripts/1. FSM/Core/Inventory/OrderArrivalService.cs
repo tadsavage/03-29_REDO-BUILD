@@ -1135,7 +1135,39 @@ namespace GameCore.Inventory
             {
                 lines = fitted.Select(f => new BulkPreviewLine { SkuId = f.sku.SkuId, Quantity = f.cases }).ToList();
             }
+
+            // ...and never more than the floor can pick in MaxPickPrepHours (trimmed a whole pallet at a time).
+            var probe = new OrderData(contract.Customer != null ? contract.Customer.CustomerId : "", "", "", 0, 0, 0);
+            foreach (var l in lines) probe.LineItems.Add(new OrderLineItem(l.SkuId, l.Quantity, 0, 0));
+            CapToPickHours(probe, wholePallets: true);
+            var capped = probe.LineItems.ToDictionary(li => li.SkuId, li => li.QuantityNeeded);
+            lines = lines.Where(l => capped.ContainsKey(l.SkuId)).Select(l => new BulkPreviewLine { SkuId = l.SkuId, Quantity = capped[l.SkuId] }).ToList();
             return lines;
+        }
+
+        /// <summary>Longest an order may take the current crew to pick (OrderPickEstimate), Tad 2026-11-01: orders must fit one
+        /// trailer AND be manageable. Block 29 rolled 400-730 case orders that no crew could pick before their slot.</summary>
+        public const float MaxPickPrepHours = 6f;
+
+        /// <summary>Shaves the order's biggest line until its pick estimate is under <see cref="MaxPickPrepHours"/>: by about a tenth,
+        /// or by one full pallet when <paramref name="wholePallets"/> (bulk stays full pallets). A line is dropped only when it
+        /// empties and others remain.</summary>
+        private void CapToPickHours(OrderData order, bool wholePallets)
+        {
+            for (int guard = 0; guard < 2000 && order.LineItems.Count > 0 && OrderPickEstimate.For(order).Hours > MaxPickPrepHours; guard++)
+            {
+                var li = order.LineItems.OrderByDescending(l => l.QuantityNeeded).First();
+                int step = Mathf.Max(1, Mathf.CeilToInt(li.QuantityNeeded * 0.1f));
+                if (wholePallets)
+                {
+                    var sku = _inventoryService.GetSkuData(li.SkuId);
+                    int full = sku != null ? sku.Ti * sku.Hi : 0;
+                    if (full > 0) step = li.QuantityNeeded % full != 0 ? li.QuantityNeeded % full : full;
+                }
+                if (li.QuantityNeeded - step > 0) li.QuantityNeeded -= step;
+                else if (order.LineItems.Count > 1) order.LineItems.Remove(li);
+                else break;
+            }
         }
 
         /// <summary>
@@ -1344,6 +1376,7 @@ namespace GameCore.Inventory
                 order.LineItems.RemoveAll(li => !keep.ContainsKey(li.SkuId));
                 foreach (var li in order.LineItems) li.QuantityNeeded = keep[li.SkuId];
             }
+            CapToPickHours(order, wholePallets: false);
 
             _orderService.ReceiveOrder(order);
             Debug.Log($"[OrderArrivalService] {customer.CompanyName}: 1 order raised on day {today} " +

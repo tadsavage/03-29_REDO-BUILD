@@ -771,6 +771,79 @@ namespace GameCore.Actors
             _nav.Patrol();
         }
 
+        // ── No-progress watchdog (2026-11-01, HAL block 29) ──
+        // A selector froze on a continuation trip (a jack leg / seek to an unreachable spot never called back) and held the
+        // order's last OrderSelect task for five game days. Update refreshes the claim every frame, so the stale-claim sweep
+        // never freed it; the order could not close, its trailer held door 1, and five later orders went late behind it.
+        private const float NoProgressGameMinutes = 30f;   // Time.deltaTime is game minutes (1 game minute = 1 scaled second)
+        private float _noProgressSeconds;
+        private Vector3 _progressAnchor;
+        private int _progressPicked = -1;
+        private WorkTask _progressTask;
+
+        private void CheckNoProgress()
+        {
+            if (!_taskInProgress || _waitingForStagingSpace || _currentTask == null || _currentOrder == null
+                || _currentTask.Type != WorkTaskType.OrderSelect || _currentOrder.ReturnsMode)
+            { _noProgressSeconds = 0f; _progressTask = null; return; }
+
+            // Charging aboard a jack is a legitimate long stop.
+            if (_jack != null && _jack.GetComponent<EquipmentBattery>() is EquipmentBattery b && b.IsCharging)
+            { _noProgressSeconds = 0f; return; }
+
+            Vector3 pos = _jack != null ? _jack.transform.position : transform.position;
+            int picked = _currentOrder.TotalUnitsPicked;
+            if (_progressTask != _currentTask || picked != _progressPicked || PlanarDist(pos, _progressAnchor) > 1f)
+            {
+                _progressTask = _currentTask; _progressPicked = picked; _progressAnchor = pos; _noProgressSeconds = 0f;
+                return;
+            }
+            _noProgressSeconds += Time.deltaTime;
+            if (_noProgressSeconds < NoProgressGameMinutes) return;
+            _noProgressSeconds = 0f; _progressTask = null;
+            RecoverFromNoProgress();
+        }
+
+        /// <summary>Stops whatever the selector was stuck in and frees the order: picked cases are staged (the remainder becomes
+        /// another trip, as with any short trip), and a trip with nothing picked goes back to the queue for any selector.</summary>
+        private void RecoverFromNoProgress()
+        {
+            string number = _currentOrder.OrderNumber ?? _currentOrder.OrderId;
+            int picked = _pallets.Sum(p => p != null ? p.TotalCases : 0);
+            Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' made no progress on order {number} for {NoProgressGameMinutes:0} game minutes - " +
+                             (picked > 0 ? $"staging the {picked} case(s) picked and freeing the rest." : "handing the task back to the queue."));
+            SystemsLogWindow.LogWarning($"{name.Replace("Employee_", "")} was stuck on order {number} for {NoProgressGameMinutes:0} minutes - " +
+                                        (picked > 0 ? "staging what was picked; the rest goes back on the queue." : "the pick goes back on the queue."));
+
+            StopAllCoroutines();
+            _nav.CancelSeekPosition();
+            DestroyHeldCase();
+            SetLean(0f);
+            SetAnimBool("CarryCase", false);
+
+            if (picked > 0)
+            {
+                // Same as losing the jack: pallets ride the selector and are staged on foot.
+                if (_jack != null) { StartCoroutine(AbandonJackOnFoot("no progress", OrderData.OrderStatus.PartiallyPicked)); return; }
+                EndScriptedFoot();
+                FinishOrder(OrderData.OrderStatus.PartiallyPicked);
+                return;
+            }
+
+            if (_jack != null) ReleaseJack(); else { ReleaseJackLaneLock(); EndScriptedFoot(); }
+            _orderService?.ReleasePick(_currentTask.TaskId);
+            _currentTask.Status = WorkTaskStatus.Available;
+            _currentTask.AssignedToEmployeeGuid = null;
+            foreach (var p in _pallets) if (p != null) Destroy(p.gameObject);
+            _pallets.Clear();
+            ClearJoinState();
+            _currentTask = null;
+            _currentOrder = null;
+            _taskInProgress = false;
+            _nav.SetTaskBusy(false);
+            _nav.Patrol();
+        }
+
         private void ReleaseJackLaneLock()
         {
             if (_jackLaneLock == null) return;
@@ -1251,6 +1324,13 @@ namespace GameCore.Actors
             bool arrived = false;
             _jackNav.SeekPosition(driveTarget, () => arrived = true);
             yield return null;
+            // A carve update or rebake can drop a freshly issued path for a frame or two: re-issue for up to a second first.
+            for (float tw = 0f; _jack != null && !arrived && !_jackAgent.pathPending && !_jackAgent.hasPath && tw < 1f; tw += Time.unscaledDeltaTime)
+            {
+                _jackAgent.Warp(jt.position);
+                _jackAgent.SetDestination(driveTarget);
+                yield return null;
+            }
             if (_jack != null && !arrived && !_jackAgent.pathPending && !_jackAgent.hasPath)
             {
                 Debug.LogError($"[OrderSelectionTaskDriver] Pallet jack: no path to {driveTarget} for '{phase}'.");

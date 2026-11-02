@@ -2678,6 +2678,14 @@ namespace GameCore.Actors
             // _seekingTask = true — which would otherwise hang this leg for the full 30s on a path
             // that was never issued. One frame for the path request to register, then verify.
             yield return null;
+            // A carve update (a pallet set down nearby) or a rebake can drop a freshly issued path for a frame or two; every
+            // "no path" in HAL block 29 was between points that path fine. Re-issue for up to a second before giving up.
+            for (float tw = 0f; !arrived && !_vehicleAgent.pathPending && !_vehicleAgent.hasPath && tw < 1f; tw += Time.unscaledDeltaTime)
+            {
+                _vehicleAgent.Warp(transform.position);
+                _vehicleAgent.SetDestination(driveTarget);
+                yield return null;
+            }
             if (!arrived && !_vehicleAgent.pathPending && !_vehicleAgent.hasPath)
             {
                 Debug.LogError($"[ReachTruckOperator] '{name}' {phase}: destination did not take — " +

@@ -612,7 +612,12 @@ namespace GameCore.Inventory
                 failReason = $"A {DurationText(span)} appointment starting at {BlockLabel(blockIndex)} doesn't fit in the day.";
                 return false;
             }
-            int free = doors.FirstOrDefault(d => !DoorBusy(day, blockIndex, span, d));
+            // Least-booked door that day first, not always the lowest: a recurring account booked "door 1, 17:00" every day, so one
+            // late trailer still parked there blocked the next day's pickup too (HAL block 29, 2026-11-01).
+            int free = doors.Where(d => !DoorBusy(day, blockIndex, span, d))
+                            .OrderBy(d => _appointments.Count(a => a != null && a.Day == day && a.DoorNumber == d && a.Kind != AppointmentKind.Inbound))
+                            .ThenBy(d => d)
+                            .FirstOrDefault();
             if (free == 0)
             {
                 failReason = $"{BlockLabel(blockIndex)} is full — all {doors.Count} door(s) are booked for {DurationText(span)} from then.";
