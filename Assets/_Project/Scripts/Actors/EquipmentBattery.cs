@@ -717,9 +717,10 @@ public class EquipmentBattery : MonoBehaviour
             if (!ok)
             {
                 // Couldn't path there: try the bay itself directly (short hops fail on the mesh more than long ones).
-                Debug.LogWarning($"[EquipmentBattery] {name}: no path to the charger approach - trying again shortly.");
+                ThrottledLog.Warn("batt-nopath-" + name, $"[EquipmentBattery] {name}: no path to the charger approach - trying again shortly.");
                 if (_reserved != null) { _reserved.Release(Slot); _reserved = null; }
-                yield return new WaitForSeconds(3f);
+                _slideRefusals++;
+                yield return new WaitForSeconds(Mathf.Min(30f, 1f + 4f * _slideRefusals));
                 continue;
             }
             // The approach point can sit off the mesh (a rack or another bay in the way), so the agent stopped at the nearest mesh point,
@@ -1112,6 +1113,9 @@ public class EquipmentBattery : MonoBehaviour
             yield return null;
         }
         _inNavTo = false;
+        // AiNavigation fires its arrival callback for a PARTIAL path too ("only partially reachable - treating as arrived"), which left
+        // machines 25-42 m short and then refusing the hand-driven finish over and over (block 1024). That is not an arrival.
+        if (arrived && this != null && Flat(transform.position - drive).magnitude > 3f) arrived = false;
         if (!IsBusy) ParkNav();   // same reason: never switch navigation off under a job that has just started
         done(arrived);
     }
@@ -1155,7 +1159,7 @@ public class EquipmentBattery : MonoBehaviour
         target.y = transform.position.y;
         if (Flat(transform.position - target).magnitude > MaxHandDriveMeters)
         {
-            Debug.LogWarning($"[EquipmentBattery] {name}: not sliding {Flat(transform.position - target).magnitude:0.0} m by hand - that is a navigation job. Trying the path again.");
+            ThrottledLog.Warn("batt-slide-" + name, $"[EquipmentBattery] {name}: not sliding {Flat(transform.position - target).magnitude:0.0} m by hand - that is a navigation job. Trying the path again.");
             yield break;
         }
         while (this != null && Vector3.Distance(Flat(transform.position), Flat(target)) > 0.02f)

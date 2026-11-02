@@ -1489,6 +1489,9 @@ namespace GameCore.Inventory
             var seen = new HashSet<GameObject>();
             foreach (var o in Object.FindObjectsByType<OutboundPalletBuilder>(FindObjectsInactive.Exclude)) if (o != null && seen.Add(o.gameObject)) all.Add(o.gameObject);
             foreach (var l in Object.FindObjectsByType<PalletMasterLink>(FindObjectsInactive.Exclude)) if (l != null && seen.Add(l.gameObject)) all.Add(l.gameObject);
+            // Unrecorded pallets (a bare CHEP, a pallet whose record is gone) still hold up whatever stands on them. Without them as
+            // supports the pallet above was "settled" down into them (block 1024 overlaps).
+            foreach (var d in Object.FindObjectsByType<PalletData>(FindObjectsInactive.Exclude)) if (d != null && seen.Add(d.gameObject)) all.Add(d.gameObject);
             if (all.Count == 0) return;
             foreach (var p in all)
             {
@@ -1509,7 +1512,10 @@ namespace GameCore.Inventory
                     if (qr.Length == 0) continue;
                     var qb = qr[0].bounds; foreach (var r in qr) qb.Encapsulate(r.bounds);
                     if (qb.max.x < b.min.x + 0.2f || qb.min.x > b.max.x - 0.2f || qb.max.z < b.min.z + 0.2f || qb.min.z > b.max.z - 0.2f) continue;
-                    if (qb.max.y <= b.min.y + Tolerance && qb.max.y > support) support = qb.max.y;
+                    if (qb.min.y >= b.min.y - 0.05f) continue;   // not beneath this pallet
+                    // Its real top (a pallet whose cases haven't drawn yet still stands its product's height), never lower.
+                    float qTop = Mathf.Max(qb.max.y, GameCore.Labor.TrailerOffloadController.MeasureTopY(q));
+                    if (qTop > support) support = qTop;
                 }
                 float drop = b.min.y - (support + 0.02f);
                 if (drop > Tolerance)

@@ -693,6 +693,9 @@ public class PlacementSystem : MonoBehaviour
         moneyService.RestoreCapital(save.money);
         moneyService.SetSpentToday(save.spentToday);
 
+        // Every vehicle is about to be destroyed and respawned, so lane locks and staging reservations taken before this load are void.
+        if (ServiceLocator.TryGet(out GameCore.Inventory.InventoryService lockInv)) lockInv.ClearAllLaneLocks();
+
         // ── RESET TRUCK YARD ─────────────────────────────────────────────────
         // Destroy all live trucks and release dock slots BEFORE ClearAll() wipes the
         // ShippingDoor placed objects (which DockSlot.Release references). Trucks are NOT

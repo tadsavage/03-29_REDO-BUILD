@@ -42,7 +42,7 @@ public static class OpsMetrics
     [Serializable] class Store { public List<Sample> s = new(); }
 
     const int MaxPerKind = 300;           // kept per kind PER SOURCE
-    const float Allowance = 1.15f;        // personal / fatigue / delay allowance on top of the observed average for a standard
+    const float Allowance = 1.265f; // 1.15 x 1.10 (Tad, 2026-11-01: standards 10% looser): personal / fatigue / delay allowance on top of the observed average for a standard
     static readonly Dictionary<Source, Dictionary<Kind, List<Sample>>> _data = new()
     {
         { Source.Bot, new Dictionary<Kind, List<Sample>>() },

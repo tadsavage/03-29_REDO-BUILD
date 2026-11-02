@@ -20,11 +20,14 @@ namespace GameCore.Inventory
     /// </summary>
     public static class OrderPickEstimate
     {
-        public const float DefaultPalletPickMinutes = 22f;    // reach truck: claim, pick up, drop at the lane, drive back (measured ~20-23, block 19-20)
-        public const float DefaultCaseMinutes = 1.3f;         // one case, whole round trip (measured ~1.28 on foot, 5 trips)
+        // Defaults and floors below include Tad's +10% (2026-11-01, "too hard"); measured standards get it via OpsMetrics' allowance.
+        public const float DefaultPalletPickMinutes = 24.2f;  // reach truck: claim, pick up, drop at the lane, drive back (measured ~20-23, block 19-20) x1.1
+        public const float DefaultCaseMinutes = 1.65f;        // one case, whole round trip (Tad's 1.5 floor x1.1)
         public const float DefaultBayMoveMinutes = 2.0f;      // jack from one pick stop to the next (guess until measured)
         public const float DefaultStagingMinutes = 8f;        // drive to the lane, back in, set down, leave (guess until measured)
-        public const float DefaultLoadMinutes = 15f;          // dock stocker: one pallet from the lane onto the trailer (measured ~14-15)
+        public const float DefaultLoadMinutes = 16.5f;        // dock stocker: one pallet from the lane onto the trailer (measured ~14-15) x1.1
+        // Allowance added on top of the measured (or default) load time (Tad, 2026-11-01: the cutoffs were too tight to make).
+        public const float ExtraPalletMinutes = 2f;           // every full pallet loaded onto a trailer (and offloaded: TruckController)
         const int MinSamples = 3;
 
         public struct Result
@@ -100,11 +103,12 @@ namespace GameCore.Inventory
             r.NoPeople = (r.palletPicks > 0 && r.reachTrucks == 0) || (r.looseCases > 0 && r.selectors == 0);
 
             r.palletMinutes = Standard(OpsMetrics.Kind.PalletPick, DefaultPalletPickMinutes);
-            r.caseMinutes = Standard(OpsMetrics.Kind.CaseCycle, DefaultCaseMinutes);
+            // Never below 1.65 min a case:the measured average left too little time to make the cutoff.
+            r.caseMinutes = Mathf.Max(DefaultCaseMinutes, Standard(OpsMetrics.Kind.CaseCycle, DefaultCaseMinutes));
             r.bayMoveMinutes = Standard(OpsMetrics.Kind.JackBayMove, DefaultBayMoveMinutes);
             r.stagingMinutes = Standard(OpsMetrics.Kind.JackStaging, DefaultStagingMinutes);
 
-            r.loadMinutes = Standard(OpsMetrics.Kind.LoadCycle, DefaultLoadMinutes);
+            r.loadMinutes = Standard(OpsMetrics.Kind.LoadCycle, DefaultLoadMinutes) + ExtraPalletMinutes;
             if (r.pallets > 0) r.loadHours = r.pallets * r.loadMinutes / Mathf.Max(1, r.dockStockers) / 60f;
             int rt = Mathf.Max(1, r.reachTrucks);
             if (r.palletPicks > 0) r.palletHours = Mathf.CeilToInt(r.palletPicks / (float)rt) * r.palletMinutes / 60f;

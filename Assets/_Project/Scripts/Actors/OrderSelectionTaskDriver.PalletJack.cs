@@ -590,7 +590,7 @@ namespace GameCore.Actors
             }
 
             // One machine in a lane at a time (same lock as the reach trucks and dock stockers).
-            while (!_inventoryService.TryEnterLaneForDelivery(door, resolvedLane))
+            while (!_inventoryService.TryEnterLaneForDelivery(door, resolvedLane, InventoryService.VehicleLabel(_jack != null ? _jack.transform : null, "pallet jack", "staging")))
                 yield return null;
             _jackLaneLock = (door, resolvedLane);
 
@@ -1269,10 +1269,12 @@ namespace GameCore.Actors
                 elapsed += Time.deltaTime;
                 sinceRecheck += Time.deltaTime;
 
-                // Diagnostic: log each stall of 0.5s+ (not moving > 5 cm), to locate the stuck spot.
-                stillFor = PlanarDist(jt.position, lastPos) < 0.05f ? stillFor + Time.deltaTime : 0f;
-                lastPos = jt.position;
-                if (stillFor >= 0.5f && !stallLogged)
+                // Diagnostic: log each stall of 3s+ (not moving > 5 cm), to locate the stuck spot. 0.5s was firing on every pull-away
+                // and turn (block 1024: x25 REPEATING at elapsed=1.2s), which buried the real stalls.
+                // Measured from an anchor, not frame to frame: a jack at walking pace moves ~2 cm a frame and read as "still".
+                if (PlanarDist(jt.position, lastPos) < 0.05f) stillFor += Time.deltaTime;
+                else { stillFor = 0f; lastPos = jt.position; }
+                if (stillFor >= 3f && !stallLogged)
                 {
                     stallLogged = true;
                     Debug.LogWarning($"[JackStall] '{phase}' at {jt.position} (target {driveTarget}) " +

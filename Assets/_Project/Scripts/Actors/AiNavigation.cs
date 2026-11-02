@@ -626,6 +626,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 // A machine's escape point must be on the FLOOR: the yard-level layer under the building edge is "inside" by the
                 // boundary's tolerance, and walking there put a reach truck through the floor (block 27, 2026-11-01).
                 if (restricted && hit.position.y < MachineMinFloorY) continue;
+                // Nobody steps off the building floor to get unstuck: workers stuck inside walked out 12 m to the yard (y 0.04) through
+                // the wall (block 1024, Sarah Rogers / Carolyn Ramirez).
+                if (origin.y > MachineMinFloorY && hit.position.y < origin.y - 0.6f) continue;
 
                 float d = Vector3.Distance(origin, hit.position);
                 if (d < MinEscapeDistance) continue;   // too close — still inside the pocket
@@ -1550,6 +1553,25 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                               < Vector3.Distance(agent.transform.position, linkData.endPos);
             from = agent.transform.position;
             to   = startIsClose ? linkData.endPos : linkData.startPos;
+        }
+
+        // Machines never take a link down to the yard (Tad, 2026-11-01 live: a pallet jack went 1.11 -> 0.57 -> 0.00 at the north
+        // dock edge on a ledge link). Put it back on the floor and drop the leg; workers may still use the ledges.
+        if (_isMachine == null) _isMachine = GetComponent<MHEOperatorSlot>() != null;
+        if (_isMachine.Value && to.y < MachineMinFloorY)
+        {
+            ThrottledLog.Warn("mhe-link-" + name, $"[AiNavigation] '{name}' refused a ledge link down to the yard ({from} -> {to}); machines stay on the floor.");
+            if (agent.isActiveAndEnabled)
+            {
+                if (agent.isOnOffMeshLink) agent.CompleteOffMeshLink();
+                Vector3 back = from.y >= MachineMinFloorY ? from : (_haveMachineFloorPos ? _lastMachineFloorPos : from);
+                agent.Warp(back);
+                transform.position = back;
+                if (manualStop) agent.isStopped = false;
+            }
+            CancelSeekPosition();
+            _traversingLink = false;
+            yield break;
         }
 
         if (ledge != null)

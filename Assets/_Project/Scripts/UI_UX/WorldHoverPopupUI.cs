@@ -2084,34 +2084,36 @@ private void ShowLocation(LocationData location)
                     {
                         ServiceLocator.TryGet<InventoryService>(out var stockInv);
                         ServiceLocator.TryGet<VendorEconomyService>(out var stockEco);
-                        int haveCases = stockInv != null ? stockInv.TotalOnHand(skuId) : 0;
+                        // Tad's rule: red ONLY when the building can't cover it. Balance on hand minus pending shipment.
+                        // BOH = cases still in stock records (racks, lanes, forks). Pending = cases every open order
+                        // still has to PICK. Cases already picked (on a selector's pallet, staged, on forks to the
+                        // trailer, aboard) are out of both numbers, so they can never read as missing.
+                        int boh = stockInv != null ? stockInv.TotalOnHand(skuId) : 0;
                         int onOrderCases = stockEco != null ? stockEco.GetTotalOnOrder(skuId) : 0;
-                        // Cases already staged for this order are picked: only the rest needs stock on hand.
-                        int stillNeeded = Mathf.Max(0, remainCases - (stagedCasesBySku.TryGetValue(skuId, out var stagedHere) ? stagedHere : 0));
-                        // Cases promised to OTHER open orders come off the top. Cases held for this trailer's own orders
-                        // stay available to it, so they never count as a shortage. Global for every SKU, not item-specific.
-                        int committedElsewhere = 0;
+                        int pending = 0, cardUnpicked = 0;
                         ServiceLocator.TryGet<OrderService>(out var stockOrders);
                         if (stockOrders != null)
-                            foreach (var other in stockOrders.ActiveOrders)
+                            foreach (var o in stockOrders.ActiveOrders)
                             {
-                                if (other == null || cardOrderIds.Contains(other.OrderId)) continue;
-                                foreach (var li in other.LineItems)
-                                    if (li.SkuId == skuId) committedElsewhere += li.QuantityRemaining;
+                                if (o == null || o.Status == OrderData.OrderStatus.Shipped || o.Status == OrderData.OrderStatus.Cancelled) continue;
+                                foreach (var li in o.LineItems)
+                                {
+                                    if (li == null || li.SkuId != skuId) continue;
+                                    int left = Mathf.Max(0, li.QuantityRemaining);
+                                    pending += left;
+                                    if (cardOrderIds.Contains(o.OrderId)) cardUnpicked += left;
+                                }
                             }
-                        int availableForTrailer = Mathf.Max(0, haveCases - committedElsewhere);
-                        if (availableForTrailer + onOrderCases < stillNeeded)
+                        int balance = boh - pending;
+                        if (cardUnpicked > 0 && balance < 0)
                         {
-                            row.text += availableForTrailer + onOrderCases <= 0 ? "  - NONE ON ORDER" : $"  - SHORT: {availableForTrailer} free here, {onOrderCases} on order";
+                            row.text += boh <= 0
+                                ? (onOrderCases > 0 ? $"  - NONE IN HOUSE ({onOrderCases} cs on order)" : "  - NONE IN HOUSE")
+                                : $"  - SHORT {-balance}cs: {boh} in house, {pending} pending" + (onOrderCases > 0 ? $", {onOrderCases} on order" : "");
                             // The empty part of the bar (where the remaining cases should be) turns red, so the missing item stands out in the column.
                             track.style.backgroundColor = new Color(0.72f, 0.16f, 0.16f, 1f);
                             track.style.borderTopColor = track.style.borderBottomColor = track.style.borderLeftColor = track.style.borderRightColor = new Color(1f, 0.38f, 0.34f, 1f);
                             anyOutOfStock = true;
-                        }
-                        else if (availableForTrailer < stillNeeded)
-                        {
-                            row.text += $"  - on order ({onOrderCases} cs)";
-                            row.style.color = new Color(1f, 0.78f, 0.3f, 1f);
                         }
                     }
 

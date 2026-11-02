@@ -70,8 +70,9 @@ namespace GameCore.Labor
                 if (task.Type != WorkTaskType.PalletPick || task.Status != WorkTaskStatus.Available) continue;
                 if (string.IsNullOrEmpty(task.PalletId) || string.IsNullOrEmpty(task.OrderId)) continue;
                 if (!TryParseStagingAddress(task.FromLocation, out int srcDoor, out string srcLane)) continue;
-                if (!TryParseLaneAddress(task.ToLocation, out int dstDoor, out _)) continue;
-                if (srcDoor != dstDoor) continue; // a dock stocker works its own door's dock only
+                if (!TryParseLaneAddress(task.ToLocation, out _, out _)) continue;
+                // Any door: a pallet the trailer needs that sits at ANOTHER door is fetched too, like a reach truck would (Tad,
+                // 2026-11-01). This runs only once there is nothing ordinary left to load (see Update), so it never jumps the queue.
                 if (_digRetryAt.TryGetValue(task.TaskId, out float retryAt) && Time.time < retryAt) continue;
 
                 // The trailer is the one booked for THIS pick's order (appointment id), not whatever is docked at the lane's door.
@@ -247,12 +248,16 @@ namespace GameCore.Labor
             {
                 var c = slotsDoorFirst[i].Cell;
                 var stack = PhysicalStack(inv, c);
-                if (stack.Count == 0) { cell = c; found = true; continue; }
+                // Staged outbound pallets have no inventory record, so PhysicalStack can't see them: count them too, or a drop
+                // drives straight through an order's freight (dock cleanup fills lanes that hold it).
+                int outbound = inv.GetOutboundPalletObjectsAt(d, l, c).Count(go => go != null && OutboundPalletBuilder.IsOnFloorTransform(go.transform));
+                int tiers = stack.Count + outbound;
+                if (tiers == 0) { cell = c; found = true; continue; }
 
-                if (!found && stack.Count < maxH)
+                if (!found && tiers < maxH)
                 {
-                    string topId = stack[0].GetComponent<PalletMasterLink>()?.PalletId;
-                    if (!queue.Tasks.Any(x => x.PalletId == topId && x.Status == WorkTaskStatus.Assigned))
+                    string topId = stack.Count > 0 ? stack[0].GetComponent<PalletMasterLink>()?.PalletId : null;
+                    if (topId == null || !queue.Tasks.Any(x => x.PalletId == topId && x.Status == WorkTaskStatus.Assigned))
                     { cell = c; found = true; }
                 }
                 break; // can't drive past an occupied slot
@@ -294,8 +299,21 @@ namespace GameCore.Labor
             bool ok = true;
             string failWhy = null;
 
+            // The source lane can be at another door now: get there over the NavMesh first. The pickup's own moves are straight
+            // slides, only meant for the last few metres at the lane mouth.
+            {
+                Vector3 srcPivot = EntryPivot(srcDoor, srcLane, srcDoorPos, ds.position.y);
+                Vector3 toPivot = srcPivot - ds.position; toPivot.y = 0f;
+                if (toPivot.magnitude > 3f)
+                {
+                    bool there = false;
+                    yield return SeekViaNavMesh(ds, nav, agent, srcPivot, $"dig: → source lane {srcDoor}{srcLane}", r => there = r);
+                    if (!there) { ok = false; failWhy = $"no NavMesh route to lane {srcDoor}{srcLane}"; }
+                }
+            }
+
             // ── 1+2. Move blockers out, one at a time, re-planning each time ──
-            for (int moved = 0; ok && moved <= MaxBlockersPerRun; moved++)
+            for (int moved = 0; ok && moved <= MaxBlockersPerRun && ds != null; moved++)
             {
                 if (ds == null) { ok = false; break; }
                 if (!TryPlanDig(inv, queue, srcDoor, srcLane, task.PalletId, out var blockers, out failWhy)) { ok = false; break; }
@@ -368,7 +386,9 @@ namespace GameCore.Labor
                             stackBaseY = 0f;
                         }
                         Vector3 doorPos = truck.DockedAt != null ? truck.DockedAt.transform.position : srcDoorPos;
-                        yield return PlaceCarriedInTrailer(ds, forks, truck, link.transform, slotIndex, doorPos, ds.position.y, false, stackBaseY);
+                        // From another door's lane the carry crosses the dock: NavMesh leg, not a straight slide through lanes.
+                        bool crossDoor = truck.DockedAt != null && truck.DockedAt.DoorNumber != srcDoor;
+                        yield return PlaceCarriedInTrailer(ds, forks, truck, link.transform, slotIndex, doorPos, ds.position.y, crossDoor, stackBaseY);
 
                         // Same bookkeeping as a reach-truck pallet pick, plus the loader's "on the trailer".
                         var outbound = link.GetComponent<OutboundPalletBuilder>() ?? link.gameObject.AddComponent<OutboundPalletBuilder>();
@@ -469,7 +489,7 @@ namespace GameCore.Labor
             yield return DriveTailFirst(ds, entryPivot);
 
             if (inv != null)
-                while (!inv.TryEnterLaneForDelivery(door, lane)) yield return null;
+                while (!inv.TryEnterLaneForDelivery(door, lane, InventoryService.VehicleLabel(ds, "dock stocker", "digging out"))) yield return null;
             try
             {
                 if (palletT == null || ds == null) yield break;
@@ -518,7 +538,7 @@ namespace GameCore.Labor
             yield return DriveTailFirst(ds, farPivot);           // close the NavMesh stopping distance exactly
 
             if (inv != null)
-                while (!inv.TryEnterLaneForDelivery(door, lane)) yield return null;
+                while (!inv.TryEnterLaneForDelivery(door, lane, InventoryService.VehicleLabel(ds, "dock stocker", "digging out"))) yield return null;
             try
             {
                 if (ds == null || palletT == null) { onDone(false); yield break; }
@@ -576,7 +596,7 @@ namespace GameCore.Labor
 
             yield return DriveTailFirst(ds, entryPivot);
             if (inv != null)
-                while (!inv.TryEnterLaneForDelivery(door, lane)) yield return null;
+                while (!inv.TryEnterLaneForDelivery(door, lane, InventoryService.VehicleLabel(ds, "dock stocker", "digging out"))) yield return null;
             try
             {
                 if (ds == null || palletT == null) yield break;

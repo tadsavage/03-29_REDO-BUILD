@@ -426,22 +426,80 @@ namespace GameCore.Inventory
         /// the caller should wait outside (poll) rather than proceed. Every successful call MUST be
         /// paired with ReleaseLaneEntry on every exit path, or the lane is blocked for the rest of the
         /// session.</summary>
-        public bool TryEnterLaneForDelivery(int doorNumber, string lane)
+        public bool TryEnterLaneForDelivery(int doorNumber, string lane, string who = null, Object owner = null)
         {
             var key = (doorNumber, lane);
+            // The vehicle that took it no longer exists (a load destroyed and respawned every machine): the lock is free.
+            if (_laneEntryLocks.ContainsKey(key) && _laneLockOwners.TryGetValue(key, out var prevOwner) && prevOwner == null)
+            {
+                Debug.LogWarning($"[InventoryService] Lane {doorNumber}{lane} was still locked by a vehicle that no longer exists ({LaneLockHolderName(key)}) - freeing it.");
+                ReleaseLaneEntry(doorNumber, lane);
+            }
             if (_laneEntryLocks.TryGetValue(key, out float since))
             {
                 if (Time.time - since < LaneLockStaleSeconds) return false;
-                Debug.LogWarning($"[InventoryService] Lane {doorNumber}{lane} lock was held for over {LaneLockStaleSeconds:F0}s - treating it as leaked and taking it over.");
+                Debug.LogWarning($"[InventoryService] Lane {doorNumber}{lane} lock was held for over {LaneLockStaleSeconds:F0}s by {LaneLockHolderName(key)} - treating it as leaked and taking it over.");
             }
             _laneEntryLocks[key] = Time.time;
+            _laneLockHolders[key] = who;
+            if (owner != null) _laneLockOwners[key] = owner; else _laneLockOwners.Remove(key);
             return true;
+        }
+
+        private readonly Dictionary<(int Door, string Lane), Object> _laneLockOwners = new Dictionary<(int, string), Object>();
+
+        /// <summary>A load destroys and respawns every vehicle, so no lock taken before it can still mean anything (block 1025: the game's
+        /// own boot load put trucks to work, the player's F9 replaced them, and their lane locks stayed behind for 1-2 minutes).</summary>
+        public void ClearAllLaneLocks()
+        {
+            if (_laneEntryLocks.Count > 0) Debug.Log($"[InventoryService] Load: cleared {_laneEntryLocks.Count} lane lock(s) held by the previous session's vehicles.");
+            _laneEntryLocks.Clear();
+            _laneLockHolders.Clear();
+            _laneLockOwners.Clear();
+            _stagingSlotReservations.Clear();   // same story: reserved by trucks that are gone
+        }
+
+        /// <summary>Every lane lock taken by this owner (the vehicle component that passed itself to TryEnterLaneForDelivery).</summary>
+        public List<(int Door, string Lane)> LanesLockedBy(Object owner)
+        {
+            var list = new List<(int, string)>();
+            if (owner == null) return list;
+            foreach (var kv in _laneLockOwners) if (kv.Value == owner) list.Add(kv.Key);
+            return list;
         }
 
         /// <summary>Hand the lane back once the pallet is down (or the delivery aborted). Safe to call
         /// for a lane that was never locked.</summary>
-        public void ReleaseLaneEntry(int doorNumber, string lane) =>
+        public void ReleaseLaneEntry(int doorNumber, string lane)
+        {
             _laneEntryLocks.Remove((doorNumber, lane));
+            _laneLockHolders.Remove((doorNumber, lane));
+            _laneLockOwners.Remove((doorNumber, lane));
+        }
+
+        // Who took each lane lock, so a vehicle left waiting can say who it was waiting on (block 1024: "waited 45s for lane 2A"
+        // with no way to tell which machine held it).
+        private readonly Dictionary<(int Door, string Lane), string> _laneLockHolders = new Dictionary<(int, string), string>();
+
+        private string LaneLockHolderName((int, string) key) =>
+            _laneLockHolders.TryGetValue(key, out var w) && !string.IsNullOrEmpty(w) ? w : "an unnamed vehicle";
+
+        /// <summary>"dock stocker DS_FULL(Clone) (Jessica Morgan, unloading)": the machine and whoever is riding it.</summary>
+        public static string VehicleLabel(Transform vehicle, string kind, string doing)
+        {
+            if (vehicle == null) return kind;
+            string op = "no driver";
+            foreach (var id in vehicle.GetComponentsInChildren<EmployeeIdentity>(true)) { op = id.name.Replace("Employee_", ""); break; }
+            return $"{kind} {vehicle.name} ({op}, {doing})";
+        }
+
+        /// <summary>"DS_FULL(Clone) (Jessica Morgan) for 52s", or null when the lane is free.</summary>
+        public string LaneLockInfo(int doorNumber, string lane)
+        {
+            var key = (doorNumber, lane);
+            if (!_laneEntryLocks.TryGetValue(key, out float since)) return null;
+            return $"{LaneLockHolderName(key)} for {Time.time - since:F0}s";
+        }
 
         // ── In-transit staging reservations ──────────────────────────────────────────────────
         /// <summary>

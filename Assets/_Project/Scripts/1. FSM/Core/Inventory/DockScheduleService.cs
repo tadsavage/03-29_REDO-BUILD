@@ -381,7 +381,7 @@ namespace GameCore.Inventory
         /// <summary>Tad's loading rule (2026-10-31): a load gets 15 game minutes per pallet. A trailer's slot always has at least
         /// its block span, and stretches to the pallets it carries when that is longer - a 10-pallet load gets 150 minutes,
         /// not a fine at the end of the 2-hour block.</summary>
-        public const int MinutesPerPalletLoad = 15;
+        public const int MinutesPerPalletLoad = 19;   // (15 + 2 extra) x 1.1, rounded up (Tad, 2026-11-01), loads and offloads
 
         /// <summary>How long this appointment's trailer may run past its start before it counts as late.</summary>
         public int AllowedMinutes(DockAppointment appt, OrderService orders)
@@ -1897,14 +1897,22 @@ namespace GameCore.Inventory
                     po.Status == ShipmentData.ShipmentStatus.Departed ||
                     po.Status == ShipmentData.ShipmentStatus.Cancelled) continue;
 
-                long apptStartMinutes = (long)(appt.Day - 1) * 24 * 60 + appt.StartHour * 60;
-                if (nowMinutes - apptStartMinutes < ReceiveDeadlineHours * 60) continue;
+                // The clock starts when the truck pulls up to the guard for check-in (Tad, 2026-11-01), not at the booked slot and
+                // not while it is still driving in or queued. With no truck at all, the booked slot start still applies.
+                var truck = Object.FindObjectsByType<TruckController>()
+                    .FirstOrDefault(t => t != null && t.AssignedShipment == po);
+                long startMinutes;
+                if (truck != null)
+                {
+                    if (truck.CheckInSimMinute < 0) continue;   // still on its way in / in the gate line
+                    startMinutes = truck.CheckInSimMinute;
+                }
+                else startMinutes = (long)(appt.Day - 1) * 24 * 60 + appt.StartHour * 60;
+                if (nowMinutes - startMinutes < ReceiveDeadlineHours * 60) continue;
 
                 // Force out any live truck still sitting on this PO before cancelling — ForceDeparture
                 // internally marks the shipment Departed, which we immediately override to Cancelled
                 // below so the PO doesn't read as fulfilled.
-                var truck = Object.FindObjectsByType<TruckController>()
-                    .FirstOrDefault(t => t != null && t.AssignedShipment == po);
                 truck?.ForceDeparture();
 
                 po.Status = ShipmentData.ShipmentStatus.Cancelled;

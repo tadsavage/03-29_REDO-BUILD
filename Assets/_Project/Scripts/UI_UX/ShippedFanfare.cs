@@ -84,6 +84,52 @@ public static class ShippedFanfare
         label.schedule.Execute(() => label.RemoveFromHierarchy()).ExecuteLater(durationMs + 40);
     }
 
+    /// <summary>A centred modal card that pops in, holds and closes by itself. Runs on the panel's clock, so it plays while the game is paused.</summary>
+    public static void ShowModal(string text, int durationMs = 3000)
+    {
+        if (!EnsureLayer()) { UIToast.Show(text, durationMs / 1000f); return; }
+
+        var dim = new VisualElement { pickingMode = PickingMode.Ignore };
+        dim.style.position = Position.Absolute;
+        dim.style.left = 0; dim.style.right = 0; dim.style.top = 0; dim.style.bottom = 0;
+        dim.style.backgroundColor = new Color(0f, 0f, 0f, 0.45f);
+        dim.style.alignItems = Align.Center;
+        dim.style.justifyContent = Justify.Center;
+
+        var card = new VisualElement { pickingMode = PickingMode.Ignore };
+        card.style.backgroundColor = new Color(0.078f, 0.11f, 0.149f, 0.97f);   // house navy #141C26
+        var border = new Color(0.36f, 0.61f, 0.77f, 1f);                       // house blue #5C9BC4
+        card.style.borderTopColor = card.style.borderBottomColor = card.style.borderLeftColor = card.style.borderRightColor = border;
+        card.style.borderTopWidth = card.style.borderBottomWidth = card.style.borderLeftWidth = card.style.borderRightWidth = 4;
+        card.style.borderTopLeftRadius = card.style.borderTopRightRadius = card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 18;
+        card.style.paddingLeft = card.style.paddingRight = 70;
+        card.style.paddingTop = card.style.paddingBottom = 40;
+
+        var label = new Label(text) { pickingMode = PickingMode.Ignore };
+        label.style.fontSize = 84;
+        label.style.unityTextAlign = TextAnchor.MiddleCenter;
+        label.style.color = new Color(0.98f, 0.62f, 0.25f, 1f);                // house orange
+        label.style.unityTextOutlineWidth = 0.3f;
+        label.style.unityTextOutlineColor = new StyleColor(new Color(0.1f, 0.06f, 0f, 0.95f));
+        ApplyFont(label);
+        card.Add(label);
+        dim.Add(card);
+        dim.style.opacity = 0f;
+        _root.Add(dim);
+        dim.BringToFront();
+
+        card.experimental.animation.Start(0f, 1f, durationMs, (e, t) =>
+        {
+            float pop = t < 0.1f ? Mathf.Sin(t / 0.1f * Mathf.PI * 0.5f) : 1f;
+            float overshoot = t < 0.1f ? 1f + 0.2f * Mathf.Sin(t / 0.1f * Mathf.PI) : 1f;
+            float sc = Mathf.Lerp(0.5f, 1f, pop) * overshoot;
+            e.transform.scale = new Vector3(sc, sc, 1f);
+            dim.style.opacity = t < 0.9f ? Mathf.Min(1f, t * 12f) : 1f - Mathf.InverseLerp(0.9f, 1f, t);
+        });
+        ConfettiFx.Play(_root, _confettiStrip);
+        dim.schedule.Execute(() => dim.RemoveFromHierarchy()).ExecuteLater(durationMs + 40);
+    }
+
     // ── HAL 9000 event pop-ups: same pop-in as the payout, in HAL purple, no confetti ──
 
     public static readonly Color HalPurple = new Color(0.72f, 0.40f, 1f, 1f);

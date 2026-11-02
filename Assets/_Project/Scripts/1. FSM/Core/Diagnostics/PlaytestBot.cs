@@ -317,13 +317,14 @@ namespace GameCore.Diagnostics
             if (!ServiceLocator.TryGet<SimulationTimeService>(out var time) || !ServiceLocator.TryGet<MoneyService>(out var money)) return LiveScore;
             ServiceLocator.TryGet<FulfillmentStatsService>(out var stats);
             float elapsed = Mathf.Max(0.25f, (Key(time) - _startKey) / 1440f);
-            int pallets = PalletsShippedTotal(0, time.Day + 1) - _palletsAtStart;
-            int revenue = money.LifetimeIncome.Values.Sum() - _startIncome;
+            var shipTotals = ShipTotalsThisBlock();
+            int pallets = shipTotals.pallets;
+            int revenue = shipTotals.revenue;
             int net = money.CurrentCapital - _startCash;   // cash only: stock on hand is neither a cost nor a gain
             float penalty = _incidents.Sum(kv => WeightOf(kv.Key) * (1f + Mathf.Log(kv.Value, 2f)));
             int rep = ServiceLocator.TryGet<ReputationService>(out var rs) ? rs.Score : _startRep;
             c[0] = OnTimeRatio();
-            c[1] = _shipped > 0 && stats != null ? Mathf.Clamp01(stats.AvgFillRate) : 0f;
+            c[1] = BlockFillRate(shipTotals);
             c[2] = Mathf.Clamp01(pallets / Mathf.Max(1f, S.targetPalletsPerDay * elapsed));
             c[3] = Mathf.Clamp01(revenue / Mathf.Max(1f, S.targetRevenuePerDay * elapsed));
             c[4] = Mathf.Clamp01(0.5f + 0.5f * net / Mathf.Max(1f, S.targetProfitPerDay * elapsed));
@@ -1128,6 +1129,7 @@ namespace GameCore.Diagnostics
             ServiceLocator.TryGet<OrderService>(out var orders);
             float elapsed = Mathf.Max(0.25f, (Key(time) - _startKey) / 1440f);
             int done = _shippedOnTime + _late;
+            var shipTotals = ShipTotalsThisBlock();
 
             // 1. on-time
             float onT = OnTimeRatio();
@@ -1164,19 +1166,20 @@ namespace GameCore.Diagnostics
                 exit = true, name = "Profit (cash)", goal = "> $0", actual = (net >= 0 ? "+$" : "-$") + Mathf.Abs(net).ToString("N0"),
                 state = net > 0 ? GoalState.Met : GoalState.Missed,
                 why = net > 0 ? "Ahead of where the block started."
-                              : $"Cash ${money.CurrentCapital:N0} is below the start; revenue so far ${money.LifetimeIncome.Values.Sum() - _startIncome:N0}."
+                              : $"Cash ${money.CurrentCapital:N0} is below the start; revenue so far ${shipTotals.revenue:N0}."
             });
 
             // supporting parts of the score
-            float fill = _shipped > 0 && stats != null ? Mathf.Clamp01(stats.AvgFillRate) : 0f;
+            bool anyShipped = shipTotals.needed > 0;
+            float fill = BlockFillRate(shipTotals);
             rows.Add(new GoalRow
             {
-                name = "Fill rate", goal = ">= 90%", actual = _shipped > 0 ? $"{fill * 100f:0}%" : "n/a",
-                state = _shipped == 0 ? GoalState.Pending : fill >= FillGoal ? GoalState.Met : GoalState.Missed,
-                why = fill >= FillGoal || _shipped == 0 ? "Orders are shipping complete." : (_lastShortWhy ?? "unknown")
+                name = "Fill rate", goal = ">= 90%", actual = anyShipped ? $"{fill * 100f:0}%" : "n/a",
+                state = !anyShipped ? GoalState.Pending : fill >= FillGoal ? GoalState.Met : GoalState.Missed,
+                why = fill >= FillGoal || !anyShipped ? "Orders are shipping complete." : (_lastShortWhy ?? "unknown")
             });
 
-            int pallets = PalletsShippedTotal(0, time.Day + 1) - _palletsAtStart;
+            int pallets = shipTotals.pallets;
             // The goal is a RATE (settings: targetPalletsPerDay). What is shown is that rate and the pace it implies for the time that has
             // really passed in the block; for the first quarter-day there is nothing meaningful to judge, so it stays pending.
             float daysIn = Mathf.Max(0f, (Key(time) - _startKey) / 1440f);
@@ -1191,7 +1194,7 @@ namespace GameCore.Diagnostics
                 why = daysIn < 0.25f ? "Too early in the block to judge." : pallets >= palTarget ? "At or above the goal." : $"{palTarget - pallets} short. Biggest queue: " + (BiggestQueue() ?? "none waiting")
             });
 
-            int revenue = money.LifetimeIncome.Values.Sum() - _startIncome;
+            int revenue = shipTotals.revenue;
             int revTarget = Mathf.CeilToInt(S.targetRevenuePerDay * daysIn - 0.001f);
             int open = orders != null ? orders.ActiveOrders.Count : 0;
             int overdue = orders != null ? orders.ActiveOrders.Count(x => x != null && x.IsOverdue(time.Day)) : 0;
@@ -1450,6 +1453,38 @@ namespace GameCore.Diagnostics
 
         // ═════════════════════════════════════ scoring + reports ═════════════════════════════════════
 
+        /// <summary>Pallets, revenue and fill rate of every order shipped since this block began, read from the orders themselves.
+        /// The money ledger's lifetime income and FulfillmentStatsService's totals are not saved, so after any load they restart at 0
+        /// and a block scored from them showed 0 pallets / $0 revenue / 100% fill no matter what had shipped. Shipped orders
+        /// (with their close-out day, pallet count and billed revenue) ARE saved, so this survives reloads.</summary>
+        struct BlockShipTotals { public int pallets, revenue, picked, needed; }
+
+        BlockShipTotals ShipTotalsThisBlock()
+        {
+            var t = new BlockShipTotals();
+            if (!ServiceLocator.TryGet<OrderService>(out var orders)) return t;
+            var seen = new HashSet<string>();
+            void Add(OrderData o)
+            {
+                if (o == null || o.Status != OrderData.OrderStatus.Shipped || o.ClosedDayNumber < 0 || !seen.Add(o.OrderId)) return;
+                long closed = (long)o.ClosedDayNumber * 1440 + Mathf.Max(0, o.ClosedMinuteOfDay);
+                if (closed < _startKey) return;
+                int pal = o.PalletsShipped;
+                if (pal <= 0)
+                    foreach (var li in o.LineItems)
+                        pal += Mathf.CeilToInt(li.QuantityPicked / (float)Mathf.Max(1, orders.FullPalletCases(li.SkuId)));
+                t.pallets += pal;
+                t.revenue += o.ShippedRevenue;
+                t.picked += o.TotalUnitsPicked;
+                t.needed += o.TotalUnits;
+            }
+            foreach (var o in orders.OrderHistory) Add(o);
+            foreach (var o in orders.ActiveOrders) Add(o);
+            return t;
+        }
+
+        float BlockFillRate(BlockShipTotals t) => t.needed > 0 ? Mathf.Clamp01(t.picked / (float)t.needed) : 0f;
+
         static int PalletsShippedTotal(int fromDay, int toDayExclusive)
         {
             if (!ServiceLocator.TryGet<FulfillmentStatsService>(out var f)) return 0;
@@ -1488,14 +1523,15 @@ namespace GameCore.Diagnostics
             int endDay = time != null ? time.Day : _startDay + S.daysPerBlock;
             int cashEnd = money != null ? money.CurrentCapital : 0;
 
-            int pallets = PalletsShippedTotal(0, endDay) - _palletsAtStart;
+            var shipTotals = ShipTotalsThisBlock();
+            int pallets = shipTotals.pallets;
             int days = Mathf.Max(1, endDay - _startDay);
 
             // components, each 0..1
             float onTime = OnTimeRatio();
-            float fill = _shipped > 0 && stats != null ? Mathf.Clamp01(stats.AvgFillRate) : 0f;
+            float fill = BlockFillRate(shipTotals);
             float throughput = Mathf.Clamp01(pallets / Mathf.Max(1f, S.targetPalletsPerDay * days));
-            int revenueTotal = (money != null ? money.LifetimeIncome.Values.Sum() : 0) - _startIncome;
+            int revenueTotal = shipTotals.revenue;
             float revenue = Mathf.Clamp01(revenueTotal / Mathf.Max(1f, S.targetRevenuePerDay * days));
             int inventoryEnd = InventoryValueNow();
             int net = cashEnd - _startCash;   // cash only: stock on hand is neither a cost nor a gain

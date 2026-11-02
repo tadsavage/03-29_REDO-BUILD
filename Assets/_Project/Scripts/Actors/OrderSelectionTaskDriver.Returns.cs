@@ -87,7 +87,7 @@ namespace GameCore.Actors
             if (!_jackLegOk || _jack == null) { ReleaseJack(); yield return FootReturnRoutine(task, pallet); yield break; }
             if (!string.IsNullOrEmpty(lane))
             {
-                while (!_inventoryService.TryEnterLaneForDelivery(door, lane)) yield return null;
+                while (!_inventoryService.TryEnterLaneForDelivery(door, lane, InventoryService.VehicleLabel(_jack != null ? _jack.transform : null, "pallet jack", "return"))) yield return null;
                 _jackLaneLock = (door, lane);
             }
             Vector3 under = Flat(pallet.transform.position, driveY) - forward * ForkPalletZ[0];
@@ -280,7 +280,13 @@ namespace GameCore.Actors
         // it, then put every case back in reverse pick order - on the jack if they have one, on foot otherwise - and the
         // order is purged (OrderService.CompleteReturnedOrder).
 
-        private bool ReturnsRequested => _currentOrder != null && _currentOrder.ReturnsMode;
+        private bool ReturnsRequested => _currentOrder != null && (_currentOrder.ReturnsMode || OrderGoneUnderUs);
+
+        /// <summary>The order shipped (ship-short, cargo full, slot end) or was cancelled while this selector was still picking it. Its
+        /// claimed task is not cancelled by that, so the selector kept building a pallet for an order that no longer existed, with nowhere
+        /// to stage it (block 1025, Day 6: Carol Morris, OG6317). Same answer as a closed route: put the cases back and move on.</summary>
+        private bool OrderGoneUnderUs => _currentOrder != null &&
+            (_currentOrder.Status == OrderData.OrderStatus.Shipped || _currentOrder.Status == OrderData.OrderStatus.Cancelled);
         private bool _midPickReturnStarted;
 
         private IEnumerator MidPickReturnRoutine()
@@ -289,8 +295,10 @@ namespace GameCore.Actors
             _midPickReturnStarted = true;
             var task = _currentTask;
             var order = _currentOrder;
-            Debug.Log($"[OrderSelectionTaskDriver] '{name}': route closed mid-pick on order {order?.OrderNumber} - putting everything back.");
-            WorldSpeechBubbles.Show(transform, "Now I gotta put it all back??? F*** my life...", 7f);
+            bool gone = order != null && !order.ReturnsMode;   // shipped / cancelled under us, not a closed route
+            Debug.Log($"[OrderSelectionTaskDriver] '{name}': {(gone ? $"order {order?.OrderNumber} is already {order?.Status}" : "route closed")} mid-pick on order {order?.OrderNumber} - putting everything back.");
+            if (gone) SystemsLogWindow.LogWarning($"{name.Replace("Employee_", "")} was still picking order {order?.OrderNumber} after it {(order.Status == OrderData.OrderStatus.Shipped ? "shipped" : "was cancelled")} - putting the picked cases back.");
+            WorldSpeechBubbles.Show(transform, gone ? "It already LEFT?! Back on the shelf it goes..." : "Now I gotta put it all back??? F*** my life...", 7f);
             DestroyHeldCase();
             SetAnimBool("CarryCase", false);
             SetLean(0f);
@@ -339,7 +347,8 @@ namespace GameCore.Actors
         {
             _orderService.ReleasePick(task?.TaskId);
             if (task != null) _workQueue.CompleteTask(task.TaskId);
-            _orderService.CompleteReturnedOrder(order, task);
+            // Only a closed route has return bookkeeping to finish; an order that shipped or was cancelled is already closed.
+            if (order != null && order.ReturnsMode) _orderService.CompleteReturnedOrder(order, task);
             Debug.Log($"[OrderSelectionTaskDriver] '{name}' finished putting order {order?.OrderNumber} back.");
             _currentTask = null;
             _currentOrder = null;

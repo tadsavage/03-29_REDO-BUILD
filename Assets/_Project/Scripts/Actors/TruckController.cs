@@ -574,7 +574,7 @@ private DockSlot        _dock;
     // charged against this) to the sim-minute BeginDeparture runs at (i.e. the moment the last pallet
     // comes off the trailer and CompleteOffload fires) — see ApplyOffloadStandardBonus.
     private const float OffloadStandardBaseMinutes = 60f; // flat 1 hour, Tad's spec
-    private const float OffloadStandardMinutesPerPallet = 15f; // + 15 min per pallet (Tad, 2026-10-31: "that's how long it takes")
+    private const float OffloadStandardMinutesPerPallet = (15f + GameCore.Inventory.OrderPickEstimate.ExtraPalletMinutes) * 1.1f; // 15 min per pallet (Tad, 2026-10-31) + 2, then +10% (2026-11-01)
     private const int OffloadStandardBonusPoints = 5;
 
     /// <summary>Set true by ApplyOffloadStandardBonus when the Standard was beaten, read (and
@@ -1815,6 +1815,12 @@ private DockSlot        _dock;
     private void TrackGateMetric()
     {
         if (_state == TruckState.GuardCheck && _metGateT < 0f) _metGateT = OpsMetrics.Now;
+        // Check-in minute is not saved: a truck restored past the gate counts from the moment it is restored.
+        if (CheckInSimMinute < 0 && _state != TruckState.Idle && _state != TruckState.Queuing && _state != TruckState.GuardCheck)
+        {
+            var c = Ctx;
+            if (c != null && c.TimeService != null) CheckInSimMinute = c.TimeService.TotalMinutesElapsed;
+        }
         if (_state == TruckState.ToDoorWait || _state == TruckState.WaitingForDoor || IsSideLotState(_state)) _metWaited = true;
     }
 
@@ -2939,9 +2945,22 @@ private DockSlot        _dock;
         SetupBezierForward(destination, endForward.normalized, forwardDriveTension);
     }
 
+    /// <summary>Game minute this truck pulled up to position 1 and the guard started checking it in (-1 = not yet). Every arrival
+    /// clock (the inbound dwell bar and the PO's 8-hour receive deadline) starts here, never at spawn or at the booked slot
+    /// (Tad, 2026-11-01).</summary>
+    public long CheckInSimMinute { get; private set; } = -1;
+
     private void BeginGuardCheck()
     {
         _state = TruckState.GuardCheck;
+        var ctxCheckIn = Ctx;
+        if (CheckInSimMinute < 0 && ctxCheckIn != null && ctxCheckIn.TimeService != null)
+            CheckInSimMinute = ctxCheckIn.TimeService.TotalMinutesElapsed;
+        if (!_isOutbound && _inboundClockStartSimMinute < 0 && CheckInSimMinute >= 0)
+        {
+            _inboundClockStartSimMinute = CheckInSimMinute;
+            _inboundPenaltyTierApplied = 0;
+        }
         if (_guard != null)
             _guard.BeginInspection(this, GuardClearedToEnter);
         else
@@ -3279,11 +3298,12 @@ private DockSlot        _dock;
         // Unified 8-hour inbound dwell clock starts the instant the truck clears the gate — Tad's
         // spec: "every timer bar should run for 8 hours length and should initiate as soon as he
         // proceeds through the gate." See UpdateInboundDwellClock.
-        if (!_isOutbound)
+        // Now started at check-in (BeginGuardCheck); this only covers a truck that skipped the check (no guard, restored).
+        if (!_isOutbound && _inboundClockStartSimMinute < 0)
         {
             var gameCtxClock = Ctx;
             _inboundClockStartSimMinute = gameCtxClock != null && gameCtxClock.TimeService != null
-                ? InboundClockStart(gameCtxClock.TimeService.TotalMinutesElapsed) : -1;
+                ? gameCtxClock.TimeService.TotalMinutesElapsed : -1;
             _inboundPenaltyTierApplied = 0;
         }
 
@@ -3942,7 +3962,8 @@ private DockSlot        _dock;
         if (gameCtx == null || gameCtx.TimeService == null) return;
 
         if (_inboundClockStartSimMinute < 0)
-            _inboundClockStartSimMinute = InboundClockStart(gameCtx.TimeService.TotalMinutesElapsed);
+            _inboundClockStartSimMinute = gameCtx.TimeService.TotalMinutesElapsed;   // restored mid-wait: count from now
+        if (CheckInSimMinute < 0) CheckInSimMinute = _inboundClockStartSimMinute;   // not saved: a restored truck is past the gate
 
         float elapsedHours = (gameCtx.TimeService.TotalMinutesElapsed - _inboundClockStartSimMinute) / 60f;
         float frac = Mathf.Clamp01(1f - elapsedHours / InboundDeadlineHours);

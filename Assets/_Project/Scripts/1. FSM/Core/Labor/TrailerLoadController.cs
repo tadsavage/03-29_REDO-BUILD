@@ -188,6 +188,10 @@ namespace GameCore.Labor
             // still sitting in an inbound lane that a dock stocker can dig out and load directly
             // (TrailerLoadController.DigOut.cs).
             using (_mTc3.Auto()) TryStartDigAndLoad(workQueue);
+
+            // Lowest priority of all: with nothing else to do, the dock stocker tidies orders spread over too many lanes
+            // (TrailerLoadController.DockCleanup.cs).
+            TryStartDockCleanup(workQueue);
         }
 
         /// <summary>
@@ -855,7 +859,7 @@ namespace GameCore.Labor
             // shared lane. Receivers are exempt by design — they never call this, they work on foot.
             ServiceLocator.TryGet<InventoryService>(out var inv);
             if (inv != null)
-                while (!inv.TryEnterLaneForDelivery(laneSlot.DoorNumber, laneSlot.Lane))
+                while (!inv.TryEnterLaneForDelivery(laneSlot.DoorNumber, laneSlot.Lane, InventoryService.VehicleLabel(ds, "dock stocker", "loading")))
                     yield return null;
 
             try

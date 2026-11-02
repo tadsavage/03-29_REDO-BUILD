@@ -142,7 +142,7 @@ namespace GameCore.Labor
                     if (o != null && appt.OrderIds.Contains(o.OrderId)) pallets += Mathf.CeilToInt(o.TotalUnits / 48f);
 
             var stat = OpsMetrics.GetBlended(OpsMetrics.Kind.LoadCycle);
-            float perPallet = stat.n >= 3 && stat.standard > 1f ? stat.standard : 15f;
+            float perPallet = stat.n >= 3 && stat.standard > 1f ? stat.standard : 16.5f;
             int stockers = Mathf.Max(1, OrderPickEstimate.Headcount(EmployeeRole.DockStockerOperator));
             float loadMinutes = pallets * perPallet / stockers;
             float slotMinutes = appt.EndMinute - appt.StartMinute;

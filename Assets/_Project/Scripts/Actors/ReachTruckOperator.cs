@@ -275,6 +275,7 @@ namespace GameCore.Actors
 
         private void Update()
         {
+            ReleaseLeakedLaneLocks();
             _diagTimer -= Time.deltaTime;
             if (_diagTimer <= 0f)
             {
@@ -293,6 +294,7 @@ namespace GameCore.Actors
                     SetDriveMode(DriveMode.Manual, "manual-enforce");
                 }
                 CheckStuckTask();
+                CheckLaneLockStillNeeded();
                 return;
             }
             if (!_operatorSlot.IsOccupied || _operatorSlot.BatteryFlat) return;   // flat / changing battery: no new jobs
@@ -1924,7 +1926,7 @@ namespace GameCore.Actors
             // so entering now would read the cell as it looked before that pallet landed and compute
             // the same drop height. Sit right here and wait, exactly like a real truck queuing at a
             // busy aisle, until the lane is free — then check the height fresh and deliver correctly.
-            while (!_inventoryService.TryEnterLaneForDelivery(door, resolvedLane))
+            while (!_inventoryService.TryEnterLaneForDelivery(door, resolvedLane, LockLabel(), this))
                 yield return null;
             _heldLaneLock = (door, resolvedLane);
 
@@ -1970,6 +1972,13 @@ namespace GameCore.Actors
             // under the Inventory container made the pallet invisible to both: it stood in the lane
             // looking perfectly correct, the cell still read as free, and no loader would ever take
             // it. OrderSelectionTaskDriver leaves its staged pallets unparented for the same reason.
+            if (pallet == null)
+            {
+                // Destroyed while on the forks (a reload or a reconcile pass took it). Nothing to set down: give the slot, lane and task back.
+                Debug.LogWarning($"[ReachTruckOperator] PalletPick: pallet {palletId} vanished from the forks before set-down in {door}{resolvedLane}.");
+                yield return AbortRoutine(task, palletId, null);
+                yield break;
+            }
             pallet.SetParent(null, worldPositionStays: true);
             // XZ from the slot, Y from the stack — a second pallet into the same cell lands on top of
             // the first instead of inside it.
@@ -2425,11 +2434,12 @@ namespace GameCore.Actors
             ReleaseLaneLock();
 
             float start = Time.time;
-            while (!_inventoryService.TryEnterLaneForDelivery(door, lane))
+            while (!_inventoryService.TryEnterLaneForDelivery(door, lane, LockLabel(), this))
             {
                 if (Time.time - start >= LaneWaitSeconds)
                 {
-                    Debug.LogWarning($"[ReachTruckOperator] '{name}' waited {LaneWaitSeconds:F0}s for lane {door}{lane} and it never freed up — giving up and re-queueing.");
+                    Debug.LogWarning($"[ReachTruckOperator] '{name}' waited {LaneWaitSeconds:F0}s for lane {door}{lane} and it never freed up " +
+                                     $"(held by {_inventoryService.LaneLockInfo(door, lane) ?? "nobody now"}) — giving up and re-queueing.");
                     done(false);
                     yield break;
                 }
@@ -2437,6 +2447,67 @@ namespace GameCore.Actors
             }
             _heldLaneLock = (door, lane);
             done(true);
+        }
+
+        /// <summary>Any lane lock this truck took that it no longer records as held is a leak: free it now. Block 1025 (Day 3 17:29, live):
+        /// Nicole Walker's truck still held 3B in the shared lock table after its own record had moved on, then queued for 2B behind Paul
+        /// Hamilton, who held 2B while waiting on lanes too; both sat still with 90+ s locks and kept timing each other out.</summary>
+        private void ReleaseLeakedLaneLocks()
+        {
+            if (_inventoryService == null) return;
+            foreach (var key in _inventoryService.LanesLockedBy(this))
+            {
+                if (_heldLaneLock.HasValue && _heldLaneLock.Value == key) continue;
+                Debug.LogWarning($"[ReachTruckOperator] '{name}' ({LockLabel()}) still had lane {key.Door}{key.Lane} locked after it had let go of it - releasing the leaked lock.");
+                _inventoryService.ReleaseLaneEntry(key.Door, key.Lane);
+            }
+        }
+
+        /// <summary>For debugging from the editor (private state can't be read with reflection there).</summary>
+        public string DebugState =>
+            $"busy={_busy} mode={_mode} heldLane={(_heldLaneLock.HasValue ? _heldLaneLock.Value.Door + _heldLaneLock.Value.Lane : "none")} " +
+            $"task={_activeTask?.Type.ToString() ?? "none"} {_activeTask?.FromLocation}->{_activeTask?.ToLocation} status={_activeTask?.Status}";
+
+        private float _awayFromLockedLane, _aiWithLock;
+
+        /// <summary>A lane lock only means anything while the truck is AT the lane. Block 1025 (Day 3 15:52, live): Nicole Walker's truck
+        /// held lane 3B for 70+ s while parked at a charging station with its pick routine stalled, and the other reach truck gave up on
+        /// 3B. Held while more than 7 m from every slot of that lane for 5 s = let it go.</summary>
+        private void CheckLaneLockStillNeeded()
+        {
+            if (!_heldLaneLock.HasValue) { _awayFromLockedLane = 0f; _aiWithLock = 0f; return; }
+            var (door, lane) = _heldLaneLock.Value;
+            // Driving by NavMesh = out on the open floor, not in the lane (see SeekViaNavMesh).
+            if (_mode == DriveMode.Ai)
+            {
+                _aiWithLock += Time.deltaTime;
+                if (_aiWithLock >= 3f)
+                {
+                    _aiWithLock = 0f;
+                    Debug.LogWarning($"[ReachTruckOperator] '{name}' ({LockLabel()}) was on NavMesh drive holding lane {door}{lane} - releasing the lane.");
+                    ReleaseLaneLock();
+                    return;
+                }
+            }
+            else _aiWithLock = 0f;
+            float nearest = float.MaxValue;
+            foreach (var s in LaneNamingService.GetLane(door, lane))
+                if (LaneNamingService.TryGetSlotWorldPos(s.Cell, out var p))
+                    nearest = Mathf.Min(nearest, PlanarDist(p, transform.position));
+            if (nearest <= 7f) { _awayFromLockedLane = 0f; return; }
+            _awayFromLockedLane += Time.deltaTime;
+            if (_awayFromLockedLane < 5f) return;
+            _awayFromLockedLane = 0f;
+            Debug.LogWarning($"[ReachTruckOperator] '{name}' ({LockLabel()}) held lane {door}{lane} while {nearest:F1} m away from it - releasing the lane.");
+            ReleaseLaneLock();
+        }
+
+        /// <summary>Who this truck is, for the lane lock's holder record.</summary>
+        private string LockLabel()
+        {
+            var slot = GetComponent<MHEOperatorSlot>();
+            string op = slot != null && slot.CurrentOperator != null ? slot.CurrentOperator.name.Replace("Employee_", "") : "no driver";
+            return $"reach truck {name} ({op}, {_activeTask?.Type.ToString() ?? "no task"})";
         }
 
         private void Restore()
@@ -2509,6 +2580,14 @@ namespace GameCore.Actors
                 yield break;
             }
 
+            // An open-floor NavMesh leg is never inside a lane, so no lane lock may ride along. Every caller takes its lock after the
+            // leg or has already let go; anything still held here is a leak from an earlier run (block 1025, Day 3 18:25 live: Nicole
+            // Walker's truck in an AI leg holding 2B for 57 s while Paul Hamilton waited on it).
+            if (_heldLaneLock.HasValue)
+            {
+                Debug.LogWarning($"[ReachTruckOperator] '{name}' started a NavMesh leg ({phase}) still holding lane {_heldLaneLock.Value.Door}{_heldLaneLock.Value.Lane} - releasing it.");
+                ReleaseLaneLock();
+            }
             SetDriveMode(DriveMode.Ai, $"AI leg → {phase}");
 
             // ── WAIT FOR THE AGENT TO REGISTER WITH THE NAVMESH (load-bearing — do not remove) ────
