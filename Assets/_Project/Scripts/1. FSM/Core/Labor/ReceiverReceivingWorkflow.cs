@@ -244,7 +244,8 @@ namespace GameCore.Labor
 
             if (_palletMasterRecord == null)
             {
-                Debug.LogError($"[ReceiverReceivingWorkflow] No master record for pallet {task.PalletId}");
+                // Its record was taken (shipped, returned, reloaded) between filing the task and the receiver arriving: nothing to receive.
+                Debug.LogWarning($"[ReceiverReceivingWorkflow] No master record for pallet {task.PalletId} - closing the receive task.");
                 CompleteWorkflow();
                 return;
             }

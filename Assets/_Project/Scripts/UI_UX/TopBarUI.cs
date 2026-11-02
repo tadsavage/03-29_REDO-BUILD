@@ -441,6 +441,9 @@ public class TopBarUI : MonoBehaviour
     /// <summary>Sets the game speed from outside (0 = paused), keeping the speed buttons in step.</summary>
     public void SetGameSpeed(float scale) => SetSpeed(scale);
 
+    /// <summary>Redraws the bar now (after something set the clock without a time event, e.g. HAL's build-only hand-over).</summary>
+    public void RefreshNow() => Refresh();
+
     // Holistic game speed: scales the whole simulation (clock, employees, animation).
     // 0 = paused. Uses Time.timeScale so everything advances together.
     private void SetSpeed(float scale)

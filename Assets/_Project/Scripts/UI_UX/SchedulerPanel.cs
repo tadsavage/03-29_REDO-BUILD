@@ -185,6 +185,18 @@ public class SchedulerPanel : IUIPanel
     private Label _titleLabel;
     private Button _scaleBtn;
     private bool _visible;
+
+    // Free Move: when on, the hover tooltip can be dragged anywhere on the modal and stays where it
+    // was put. Comes on each time the panel opens and goes off when it closes; the tooltip's position
+    // is kept in PlayerPrefs so it returns to the same spot on the next open.
+    private const string FreeMoveXKey = "Scheduler.FreeMoveTipX";
+    private const string FreeMoveYKey = "Scheduler.FreeMoveTipY";
+    private bool _freeMove;
+    private Toggle _freeMoveToggle;
+    private bool _tipDragging;
+    private Vector2 _tipDragOffset;
+    private Vector2 _savedTipPos;
+    private bool _hasSavedTipPos;
     private ResizableWindow _resizeWindow;
 
     private Tab _tab = Tab.NewContracts;
@@ -209,6 +221,9 @@ public class SchedulerPanel : IUIPanel
     /// drag-and-drop: pointer capture inside a ScrollView fights the scroller, and a two-click move
     /// is also the only interaction that works if the source and target blocks aren't both on screen.</summary>
     private string _selectedAppointmentId;
+    /// <summary>What the PO/Order Details box shows: set by RIGHT-click on a chip or pool box (left-click carries it). Independent of what is held.</summary>
+    private string _inspectApptId;
+    private string _inspectUnscheduledKey;
 
     /// <summary>UnscheduledGroup.Key of a stranded trailer picked up for booking. Mutually exclusive
     /// with _selectedAppointmentId — the two are the same gesture from different sources (pick a thing
@@ -240,9 +255,24 @@ public class SchedulerPanel : IUIPanel
         });
         _overlay.RegisterCallback<PointerDownEvent>(e =>
         {
-            if (e.button != 1 || HeldKey() == null) return;
-            CancelCarry();
-            e.StopPropagation();
+            if (e.button != 1) return;
+            if (HeldKey() != null)
+            {
+                CancelCarry();
+                e.StopPropagation();
+                return;
+            }
+            // Right-click a booked block / pool box: show its items in the PO/Order Details box.
+            for (var el = e.target as VisualElement; el != null; el = el.parent)
+            {
+                if (!(el.userData is string tag) || tag.Length < 3) continue;
+                if (tag[0] == 'A') { _inspectApptId = tag.Substring(2); _inspectUnscheduledKey = null; }
+                else if (tag[0] == 'U') { _inspectUnscheduledKey = tag.Substring(2); _inspectApptId = null; }
+                else continue;
+                Rebuild();
+                e.StopPropagation();
+                return;
+            }
         }, TrickleDown.TrickleDown);
         // Added to the OVERLAY, not the modal: the modal is absolutely positioned and draggable, so a
         // dialog inside it would follow the window around and could sit half off-screen. The overlay
@@ -405,6 +435,8 @@ public class SchedulerPanel : IUIPanel
     public void Show()
     {
         _visible = true;
+        _freeMove = true;
+        SyncFreeMoveCheckbox();
         OrdersPauseGate.Push(this);
         _overlay.style.display = DisplayStyle.Flex;
         // Order screens sit above both bars. Raising on every Show — not once at build time — because
@@ -506,9 +538,15 @@ public class SchedulerPanel : IUIPanel
     public void Hide()
     {
         _visible = false;
+        // Closing turns Free Move off and keeps wherever the card was left.
+        if (_tipDragging) EndTooltipDrag(null);
+        _freeMove = false;
+        SyncFreeMoveCheckbox();
         OrdersPauseGate.Pop(this);
         _selectedAppointmentId = null;
         _selectedUnscheduledKey = null;
+        _inspectApptId = null;
+        _inspectUnscheduledKey = null;
         _focusedAppointmentId = null;
         _focusedAppt = null;
         _focusedCell = null;
@@ -664,6 +702,12 @@ public class SchedulerPanel : IUIPanel
         title.style.bottom = 0;
         title.pickingMode = PickingMode.Ignore;
         titleBar.Add(title);
+
+        // Chip-colour legend, moved here from the PO/Order Details box so that box can hold the selected trailer's items.
+        var legend = BuildScheduleLegend();
+        legend.style.position = Position.Absolute;
+        legend.style.left = 4; legend.style.top = 0; legend.style.bottom = 0;
+        titleBar.Add(legend);
 
         // Cycles normal / large / fill-screen (see ResizableWindow.CycleScale below). Same size as the
         // close button and on the same title-bar row, so the two sit flush together.
@@ -873,16 +917,43 @@ public class SchedulerPanel : IUIPanel
         _newSchedulerTooltip.style.paddingTop = 10; _newSchedulerTooltip.style.paddingBottom = 10;
         _newSchedulerTooltip.style.paddingLeft = 12; _newSchedulerTooltip.style.paddingRight = 12;
         _newSchedulerTooltip.RegisterCallback<MouseEnterEvent>(_ => CancelPendingTooltipHide());
-        _newSchedulerTooltip.RegisterCallback<MouseLeaveEvent>(_ => ScheduleHideNewSchedulerTooltip());
+        // While a Free Move drag is in progress the pointer can cross the card's edge faster than the
+        // hide grace — don't let that hide a card the player is holding.
+        _newSchedulerTooltip.RegisterCallback<MouseLeaveEvent>(_ => { if (!_tipDragging) ScheduleHideNewSchedulerTooltip(); });
+        _newSchedulerTooltip.RegisterCallback<PointerDownEvent>(OnTooltipPointerDown);
+        _newSchedulerTooltip.RegisterCallback<PointerMoveEvent>(OnTooltipPointerMove);
+        _newSchedulerTooltip.RegisterCallback<PointerUpEvent>(OnTooltipPointerUp);
 
         // Content scrolls vertically once it's taller than the space left below the hovered cell,
         // rather than running off the bottom of the modal -- max-height is set per-show once we
         // know how much room is actually available (see ShowNewSchedulerTooltip).
+        // Free Move checkbox, fixed above the scroll area so it stays put while the content scrolls. Its
+        // own pointer-down stops here so clicking it toggles the box instead of starting a card drag.
+        _freeMoveToggle = new Toggle("Free Move");
+        _freeMoveToggle.name = "free-move-toggle";
+        ApplyFont(_freeMoveToggle.labelElement, bold: true, size: 22);
+        _freeMoveToggle.labelElement.style.color = new StyleColor(ColTitleText);
+        // Label hugs the checkbox instead of stretching across the row.
+        _freeMoveToggle.labelElement.style.flexGrow = 0;
+        _freeMoveToggle.labelElement.style.marginLeft = 4;
+        _freeMoveToggle.style.flexShrink = 0;
+        _freeMoveToggle.RegisterValueChangedCallback(evt => SetFreeMove(evt.newValue));
+        // Tight strip pinned to the card's upper-right corner: right-aligned, no margin, so the
+        // checkbox costs only its own line height and sits clear of the content on the left.
+        var freeMoveRow = new VisualElement();
+        freeMoveRow.style.flexShrink = 0;
+        freeMoveRow.style.flexDirection = FlexDirection.Row;
+        freeMoveRow.style.justifyContent = Justify.FlexEnd;
+        freeMoveRow.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation());
+        freeMoveRow.Add(_freeMoveToggle);
+        _newSchedulerTooltip.Add(freeMoveRow);
+
         _newSchedulerTooltipScroll = new ScrollView(ScrollViewMode.Vertical);
         _newSchedulerTooltipScroll.style.overflow = Overflow.Hidden;
         _newSchedulerTooltip.Add(_newSchedulerTooltipScroll);
 
         modal.Add(_newSchedulerTooltip);
+        LoadTooltipPosition();
         BuildHeldGhost(modal);
         modal.Add(footerMessage);
 
@@ -1767,7 +1838,7 @@ public class SchedulerPanel : IUIPanel
         List<UnscheduledGroup> unscheduled)
     {
         var schedule = Schedule();
-        var appt = _selectedAppointmentId != null ? schedule?.FindById(_selectedAppointmentId) : null;
+        var appt = _inspectApptId != null ? schedule?.FindById(_inspectApptId) : null;
         if (appt != null)
         {
             if (IsInboundPo(appt))
@@ -1795,9 +1866,9 @@ public class SchedulerPanel : IUIPanel
             return BuildOrderLinesFor(appt.OrderIds, appt.CustomerName);
         }
 
-        if (_selectedUnscheduledKey != null)
+        if (_inspectUnscheduledKey != null)
         {
-            var group = unscheduled.FirstOrDefault(g => g.Key == _selectedUnscheduledKey);
+            var group = unscheduled.FirstOrDefault(g => g.Key == _inspectUnscheduledKey);
             if (group != null) return BuildOrderLinesFor(group.OrderIds, group.CustomerName);
         }
 
@@ -1971,6 +2042,7 @@ public class SchedulerPanel : IUIPanel
             ghost.style.scale = new Scale(Vector3.one);
             ScheduleHideNewSchedulerTooltip();
         });
+        box.userData = "U:" + group.Key;
         return box;
     }
 
@@ -2231,6 +2303,7 @@ public class SchedulerPanel : IUIPanel
             ghost.style.scale = new Scale(Vector3.one);
             ScheduleHideNewSchedulerTooltip();
         });
+        box.userData = "A:" + appt.Id;
         return box;
     }
 
@@ -3573,27 +3646,16 @@ private static void ApplyLilitaFont(VisualElement el)
 
         if (string.IsNullOrEmpty(title) || lines == null || lines.Count == 0)
         {
-            var empty = MakeText("Click a trailer on the timeline, or a box in the pool, to see its load here.",
-                                 18, Color.white); // set to 18 per Tad's explicit call
-            empty.style.whiteSpace = WhiteSpace.Normal;
-            card.Add(empty);
-
-            // Fills the rest of this otherwise-empty row (only shown while nothing's selected) with
-            // what each chip colour on the grid means. BuildCompactLegend/MakeLegendRow already existed
-            // for a legend but were never actually wired into a row — see their doc comments — so this
-            // is a fresh one built to read ChipFill/ChipEdge/ChipText directly rather than resurrecting
-            // either, which keeps it impossible to drift out of sync with the real timeline chips.
-            var spacer = new VisualElement(); spacer.style.flexGrow = 1; card.Add(spacer);
-            card.Add(BuildScheduleLegend());
+            // Left empty on purpose (Tad 2026-11-02): the placeholder text is gone and the legend lives in the title bar.
             return card;
         }
 
         Sprite icon = null;
-        var appt = _selectedAppointmentId != null ? Schedule()?.FindById(_selectedAppointmentId) : null;
+        var appt = _inspectApptId != null ? Schedule()?.FindById(_inspectApptId) : null;
         if (appt != null) icon = IconForAppointment(appt, Arrivals());
-        else if (_selectedUnscheduledKey != null)
+        else if (_inspectUnscheduledKey != null)
         {
-            var group = unscheduled.FirstOrDefault(g => g.Key == _selectedUnscheduledKey);
+            var group = unscheduled.FirstOrDefault(g => g.Key == _inspectUnscheduledKey);
             if (group != null) icon = IconForCustomer(group.CustomerId, group.ContractId, Arrivals());
         }
 
@@ -3619,8 +3681,8 @@ private static void ApplyLilitaFont(VisualElement el)
         // Outbound/bulk only — an inbound PO earns nothing by itself.
         List<string> orderIds = null;
         if (appt != null) { if (!IsInboundPo(appt)) orderIds = appt.OrderIds; }
-        else if (_selectedUnscheduledKey != null)
-            orderIds = unscheduled.FirstOrDefault(g => g.Key == _selectedUnscheduledKey)?.OrderIds;
+        else if (_inspectUnscheduledKey != null)
+            orderIds = unscheduled.FirstOrDefault(g => g.Key == _inspectUnscheduledKey)?.OrderIds;
         int cost = appt != null && IsInboundPo(appt) ? InboundPoCost(appt) : OrdersCostOfGoods(orderIds);
         if (TryEstimateNetProfit(orderIds, out int netProfit))
         {
@@ -3654,7 +3716,132 @@ private static void ApplyLilitaFont(VisualElement el)
             (PurchasingPanel.TruckBoxRightFrac - PurchasingPanel.TruckBoxLeftFrac) * PurchasingPanel.TruckFillBarWidth;
         card.Add(fillBar);
 
-        return card;
+        var column = new VisualElement();
+        column.style.width = Length.Percent(100);
+        column.Add(card);
+        column.Add(BuildItemAvailabilityTable(lines));
+        return column;
+    }
+
+    private const float ItemTableNumWidth = 84f;
+    private const float InboundColWidth = 120f;
+
+    /// <summary>Per-item breakdown of the selected trailer, same columns as the Item Listing: item, description, balance on hand,
+    /// on inbound order, pending shipment, potential scratches. Scrolls vertically with the bar fixed on the right.</summary>
+    private VisualElement BuildItemAvailabilityTable(List<(string sku, string desc, int qty)> lines)
+    {
+        var net = ItemAvailabilityRows();
+        var wrap = new VisualElement();
+        wrap.style.marginTop = 6;
+
+        VisualElement Row(bool header)
+        {
+            var r = new VisualElement();
+            r.style.flexDirection = FlexDirection.Row;
+            r.style.alignItems = Align.Center;
+            r.style.paddingTop = header ? 3 : 1; r.style.paddingBottom = header ? 3 : 1;
+            r.style.paddingRight = 30;   // clear of the scroll bar so values sit left of it
+            if (header) r.style.backgroundColor = new StyleColor(ColStat);
+            return r;
+        }
+        Label Cell(string text, Color color, bool bold, float width, float grow, TextAnchor align)
+        {
+            var l = MakeText(text, 14, color, bold);
+            ApplyLilitaFont(l);   // Nunito is a variable font with no real bold: it renders grainy at this size
+            l.style.whiteSpace = WhiteSpace.NoWrap;
+            l.style.overflow = Overflow.Hidden;
+            l.style.unityTextAlign = align;
+            if (width > 0) { l.style.width = width; l.style.flexShrink = 0; }
+            else { l.style.flexBasis = 0; l.style.flexGrow = grow; }
+            return l;
+        }
+
+        var head = Row(true);
+        head.Add(Cell("Item #", ColOrangeText, true, 70, 0, TextAnchor.MiddleLeft));
+        head.Add(Cell("Description", ColOrangeText, true, 0, 1, TextAnchor.MiddleLeft));
+        head.Add(Cell("Balance On Hand", ColOrangeText, true, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
+        head.Add(Cell("On Inbound Order", ColOrangeText, true, InboundColWidth, 0, TextAnchor.MiddleRight));
+        head.Add(Cell("Pending Shipment", ColOrangeText, true, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
+        head.Add(Cell("Potential Scratches", ColOrangeText, true, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
+        foreach (var c in head.Children()) c.style.whiteSpace = WhiteSpace.Normal;
+        wrap.Add(head);
+
+        var scroll = new ScrollView(ScrollViewMode.Vertical);
+        scroll.style.maxHeight = 130;
+        scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+        scroll.verticalScrollerVisibility = ScrollerVisibility.AlwaysVisible;
+
+        // Every open PO still carrying each SKU (same rule the On Inbound Order number uses), with its arrival time.
+        var inboundWhen = new Dictionary<string, List<(int at, int qty, string po)>>();
+        if (ServiceLocator.TryGet<ShipmentService>(out var shipments) && shipments != null)
+        {
+            foreach (var s in shipments.PendingShipments)
+            {
+                if (s == null) continue;
+                if (s.Status != ShipmentData.ShipmentStatus.InTransit && s.Status != ShipmentData.ShipmentStatus.Receiving &&
+                    s.Status != ShipmentData.ShipmentStatus.Delayed) continue;
+                int at = s.ArrivalDayNumber * 1440 + s.ArrivalTimeMinute;
+                foreach (var li in s.LineItems)
+                {
+                    if (li == null || li.Dropped || string.IsNullOrEmpty(li.SkuId)) continue;
+                    int rem = li.Quantity - li.ReceivedQuantity;
+                    if (rem <= 0) continue;
+                    if (!inboundWhen.TryGetValue(li.SkuId, out var cur)) inboundWhen[li.SkuId] = cur = new List<(int at, int qty, string po)>();
+                    int idx = cur.FindIndex(x => x.po == s.PONumber);
+                    if (idx >= 0) { var old = cur[idx]; cur[idx] = (old.at, old.qty + rem, old.po); }
+                    else cur.Add((at, rem, s.PONumber));
+                }
+            }
+        }
+
+        foreach (var line in lines.OrderBy(l => l.sku))
+        {
+            net.TryGetValue(line.sku, out var row);
+            int onHand = row != null ? row.OnHand : 0;
+            int inbound = row != null ? row.Inbound : 0;
+            int pending = row != null ? row.Pending : 0;
+            int scratches = Mathf.Max(0, pending - onHand - inbound);
+
+            // A scratch turns the row red + bold; a shortfall that a booked inbound PO covers turns it orange + bold.
+            bool short_ = scratches > 0;
+            bool covered = !short_ && pending > onHand && inbound > 0;
+            bool bold = short_ || covered;
+            Color ink = short_ ? ColDanger : covered ? ColOrangeText : Color.white;
+
+            var r = Row(false);
+            r.Add(Cell(line.sku, short_ ? ColDanger : covered ? ColOrangeText : ColTitleText, bold, 70, 0, TextAnchor.MiddleLeft));
+            r.Add(Cell(string.IsNullOrEmpty(line.desc) ? "—" : line.desc, ink, bold, 0, 1, TextAnchor.MiddleLeft));
+            r.Add(Cell(onHand.ToString("N0"), ink, true, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
+
+            var inboundCell = new VisualElement();
+            inboundCell.style.width = InboundColWidth; inboundCell.style.flexShrink = 0;
+            inboundCell.style.alignItems = Align.FlexEnd; inboundCell.style.minHeight = 18;
+            var inboundNum = MakeText(inbound.ToString("N0"), 14, ink, bold);
+            ApplyLilitaFont(inboundNum);
+            inboundNum.style.whiteSpace = WhiteSpace.NoWrap;
+            inboundCell.Add(inboundNum);
+            if (inbound > 0 && inboundWhen.TryGetValue(line.sku, out var dues) && dues.Count > 0)
+            {
+                // Small hover card: which PO(s) the cases are on and when each delivery is booked.
+                var tip = string.Join("\n", dues.OrderBy(d => d.at).Select(d =>
+                    $"{d.qty:N0} cs. Due: Day{d.at / 1440} @ {d.at % 1440 / 60:00}:{d.at % 60:00}"));
+                // Double-size card (26px text, 680px max width) so it reads at a glance.
+                RuntimeTooltip.AttachRich(inboundCell, () =>
+                {
+                    var l = MakeText(tip, 26, new Color(0xCF / 255f, 0xE2 / 255f, 0xF0 / 255f, 1f));
+                    ApplyLilitaFont(l);
+                    l.pickingMode = PickingMode.Ignore;
+                    return l;
+                }, 680f, ignoreGlobalToggle: true);
+            }
+            r.Add(inboundCell);
+
+            r.Add(Cell(pending.ToString("N0"), ink, bold, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
+            r.Add(Cell(scratches.ToString("N0"), ink, bold, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
+            scroll.Add(r);
+        }
+        wrap.Add(scroll);
+        return wrap;
     }
 
     /// <summary>Net profit the trailer's orders would book if every case ships and the trailer leaves on
@@ -4156,11 +4343,15 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
         bool pending = live.Any(orders.IsAwaitingRelease);
 
+        // Pinned to the tile's bottom edge and the tile's bottom padding reserves room for it, so the
+        // buttons stay on screen however many fine-print lines the tile above has to clip.
         var row = new VisualElement();
+        row.style.position = Position.Absolute;
+        row.style.left = 4; row.style.right = 4; row.style.bottom = 4;
         row.style.flexDirection = FlexDirection.Column;   // RELEASE on top, CANCEL below, each the full tile width
         row.style.alignSelf = Align.Stretch;
         row.style.flexShrink = 0;
-        row.style.marginTop = 6;
+        cell.style.paddingBottom = pending ? 70 : 38;
         cell.Add(row);
 
         var btn = new Label(pending ? "RELEASE ORDERS" : "RELEASED");
@@ -4436,7 +4627,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
         cell.RegisterCallback<MouseEnterEvent>(_ =>
         {
-            ShowNewSchedulerTooltip(appt, cell);
+            // (No hover tooltip on the tile: the manifest above shows the items, right-click a tile to load it.)
             // Only a genuinely clickable chip gets the select cursor -- a locked one still shows its
             // tooltip (informational) but a click does nothing, so promising "select" would be a lie.
             if (!locked) CustomCursorService.SetHoveringInteractable(true);
@@ -4454,6 +4645,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             ScheduleHideNewSchedulerTooltip();
         });
 
+        cell.userData = "A:" + appt.Id;
         return cell;
     }
     /// <summary>"Day 1 @ 22:00" -- the real moment this booking is judged late: the END of its two-hour
@@ -4901,13 +5093,20 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         // Pushed further right so the card stops covering the slots next to the hovered tile (Tad). Clamped
         // so it never runs off the modal's right edge.
         left = Mathf.Clamp(left + TooltipRightShift, 4f, Mathf.Max(4f, modalW - TooltipW - 4f));
+        // Free Move with a remembered spot: the card goes where the player last left it, not beside the
+        // tile. Clamped so a smaller modal can't strand it off-screen.
+        if (_freeMove && _hasSavedTipPos)
+        {
+            left = Mathf.Clamp(_savedTipPos.x, 4f, Mathf.Max(4f, modalW - TooltipW - 4f));
+            top = Mathf.Clamp(_savedTipPos.y, 4f, Mathf.Max(4f, _modal.resolvedStyle.height - 60f));
+        }
         _newSchedulerTooltip.style.left = left;
         _newSchedulerTooltip.style.top = top;
         // Cap the scroll area to whatever room is left below it in the modal, rather than letting
         // tall item lists (see BuildOutboundTooltipContent) push the tooltip off the bottom edge --
         // it scrolls internally instead, per Tad's explicit call.
         _newSchedulerTooltipScroll.style.maxHeight =
-            Mathf.Max(120f, _modal.resolvedStyle.height - top - 36f);
+            Mathf.Max(120f, _modal.resolvedStyle.height - top - 48f);
         _newSchedulerTooltip.style.display = DisplayStyle.Flex;
         _newSchedulerTooltip.BringToFront();
     }
@@ -4933,6 +5132,80 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             _tooltipHideItem = null;
             HideNewSchedulerTooltip();
         }).StartingIn(TooltipHideGraceMs);
+    }
+
+    private void SetFreeMove(bool on)
+    {
+        _freeMove = on;
+        if (!_freeMove && _tipDragging) EndTooltipDrag(null);
+        SyncFreeMoveCheckbox();
+    }
+
+    private void SyncFreeMoveCheckbox()
+    {
+        _freeMoveToggle?.SetValueWithoutNotify(_freeMove);
+    }
+
+    // Drag handling for the hover card. Only active while Free Move is on; with it off the card is
+    // placed beside its tile exactly as before and these handlers do nothing.
+    private void OnTooltipPointerDown(PointerDownEvent evt)
+    {
+        if (!_freeMove || evt.button != 0) return;
+        Vector2 pointer = _modal.WorldToLocal(evt.position);
+        _tipDragOffset = pointer - new Vector2(_newSchedulerTooltip.resolvedStyle.left, _newSchedulerTooltip.resolvedStyle.top);
+        _tipDragging = true;
+        _newSchedulerTooltip.CapturePointer(evt.pointerId);
+        CancelPendingTooltipHide();
+        evt.StopPropagation();
+    }
+
+    private void OnTooltipPointerMove(PointerMoveEvent evt)
+    {
+        if (!_tipDragging) return;
+        Vector2 p = _modal.WorldToLocal(evt.position) - _tipDragOffset;
+        float maxX = Mathf.Max(4f, _modal.resolvedStyle.width - _newSchedulerTooltip.resolvedStyle.width - 4f);
+        float maxY = Mathf.Max(4f, _modal.resolvedStyle.height - _newSchedulerTooltip.resolvedStyle.height - 4f);
+        _newSchedulerTooltip.style.left = Mathf.Clamp(p.x, 4f, maxX);
+        _newSchedulerTooltip.style.top = Mathf.Clamp(p.y, 4f, maxY);
+        evt.StopPropagation();
+    }
+
+    private void OnTooltipPointerUp(PointerUpEvent evt)
+    {
+        if (!_tipDragging) return;
+        EndTooltipDrag(evt);
+    }
+
+    private void EndTooltipDrag(PointerUpEvent evt)
+    {
+        _tipDragging = false;
+        if (evt != null)
+        {
+            _newSchedulerTooltip.ReleasePointer(evt.pointerId);
+            evt.StopPropagation();
+        }
+        _savedTipPos = new Vector2(_newSchedulerTooltip.resolvedStyle.left, _newSchedulerTooltip.resolvedStyle.top);
+        _hasSavedTipPos = true;
+        SaveTooltipPosition();
+        // Dropped outside the card: hide it the normal way. Dropped on the card: stay until the pointer
+        // leaves it, the same as any hover.
+        if (evt != null && !_newSchedulerTooltip.worldBound.Contains(evt.position))
+            ScheduleHideNewSchedulerTooltip();
+    }
+
+    private void SaveTooltipPosition()
+    {
+        if (!_hasSavedTipPos) return;
+        PlayerPrefs.SetFloat(FreeMoveXKey, _savedTipPos.x);
+        PlayerPrefs.SetFloat(FreeMoveYKey, _savedTipPos.y);
+        PlayerPrefs.Save();
+    }
+
+    private void LoadTooltipPosition()
+    {
+        if (!PlayerPrefs.HasKey(FreeMoveXKey) || !PlayerPrefs.HasKey(FreeMoveYKey)) return;
+        _savedTipPos = new Vector2(PlayerPrefs.GetFloat(FreeMoveXKey), PlayerPrefs.GetFloat(FreeMoveYKey));
+        _hasSavedTipPos = true;
     }
 
     private void HideNewSchedulerTooltip()

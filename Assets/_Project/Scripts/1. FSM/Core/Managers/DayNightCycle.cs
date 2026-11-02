@@ -64,6 +64,10 @@ public class DayNightCycle : MonoBehaviour
     [Tooltip("Overall daytime brightness multiplier on BOTH the sun and ambient. 1.0 = neutral; 1.12 ≈ +12%.")]
     [Range(0.5f, 2f)] [SerializeField] private float globalBrightness = 1.12f;
 
+    [Header("Cycle")]
+    [Tooltip("Hold the lighting at solar noon (midway between sunrise and sunset) instead of following the clock. Tad, 2026-11-01: cycle off.")]
+    [SerializeField] private bool lockToMidday = true;
+
     private SimulationTimeService _time;
     private Material _runtimeSky;
     private AmbientMode _prevAmbientMode;
@@ -115,6 +119,7 @@ public class DayNightCycle : MonoBehaviour
 
     private float CurrentHour()
     {
+        if (lockToMidday) return (sunriseHour + sunsetHour) * 0.5f;
         if (_time != null) return _time.Hour + _time.Minute / 60f; // 0..24
         return 12f; // editor / no clock → noon
     }

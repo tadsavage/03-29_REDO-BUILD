@@ -1198,6 +1198,8 @@ public class ContractsPanel : IUIPanel
         // The same-day line stays: it isn't a lead time, it's the 2x bonus, which exists nowhere else
         // on the card.
         if (rush) box.Add(DeadlineLine("SAME DAY — pays 2x on time", 11, ColWholesale));
+        // Untaken offers lapse at midnight (OrderArrivalService.ExpireStaleBulkOffers); say so on the card.
+        box.Add(DeadlineLine($"Offer expires at midnight (day {CurrentDay()})", 10, ColDangerSoft));
 
         // Consequences, spelled out. WRAPS (DeadlineLine is deliberately NoWrap with a pinned height,
         // so this can't use it) and pinned to the badge's full width so it sits along the bottom.

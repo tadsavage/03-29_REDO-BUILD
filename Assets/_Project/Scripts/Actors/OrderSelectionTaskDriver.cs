@@ -105,6 +105,7 @@ namespace GameCore.Actors
             if (_taskInProgress && _currentTask != null) _currentTask.AssignedAtRealtime = Time.realtimeSinceStartup;
 
             CheckStrandedOnJack();
+            CheckNoProgress();
 
             if (_taskInProgress) return;
 

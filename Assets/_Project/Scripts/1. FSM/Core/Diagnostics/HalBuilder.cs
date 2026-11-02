@@ -76,6 +76,9 @@ namespace GameCore.Diagnostics
             { SystemsLogWindow.LogHal("HAL 9000: cannot start - the placement systems are not available."); yield break; }
 
             HideWelcome();
+            // The clock at the start of the build: build-only hands the player the building at this time (8:00), not 8:13.
+            ServiceLocator.TryGet<SimulationTimeService>(out var clock);
+            int startDay = clock != null ? clock.Day : 1, startHour = clock != null ? clock.Hour : 8, startMinute = clock != null ? clock.Minute : 0;
             Time.timeScale = 1f;
             var s = PlaytestBot.Ensure().S;
             SystemsLogWindow.LogHal($"HAL 9000 initiated. New company, starting capital ${_money.CurrentCapital:N0}. Building the warehouse.");
@@ -118,6 +121,12 @@ namespace GameCore.Diagnostics
             if (s.buildOnly)
             {
                 SystemsLogWindow.LogHal("HAL 9000: build-only mode. Not recording and not running the bot. Edit the warehouse, then save it from the HAL 9000 tab.");
+                // Hand over to the player paused, with a heads-up (Tad, 2026-11-01).
+                var topBar = Object.FindAnyObjectByType<TopBarUI>();
+                if (topBar != null) topBar.SetGameSpeed(0f); else Time.timeScale = 0f;
+                if (clock != null) clock.RestoreTime(startDay, startHour, startMinute);
+                if (topBar != null) topBar.RefreshNow();
+                ShippedFanfare.ShowModal("You're up boss!!!", 3000);
                 Destroy(gameObject);
                 yield break;
             }

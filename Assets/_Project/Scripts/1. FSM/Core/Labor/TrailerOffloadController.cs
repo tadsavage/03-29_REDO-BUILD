@@ -514,7 +514,7 @@ namespace GameCore.Labor
             // the height fresh once inside. Same lock ReachTruckOperator waits on — keyed by
             // (door, lane), so it serialises DS-vs-DS, truck-vs-truck, AND DS-vs-truck on any lane
             // either can reach.
-            while (!inv.TryEnterLaneForDelivery(door, laneLetter))
+            while (!inv.TryEnterLaneForDelivery(door, laneLetter, InventoryService.VehicleLabel(ds, "dock stocker", "offloading")))
                 yield return null;
 
             try
@@ -950,7 +950,7 @@ namespace GameCore.Labor
         /// World-space top (max renderer bounds Y) of a settled pallet + its cases. Used to stack the
         /// next pallet on top of it. 0 if the object has no renderers.
         /// </summary>
-        private static float MeasureTopY(GameObject go)
+        public static float MeasureTopY(GameObject go)
         {
             float maxY = 0f;
             foreach (var r in go.GetComponentsInChildren<MeshRenderer>())
@@ -1156,6 +1156,13 @@ namespace GameCore.Labor
             nav.SeekPosition(driveTarget, () => arrived = true);
 
             yield return null;
+            // A carve update or rebake can drop a freshly issued path for a frame or two: re-issue for up to a second first.
+            for (float tw = 0f; !arrived && !agent.pathPending && !agent.hasPath && tw < 1f; tw += Time.unscaledDeltaTime)
+            {
+                agent.Warp(ds.position);
+                agent.SetDestination(driveTarget);
+                yield return null;
+            }
             if (!arrived && !agent.pathPending && !agent.hasPath)
             {
                 Debug.LogError($"[TrailerOffload] '{ds.name}' {phase}: destination did not take — " +
@@ -1421,7 +1428,34 @@ namespace GameCore.Labor
                 }
             }
 
+            float physical = PhysicalTopInCell(cell, selfGO);
+            if (physical > highestTop) highestTop = physical;
             return highestTop > 0f ? highestTop + StackGap : LaneSurfaceY;
+        }
+
+        /// <summary>Top of whatever pallet is PHYSICALLY standing in this cell, found by position rather than by inventory record.
+        /// Block 1024: 184 overlaps. The record lookups miss a pallet whose record names another cell, an unrecorded CHEP, or (inbound)
+        /// any staged outbound pallet, so the next drop landed at floor height inside it. Every pallet kind is scanned here.</summary>
+        public static float PhysicalTopInCell(Vector2Int cell, GameObject selfGO)
+        {
+            var grid = Object.FindAnyObjectByType<PlacementGrid>();
+            if (grid == null) return 0f;
+            Vector3 c = grid.CellToWorld(cell);
+            float highestTop = 0f;
+            var seen = new HashSet<GameObject>();
+            void Check(GameObject go)
+            {
+                if (go == null || go == selfGO || !seen.Add(go)) return;
+                if (IsRidingForks(go) || go.GetComponentInParent<TruckController>() != null) return;
+                Vector3 p = go.transform.position;
+                if ((p.x - c.x) * (p.x - c.x) + (p.z - c.z) * (p.z - c.z) > 0.55f * 0.55f) return;
+                float top = MeasureTopY(go);
+                if (top > highestTop) highestTop = top;
+            }
+            foreach (var l in Object.FindObjectsByType<PalletMasterLink>()) if (l != null) Check(l.gameObject);
+            foreach (var o in Object.FindObjectsByType<OutboundPalletBuilder>()) if (o != null) Check(o.gameObject);
+            foreach (var d in Object.FindObjectsByType<PalletData>()) if (d != null) Check(d.gameObject);
+            return highestTop;
         }
 
         /// <summary>True only while a pallet is physically on a vehicle's forks. NOT "has a parent": a pallet restored from a save
@@ -1449,6 +1483,8 @@ namespace GameCore.Labor
                     float top = MeasureTopY(go);
                     if (top > highestTop) highestTop = top;
                 }
+                float physical = PhysicalTopInCell(cell, selfGO);
+                if (physical > highestTop) highestTop = physical;
                 if (highestTop > 0f) baseY = highestTop + StackGap;
             }
             return baseY;

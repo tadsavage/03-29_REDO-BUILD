@@ -230,9 +230,47 @@ public class EquipmentBattery : MonoBehaviour
     /// <summary>A job just ended: start looking for somewhere to wait almost at once instead of wandering.</summary>
     public void NoteJobFinished() { _idleWait = Mathf.Max(_idleWait, IdleGraceSeconds - 0.4f); }
 
+    // A pallet riding the forks (any pallet, received or not) means the machine still has work to do: it never parks or
+    // charges with one aboard. Checked at most twice a second; the forks are the only place a carried pallet can sit.
+    private bool _carryCached;
+    private float _carryCheckedAt = -1f;
+    private bool _carryWarned;
+
+    /// <summary>True while a pallet is on this machine's forks (dock stocker / reach truck / pallet jack).</summary>
+    public bool CarryingPallet
+    {
+        get
+        {
+            if (Time.unscaledTime - _carryCheckedAt < 0.5f) return _carryCached;
+            _carryCheckedAt = Time.unscaledTime;
+            _carryCached = false;
+            foreach (var f in GetComponentsInChildren<Transform>(true))
+            {
+                if (f.name != "Forks") continue;
+                if (f.GetComponentInChildren<GameCore.Inventory.PalletMasterLink>(true) != null ||
+                    f.GetComponentInChildren<OutboundPalletBuilder>(true) != null ||
+                    f.GetComponentInChildren<GameCore.Inventory.PalletData>(true) != null)
+                {
+                    _carryCached = true;
+                    break;
+                }
+            }
+            if (_carryCached && !_carryWarned)
+            {
+                _carryWarned = true;
+                Debug.LogWarning($"[EquipmentBattery] {name} has a pallet on its forks - it will not park or charge until that pallet is delivered.");
+            }
+            else if (!_carryCached) _carryWarned = false;
+            return _carryCached;
+        }
+    }
+
     /// <summary>With a driver and no work: charge at a free station if it isn't full, then park out of the way.</summary>
     private IEnumerator IdleRoutine()
     {
+        // Never park or charge with a pallet aboard. The job that owns the pallet has to deliver it first.
+        if (CarryingPallet) { _idle = null; yield break; }
+
         // 1. A free charger: plug in while there is nothing to do.
         if (Charge01 < 0.95f && !IsBusy && PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) != null)
         {
@@ -498,7 +536,7 @@ public class EquipmentBattery : MonoBehaviour
 
     public bool ShouldChargeBetweenJobs()
     {
-        if (!CanChangeBattery || IsBusy || NeedsCharge || HoursLeft > LowHours) return false;
+        if (!CanChangeBattery || IsBusy || NeedsCharge || HoursLeft > LowHours || CarryingPallet) return false;
         if (PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) == null) return false;   // every charger is taken
         foreach (var other in All)
         {
@@ -679,9 +717,10 @@ public class EquipmentBattery : MonoBehaviour
             if (!ok)
             {
                 // Couldn't path there: try the bay itself directly (short hops fail on the mesh more than long ones).
-                Debug.LogWarning($"[EquipmentBattery] {name}: no path to the charger approach - trying again shortly.");
+                ThrottledLog.Warn("batt-nopath-" + name, $"[EquipmentBattery] {name}: no path to the charger approach - trying again shortly.");
                 if (_reserved != null) { _reserved.Release(Slot); _reserved = null; }
-                yield return new WaitForSeconds(3f);
+                _slideRefusals++;
+                yield return new WaitForSeconds(Mathf.Min(30f, 1f + 4f * _slideRefusals));
                 continue;
             }
             // The approach point can sit off the mesh (a rack or another bay in the way), so the agent stopped at the nearest mesh point,
@@ -1074,6 +1113,9 @@ public class EquipmentBattery : MonoBehaviour
             yield return null;
         }
         _inNavTo = false;
+        // AiNavigation fires its arrival callback for a PARTIAL path too ("only partially reachable - treating as arrived"), which left
+        // machines 25-42 m short and then refusing the hand-driven finish over and over (block 1024). That is not an arrival.
+        if (arrived && this != null && Flat(transform.position - drive).magnitude > 3f) arrived = false;
         if (!IsBusy) ParkNav();   // same reason: never switch navigation off under a job that has just started
         done(arrived);
     }
@@ -1117,7 +1159,7 @@ public class EquipmentBattery : MonoBehaviour
         target.y = transform.position.y;
         if (Flat(transform.position - target).magnitude > MaxHandDriveMeters)
         {
-            Debug.LogWarning($"[EquipmentBattery] {name}: not sliding {Flat(transform.position - target).magnitude:0.0} m by hand - that is a navigation job. Trying the path again.");
+            ThrottledLog.Warn("batt-slide-" + name, $"[EquipmentBattery] {name}: not sliding {Flat(transform.position - target).magnitude:0.0} m by hand - that is a navigation job. Trying the path again.");
             yield break;
         }
         while (this != null && Vector3.Distance(Flat(transform.position), Flat(target)) > 0.02f)

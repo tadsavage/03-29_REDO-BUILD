@@ -140,11 +140,22 @@ namespace GameCore.Labor
             // Duplicate Load tasks (same lane, same dock door) are pure churn: each one sends the loader out
             // to do an empty pass. A bug filed hundreds of them; keep the oldest and cancel the rest, so a
             // save that already carries them heals itself.
+            // The key includes the appointment: two tasks for the same lane but different trailers are NOT duplicates. Keyed by lane
+            // alone, a stale task left by a deleted appointment survived (oldest) and the live trailer's task was cancelled, so OG6297
+            // sat Loaded with 10 staged pallets and its trailer waiting (2026-11-01). A task whose appointment no longer exists is
+            // cancelled outright: the loader can never find its truck, and it would keep blocking the reopen check in AutoFileLoadTasks.
+            ServiceLocator.TryGet<DockScheduleService>(out var loadSched);
             var seenLoads = new HashSet<string>();
             foreach (var t in workQueue.Tasks)
             {
                 if (t.Type != WorkTaskType.Load || t.Status != WorkTaskStatus.Available) continue;
-                if (!seenLoads.Add($"{t.FromLocation}>{t.ToLocation}")) t.Status = WorkTaskStatus.Cancelled;
+                if (!string.IsNullOrEmpty(t.AppointmentId) && loadSched != null && loadSched.FindById(t.AppointmentId) == null)
+                {
+                    t.Status = WorkTaskStatus.Cancelled;
+                    Debug.LogWarning($"[TrailerLoad] Cancelled Load task {t.FromLocation} -> Door {t.ToLocation}: its appointment no longer exists.");
+                    continue;
+                }
+                if (!seenLoads.Add($"{t.FromLocation}>{t.ToLocation}>{t.AppointmentId}")) t.Status = WorkTaskStatus.Cancelled;
             }
 
             var byLane = new List<(WorkTask task, int door, string lane, int dock)>();
@@ -177,6 +188,10 @@ namespace GameCore.Labor
             // still sitting in an inbound lane that a dock stocker can dig out and load directly
             // (TrailerLoadController.DigOut.cs).
             using (_mTc3.Auto()) TryStartDigAndLoad(workQueue);
+
+            // Lowest priority of all: with nothing else to do, the dock stocker tidies orders spread over too many lanes
+            // (TrailerLoadController.DockCleanup.cs).
+            TryStartDockCleanup(workQueue);
         }
 
         /// <summary>
@@ -240,7 +255,6 @@ namespace GameCore.Labor
             int slots = TruckController.PalletSlotCount;
             var tops = new float[slots];
             var counts = new int[slots];
-            var bottomHeight = new float[slots];
 
             foreach (Transform child in truck.LoadContainer)
             {
@@ -256,14 +270,12 @@ namespace GameCore.Labor
                 if (nearest < 0) continue;
                 float h = MeasurePalletHeight(child) / scaleY;
                 counts[nearest]++;
-                if (counts[nearest] == 1 || child.localPosition.y < 0.05f) bottomHeight[nearest] = h;
                 float top = child.localPosition.y + h;
                 if (top > tops[nearest]) tops[nearest] = top;
             }
 
             float need = palletHeightWorld / scaleY;
             float roof = TrailerCapacity.SafeInteriorHeight / scaleY;
-            float stackable = TrailerCapacity.StackableHeight / scaleY;
 
             // Walk the positions nose → doors and take the FIRST one that can accept this pallet:
             //   • an empty floor position, or
@@ -275,8 +287,9 @@ namespace GameCore.Labor
             {
                 int s = CargoSlotForSequence(seq);
                 if (counts[s] == 0) { slotIndex = s; stackBaseY = 0f; return true; }
-                if (need <= stackable && counts[s] == 1 && bottomHeight[s] <= stackable &&
-                    tops[s] + TrailerCapacity.StackGap + need <= roof)
+                // Any pallet may ride on a lone pallet as long as the pair clears the roof. The old per-pallet
+                // half-height cap refused a 1.3 m bottom with a 1.1 m top (2.42 m total, fits) and cut trailers to 12.
+                if (counts[s] == 1 && tops[s] + TrailerCapacity.StackGap + need <= roof)
                 {
                     slotIndex = s; stackBaseY = tops[s] + TrailerCapacity.StackGap;
                     return true;
@@ -326,9 +339,12 @@ namespace GameCore.Labor
                     }
                     if (!HasStagedPalletForOrder(order.OrderId)) continue;
                     var addresses = new HashSet<string>(order.AllStagingLanes().Select(l => $"{l.door}{l.lane}"));
+                    // Only a task for THIS order's trailer counts; another appointment's task for the same lane never loads it.
+                    string orderAppt = AppointmentOfOrder(order.OrderId);
                     bool loadPending = reopenQueue.Tasks.Any(t => t.Type == WorkTaskType.Load &&
                         (t.Status == WorkTaskStatus.Available || t.Status == WorkTaskStatus.Assigned) &&
-                        addresses.Contains(t.FromLocation));
+                        addresses.Contains(t.FromLocation) &&
+                        (string.IsNullOrEmpty(t.AppointmentId) || t.AppointmentId == orderAppt));
                     if (loadPending) continue;
                     order.Status = OrderData.OrderStatus.Staged;
                     Debug.Log($"[TrailerLoad] Order {order.OrderNumber} has staged pallets again after its load pass (no Load task pending) — reopened for loading.");
@@ -663,9 +679,13 @@ namespace GameCore.Labor
             {
                 var apptSvc = ServiceLocator.TryGet<DockScheduleService>(out var sch) ? sch : null;
                 var apptForTruck = apptSvc != null && !string.IsNullOrEmpty(appointmentId) ? apptSvc.FindById(appointmentId) : null;
+                // Keyed on the appointment, NOT on status: an order's status flips Staged/Loading/Loaded during a pass
+                // (a revert or a reopen can land between passes), and an order that is Staged at that moment
+                // used to fail this check for its OWN pallets, so the pass stopped with "belongs to order X, not one
+                // being loaded here" and loaded nothing (OG6297 door 1, 2026-11-01). Any live order on this trailer is ours.
                 loadingIds = new HashSet<string>(orders.ActiveOrders
                     .Where(o => (apptForTruck != null ? apptForTruck.OrderIds.Contains(o.OrderId) : o.AssignedDoorNumber == dockDoor) &&
-                                (o.Status == OrderData.OrderStatus.Loading || o.Status == OrderData.OrderStatus.Loaded))
+                                o.Status != OrderData.OrderStatus.Cancelled && o.Status != OrderData.OrderStatus.Shipped)
                     .Select(o => o.OrderId));
             }
 
@@ -839,7 +859,7 @@ namespace GameCore.Labor
             // shared lane. Receivers are exempt by design — they never call this, they work on foot.
             ServiceLocator.TryGet<InventoryService>(out var inv);
             if (inv != null)
-                while (!inv.TryEnterLaneForDelivery(laneSlot.DoorNumber, laneSlot.Lane))
+                while (!inv.TryEnterLaneForDelivery(laneSlot.DoorNumber, laneSlot.Lane, InventoryService.VehicleLabel(ds, "dock stocker", "loading")))
                     yield return null;
 
             try
@@ -1120,6 +1140,13 @@ namespace GameCore.Labor
             nav.SeekPosition(driveTarget, () => arrived = true);
 
             yield return null;
+            // A carve update or rebake can drop a freshly issued path for a frame or two: re-issue for up to a second first.
+            for (float tw = 0f; !arrived && !agent.pathPending && !agent.hasPath && tw < 1f; tw += Time.unscaledDeltaTime)
+            {
+                agent.Warp(ds.position);
+                agent.SetDestination(driveTarget);
+                yield return null;
+            }
             if (!arrived && !agent.pathPending && !agent.hasPath)
             {
                 Debug.LogError($"[TrailerLoad] '{ds.name}' {phase}: destination did not take (no path) for {driveTarget} from {ds.position}.");

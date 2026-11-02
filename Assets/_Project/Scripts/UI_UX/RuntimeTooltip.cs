@@ -44,10 +44,10 @@ public static class RuntimeTooltip
     /// <summary>Same as <see cref="Attach"/>, but the tooltip's body is built fresh on every hover by
     /// <paramref name="buildContent"/> instead of being a single line of text — for a tooltip that
     /// needs structure (a header plus a list of icon+text rows), not just a paragraph.</summary>
-    public static void AttachRich(VisualElement target, Func<VisualElement> buildContent)
+    public static void AttachRich(VisualElement target, Func<VisualElement> buildContent, float maxWidth = 0f, bool ignoreGlobalToggle = false)
     {
         if (target == null || buildContent == null) return;
-        target.RegisterCallback<PointerEnterEvent>(evt => Show(target, buildContent, (Vector2)evt.position));
+        target.RegisterCallback<PointerEnterEvent>(evt => Show(target, buildContent, (Vector2)evt.position, ignoreGlobalToggle, maxWidth: maxWidth));
         target.RegisterCallback<PointerLeaveEvent>(_ => Hide(target));
         target.RegisterCallback<DetachFromPanelEvent>(_ => Hide(target));
     }
@@ -65,10 +65,10 @@ public static class RuntimeTooltip
 
     // HAL tooltips are bigger, solid white with black bold text, and pinned above the bottom bar's
     // far right instead of following the pointer, so they never sit on top of the score table.
-    private static void ApplyHostStyle(VisualElement host, bool halStyle)
+    private static void ApplyHostStyle(VisualElement host, bool halStyle, float maxWidth = 0f)
     {
         host.style.backgroundColor = new StyleColor(halStyle ? Color.white : ColBg);
-        host.style.maxWidth = halStyle ? 510 : 340;
+        host.style.maxWidth = maxWidth > 0f ? maxWidth : halStyle ? 510 : 340;
         Color border = halStyle ? Color.black : ColBorder;
         host.style.borderTopColor = host.style.borderBottomColor =
             host.style.borderLeftColor = host.style.borderRightColor = new StyleColor(border);
@@ -111,7 +111,7 @@ public static class RuntimeTooltip
         return host;
     }
 
-    private static void Show(VisualElement target, Func<VisualElement> buildContent,     Vector2 pointerPos, bool ignoreGlobalToggle = false, bool halStyle = false)
+    private static void Show(VisualElement target, Func<VisualElement> buildContent,     Vector2 pointerPos, bool ignoreGlobalToggle = false, bool halStyle = false, float maxWidth = 0f)
     {
         // ignoreGlobalToggle: the panel's tooltips are exempt from F1 (the Scheduler's are always on).
         if (ignoreGlobalToggle ? TooltipSettings.BlockedIgnoringToggle : TooltipSettings.Blocked) return;
@@ -120,7 +120,7 @@ public static class RuntimeTooltip
         _activeTarget = target;
 
         VisualElement host = GetHost(panel);
-        ApplyHostStyle(host, halStyle);
+        ApplyHostStyle(host, halStyle, maxWidth);
         var body = (VisualElement)host.userData;
         body.Clear();
         body.Add(buildContent());

@@ -313,9 +313,10 @@ public class MiniDockTimeline
             chip.Add(face);
 
             string state = missed ? "MISSED" : complete ? "done" : "scheduled";
-            RuntimeTooltip.Attach(chip,
-                $"{(string.IsNullOrEmpty(appt.CustomerName) ? "Trailer" : appt.CustomerName)} - {KindName(appt.Kind)}, " +
-                $"Door {appt.DoorNumber}, {appt.TimeLabel} ({state})");
+            string header = $"{(string.IsNullOrEmpty(appt.CustomerName) ? "Trailer" : appt.CustomerName)} - {KindName(appt.Kind)}, " +
+                $"Door {appt.DoorNumber}, {appt.TimeLabel} ({state})";
+            // Built fresh each hover so the staged counts are live.
+            RuntimeTooltip.AttachRich(chip, () => LoadProgressCard.Build(appt, header), LoadProgressCard.Width + 24f);
             _grid.Add(chip);
             _chips.Add((chip, appt.Day * 24f + appt.StartMinute / 60f, row));
         }

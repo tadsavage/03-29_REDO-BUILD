@@ -142,7 +142,7 @@ namespace GameCore.Labor
                     if (o != null && appt.OrderIds.Contains(o.OrderId)) pallets += Mathf.CeilToInt(o.TotalUnits / 48f);
 
             var stat = OpsMetrics.GetBlended(OpsMetrics.Kind.LoadCycle);
-            float perPallet = stat.n >= 3 && stat.standard > 1f ? stat.standard : 15f;
+            float perPallet = stat.n >= 3 && stat.standard > 1f ? stat.standard : 16.5f;
             int stockers = Mathf.Max(1, OrderPickEstimate.Headcount(EmployeeRole.DockStockerOperator));
             float loadMinutes = pallets * perPallet / stockers;
             float slotMinutes = appt.EndMinute - appt.StartMinute;
@@ -185,7 +185,38 @@ namespace GameCore.Labor
                 // staged-pallet trigger fired before the block and is already serving the door).
                 if (TruckYardManager.HasOutboundTruckFor(appt.DoorNumber, appt.Id)) continue;
 
+                // Its door is still physically held by another trailer (a late one that hasn't left): send this driver to a free
+                // outbound door instead of queueing behind it. HAL block 29 lost five orders in a row this way.
+                TryMoveOffHeldDoor(schedule, appt);
+
                 _truckYard.SpawnOutboundTruck(appt.DoorNumber, appt.Id);
+            }
+        }
+
+        /// <summary>True when a trailer other than this appointment's is docked at, or backing into, the door.</summary>
+        private static bool DoorHeldByOther(int doorNumber, string appointmentId)
+        {
+            foreach (var t in FindObjectsByType<TruckController>())
+            {
+                if (t == null || t.IsLeaving || t.AssignedDock == null || t.AssignedDock.DoorNumber != doorNumber) continue;
+                if (t.IsOutbound && t.OutboundAppointmentId == appointmentId) continue;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Moves an appointment whose door is held by another trailer to a free outbound door in the same block. Same day and
+        /// time, so no move penalty applies; TryMoveToDoor carries the orders, Load tasks and truck over to the new door.</summary>
+        private static void TryMoveOffHeldDoor(DockScheduleService schedule, DockAppointment appt)
+        {
+            if (!DoorHeldByOther(appt.DoorNumber, appt.Id)) return;
+            foreach (int door in schedule.OutboundDoors())
+            {
+                if (door == appt.DoorNumber || DoorHeldByOther(door, appt.Id) || TruckYardManager.HasOutboundTruckFor(door)) continue;
+                int from = appt.DoorNumber;
+                if (!schedule.TryMoveToDoor(appt.Id, appt.Day, appt.BlockIndex, door, out _)) continue;
+                SystemsLogWindow.LogGuard($"Door {from} is still taken by a trailer that hasn't left - {appt.CustomerName}'s pickup moved to Door {door}.");
+                return;
             }
         }
 

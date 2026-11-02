@@ -1566,6 +1566,7 @@ private void ShowLocation(LocationData location)
         string outboundPalletText = null;                             // outbound only: exact pallet status (replaces the old guessed "x out of y")
         var cardOrderIds = new List<string>();
         var loadedCasesBySku = new Dictionary<string, int>();        // outbound only: cases aboard per SKU
+        var stagedCasesBySku = new Dictionary<string, int>();        // outbound only: cases already staged in a lane for this order (not aboard yet, not in stock records)
         var items = new List<(string desc, int qty, int pallets, int criticalCases, int casesPerPallet, string skuId)>();
 
         if (!truck.IsOutbound)
@@ -1762,6 +1763,25 @@ private void ShowLocation(LocationData location)
                             if (pd != null && !string.IsNullOrEmpty(pd.ItemNumber) && pd.CaseQuantity > 0)
                                 loadedCasesBySku[pd.ItemNumber] = (loadedCasesBySku.TryGetValue(pd.ItemNumber, out var have2) ? have2 : 0) + pd.CaseQuantity;
                         }
+                    }
+                }
+                // Staged-in-lane cases of this trailer's orders are already picked, so they must not read as missing stock.
+                // Their cases live on outbound pallets, which the stock records (TotalOnHand) do not count.
+                foreach (var ob in Object.FindObjectsByType<OutboundPalletBuilder>())
+                {
+                    if (ob == null || ob.Stage != OutboundPalletBuilder.PalletStage.Staged || string.IsNullOrEmpty(ob.OrderId) || !cardOrderIds.Contains(ob.OrderId)) continue;
+                    if (ob.CaseCountsBySku.Count > 0)
+                    {
+                        foreach (var kv in ob.CaseCountsBySku)
+                            if (!string.IsNullOrEmpty(kv.Key) && kv.Value > 0)
+                                stagedCasesBySku[kv.Key] = (stagedCasesBySku.TryGetValue(kv.Key, out var sc) ? sc : 0) + kv.Value;
+                    }
+                    else
+                    {
+                        // Pallet-pick pallets carry their cases on PalletData, not the case-count map.
+                        var pd = ob.GetComponent<PalletData>();
+                        if (pd != null && !string.IsNullOrEmpty(pd.ItemNumber) && pd.CaseQuantity > 0)
+                            stagedCasesBySku[pd.ItemNumber] = (stagedCasesBySku.TryGetValue(pd.ItemNumber, out var sp) ? sp : 0) + pd.CaseQuantity;
                     }
                 }
                 // Case-picked pallets MIX several SKUs on one physical pallet, so "pallets aboard / one pallet per order
@@ -2064,20 +2084,36 @@ private void ShowLocation(LocationData location)
                     {
                         ServiceLocator.TryGet<InventoryService>(out var stockInv);
                         ServiceLocator.TryGet<VendorEconomyService>(out var stockEco);
-                        int haveCases = stockInv != null ? stockInv.TotalOnHand(skuId) : 0;
+                        // Tad's rule: red ONLY when the building can't cover it. Balance on hand minus pending shipment.
+                        // BOH = cases still in stock records (racks, lanes, forks). Pending = cases every open order
+                        // still has to PICK. Cases already picked (on a selector's pallet, staged, on forks to the
+                        // trailer, aboard) are out of both numbers, so they can never read as missing.
+                        int boh = stockInv != null ? stockInv.TotalOnHand(skuId) : 0;
                         int onOrderCases = stockEco != null ? stockEco.GetTotalOnOrder(skuId) : 0;
-                        if (haveCases + onOrderCases < remainCases)
+                        int pending = 0, cardUnpicked = 0;
+                        ServiceLocator.TryGet<OrderService>(out var stockOrders);
+                        if (stockOrders != null)
+                            foreach (var o in stockOrders.ActiveOrders)
+                            {
+                                if (o == null || o.Status == OrderData.OrderStatus.Shipped || o.Status == OrderData.OrderStatus.Cancelled) continue;
+                                foreach (var li in o.LineItems)
+                                {
+                                    if (li == null || li.SkuId != skuId) continue;
+                                    int left = Mathf.Max(0, li.QuantityRemaining);
+                                    pending += left;
+                                    if (cardOrderIds.Contains(o.OrderId)) cardUnpicked += left;
+                                }
+                            }
+                        int balance = boh - pending;
+                        if (cardUnpicked > 0 && balance < 0)
                         {
-                            row.text += haveCases + onOrderCases <= 0 ? "  - NONE ON ORDER" : $"  - SHORT: {haveCases} here, {onOrderCases} on order";
+                            row.text += boh <= 0
+                                ? (onOrderCases > 0 ? $"  - NONE IN HOUSE ({onOrderCases} cs on order)" : "  - NONE IN HOUSE")
+                                : $"  - SHORT {-balance}cs: {boh} in house, {pending} pending" + (onOrderCases > 0 ? $", {onOrderCases} on order" : "");
                             // The empty part of the bar (where the remaining cases should be) turns red, so the missing item stands out in the column.
                             track.style.backgroundColor = new Color(0.72f, 0.16f, 0.16f, 1f);
                             track.style.borderTopColor = track.style.borderBottomColor = track.style.borderLeftColor = track.style.borderRightColor = new Color(1f, 0.38f, 0.34f, 1f);
                             anyOutOfStock = true;
-                        }
-                        else if (haveCases < remainCases)
-                        {
-                            row.text += $"  - on order ({onOrderCases} cs)";
-                            row.style.color = new Color(1f, 0.78f, 0.3f, 1f);
                         }
                     }
 

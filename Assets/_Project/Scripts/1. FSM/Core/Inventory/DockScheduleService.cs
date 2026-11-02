@@ -381,7 +381,7 @@ namespace GameCore.Inventory
         /// <summary>Tad's loading rule (2026-10-31): a load gets 15 game minutes per pallet. A trailer's slot always has at least
         /// its block span, and stretches to the pallets it carries when that is longer - a 10-pallet load gets 150 minutes,
         /// not a fine at the end of the 2-hour block.</summary>
-        public const int MinutesPerPalletLoad = 15;
+        public const int MinutesPerPalletLoad = 19;   // (15 + 2 extra) x 1.1, rounded up (Tad, 2026-11-01), loads and offloads
 
         /// <summary>How long this appointment's trailer may run past its start before it counts as late.</summary>
         public int AllowedMinutes(DockAppointment appt, OrderService orders)
@@ -612,7 +612,12 @@ namespace GameCore.Inventory
                 failReason = $"A {DurationText(span)} appointment starting at {BlockLabel(blockIndex)} doesn't fit in the day.";
                 return false;
             }
-            int free = doors.FirstOrDefault(d => !DoorBusy(day, blockIndex, span, d));
+            // Least-booked door that day first, not always the lowest: a recurring account booked "door 1, 17:00" every day, so one
+            // late trailer still parked there blocked the next day's pickup too (HAL block 29, 2026-11-01).
+            int free = doors.Where(d => !DoorBusy(day, blockIndex, span, d))
+                            .OrderBy(d => _appointments.Count(a => a != null && a.Day == day && a.DoorNumber == d && a.Kind != AppointmentKind.Inbound))
+                            .ThenBy(d => d)
+                            .FirstOrDefault();
             if (free == 0)
             {
                 failReason = $"{BlockLabel(blockIndex)} is full — all {doors.Count} door(s) are booked for {DurationText(span)} from then.";
@@ -1669,6 +1674,10 @@ namespace GameCore.Inventory
                 {
                     if (appointment != target) appointment.OrderIds.Remove(order.OrderId);
                 }
+                // The order may have been riding another appointment (an earlier hold it had been attached to). That one is now empty
+                // and no longer a hold, so it would sit on the grid as "No order yet". Drop it; MaintainRecurringSchedule re-holds the slot.
+                _appointments.RemoveAll(a => a != target && a.Kind != AppointmentKind.Inbound && !a.Parked && !a.ClosedOut && !a.IsHold
+                                             && a.OrderIds.Count == 0 && string.IsNullOrEmpty(a.ShipmentPoNumber));
                 if (!target.OrderIds.Contains(order.OrderId)) target.OrderIds.Add(order.OrderId);
                 target.IsHold = false;
             }
@@ -1897,14 +1906,22 @@ namespace GameCore.Inventory
                     po.Status == ShipmentData.ShipmentStatus.Departed ||
                     po.Status == ShipmentData.ShipmentStatus.Cancelled) continue;
 
-                long apptStartMinutes = (long)(appt.Day - 1) * 24 * 60 + appt.StartHour * 60;
-                if (nowMinutes - apptStartMinutes < ReceiveDeadlineHours * 60) continue;
+                // The clock starts when the truck pulls up to the guard for check-in (Tad, 2026-11-01), not at the booked slot and
+                // not while it is still driving in or queued. With no truck at all, the booked slot start still applies.
+                var truck = Object.FindObjectsByType<TruckController>()
+                    .FirstOrDefault(t => t != null && t.AssignedShipment == po);
+                long startMinutes;
+                if (truck != null)
+                {
+                    if (truck.CheckInSimMinute < 0) continue;   // still on its way in / in the gate line
+                    startMinutes = truck.CheckInSimMinute;
+                }
+                else startMinutes = (long)(appt.Day - 1) * 24 * 60 + appt.StartHour * 60;
+                if (nowMinutes - startMinutes < ReceiveDeadlineHours * 60) continue;
 
                 // Force out any live truck still sitting on this PO before cancelling — ForceDeparture
                 // internally marks the shipment Departed, which we immediately override to Cancelled
                 // below so the PO doesn't read as fulfilled.
-                var truck = Object.FindObjectsByType<TruckController>()
-                    .FirstOrDefault(t => t != null && t.AssignedShipment == po);
                 truck?.ForceDeparture();
 
                 po.Status = ShipmentData.ShipmentStatus.Cancelled;

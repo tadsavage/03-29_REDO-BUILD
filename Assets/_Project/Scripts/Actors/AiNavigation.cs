@@ -108,13 +108,21 @@ public class AiNavigation : MonoBehaviour
     /// it as "arrived". A grace period rather than an instant call, so an agent still threading its
     /// way along a partial route isn't cut short the moment it slows down.</summary>
     private const float PartialSeekGraceSeconds = 1.5f;
+
+    /// <summary>How close the agent must actually be to the task target for the end of a PARTIAL path
+    /// to count as arriving. Beyond this the seek is reported as unreachable instead. The callback is
+    /// the same either way (this file's hand-back idiom), but the log stops claiming an arrival that
+    /// consumers like ReceiverReceivingWorkflow (max 4.5m) will refuse.</summary>
+    private const float PartialArrivalMaxGap = 4f;
     private float _partialSeekSeconds;
 
     /// <summary>Backstop for a task seek that stops getting closer to its target but never satisfies
     /// any of the three resolution branches below. The PathPartial grace period gates on the agent
     /// standing STILL, which a selector waiting in a busy staging lane never does — every dock stocker
     /// that shoves past resets the timer, so it holds its pallet forever with nothing in the console.
-    /// Progress is measured as "did the remaining distance actually improve", not "is it moving".</summary>
+    /// Progress is measured as "did the straight-line gap to the target actually shrink", not "is it
+    /// moving" — and straight-line because agent.remainingDistance reads +Infinity while the agent has
+    /// no current path, which made this fire on agents that were walking perfectly well.</summary>
     private const float SeekNoProgressTimeout = 10f;
     private const float SeekProgressEpsilon   = 0.25f;
     private float _seekBestRemaining = float.MaxValue;
@@ -626,6 +634,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 // A machine's escape point must be on the FLOOR: the yard-level layer under the building edge is "inside" by the
                 // boundary's tolerance, and walking there put a reach truck through the floor (block 27, 2026-11-01).
                 if (restricted && hit.position.y < MachineMinFloorY) continue;
+                // Nobody steps off the building floor to get unstuck: workers stuck inside walked out 12 m to the yard (y 0.04) through
+                // the wall (block 1024, Sarah Rogers / Carolyn Ramirez).
+                if (origin.y > MachineMinFloorY && hit.position.y < origin.y - 0.6f) continue;
 
                 float d = Vector3.Distance(origin, hit.position);
                 if (d < MinEscapeDistance) continue;   // too close — still inside the pocket
@@ -945,21 +956,33 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // remainingDistance throw ("can only be called on an active agent that has been placed on a NavMesh").
         if (_seekingTask && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
-            // Progress tracking for the no-progress backstop below. "Progress" is the remaining
-            // distance actually falling — being shunted around by MHE doesn't count as progress, and
+            // Progress tracking for the no-progress backstop below. "Progress" is the distance to the
+            // target actually falling — being shunted around by MHE doesn't count as progress, and
             // (unlike a velocity check) it can't be faked by the agent being shoved.
-            if (!agent.pathPending)
+            //
+            // Measured straight-line rather than through agent.remainingDistance, which is +Infinity
+            // whenever the agent has no usable CURRENT path. That includes every window where it is
+            // being re-pathed: pathPending has already gone false, the replacement path has not been
+            // applied yet, and pathStatus still reports the PREVIOUS path's result — which is how the
+            // log read "stopped Infinity m short, path PathComplete". Infinity never beats
+            // _seekBestRemaining, so each of those frames counted as no-progress while the agent was
+            // in fact walking normally; the backstop then fired mid-walk and handed the task back
+            // from 25 m out, the receiving workflow refused it ("max 4.5m") and released it, and the
+            // task bounced around the queue instead of ever being done.
+            //
+            // Straight-line distance is path-independent and never infinite, and it still measures
+            // precisely what the backstop asks: is this agent getting any closer? A detour around an
+            // obstacle can briefly stall it, which only delays the backstop — the right way to err
+            // for a last-resort anti-deadlock, since the three branches above handle real outcomes.
+            float remaining = Vector3.Distance(transform.position, _taskTargetPosition);
+            if (remaining < _seekBestRemaining - SeekProgressEpsilon)
             {
-                float remaining = agent.remainingDistance;
-                if (remaining < _seekBestRemaining - SeekProgressEpsilon)
-                {
-                    _seekBestRemaining = remaining;
-                    _seekNoProgressSeconds = 0f;
-                }
-                else
-                {
-                    _seekNoProgressSeconds += Time.deltaTime;
-                }
+                _seekBestRemaining = remaining;
+                _seekNoProgressSeconds = 0f;
+            }
+            else
+            {
+                _seekNoProgressSeconds += Time.deltaTime;
             }
 
             if (!agent.pathPending && agent.pathStatus == NavMeshPathStatus.PathComplete
@@ -1001,9 +1024,20 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                     _partialSeekSeconds += Time.deltaTime;
                     if (_partialSeekSeconds >= PartialSeekGraceSeconds)
                     {
-                        Debug.LogWarning($"[AiNavigation] {name}: task target {_taskTargetPosition} only " +
-                            $"partially reachable — stopped {agent.remainingDistance:F2}m short. Treating as arrived.");
+                        // remainingDistance is the gap to the end of the PARTIAL path, and that is 0
+                        // the moment the agent gets there — it says nothing about how far the real
+                        // target still is. Block 30 logged "stopped 0.00m short" while the worker stood
+                        // 15.7m from the pallet; ReceiverReceivingWorkflow then refused the hand-off
+                        // (max 4.5m) and the task bounced round the queue all block. Report the gap
+                        // that matters, and say plainly when the target was never actually reached.
+                        float gap = Vector3.Distance(transform.position, _taskTargetPosition);
                         _partialSeekSeconds = 0f;
+                        if (gap <= PartialArrivalMaxGap)
+                            Debug.LogWarning($"[AiNavigation] {name}: task target {_taskTargetPosition} only " +
+                                $"partially reachable — stopped {gap:F2}m short. Treating as arrived.");
+                        else
+                            Debug.LogWarning($"[AiNavigation] {name}: task target {_taskTargetPosition} is not " +
+                                $"reachable — the partial path ends {gap:F2}m short of it. Handing the task back.");
                         var callback = _onTaskArrived;
                         CancelSeekPosition();
                         callback?.Invoke();
@@ -1027,8 +1061,11 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             // sat Assigned indefinitely. Hand the task back rather than deadlock it.
             if (_seekingTask && _seekNoProgressSeconds >= SeekNoProgressTimeout)
             {
+                // Reports the straight-line gap, not agent.remainingDistance: that printed "Infinity m
+                // short" here, which read as a formatting quirk rather than the reason this fired.
                 Debug.LogWarning($"[AiNavigation] {name}: no progress toward task target {_taskTargetPosition} for " +
-                    $"{SeekNoProgressTimeout:F0}s (stopped {agent.remainingDistance:F2}m short, path {agent.pathStatus}) — treating as arrived.");
+                    $"{SeekNoProgressTimeout:F0}s (stopped {Vector3.Distance(transform.position, _taskTargetPosition):F2}m short, " +
+                    $"path {agent.pathStatus}) — handing the task back.");
                 var callback = _onTaskArrived;
                 CancelSeekPosition();
                 callback?.Invoke();
@@ -1550,6 +1587,25 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                               < Vector3.Distance(agent.transform.position, linkData.endPos);
             from = agent.transform.position;
             to   = startIsClose ? linkData.endPos : linkData.startPos;
+        }
+
+        // Machines never take a link down to the yard (Tad, 2026-11-01 live: a pallet jack went 1.11 -> 0.57 -> 0.00 at the north
+        // dock edge on a ledge link). Put it back on the floor and drop the leg; workers may still use the ledges.
+        if (_isMachine == null) _isMachine = GetComponent<MHEOperatorSlot>() != null;
+        if (_isMachine.Value && to.y < MachineMinFloorY)
+        {
+            ThrottledLog.Warn("mhe-link-" + name, $"[AiNavigation] '{name}' refused a ledge link down to the yard ({from} -> {to}); machines stay on the floor.");
+            if (agent.isActiveAndEnabled)
+            {
+                if (agent.isOnOffMeshLink) agent.CompleteOffMeshLink();
+                Vector3 back = from.y >= MachineMinFloorY ? from : (_haveMachineFloorPos ? _lastMachineFloorPos : from);
+                agent.Warp(back);
+                transform.position = back;
+                if (manualStop) agent.isStopped = false;
+            }
+            CancelSeekPosition();
+            _traversingLink = false;
+            yield break;
         }
 
         if (ledge != null)
