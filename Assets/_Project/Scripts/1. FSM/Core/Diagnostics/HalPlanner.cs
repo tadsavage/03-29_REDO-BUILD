@@ -134,6 +134,25 @@ namespace GameCore.Diagnostics
         {
             if (!s.plannerEnabled || history.Count == 0) return;
             if (!ServiceLocator.TryGet<MoneyService>(out var money)) return;
+
+            // One change per block, including across retries. An aborted run leaves its change in the
+            // ledger AND its effect in the live game, and StartBlock reuses the number of a block that
+            // never reached the scoreboard — so every restart applied the change on top of the last
+            // one. Block 29 was started six times and fired six dock stocker operators; it then scored
+            // 36.7 with five orders staged that no trailer ever loaded, which is what a gutted dock
+            // crew looks like. The ledger is the record of what has already been applied, so trust it.
+            //
+            // Caveat: if the restart DID reload the baseline save then the change is no longer in
+            // effect, and skipping leaves the block running without one. Delete that block's row from
+            // changes.json to let it apply again — the log below says so.
+            var ledger = LoadLedger(s);
+            if (ledger.changes.Any(c => c.block == nextBlock))
+            {
+                SystemsLogWindow.LogHal($"HAL 9000: block {nextBlock} already has a change on record — not applying a second one. " +
+                                        "If you restarted this block from a reloaded save, delete its row in changes.json first.");
+                return;
+            }
+
             var last = history[history.Count - 1];
             var prev = history.Count > 1 ? history[history.Count - 2] : null;
 
@@ -185,9 +204,8 @@ namespace GameCore.Diagnostics
                 SystemsLogWindow.LogHal($"HAL 9000: wanted to {pick.Value.what} ({pick.Value.why}) but could not.");
                 return;
             }
-            var l = LoadLedger(s);
-            l.changes.Add(new HalChange { block = nextBlock, action = pick.Value.what, reason = pick.Value.why, scoreBefore = last.score, cashSpent = spent });
-            SaveLedger(s, l);
+            ledger.changes.Add(new HalChange { block = nextBlock, action = pick.Value.what, reason = pick.Value.why, scoreBefore = last.score, cashSpent = spent });
+            SaveLedger(s, ledger);
             SystemsLogWindow.LogHal($"HAL 9000: decided to {pick.Value.what}. {Cap(pick.Value.why)}. Cash change {-spent:+#,0;-#,0;0}.");
         }
 

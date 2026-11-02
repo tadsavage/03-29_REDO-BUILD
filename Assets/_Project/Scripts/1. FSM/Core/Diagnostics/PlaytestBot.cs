@@ -94,7 +94,14 @@ namespace GameCore.Diagnostics
         StringBuilder _bugLog = new();
 
         static readonly Regex Digits = new(@"[0-9a-fA-F]{8,}|-?\d+(\.\d+)?", RegexOptions.Compiled);
-        static readonly string[] WatchWarnings = { "leaked", "stale link", "could not reach", "NO NAVMESH", "stuck", "Stuck", "never", "timed out" };
+        // A warning only becomes a bug if it matches one of these, so anything missing here is
+        // invisible to the score. Block 30 scored Reliability 80/100 off TWO recorded bugs while a
+        // receiving task bounced between workers all block and the warehouse shipped 6 pallets on
+        // $1,722 of revenue - not one message in that loop matched ("cannot reach" is not the same
+        // string as "could not reach"). The additions below are the reachability family that actually
+        // stops work. NOTE: this makes bug counts incomparable with blocks 1-30, which were blind to it.
+        static readonly string[] WatchWarnings = { "leaked", "stale link", "could not reach", "NO NAVMESH", "stuck", "Stuck", "never", "timed out",
+            "cannot reach", "no reachable", "not reachable", "only partially reachable", "refusing to start receiving", "staging short" };
         static readonly Dictionary<string, float> Weight = new()
         {
             ["EXCEPTION"] = 4f, ["ERROR"] = 3f, ["WARN"] = 1f,
@@ -177,6 +184,9 @@ namespace GameCore.Diagnostics
             _blockNo = (_history.Count > 0 ? _history.Max(b => b.block) : 0) + 1;
             if (observeOnly) _blockNo = 1001 + LoadPlayerHistory().Count;               // a human's run: its own number series
             else if (_history.Count > 0) HalPlanner.PlanAndApply(S, _history, _blockNo);   // the one change for this block
+            // An unfinished block never reaches the scoreboard, so the next run reuses its number. The bug log is appended to, so
+            // block 29's log opened with an abandoned run's day-6 lines. A fresh block starts a fresh file (a resumed one does not: ImportState).
+            try { string oldLog = Path.Combine(Folder(), $"BugLog_Block_{_blockNo:00}.md"); if (File.Exists(oldLog)) File.Delete(oldLog); } catch { }
             _startDay = time.Day; _startCash = money.CurrentCapital; _startIncome = money.LifetimeIncome.Values.Sum(); _startInventory = InventoryValueNow();
             _startRep = ServiceLocator.TryGet<ReputationService>(out var rs0) ? rs0.Score : 0;
             _shipped = _shippedOnTime = _late = _movedFines = _cashDipHours = _cashSamples = _purchases = _rushes = _signed = _booked = _released = _errors = 0;
@@ -546,7 +556,8 @@ namespace GameCore.Diagnostics
                             if (!inHand) continue;
                         }
                     }
-                    foreach (int door in doors)
+                    // Least-booked door that day first (block 29: everything landed on door 1 and one stuck trailer blocked the rest).
+                    foreach (int door in doors.OrderBy(dr => schedule.Appointments.Count(a => a != null && a.Day == d && a.DoorNumber == dr && a.Kind != AppointmentKind.Inbound)).ThenBy(dr => dr))
                         if (schedule.TryBookGroupAtDoor(d, b, door, g, out _, out _)) { done = true; _booked++; Act($"booked {g.CustomerName} day {d} block {b} door {door} ({kind}: stock ready hour {readyHour} + {turnHours:F1}h of work)"); break; }
                     if (done) break;
                 }
@@ -733,7 +744,9 @@ namespace GameCore.Diagnostics
             if (S.coverRushOrders && budget > 0 && _rushToday < S.maxRushPerDay)
             {
                 var rush = rows.Where(r => r.Status == AvailabilityStatus.Insufficient && r.CasesPerPallet > 0 && r.VendorId != null && r.Inbound == 0).Take(4).ToList();
-                if (rush.Count > 0 && TryRaisePO(ship, time, rush.Select(r => (r, 1)).ToList(), ShipmentService.RushSupplierId, "Rush Courier", 2, ref budget, rushPo: true))
+                // Exactly the shortfall, rounded UP to whole pallets (vendors only sell pallets).
+                if (rush.Count > 0 && TryRaisePO(ship, time, rush.Select(r => (r, Mathf.Max(1, Mathf.CeilToInt((r.Pending - r.OnHand - r.Inbound) / (float)r.CasesPerPallet)))).ToList(),
+                                                 ShipmentService.RushSupplierId, "Rush Courier", 2, ref budget, rushPo: true))
                 { _rushes++; _rushToday++; return; }
             }
 
@@ -750,30 +763,8 @@ namespace GameCore.Diagnostics
                 { pending++; _purchases++; return; }   // one PO per decision; the next tick re-reads what is now on order
             }
 
-            // Restock only items customers are actually ordering, and only up to a few days of that demand. (Block 2 stocked every
-            // assigned pick slot to three pallets whatever was selling, and spent $123k in a week against $47k of revenue.)
-            if (budget <= 0) return;
-            float stockValue = 0f;
-            foreach (var r in rows) stockValue += (r.OnHand + r.Inbound) * r.PurchasePrice;
-            if (stockValue >= S.inventoryValueCap) return;
-            var demand = RecentDemandCases(time.Day);
-            var needs = rows.Where(r => demand.ContainsKey(r.SkuId) && r.CasesPerPallet > 0 && r.VendorId != null)
-                            .Select(r =>
-                            {
-                                float perDay = demand[r.SkuId] / 3f;
-                                int target = Mathf.Clamp(Mathf.CeilToInt(perDay * Mathf.Max(1, S.stockCoverDays) / r.CasesPerPallet), 1, Mathf.Max(1, S.palletsPerActiveSku));
-                                int have = Mathf.CeilToInt((r.OnHand + r.Inbound - r.Pending) / (float)r.CasesPerPallet);
-                                return (row: r, pallets: Mathf.Max(0, target - have));
-                            })
-                            .Where(x => x.pallets > 0)
-                            .OrderByDescending(x => x.pallets).ToList();
-            foreach (var g in needs.GroupBy(x => x.row.VendorId))
-            {
-                if (pending >= S.maxPendingPOs) break;
-                var vendor = VendorRegistry.Load()?.GetById(g.Key);
-                if (TryRaisePO(ship, time, g.Select(x => (x.row, x.pallets)).ToList(), g.Key, vendor != null ? vendor.DisplayName : g.Key, 1, ref budget, false, vendor != null ? vendor.MinimumOrderCases : 0))
-                { pending++; _purchases++; }
-            }
+            // No speculative restock (Tad, 2026-11-01): HAL buys only what open orders need, rounded up to whole pallets. Block 29 placed
+            // 57 POs and spent ~$27k a day against ~$5k of revenue while the dock was jammed, partly on "days of cover" stock.
         }
 
         /// <summary>
@@ -799,8 +790,8 @@ namespace GameCore.Diagnostics
             foreach (var o in open)
             {
                 var take = new Dictionary<string, int>();      // cases this order takes from the pool
-                var buy = new Dictionary<string, int>();       // pallets this order needs bought
-                int cost = 0; bool buyable = true;
+                var shortBySku = new Dictionary<string, int>(); // cases still missing, summed per SKU over the order's lines
+                bool buyable = true;
                 foreach (var line in o.LineItems)
                 {
                     int need = line.QuantityRemaining;
@@ -812,16 +803,26 @@ namespace GameCore.Diagnostics
                     int short_ = need - fromPool;
                     if (short_ <= 0) continue;
                     if (r.CasesPerPallet <= 0 || r.VendorId == null) { buyable = false; break; }
-                    int plt = Mathf.CeilToInt(short_ / (float)r.CasesPerPallet);
-                    buy[line.SkuId] = (buy.TryGetValue(line.SkuId, out var b) ? b : 0) + plt;
-                    cost += Mathf.RoundToInt(r.PurchasePrice) * r.CasesPerPallet * plt;
+                    shortBySku[line.SkuId] = (shortBySku.TryGetValue(line.SkuId, out var s) ? s : 0) + short_;
                 }
+                // Vendors only sell whole pallets: round each SKU's total shortfall UP once (not per line), and keep the rounding
+                // surplus in the pool so the next order uses it instead of buying again (Tad, 2026-11-01).
+                var buy = new Dictionary<string, int>();
+                int cost = 0;
+                if (buyable)
+                    foreach (var kv in shortBySku)
+                    {
+                        var r = bySku[kv.Key];
+                        int plt = Mathf.CeilToInt(kv.Value / (float)r.CasesPerPallet);
+                        buy[kv.Key] = plt;
+                        cost += Mathf.RoundToInt(r.PurchasePrice) * r.CasesPerPallet * plt;
+                    }
                 if (!buyable || cost > left) continue;           // cannot be covered completely: leave the pool alone, try the next order
                 foreach (var kv in take) pool[kv.Key] = Mathf.Max(0, pool[kv.Key] - kv.Value);
                 foreach (var kv in buy)
                 {
                     palletsToBuy[kv.Key] = (palletsToBuy.TryGetValue(kv.Key, out var cur) ? cur : 0) + kv.Value;
-                    // the pallets bought land in the pool as cases and are consumed by this order, so nothing is left over to double count
+                    pool[kv.Key] = (pool.TryGetValue(kv.Key, out var pl) ? pl : 0) + kv.Value * bySku[kv.Key].CasesPerPallet - shortBySku[kv.Key];
                 }
                 left -= cost;
                 if (left <= 0) break;
