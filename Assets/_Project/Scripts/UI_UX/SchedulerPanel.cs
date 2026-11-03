@@ -81,19 +81,6 @@ public class SchedulerPanel : IUIPanel
     private static readonly Color ColTabIdle     = new Color(28f / 255f, 38f / 255f, 50f / 255f, 1f);
     private static readonly Color ColTabHover    = new Color(40f / 255f, 54f / 255f, 70f / 255f, 1f);
 
-    /// <summary>Starting size. Width is only the DEFAULT now — the modal's side edges are draggable
-    /// (see ResizableWindow in Build), so the player can pull it wider or narrower and it stays that
-    /// way for the session. Widened from 1040 when the Completed tab's text went up to 16pt (needs
-    /// ~1170), then again to fit the Order # column (adds ~100) — a default that clips its own ledger
-    /// would make resizing a repair rather than a preference.</summary>
-    private const float ModalWidth  = 1366f;
-    // Raised from 680 so the Schedule tab's grid — a ScrollView that just fills whatever's left after
-    // the fixed-height header strip — shows more block rows without scrolling. minH on the
-    // ResizableWindow below is tied to this same constant, so the player still can't drag it shorter
-    // than the new default, same as before.
-    private const float ModalHeight = 920f;
-    /// <summary>Narrowest the window can be dragged. Below this the tab bar itself starts wrapping.</summary>
-    private const float ModalMinWidth = 820f;
     /// <summary>Width of an offer card's right-hand action column. The commit button and the SHIP BY
     /// badge are both stretched to it, which is what makes them exactly the same width without either
     /// carrying a hard-coded number of its own.</summary>
@@ -183,7 +170,6 @@ public class SchedulerPanel : IUIPanel
     /// <summary>The big heading in the title bar. Retitled per tab (see TitleFor) — a ledger of
     /// finished orders sitting under the words "OUTBOUND ORDER MANAGER" names the wrong thing.</summary>
     private Label _titleLabel;
-    private Button _scaleBtn;
     private bool _visible;
 
     // Free Move: when on, the hover tooltip can be dragged anywhere on the modal and stays where it
@@ -197,7 +183,6 @@ public class SchedulerPanel : IUIPanel
     private Vector2 _tipDragOffset;
     private Vector2 _savedTipPos;
     private bool _hasSavedTipPos;
-    private ResizableWindow _resizeWindow;
 
     private Tab _tab = Tab.NewContracts;
 
@@ -231,11 +216,35 @@ public class SchedulerPanel : IUIPanel
     /// ambiguous. Selecting either clears the other.</summary>
     private string _selectedUnscheduledKey;
 
-    // Drag state. The modal is absolutely positioned so left/top can be written directly; the offset
-    // is captured at pointer-down so the window doesn't jump to centre itself under the cursor.
-    private bool _dragging;
-    private Vector2 _dragOffset;
-    private bool _placed; // false until the first Show centres it
+    // ── Timeline viewport (zoom / pan) ───────────────────────────────────────
+    // The door grid lives in a clipped viewport and is drawn by transform (translate + scale), not by a
+    // ScrollView, so the wheel can zoom it independently of the rest of the window and the middle mouse
+    // button can drag it. One day panel per day in the paging window sit side by side in _tlWorld.
+    private const float TimelineDayLaneWidth = 1800f;   // lane width of one day at zoom 1
+    private const float TimelineDayGap = 28f;
+    private const float TimelineDayHeaderHeight = 64f;   // the day title, top of the frozen header
+    private const float TimelineHeaderTotal = 128f;      // title + badge band + hour ticker
+    private const float TimelineMinScale = 0.75f;  // zoom out to 75%
+    private const float TimelineMaxScale = 1.5f;   // zoom in to 150%
+    private const float TimelineZoomStep = 1.12f;       // per wheel notch
+    private static float TimelineDayPanelWidth => NewSchedulerDoorLabelWidth + TimelineDayLaneWidth;
+
+    // Three clipped layers share one zoom. Body: pans on x and y. Header (day titles + hour ticker): pans
+    // on x only, pinned to the top. Door labels: pans on y only, pinned to the left. Each layer's world is
+    // rebuilt every Rebuild(); the clips are built once and re-laid-out whenever the zoom changes.
+    private VisualElement _tlViewport;
+    private VisualElement _tlBodyClip, _tlHeaderClip, _tlLabelClip;
+    private VisualElement _tlWorld;          // body world
+    private VisualElement _tlHeaderWorld, _tlLabelWorld;
+    private Vector2 _tlWorldSize;            // body world size (lane area only: no header, no label column)
+    private Vector2 _tlPan = new Vector2(12f, 8f);
+    private float _tlScale = 1f;
+    private bool _tlScaleInit;          // the first zoom is fit-one-day-to-width, chosen once layout exists
+    private bool _tlPendingCenter = true;
+    private int _tlLastCenteredDay = int.MinValue;
+    private bool _tlPanning;
+    private int _tlPointerId = -1;
+    private Vector2 _tlPanLast;
 
     private static Font _nunito;
     private static Font _lilita;
@@ -446,17 +455,6 @@ public class SchedulerPanel : IUIPanel
         UIToast.KeepOnTop();
         if (_scheduleDay == int.MinValue) _scheduleDay = CurrentDay();
         Rebuild();
-        CentreOnce();
-
-        // Always opens filled rather than normal size — same reasoning as PurchasingPanel.Show: the
-        // Schedule grid alone is one column per door, and the Accounts/Bulk two-pane split wants all
-        // the width it can get. Deferred one frame so FillScreen has a real layout to measure on the
-        // very first Show() of a session — see ResizableWindow.FillScreen's own doc comment.
-        _overlay.schedule.Execute(() =>
-        {
-            _resizeWindow?.FillScreenExact();
-            if (_resizeWindow != null) _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, 48f, ColTitleText);
-        }).ExecuteLater(16);
     }
 
     /// <summary>
@@ -498,41 +496,23 @@ public class SchedulerPanel : IUIPanel
 
         if (_visible) Rebuild(); else Show();
 
-        // Show() fills the screen one frame later (FillScreenExact at 16ms), so wait for that layout
-        // before measuring where the cell landed.
+        // Wait for the timeline's first layout before measuring where the cell landed.
         _overlay.schedule.Execute(RevealFocusedCell).ExecuteLater(80);
     }
 
     private void RevealFocusedCell()
     {
-        if (!_visible || _focusedCell == null || _focusedAppt == null || _focusedCell.panel == null) return;
-        try { _content.ScrollTo(_focusedCell); } catch (System.ArgumentException) { /* not under _content */ }
-        // One more frame so the tooltip is positioned against the post-scroll layout.
-        var cell = _focusedCell;
-        var appt = _focusedAppt;
-        _overlay.schedule.Execute(() =>
-        {
-            if (!_visible || cell.panel == null) return;
-            cell.BringToFront();
-            ShowNewSchedulerTooltip(appt, cell);
-        }).ExecuteLater(16);
-    }
+        if (!_visible || _focusedCell == null || _focusedAppt == null || _focusedCell.panel == null || _tlViewport == null) return;
 
-
-    /// <summary>Centres the modal the FIRST time it's shown and never again — reopening should return
-    /// it to wherever the player dragged it, not yank it back to the middle.</summary>
-    private void CentreOnce()
-    {
-        if (_placed) return;
-        _overlay.schedule.Execute(() =>
-        {
-            if (_placed) return;
-            Rect r = _overlay.worldBound;
-            if (r.width < 1f) return; // no layout yet — try again next Show
-            _modal.style.left = Mathf.Max(0f, (r.width - ModalWidth) * 0.5f);
-            _modal.style.top = Mathf.Max(0f, (r.height - ModalHeight) * 0.5f);
-            _placed = true;
-        }).ExecuteLater(16);
+        // Bring the block to the middle of the viewport, zoomed in far enough to read it.
+        Vector2 at = _tlViewport.WorldToLocal(_focusedCell.worldBound.center);
+        if (_tlScale < 0.7f) ZoomTimelineAt(at, 0.7f / _tlScale);
+        at = _tlViewport.WorldToLocal(_focusedCell.worldBound.center);
+        // Middle of the body region (below the header, right of the door names), not of the whole viewport.
+        Vector2 corner = new Vector2(NewSchedulerDoorLabelWidth, TimelineHeaderTotal) * _tlScale;
+        Vector2 mid = (new Vector2(_tlViewport.resolvedStyle.width, _tlViewport.resolvedStyle.height) + corner) * 0.5f;
+        if (!float.IsNaN(mid.x) && !float.IsNaN(mid.y)) _tlPan += mid - at;
+        ApplyTimelineView();
     }
 
     public void Hide()
@@ -610,9 +590,10 @@ public class SchedulerPanel : IUIPanel
         if (schedule == null) return;
 
         var sb = new System.Text.StringBuilder();
+        int firstDay = CurrentDay() - ScheduleDaysBack, lastDay = CurrentDay() + ScheduleDaysAhead;
         foreach (var appt in schedule.Appointments)
         {
-            if (appt == null || appt.Day != _scheduleDay || appt.Parked || appt.ClosedOut) continue;
+            if (appt == null || appt.Day < firstDay || appt.Day > lastDay || appt.Parked || appt.ClosedOut) continue;
             if (IsInboundPo(appt))
                 sb.Append(appt.Id).Append(':').Append(CountInboundOutOfStockItems(appt)).Append(':').Append(PalletCountForAppointment(appt)).Append('|');
             else
@@ -654,18 +635,15 @@ public class SchedulerPanel : IUIPanel
         overlay.pickingMode = PickingMode.Ignore;
 
         var modal = new VisualElement { name = "contracts-modal" };
-        // Absolute rather than centred by the overlay's flex: a dragged window needs left/top it can
-        // own, and flex centring would fight every frame with whatever the drag writes.
+        // Always the whole screen: pinned to all four edges of the overlay, no size of its own, so it
+        // follows the screen when that changes. There is no drag, resize or maximize any more.
         modal.style.position = Position.Absolute;
-        modal.style.width = ModalWidth;
-        modal.style.height = ModalHeight;
+        modal.style.left = 0; modal.style.top = 0; modal.style.right = 0; modal.style.bottom = 0;
         modal.style.backgroundColor = new StyleColor(ColBg);
         modal.style.borderTopWidth = modal.style.borderBottomWidth =
             modal.style.borderLeftWidth = modal.style.borderRightWidth = 3;
         modal.style.borderTopColor = modal.style.borderBottomColor =
             modal.style.borderLeftColor = modal.style.borderRightColor = new StyleColor(ColBorder);
-        modal.style.borderTopLeftRadius = modal.style.borderTopRightRadius =
-            modal.style.borderBottomLeftRadius = modal.style.borderBottomRightRadius = 16;
         modal.style.paddingTop = 14; modal.style.paddingBottom = 14;
         modal.style.paddingLeft = 16; modal.style.paddingRight = 16;
 
@@ -709,8 +687,7 @@ public class SchedulerPanel : IUIPanel
         legend.style.left = 4; legend.style.top = 0; legend.style.bottom = 0;
         titleBar.Add(legend);
 
-        // Cycles normal / large / fill-screen (see ResizableWindow.CycleScale below). Same size as the
-        // close button and on the same title-bar row, so the two sit flush together.
+        // Title-bar button size, shared by the close button.
         const float titleBtnSize = 48f; // 1.5x the base 32px square button
 
         // Cross-links to the other two outbound/inbound screens — the mirror of PurchasingPanel's own
@@ -740,19 +717,6 @@ public class SchedulerPanel : IUIPanel
         NavButtonColors.Apply(toItemListing, NavButtonColors.Dest.ItemListing);
         titleBar.Add(toItemListing);
 
-        _scaleBtn = new Button { text = string.Empty };
-        RuntimeTooltip.Attach(_scaleBtn, "Resize window (normal / large / fill screen)", ignoreGlobalToggle: true);
-        StyleSquareButton(_scaleBtn);
-        _scaleBtn.style.width = titleBtnSize;
-        _scaleBtn.style.height = titleBtnSize;
-        _scaleBtn.style.marginRight = 6;
-        ResizableWindow.AddStackedSquaresGlyph(_scaleBtn, titleBtnSize, ColTitleText, isFilled: false);
-        _scaleBtn.RegisterCallback<PointerEnterEvent>(_ =>
-            _scaleBtn.style.backgroundColor = new StyleColor(new Color(0.35f, 0.55f, 0.95f, 0.35f)));
-        _scaleBtn.RegisterCallback<PointerLeaveEvent>(_ =>
-            _scaleBtn.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.06f)));
-        titleBar.Add(_scaleBtn);
-
         // Routed through CloseAll(), not a bare Hide() — this panel is registered on key 0, and only
         // UIKeyBindingManager.ToggleUI/CloseAll ever reset _currentOpenKey back to -1. A direct Hide()
         // left it stuck at 0 forever, and PlacementStateMachine.HandleIdleHover gates the world hover
@@ -774,38 +738,6 @@ public class SchedulerPanel : IUIPanel
         close.RegisterCallback<PointerUpEvent>(_ => close.style.backgroundColor = closeHoverBg);
         titleBar.Add(close);
         modal.Add(titleBar);
-
-        // The title bar is the drag handle. Registered on the BAR, not the modal, so dragging can't
-        // start from a card or swallow a click meant for a Sign button.
-        titleBar.RegisterCallback<PointerDownEvent>(evt =>
-        {
-            if (evt.button != 0) return;
-            if (evt.target is Button) return; // let ✕ do its job
-            _dragging = true;
-            _dragOffset = (Vector2)evt.position - new Vector2(modal.worldBound.x, modal.worldBound.y);
-            titleBar.CapturePointer(evt.pointerId);
-            evt.StopPropagation();
-        });
-        titleBar.RegisterCallback<PointerMoveEvent>(evt =>
-        {
-            if (!_dragging) return;
-            Rect bounds = _overlay.worldBound;
-            Vector2 target = (Vector2)evt.position - _dragOffset - new Vector2(bounds.x, bounds.y);
-            // Keep at least a strip of the title bar on screen so it can always be grabbed back.
-            float maxX = Mathf.Max(0f, bounds.width - 120f);
-            float maxY = Mathf.Max(0f, bounds.height - 60f);
-            modal.style.left = Mathf.Clamp(target.x, -(ModalWidth - 120f), maxX);
-            modal.style.top = Mathf.Clamp(target.y, 0f, maxY);
-            _placed = true;
-            evt.StopPropagation();
-        });
-        titleBar.RegisterCallback<PointerUpEvent>(evt =>
-        {
-            if (!_dragging) return;
-            _dragging = false;
-            titleBar.ReleasePointer(evt.pointerId);
-            evt.StopPropagation();
-        });
 
         var tabBar = new VisualElement();
         tabBar.style.flexDirection = FlexDirection.Row;
@@ -832,6 +764,35 @@ public class SchedulerPanel : IUIPanel
         var content = new ScrollView(ScrollViewMode.Vertical);
         content.style.flexGrow = 1;
         modal.Add(content);
+
+        // The door grid's zoom/pan viewport — takes over from `content` (hidden in Rebuild). Clipped, and
+        // the grid inside is moved by transform. Wheel = zoom at the cursor, middle button drag = pan.
+        // Trickle phase so a tile or button under the cursor can't swallow the gesture.
+        var viewport = new VisualElement { name = "scheduler-timeline-viewport" };
+        viewport.style.flexGrow = 1;
+        viewport.style.overflow = Overflow.Hidden;
+        viewport.pickingMode = PickingMode.Position;
+        viewport.RegisterCallback<WheelEvent>(OnTimelineWheel, TrickleDown.TrickleDown);
+        viewport.RegisterCallback<PointerDownEvent>(OnTimelinePointerDown, TrickleDown.TrickleDown);
+        viewport.RegisterCallback<PointerMoveEvent>(OnTimelinePointerMove);
+        viewport.RegisterCallback<PointerUpEvent>(OnTimelinePointerUp, TrickleDown.TrickleDown);
+        viewport.RegisterCallback<GeometryChangedEvent>(_ => ApplyTimelineView());
+        modal.Add(viewport);
+        _tlViewport = viewport;
+
+        // Clip layers. Their left/top/size follow the zoom (header height and label width scale with it),
+        // so they are positioned in ApplyTimelineView, not here.
+        VisualElement MakeClip(string clipName)
+        {
+            var clip = new VisualElement { name = clipName };
+            clip.style.position = Position.Absolute;
+            clip.style.overflow = Overflow.Hidden;
+            viewport.Add(clip);
+            return clip;
+        }
+        _tlBodyClip = MakeClip("scheduler-timeline-body");
+        _tlHeaderClip = MakeClip("scheduler-timeline-header");
+        _tlLabelClip = MakeClip("scheduler-timeline-labels");
 
         // Accounts tab's two-pane layout — a sibling of `content`, shown instead of it (see Rebuild).
         var splitPane = new VisualElement();
@@ -956,19 +917,6 @@ public class SchedulerPanel : IUIPanel
         LoadTooltipPosition();
         BuildHeldGhost(modal);
         modal.Add(footerMessage);
-
-        // Side edges only. Height stays fixed on purpose: this modal's tabs each manage their own
-        // vertical scrolling and none of them gains anything from a taller window, whereas WIDTH is
-        // the axis that actually decides how much of the Completed ledger and the Schedule grid you
-        // can see at once. titleInset keeps the grips clear of the drag handle above them.
-        _resizeWindow = new ResizableWindow(modal, minW: ModalMinWidth, minH: ModalHeight, grip: 10f,
-                            titleInset: 48f, allowVerticalResize: false);
-        _scaleBtn.clicked += () =>
-        {
-            _resizeWindow.CycleScale();
-            _resizeWindow.UpdateScaleButtonIcon(_scaleBtn, titleBtnSize, ColTitleText);
-            AudioManager.Play(_resizeWindow.IsFilled ? "UIMax" : "UIMin");
-        };
 
         overlay.Add(modal);
         modalOut = modal;
@@ -1113,6 +1061,8 @@ public class SchedulerPanel : IUIPanel
         if (_titleLabel != null) _titleLabel.text = TitleFor(_tab);
         _tabHeader.Clear();
         _content.Clear();
+        _tlBodyClip?.Clear(); _tlHeaderClip?.Clear(); _tlLabelClip?.Clear();
+        _tlWorld = _tlHeaderWorld = _tlLabelWorld = null;
         _orderListScroll.Clear();
         _orderDetailsBody.Clear();
         _poolHoverGhostHost?.Clear();
@@ -1120,7 +1070,7 @@ public class SchedulerPanel : IUIPanel
         UpdateHeldGhost();
 
         _content.mode = ScrollViewMode.Vertical;
-        _content.style.display = DisplayStyle.Flex;
+        _content.style.display = DisplayStyle.None;   // the timeline viewport replaces the scroll view
         _splitPane.style.display = DisplayStyle.None;
 
         var arrivals = Arrivals();
@@ -1999,21 +1949,9 @@ public class SchedulerPanel : IUIPanel
         // this box" — never also "drop what I'm holding into the pool at large."
         box.RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); OnUnscheduledClicked(group); });
 
-        // Same rich hover card a booked grid chip shows (full line-item breakdown, fill rate, etc.)
-        // rather than a plain text tooltip — per Tad's explicit call, built from a throwaway
-        // DockAppointment standing in for this group since it has no real appointment yet.
-        var syntheticAppt = new DockAppointment
-        {
-            Kind = group.Kind,
-            CustomerId = group.CustomerId,
-            CustomerName = group.CustomerName,
-            ContractId = group.ContractId,
-            OrderIds = group.OrderIds,
-            Day = group.EarliestDueDay,
-        };
+        // No hover card for unscheduled pool trailers (Tad, 2026-11-02) — the box still grows on hover.
         box.RegisterCallback<MouseEnterEvent>(_ =>
         {
-            ShowNewSchedulerTooltip(syntheticAppt, box);
             CustomCursorService.SetHoveringInteractable(true);
             _pointerOverPoolBox = true;   // see FlushPendingLiveRefresh — holds off a rebuild mid-hover
 
@@ -2040,7 +1978,6 @@ public class SchedulerPanel : IUIPanel
             box.style.opacity = 1f;
             ghost.style.display = DisplayStyle.None;
             ghost.style.scale = new Scale(Vector3.one);
-            ScheduleHideNewSchedulerTooltip();
         });
         box.userData = "U:" + group.Key;
         return box;
@@ -2274,12 +2211,9 @@ public class SchedulerPanel : IUIPanel
         // specific box must mean "select this one", never "also drop what I'm holding".
         box.RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); OnParkedClicked(appt); });
 
-        // Same rich hover card a booked grid chip shows — per Tad's explicit call. This box already
-        // carries a real DockAppointment, so no throwaway stand-in is needed the way BuildPoolBox
-        // needs one.
+        // No hover card for parked trailers either (Tad, 2026-11-02) — the box still grows on hover.
         box.RegisterCallback<MouseEnterEvent>(_ =>
         {
-            ShowNewSchedulerTooltip(appt, box);
             CustomCursorService.SetHoveringInteractable(true);
             _pointerOverPoolBox = true;   // see FlushPendingLiveRefresh — holds off a rebuild mid-hover
 
@@ -2301,7 +2235,6 @@ public class SchedulerPanel : IUIPanel
             box.style.opacity = 1f;
             ghost.style.display = DisplayStyle.None;
             ghost.style.scale = new Scale(Vector3.one);
-            ScheduleHideNewSchedulerTooltip();
         });
         box.userData = "A:" + appt.Id;
         return box;
@@ -2973,7 +2906,7 @@ public class SchedulerPanel : IUIPanel
         // the effect's own anchor read would come back empty.
         _overlay.schedule.Execute(() =>
         {
-            var cell = _content?.Q(name);
+            var cell = _tlWorld?.Q(name);
             if (cell != null) UnhappyCustomerFx.Play(_overlay, cell, fine);
         }).ExecuteLater(16);
     }
@@ -3413,7 +3346,8 @@ private static void ApplyLilitaFont(VisualElement el)
             none.style.color = new StyleColor(ColSubtleText);
             none.style.whiteSpace = WhiteSpace.Normal;
             none.style.marginTop = 14;
-            _content.Add(none);
+            _tlBodyClip.Add(none);
+            ApplyTimelineClips();
             _footerMessage.text = "Capacity is 0 — arriving orders stay unscheduled until a door exists.";
             _newSchedulerSweepLine = null;
             _newSchedulerPastOverlay = null;
@@ -3421,7 +3355,7 @@ private static void ApplyLilitaFont(VisualElement el)
             return;
         }
 
-        _content.Add(BuildNewSchedulerTimeline(schedule, arrivals, doors, today));
+        BuildTimelineWorld(schedule, arrivals, doors, today);
         SyncNewSchedulerSweep();
 
         if (_selectedUnscheduledKey != null)
@@ -3920,20 +3854,237 @@ private static void ApplyLilitaFont(VisualElement el)
         return (cases, pallets, critical);
     }
 
-    /// <summary>The ticker + faint hour grid + door rows + sweep line. Absolutely-positioned over
-    /// percentage-of-day (0–1440 minutes → 0–100%) rather than the old tab's per-block flex columns,
-    /// so a 2-hour appointment reads as a block spanning 1/12th of the width at its true time of day.</summary>
-private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, OrderArrivalService arrivals,
-                                                 List<int> doors, int today)
+    // ── Timeline world: every day in the paging window side by side, zoomed and panned by transform ────
+
+    private void BuildTimelineWorld(DockScheduleService schedule, OrderArrivalService arrivals,
+                                    List<int> doors, int today)
+    {
+        // Only today's panel owns the sweep line and the live "elapsed" tint; clear them so a panel that
+        // is no longer built can't leave a stale handle behind.
+        _newSchedulerSweepLine = null;
+        _newSchedulerSweepBadge = null;
+        _newSchedulerPastOverlay = null;
+
+        int firstDay = today - ScheduleDaysBack;
+        int dayCount = ScheduleDaysBack + ScheduleDaysAhead + 1;
+
+        float worldW = dayCount * (TimelineDayLaneWidth + TimelineDayGap) - TimelineDayGap;
+        float bodyH = doors.Count * NewSchedulerRowHeight;
+
+        // One world per layer; each is a flex row of one element per day, spaced identically so a given
+        // day's header, body and door rows line up under any shared zoom.
+        VisualElement MakeWorld(string worldName, float width, float height, bool row)
+        {
+            var w = new VisualElement { name = worldName };
+            w.style.position = Position.Absolute;
+            w.style.left = 0; w.style.top = 0;
+            w.style.width = width; w.style.height = height;
+            if (row) { w.style.flexDirection = FlexDirection.Row; w.style.alignItems = Align.FlexStart; }
+            w.style.transformOrigin = new StyleTransformOrigin(new TransformOrigin(Length.Percent(0), Length.Percent(0)));
+            w.usageHints = UsageHints.DynamicTransform;
+            return w;
+        }
+        var bodyWorld = MakeWorld("scheduler-timeline-body-world", worldW, bodyH, row: true);
+        var headerWorld = MakeWorld("scheduler-timeline-header-world", worldW, TimelineHeaderTotal, row: true);
+        var labelWorld = MakeWorld("scheduler-timeline-label-world", NewSchedulerDoorLabelWidth, bodyH, row: false);
+
+        for (int i = 0; i < dayCount; i++)
+        {
+            int day = firstDay + i;
+            var header = BuildDayHeader(today, day);
+            var body = BuildDayBody(schedule, arrivals, doors, today, day);
+            if (i < dayCount - 1)
+            {
+                header.style.marginRight = TimelineDayGap;
+                body.style.marginRight = TimelineDayGap;
+            }
+            headerWorld.Add(header);
+            bodyWorld.Add(body);
+        }
+        labelWorld.Add(BuildDoorLabelColumn(doors));
+
+        _tlWorld = bodyWorld;
+        _tlHeaderWorld = headerWorld;
+        _tlLabelWorld = labelWorld;
+        _tlWorldSize = new Vector2(worldW, bodyH);
+        _tlBodyClip.Add(bodyWorld);
+        _tlHeaderClip.Add(headerWorld);
+        _tlLabelClip.Add(labelWorld);
+
+        // Re-centre only when the day in focus changed (◀ ▶, a log link, first open). A refresh or a
+        // right-click rebuild must never snap the view back while the player is looking around.
+        if (_scheduleDay != _tlLastCenteredDay)
+        {
+            _tlLastCenteredDay = _scheduleDay;
+            _tlPendingCenter = true;
+        }
+        ApplyTimelineView();
+    }
+
+    /// <summary>Writes the pan/scale to the world. Centres on the focused day once the viewport has a
+    /// real size (the first Show of a session builds before layout exists).</summary>
+    private void ApplyTimelineView()
+    {
+        if (_tlWorld == null || _tlViewport == null) return;
+
+        float vpW = _tlViewport.resolvedStyle.width, vpH = _tlViewport.resolvedStyle.height;
+        bool laidOut = vpW > 1f && vpH > 1f;   // false for NaN too
+
+        if (laidOut && !_tlScaleInit)
+        {
+            // First look: one whole day fits the width.
+            _tlScale = Mathf.Clamp((vpW - 24f) / TimelineDayPanelWidth, TimelineMinScale, 1f);   // door names + one lane
+            _tlScaleInit = true;
+        }
+
+        // _tlPan is where the BODY's origin (top-left of the first day's first lane) sits on screen. The
+        // header and label layers are derived from it: the header borrows its x, the labels borrow its y.
+        float labelW = NewSchedulerDoorLabelWidth * _tlScale;
+        float headerH = TimelineHeaderTotal * _tlScale;
+
+        if (laidOut && _tlPendingCenter)
+        {
+            _tlPendingCenter = false;
+            int index = Mathf.Clamp(_scheduleDay - (CurrentDay() - ScheduleDaysBack), 0, ScheduleDaysBack + ScheduleDaysAhead);
+            float x0 = index * (TimelineDayLaneWidth + TimelineDayGap) * _tlScale;
+            float dayW = TimelineDayLaneWidth * _tlScale;
+            float regionW = vpW - labelW;   // the body region is everything right of the door names
+            _tlPan = new Vector2(labelW + (dayW <= regionW ? (regionW - dayW) * 0.5f : 12f) - x0, headerH);
+        }
+
+        if (laidOut)
+        {
+            // The body can't be dragged right, away from the door names; dragging left only has to keep a
+            // corner of the grid in view.
+            const float keep = 120f;
+            float ww = _tlWorldSize.x * _tlScale, wh = _tlWorldSize.y * _tlScale;
+            _tlPan.x = Mathf.Clamp(_tlPan.x, labelW + keep - ww, labelW);
+            // Vertical: the grid can't be pulled down off the header, and if every door fits in the window
+            // it can't move at all; otherwise it scrolls only until the last door's bottom meets the window's.
+            _tlPan.y = Mathf.Clamp(_tlPan.y, Mathf.Min(headerH, vpH - wh), headerH);
+        }
+
+        ApplyTimelineClips();
+
+        // Each world sits inside a clip whose corner is at (labelW, headerH) / (labelW, 0) / (0, headerH),
+        // so the translate is the pan minus that corner. Every layer scales from its own top-left.
+        var scale = new StyleScale(new Scale(new Vector3(_tlScale, _tlScale, 1f)));
+        StyleTranslate At(float x, float y) => new StyleTranslate(new Translate(
+            new Length(x, LengthUnit.Pixel), new Length(y, LengthUnit.Pixel)));
+
+        _tlWorld.style.translate = At(_tlPan.x - labelW, _tlPan.y - headerH);
+        _tlWorld.style.scale = scale;
+        if (_tlHeaderWorld != null) { _tlHeaderWorld.style.translate = At(_tlPan.x - labelW, 0f); _tlHeaderWorld.style.scale = scale; }
+        if (_tlLabelWorld != null) { _tlLabelWorld.style.translate = At(0f, _tlPan.y - headerH); _tlLabelWorld.style.scale = scale; }
+    }
+
+    /// <summary>Lays out the three clip windows for the current zoom: the header strip and the door-name
+    /// column grow with the zoom, and the body takes whatever is left (below the header, right of the names).</summary>
+    private void ApplyTimelineClips()
+    {
+        if (_tlBodyClip == null) return;
+        float labelW = NewSchedulerDoorLabelWidth * _tlScale;
+        float headerH = TimelineHeaderTotal * _tlScale;
+
+        _tlBodyClip.style.left = labelW; _tlBodyClip.style.top = headerH;
+        _tlBodyClip.style.right = 0; _tlBodyClip.style.bottom = 0;
+
+        _tlHeaderClip.style.left = labelW; _tlHeaderClip.style.top = 0;
+        _tlHeaderClip.style.right = 0; _tlHeaderClip.style.height = headerH;
+
+        _tlLabelClip.style.left = 0; _tlLabelClip.style.top = headerH;
+        _tlLabelClip.style.width = labelW; _tlLabelClip.style.bottom = 0;
+    }
+
+    /// <summary>Zooms by <paramref name="factor"/>. Horizontally it zooms about the cursor, so whatever is
+    /// under the cursor stays under it. Vertically the wheel is locked: the row at the top edge of the
+    /// grid stays at the top edge (just under the header), so zooming never slides lanes under the bar.
+    /// Middle-drag panning is what moves the grid up and down.</summary>
+    private void ZoomTimelineAt(Vector2 viewportPoint, float factor)
+    {
+        float s0 = _tlScale;
+        float s1 = Mathf.Clamp(s0 * factor, TimelineMinScale, TimelineMaxScale);
+        if (Mathf.Approximately(s0, s1)) return;
+        float worldX = (viewportPoint.x - _tlPan.x) / s0;
+        float worldYAtTop = (TimelineHeaderTotal * s0 - _tlPan.y) / s0;   // grid row sitting at the header's lower edge
+        _tlPan = new Vector2(viewportPoint.x - worldX * s1, TimelineHeaderTotal * s1 - worldYAtTop * s1);
+        _tlScale = s1;
+        _tlScaleInit = true;
+        ApplyTimelineView();
+    }
+
+    private void OnTimelineWheel(WheelEvent evt)
+    {
+        if (_tlWorld == null) return;
+        // Wheel up (negative delta) zooms in. Clamped so a hi-res wheel can't leap the whole range.
+        float steps = Mathf.Clamp(-evt.delta.y, -3f, 3f) / 1.5f;
+        if (Mathf.Approximately(steps, 0f)) return;
+        ZoomTimelineAt(_tlViewport.WorldToLocal(evt.mousePosition), Mathf.Pow(TimelineZoomStep, steps));
+        evt.StopPropagation();
+    }
+
+    private void OnTimelinePointerDown(PointerDownEvent evt)
+    {
+        if (evt.button != 2 || _tlWorld == null) return;
+        _tlPanning = true;
+        _tlPointerId = evt.pointerId;
+        _tlPanLast = evt.position;
+        _tlViewport.CapturePointer(evt.pointerId);
+        evt.StopPropagation();
+    }
+
+    private void OnTimelinePointerMove(PointerMoveEvent evt)
+    {
+        if (!_tlPanning || evt.pointerId != _tlPointerId) return;
+        Vector2 p = evt.position;
+        _tlPan += p - _tlPanLast;
+        _tlPanLast = p;
+        ApplyTimelineView();
+    }
+
+    private void OnTimelinePointerUp(PointerUpEvent evt)
+    {
+        if (!_tlPanning || evt.button != 2) return;
+        _tlPanning = false;
+        if (_tlViewport.HasPointerCapture(evt.pointerId)) _tlViewport.ReleasePointer(evt.pointerId);
+        evt.StopPropagation();
+    }
+
+    /// <summary>One day's frozen header: its title, a band the "now" badge rides in, and the 24-hour
+    /// ticker. Lives in the header layer, which pans on x only (see ApplyTimelineView). Same width as the
+    /// day's body so the two stay lined up under any pan or zoom.</summary>
+private VisualElement BuildDayHeader(int today, int day)
 {
     var root = new VisualElement();
-    root.style.position = Position.Relative;
-    root.style.marginTop = NewSchedulerBadgeHeight + 4;
+    root.style.width = TimelineDayLaneWidth;
+    root.style.height = TimelineHeaderTotal;
+    root.style.flexShrink = 0;
+
+    string when = day == today ? "today"
+                : day == today + 1 ? "tomorrow"
+                : day < today ? "yesterday"
+                : $"in {day - today} days";
+    var title = MakeText($"Day {day} · {when}", 40, day == today ? ColChipOutText : ColTitleText, bold: true);
+    title.style.height = TimelineDayHeaderHeight;
+    title.style.flexShrink = 0;
+    title.style.unityTextAlign = TextAnchor.MiddleCenter;
+    title.style.marginTop = 0; title.style.marginBottom = 0;
+    title.style.paddingTop = 0; title.style.paddingBottom = 0;
+    title.pickingMode = PickingMode.Ignore;
+    root.Add(title);
+
+    // Band above the ticker: only today's has anything in it (the badge).
+    var badgeBand = new VisualElement();
+    badgeBand.style.height = NewSchedulerBadgeHeight + 4;
+    badgeBand.style.flexShrink = 0;
+    badgeBand.style.position = Position.Relative;
+    badgeBand.pickingMode = PickingMode.Ignore;
+    root.Add(badgeBand);
 
     var ticker = new VisualElement();
     ticker.style.flexDirection = FlexDirection.Row;
-    ticker.style.height = NewSchedulerTickerHeight;
-    ticker.style.marginLeft = NewSchedulerDoorLabelWidth;
+    ticker.style.height = TimelineHeaderTotal - TimelineDayHeaderHeight - (NewSchedulerBadgeHeight + 4f);
+    ticker.style.flexShrink = 0;
     ticker.style.backgroundColor = new StyleColor(ColStat);
     ticker.style.borderTopWidth = 2; ticker.style.borderTopColor = new StyleColor(ColBorder);
     ticker.style.borderBottomWidth = 2; ticker.style.borderBottomColor = new StyleColor(ColBorder);
@@ -3975,81 +4126,11 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     }
     root.Add(ticker);
 
-    var gridWrap = new VisualElement();
-    gridWrap.style.position = Position.Relative;
-    // Trying opaque per Tad's request -- the schedule grid used to have no background at all here,
-    // letting the live warehouse view show straight through behind every door row. ColBg at full
-    // alpha (vs. the panel chrome's near-opaque 0.97) makes it a solid dark rectangle instead.
-    gridWrap.style.backgroundColor = new StyleColor(new Color(ColBg.r, ColBg.g, ColBg.b, 1f));
-    root.Add(gridWrap);
-
-    var laneOverlay = new VisualElement();
-    laneOverlay.style.position = Position.Absolute;
-    laneOverlay.style.left = NewSchedulerDoorLabelWidth; laneOverlay.style.right = 0;
-    laneOverlay.style.top = 0; laneOverlay.style.bottom = 0;
-    laneOverlay.pickingMode = PickingMode.Ignore;
-    gridWrap.Add(laneOverlay);
-    for (int h = 1; h < 24; h++)
+    // The "now" badge only exists for today: a day already over (or yet to come) has no "now" to point at.
+    // SyncNewSchedulerSweep moves it (and the line in today's body) by the same % of the day.
+    if (day == today)
     {
-        var line = new VisualElement();
-        line.style.position = Position.Absolute;
-        line.style.left = Length.Percent(h / 24f * 100f);
-        line.style.top = 0; line.style.bottom = 0;
-        line.style.width = 1;
-        line.style.backgroundColor = new StyleColor(new Color(ColBlueEdge.r, ColBlueEdge.g, ColBlueEdge.b, 0.28f));
-        laneOverlay.Add(line);
-    }
-
-    foreach (int doorNumber in doors)
-        gridWrap.Add(BuildNewSchedulerDoorRow(schedule, arrivals, doorNumber, today));
-
-    // The sweep line/badge only mean anything on the day the in-game clock is actually inside of —
-    // paging to a future or past day and still showing "now" at some x position would be lying about
-    // where the clock is. Only built when the tab is looking at today; otherwise left null, which is
-    // what SyncNewSchedulerSweep already treats as "nothing to sync" (same guard the no-doors branch
-    // of BuildNewScheduler uses).
-    // Time that is gone is tinted red so a glance says so. On a day already over the whole lane is red; on today
-    // it is red up to the sweep line, which SyncNewSchedulerSweep moves. Lives in laneOverlay (created above, in
-    // scope here) so it sits behind the door rows' own appointment cells rather than covering them.
-    if (_scheduleDay <= today)
-    {
-        var pastOverlay = new VisualElement();
-        pastOverlay.style.position = Position.Absolute;
-        pastOverlay.style.left = 0;
-        pastOverlay.style.top = 0; pastOverlay.style.bottom = 0;
-        pastOverlay.style.width = 0; // today: set below by SyncNewSchedulerSweep, same % as the sweep line
-        if (_scheduleDay < today) pastOverlay.style.width = Length.Percent(100f);
-        pastOverlay.style.backgroundColor = new StyleColor(new Color(ColDanger.r, ColDanger.g, ColDanger.b, 0.25f));
-        pastOverlay.pickingMode = PickingMode.Ignore;
-        laneOverlay.Add(pastOverlay);
-        _newSchedulerPastOverlay = pastOverlay;
-    }
-    else
-    {
-        _newSchedulerPastOverlay = null;
-    }
-
-    // The sweep line and its badge only exist for today: a day already over has no "now" to point at.
-    if (_scheduleDay == today)
-    {
-        var sweepHost = new VisualElement();
-        sweepHost.style.position = Position.Absolute;
-        sweepHost.style.left = NewSchedulerDoorLabelWidth; sweepHost.style.right = 0;
-        sweepHost.style.top = -(NewSchedulerBadgeHeight + 4); sweepHost.style.bottom = 0;
-        sweepHost.pickingMode = PickingMode.Ignore;
-        root.Add(sweepHost);
-
         var sweepColor = new Color(0xF5 / 255f, 0xC7 / 255f, 0x3C / 255f, 1f);
-
-        var line2 = new VisualElement();
-        line2.style.position = Position.Absolute;
-        line2.style.top = NewSchedulerBadgeHeight; line2.style.bottom = 0;
-        line2.style.width = 2;
-        line2.style.marginLeft = -1;
-        line2.style.backgroundColor = new StyleColor(sweepColor);
-        sweepHost.Add(line2);
-        _newSchedulerSweepLine = line2;
-
         var badge = new Label();
         ApplyFont(badge, bold: true, size: 23); // 18 * 1.25 per Tad's explicit call
         badge.style.position = Position.Absolute;
@@ -4067,22 +4148,138 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         badge.style.unityTextOutlineColor = new StyleColor(new Color(0.14f, 0.10f, 0.02f, 1f));
         badge.style.borderTopLeftRadius = badge.style.borderTopRightRadius =
             badge.style.borderBottomLeftRadius = badge.style.borderBottomRightRadius = 3;
-        sweepHost.Add(badge);
+        badge.pickingMode = PickingMode.Ignore;
+        badgeBand.Add(badge);
         _newSchedulerSweepBadge = badge;
-        // Force the next SyncNewSchedulerSweep() to write into these freshly-created elements even
-        // if the computed time string/position happens to match what the LAST (now-destroyed) badge
-        // already showed — the stale-value guards below exist to skip redundant style writes on the
-        // SAME element across repeated polls, not to skip the first write on a brand new one.
+        // Force the next SyncNewSchedulerSweep() to write into the fresh elements even if the computed
+        // time string/position matches what the last (now-destroyed) badge showed.
         _lastNewSchedulerSweepLeft = float.NaN;
         _lastNewSchedulerBadgeText = null;
     }
-    else
-    {
-        _newSchedulerSweepLine = null;
-        _newSchedulerSweepBadge = null;
-    }
 
     return root;
+}
+
+    /// <summary>One day's body: the faint hour grid, one lane per door, the elapsed-time tint and (today
+    /// only) the "now" line. Appointments are absolutely positioned over percentage-of-day (0–1440 minutes
+    /// → 0–100%) rather than per-block flex columns, so a 2-hour appointment reads as a block spanning
+    /// 1/12th of the width at its true time of day. The door names are NOT in here any more — see
+    /// BuildDoorLabelColumn, which holds them still while the body pans sideways.</summary>
+private VisualElement BuildDayBody(DockScheduleService schedule, OrderArrivalService arrivals,
+                                   List<int> doors, int today, int day)
+{
+    var gridWrap = new VisualElement();
+    gridWrap.style.position = Position.Relative;
+    gridWrap.style.width = TimelineDayLaneWidth;
+    gridWrap.style.flexShrink = 0;
+    // Trying opaque per Tad's request -- the schedule grid used to have no background at all here,
+    // letting the live warehouse view show straight through behind every door row. ColBg at full
+    // alpha (vs. the panel chrome's near-opaque 0.97) makes it a solid dark rectangle instead.
+    gridWrap.style.backgroundColor = new StyleColor(new Color(ColBg.r, ColBg.g, ColBg.b, 1f));
+
+    var laneOverlay = new VisualElement();
+    laneOverlay.style.position = Position.Absolute;
+    laneOverlay.style.left = 0; laneOverlay.style.right = 0;
+    laneOverlay.style.top = 0; laneOverlay.style.bottom = 0;
+    laneOverlay.pickingMode = PickingMode.Ignore;
+    gridWrap.Add(laneOverlay);
+    for (int h = 1; h < 24; h++)
+    {
+        var line = new VisualElement();
+        line.style.position = Position.Absolute;
+        line.style.left = Length.Percent(h / 24f * 100f);
+        line.style.top = 0; line.style.bottom = 0;
+        line.style.width = 1;
+        line.style.backgroundColor = new StyleColor(new Color(ColBlueEdge.r, ColBlueEdge.g, ColBlueEdge.b, 0.28f));
+        laneOverlay.Add(line);
+    }
+
+    foreach (int doorNumber in doors)
+        gridWrap.Add(BuildNewSchedulerDoorRow(schedule, arrivals, doorNumber, today, day));
+
+    // The sweep line/badge only mean anything on the day the in-game clock is actually inside of —
+    // paging to a future or past day and still showing "now" at some x position would be lying about
+    // where the clock is. Only built when the tab is looking at today; otherwise left null, which is
+    // what SyncNewSchedulerSweep already treats as "nothing to sync" (same guard the no-doors branch
+    // of BuildNewScheduler uses).
+    // Time that is gone is tinted red so a glance says so. On a day already over the whole lane is red; on today
+    // it is red up to the sweep line, which SyncNewSchedulerSweep moves. Lives in laneOverlay (created above, in
+    // scope here) so it sits behind the door rows' own appointment cells rather than covering them.
+    if (day <= today)
+    {
+        var pastOverlay = new VisualElement();
+        pastOverlay.style.position = Position.Absolute;
+        pastOverlay.style.left = 0;
+        pastOverlay.style.top = 0; pastOverlay.style.bottom = 0;
+        pastOverlay.style.width = 0; // today: set below by SyncNewSchedulerSweep, same % as the sweep line
+        if (day < today) pastOverlay.style.width = Length.Percent(100f);
+        pastOverlay.style.backgroundColor = new StyleColor(new Color(ColDanger.r, ColDanger.g, ColDanger.b, 0.25f));
+        pastOverlay.pickingMode = PickingMode.Ignore;
+        laneOverlay.Add(pastOverlay);
+        if (day == today) _newSchedulerPastOverlay = pastOverlay;
+    }
+
+    // The sweep line and its badge only exist for today: a day already over has no "now" to point at.
+    if (day == today)
+    {
+        var sweepHost = new VisualElement();
+        sweepHost.style.position = Position.Absolute;
+        sweepHost.style.left = 0; sweepHost.style.right = 0;
+        sweepHost.style.top = 0; sweepHost.style.bottom = 0;
+        sweepHost.pickingMode = PickingMode.Ignore;
+        gridWrap.Add(sweepHost);
+
+        var line2 = new VisualElement();
+        line2.style.position = Position.Absolute;
+        line2.style.top = 0; line2.style.bottom = 0;
+        line2.style.width = 2;
+        line2.style.marginLeft = -1;
+        line2.style.backgroundColor = new StyleColor(new Color(0xF5 / 255f, 0xC7 / 255f, 0x3C / 255f, 1f));
+        line2.pickingMode = PickingMode.Ignore;
+        sweepHost.Add(line2);
+        _newSchedulerSweepLine = line2;
+    }
+
+    return gridWrap;
+}
+
+    /// <summary>The door names, one per lane row, in the label layer: pans on y only, so they stay
+    /// beside their lanes however the body is scrolled vertically, and never leave the left edge.
+    /// Rows match BuildNewSchedulerDoorRow's height and border exactly so each name sits level with its lane.</summary>
+private VisualElement BuildDoorLabelColumn(List<int> doors)
+{
+    var col = new VisualElement();
+    col.style.width = NewSchedulerDoorLabelWidth;
+    col.style.flexShrink = 0;
+    col.style.backgroundColor = new StyleColor(new Color(ColBg.r, ColBg.g, ColBg.b, 1f));
+
+    foreach (int doorNumber in doors)
+    {
+        var row = new VisualElement();
+        row.style.height = NewSchedulerRowHeight;
+        row.style.flexShrink = 0;
+        row.style.borderBottomWidth = 1;
+        row.style.borderBottomColor = new StyleColor(new Color(ColBlueEdge.r, ColBlueEdge.g, ColBlueEdge.b, 0.4f));
+        row.style.justifyContent = Justify.Center;
+
+        var label = MakeText($"Door {doorNumber}", 16, ColSubtleText, bold: true);
+        label.style.paddingLeft = 8;
+        label.style.unityTextAlign = TextAnchor.MiddleLeft;
+        row.Add(label);
+
+        // Under it, live, whether the door is occupied and how far its trailer is through offloading / loading.
+        var live = MakeText(DoorLiveText(doorNumber, null), 11, new Color(1f, 0.78f, 0.35f), bold: true);
+        live.style.paddingLeft = 8; live.style.paddingRight = 4;
+        live.style.whiteSpace = WhiteSpace.Normal;
+        live.style.unityTextAlign = TextAnchor.UpperLeft;
+        live.style.display = live.text.Length == 0 ? DisplayStyle.None : DisplayStyle.Flex;
+        live.pickingMode = PickingMode.Ignore;
+        row.Add(live);
+        _doorLiveLabels[doorNumber] = live;
+
+        col.Add(row);
+    }
+    return col;
 }
 
     private void SyncNewSchedulerSweep()
@@ -4202,40 +4399,16 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
     }
 
     private VisualElement BuildNewSchedulerDoorRow(DockScheduleService schedule, OrderArrivalService arrivals,
-                                                    int doorNumber, int today)
+                                                    int doorNumber, int today, int day)
     {
+        // The row IS the lane now: the door's name lives in the frozen label column (BuildDoorLabelColumn).
         var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
+        row.style.position = Position.Relative;
         row.style.height = NewSchedulerRowHeight;
+        row.style.flexShrink = 0;
         row.style.borderBottomWidth = 1;
         row.style.borderBottomColor = new StyleColor(new Color(ColBlueEdge.r, ColBlueEdge.g, ColBlueEdge.b, 0.4f));
-
-        // Door number on top; under it, live, whether the door is occupied and how far its trailer is through offloading / loading.
-        var doorCol = new VisualElement();
-        doorCol.style.width = NewSchedulerDoorLabelWidth;
-        doorCol.style.minWidth = NewSchedulerDoorLabelWidth;
-        doorCol.style.flexShrink = 0;
-        doorCol.style.justifyContent = Justify.Center;
-
-        var label = MakeText($"Door {doorNumber}", 16, ColSubtleText, bold: true);
-        label.style.paddingLeft = 8;
-        label.style.unityTextAlign = TextAnchor.MiddleLeft;
-        doorCol.Add(label);
-
-        var live = MakeText(DoorLiveText(doorNumber, null), 11, new Color(1f, 0.78f, 0.35f), bold: true);
-        live.style.paddingLeft = 8; live.style.paddingRight = 4;
-        live.style.whiteSpace = WhiteSpace.Normal;
-        live.style.unityTextAlign = TextAnchor.UpperLeft;
-        live.style.display = live.text.Length == 0 ? DisplayStyle.None : DisplayStyle.Flex;
-        live.pickingMode = PickingMode.Ignore;
-        doorCol.Add(live);
-        _doorLiveLabels[doorNumber] = live;
-        row.Add(doorCol);
-
-        var lane = new VisualElement();
-        lane.style.flexGrow = 1;
-        lane.style.position = Position.Relative;
-        row.Add(lane);
+        var lane = row;
 
         bool booking = _selectedUnscheduledKey != null;
         bool holding = booking || _selectedAppointmentId != null;
@@ -4276,24 +4449,24 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
             // instead of going blank — see DockAppointment.ClosedOut. Ordered so an active rebooking
             // into the same now-freed slot is shown in preference to the stale closed-out record.
             // IsHold: a recurring capacity hold keeps its door (GetBlock counts it) but is not drawn — see DockAppointment.IsHold.
-            var appt = schedule.GetBlock(_scheduleDay, block, includeClosedOut: true)
+            var appt = schedule.GetBlock(day, block, includeClosedOut: true)
                 .Where(a => a.DoorNumber == doorNumber && !a.IsHold)
                 .OrderBy(a => a.ClosedOut)
                 .FirstOrDefault();
             // A tile longer than one step is drawn ONCE, at its start, across all its steps; the steps it covers draw nothing of their own.
             if (appt != null && appt.BlockIndex < block) continue;
-            bool past = _scheduleDay < today || (_scheduleDay == today && block < schedule.CurrentBlock);
+            bool past = day < today || (day == today && block < schedule.CurrentBlock);
             var verdict = DockScheduleService.MoveVerdict.Free;
             string verdictReason = null;
             bool isHeldChip = appt != null && appt.Id == _selectedAppointmentId;
             if (holding && !isHeldChip)
-                verdict = schedule.EvaluateMove(movingAppt, holdContractId, _scheduleDay, _scheduleDay, block,
+                verdict = schedule.EvaluateMove(movingAppt, holdContractId, day, day, block,
                                                 doorNumber, out verdictReason, outboundDoors, holdOrderIds, holdSpan);
             string warning = null;
             if (verdict == DockScheduleService.MoveVerdict.Costly)
             {
-                int baseDay = movingAppt != null ? movingAppt.RequestedDay : _scheduleDay;
-                int repCost = schedule.PredictOffSlotReputationCost(holdContractId, baseDay, _scheduleDay, block, holdOrderIds);
+                int baseDay = movingAppt != null ? movingAppt.RequestedDay : day;
+                int repCost = schedule.PredictOffSlotReputationCost(holdContractId, baseDay, day, block, holdOrderIds);
                 warning = $"Fees and Penalties: ${ChipLateFeeDollars(holdOrderIds):N0}\n" +
                           $"-{(int)OrderArrivalService.SatisfactionPenaltyPerMiss} Partnership\n" +
                           $"-{repCost} Reputation";
@@ -4307,7 +4480,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
 
             VisualElement cell = appt != null
                 ? BuildNewSchedulerCell(schedule, appt, arrivals, past)
-                : (holding ? BuildNewSchedulerEmptyCell(block, doorNumber, booking, verdict, warning) : null);
+                : (holding ? BuildNewSchedulerEmptyCell(day, block, doorNumber, booking, verdict, warning) : null);
             if (cell == null) continue;
             cell.style.left = Length.Percent(block / (float)DockScheduleService.BlocksPerDay * 100f);
             cell.style.width = Length.Percent(100f * (appt != null ? appt.SpanBlocks : 1) / DockScheduleService.BlocksPerDay);
@@ -4851,7 +5024,7 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         return cell;
     }
 
-    private VisualElement BuildNewSchedulerEmptyCell(int block, int doorNumber, bool booking,
+    private VisualElement BuildNewSchedulerEmptyCell(int day, int block, int doorNumber, bool booking,
                                                      DockScheduleService.MoveVerdict verdict, string warning)
     {
         var cell = BuildMoveTintCell(verdict);
@@ -4895,7 +5068,14 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         cell.style.transitionProperty = new List<StylePropertyName> { new StylePropertyName("scale") };
         cell.style.transitionDuration = new List<TimeValue> { new TimeValue(0.12f, TimeUnit.Second) };
 
-        cell.RegisterCallback<ClickEvent>(_ => OnSlotClicked(block, doorNumber));
+        // The slot knows its own day now that several days are on screen; the booking/move logic reads
+        // _scheduleDay, so point it at this slot's day (without re-centring the view) before it runs.
+        cell.RegisterCallback<ClickEvent>(_ =>
+        {
+            _scheduleDay = day;
+            _tlLastCenteredDay = day;
+            OnSlotClicked(block, doorNumber);
+        });
         cell.RegisterCallback<MouseEnterEvent>(_ =>
         {
             CustomCursorService.SetHoveringInteractable(true);
@@ -4999,7 +5179,10 @@ private VisualElement BuildNewSchedulerTimeline(DockScheduleService schedule, Or
         tile.style.right = StyleKeyword.Auto; tile.style.bottom = StyleKeyword.Auto;
         tile.style.width = w; tile.style.height = h;
         tile.style.marginLeft = 0; tile.style.marginTop = 0; tile.style.marginRight = 0; tile.style.marginBottom = 0;
-        tile.style.scale = new Scale(Vector3.one);
+        // Hangs at the size it had on the zoomed grid. Origin top-left so the grab offset (measured on the
+        // scaled tile) still lines up with the cursor.
+        tile.style.transformOrigin = new StyleTransformOrigin(new TransformOrigin(Length.Percent(0), Length.Percent(0)));
+        tile.style.scale = new Scale(new Vector3(_tlScale, _tlScale, 1f));
         tile.style.opacity = 1f;
         SetPickingModeRecursive(tile, PickingMode.Ignore);
 
