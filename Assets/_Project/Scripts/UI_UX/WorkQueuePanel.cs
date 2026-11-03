@@ -1839,6 +1839,7 @@ public class WorkQueuePanel : IUIPanel
     /// PalletPick reads "Pallet Pick" and the leftover-case task reads CasePickGro/Per/Frz.</summary>
     private static string TaskTypeLabel(OrderData order, RowPhase phase, WorkTask task)
     {
+        if (task != null && task.IsHot) return "HOT LIST";
         if (task != null && task.IsScratch) return "SCRATCHES";
         if (phase == RowPhase.Open) return $"{OrderAreaCode(order)}Sel";
         if (task == null) return "—";

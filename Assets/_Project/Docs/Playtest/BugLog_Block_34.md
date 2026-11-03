@@ -1,0 +1,46 @@
+# Bug log - block 34
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 10:27 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (-24.56, 1.12, 40.36) (path invalid) — abandoning the walk and handing the task back.
+- day 1 11:18 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 823e9e24-5c46-42cd-9f42-a9bf11afc248 but the employee is 25.6m away (max 4.5m) — refusing to start receiving.
+- day 1 11:29 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (-45.76, 1.13, 36.39) (path invalid) — abandoning the walk and handing the task back.
+- day 1 11:51 | **WARN** | [AiNavigation] ReachTruck cannot reach task position at (-43.11, 1.16, 50.96) (path invalid) — abandoning the walk and handing the task back.
+- day 1 11:54 | **WARN** | [AiNavigation] ReachTruck: stuck at (8.33, 1.16, 46.47) — walking out to (-2.93, 1.16, 39.97) (12.00m to mesh).
+- day 1 12:39 | **WARN** | [AiNavigation] Dockstocker: stuck at (-13.96, 1.11, 39.69) — walking out to (-20.44, 1.16, 51.00) (12.60m to mesh).
+- day 1 14:54 | **WARN** | [AiNavigation] Dockstocker: stuck at (9.89, 1.11, 50.96) — walking out to (3.39, 1.20, 39.70) (12.00m to mesh).
+- day 1 16:41 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (11.21, 1.16, 45.66) (path invalid) — abandoning the walk and handing the task back.
+- day 2 07:07 | **WARN** | [AiNavigation] ReachTruck cannot reach task position at (-13.96, 1.13, 44.34) (path invalid) — abandoning the walk and handing the task back.
+- day 2 07:53 | **WARN** | [OrderSelectionTaskDriver] Order af429487-b180-4a28-ac36-8fc0738f045a (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 113/261 case(s).
+- day 2 08:51 | **WARN** | [AiNavigation] ReachTruck cannot reach task position at (6.89, 1.11, 50.96) (path invalid) — abandoning the walk and handing the task back.
+- day 2 09:51 | **WARN** | [AiNavigation] ReachTruck cannot reach task position at (-47.09, 1.13, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 2 13:13 | **WARN** | [AiNavigation] Dockstocker: stuck at (0.49, 1.11, 50.50) — walking out to (12.67, 1.16, 50.50) (12.00m to mesh).
+- day 2 16:41 | **WARN** | [AiNavigation] ReachTruck cannot reach task position at (-47.09, 1.11, 48.31) (path invalid) — abandoning the walk and handing the task back.
+- day 2 19:15 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (-45.76, 1.11, 46.99) (path invalid) — abandoning the walk and handing the task back.
+- day 3 05:29 | **WARN** | [OrderSelectionTaskDriver] Order 421a7dff-4311-432e-b8d5-4feccd508e45 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 105/257 case(s).
+- day 3 09:45 | **WARN** | [AiNavigation] PalletJack: stuck at (-14.51, 1.11, 48.17) — walking out to (-14.08, 1.08, 35.50) (12.54m to mesh).
+- day 3 12:44 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (-45.76, 1.12, 41.69) (path invalid) — abandoning the walk and handing the task back.
+- day 3 21:06 | **WARN** | [AiNavigation] Dockstocker: stuck at (7.69, 1.11, 49.14) — walking out to (-5.31, 1.16, 49.14) (12.00m to mesh).
+- day 3 23:59 | **WARN** | [ReachTruckOperator] Replenish: could not reach pallet at 01-07-A1 within 0.15m.
+- day 4 04:57 | **WARN** | [OrderSelectionTaskDriver] Order 55e50480-bbfb-45ec-86f8-aedcc42a12db (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 5/82.
+- day 4 05:52 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (6.89, 1.12, 50.96) (path invalid) — abandoning the walk and handing the task back.
+- day 4 19:12 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (-45.76, 1.11, 44.34) (path invalid) — abandoning the walk and handing the task back.
+- day 4 19:28 | **WARN** | [AiNavigation] ReachTruck: stuck at (3.51, 1.11, 47.56) — walking out to (4.50, 1.08, 35.50) (12.04m to mesh).
+- day 5 06:15 | **WARN** | [OrderSelectionTaskDriver] Order 0829b8d5-0a32-4971-8e4e-203373825629 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 13/85 case(s).
+- day 5 07:30 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_01_Slot0_Tier1 @(26, 87)  <<HISTORY: d3 22:33 Putaway task Assigned->Complete by WorkQueueSystem.CompleteTask | d5 06:47 Replenish task created (02-08-A0->02-08-00) by ReplenishmentService.CreateReplenishTask | d5 06:48 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d5 07:08 moved (27, 87)->(-1, -1) by InventoryService.MovePallet | d5 07:24 moved (-1, -1)->(27, 87) by InventoryService.MovePallet | d5 07:24 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask>>  <<HISTORY: d4 09:28 picked 1 (left 4) by InventoryService.PickFromPallet | d4 09:32 picked 1 (left 3) by InventoryService.PickFromPallet | d5 06:45 picked 1 (left 2) by InventoryService.PickFromPallet | d5 06:46 picked 1 (left 1) by InventoryService.PickFromPallet | d5 06:47 picked 1 (left 0) by InventoryService.PickFromPallet | d5 06:47 record destroyed by InventoryService.DestroyPallet>>
+- day 5 08:23 | **WARN** | [OrderSelectionTaskDriver] Order 0829b8d5-0a32-4971-8e4e-203373825629 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 48/85.
+- day 5 10:26 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (-44.44, 1.13, 36.39) (path invalid) — abandoning the walk and handing the task back.
+- day 6 03:02 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (-44.44, 1.12, 44.34) (path invalid) — abandoning the walk and handing the task back.
+- day 6 06:20 | **WARN** | [OrderSelectionTaskDriver] Order ddce5673-7c0b-4d11-a658-b0cb98c84fb1 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 30/128 case(s).
+- day 6 11:49 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (4.59, 1.13, 39.04) (path invalid) — abandoning the walk and handing the task back.
+- day 6 17:01 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (-6.01, 1.14, 44.34) (path invalid) — abandoning the walk and handing the task back.
+- day 6 23:55 | **WARN** | [AiNavigation] ReachTruck cannot reach task position at (6.89, 1.12, 50.96) (path invalid) — abandoning the walk and handing the task back.
+- day 7 02:29 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (-44.44, 1.13, 37.71) (path invalid) — abandoning the walk and handing the task back.
+- day 7 04:10 | **WARN** | [AiNavigation] ReachTruck cannot reach task position at (-45.76, 1.13, 37.71) (path invalid) — abandoning the walk and handing the task back.
+- day 7 05:28 | **WARN** | [AiNavigation] Employee_Ann Reyes: task target (-31.19, 1.11, 45.59) is not reachable — the partial path ends 10.23m short of it. Handing the task back.
+- day 7 06:14 | **WARN** | [OrderSelectionTaskDriver] Order 1243a4b4-5103-4baa-bfb8-c51a83a2c9ac (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 19/130 case(s).
+- day 7 08:30 | **WARN** | [OrderSelectionTaskDriver] Order 1243a4b4-5103-4baa-bfb8-c51a83a2c9ac (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 69/130.
+- day 7 10:16 | **WARN** | [OrderSelectionTaskDriver] Order 1243a4b4-5103-4baa-bfb8-c51a83a2c9ac (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 71/130.
+- day 7 16:35 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (6.89, 1.11, 50.96) (path invalid) — abandoning the walk and handing the task back.
+- day 7 18:49 | **WARN** | [AiNavigation] Dockstocker: stuck at (-12.64, 1.16, 48.31) — walking out to (-23.88, 1.16, 41.36) (12.22m to mesh).
+- day 7 20:12 | **WARN** | [AiNavigation] Dockstocker cannot reach task position at (-44.44, 1.12, 41.69) (path invalid) — abandoning the walk and handing the task back.

@@ -230,7 +230,35 @@ namespace GameCore.Labor
             return best != null;
         }
 
-        private void CreateReplenishTask(LocationData pick, LocationData reserve, string skuId)
+        /// <summary>HOT replenishment: an order was shorted on this SKU and is waiting for its pick face to be refilled. It is an ordinary
+        /// replenishment at the highest priority (900), so the next free reach truck goes for it; one already filed is raised to 900.
+        /// Returns how many pick faces were filed or raised.</summary>
+        public static int RequestHot(string skuId) => _instance != null ? _instance.RequestHotInternal(skuId) : 0;
+
+        private int RequestHotInternal(string skuId)
+        {
+            if (_workQueue == null || _inventoryService == null || string.IsNullOrEmpty(skuId)) return 0;
+            int n = 0;
+            foreach (var pick in LocationRegistry.PickLocations)
+            {
+                if (!SlotAssignmentService.TryGetSku(pick.Address, out string assigned) || assigned != skuId) continue;
+
+                var pending = _workQueue.Tasks.FirstOrDefault(t => t.Type == WorkTaskType.Replenish &&
+                    t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled && t.ToLocation == pick.Address);
+                if (pending != null)
+                {
+                    if (pending.Priority < WorkTask.HotPriority) { pending.SetPriority(WorkTask.HotPriority); n++; }
+                    continue;
+                }
+                if (!pick.IsAvailable) continue;
+                if (!TryFindOldestReserve(_inventoryService, skuId, out LocationData reserve)) continue;
+                CreateReplenishTask(pick, reserve, skuId, WorkTask.HotPriority);
+                n++;
+            }
+            return n;
+        }
+
+        private void CreateReplenishTask(LocationData pick, LocationData reserve, string skuId, int priority = ReplenishPriority)
         {
             // Lock both ends immediately — see class summary.
             pick.Reserve();
@@ -247,7 +275,7 @@ namespace GameCore.Labor
                 fromLocation: reserve.Address,
                 toLocation: pick.Address,
                 area: area,
-                priority: ReplenishPriority);
+                priority: priority);
         }
     }
 }

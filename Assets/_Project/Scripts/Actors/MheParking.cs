@@ -86,7 +86,21 @@ public static class MheParking
             if (c.GetComponentInParent<PalletJackParkingSpot>() != null) continue; // the station pad itself
             return false;
         }
-        return true;
+        return Reachable(who, hit.position);
+    }
+
+    private static readonly NavMeshPath s_path = new NavMeshPath();
+
+    /// <summary>Can <paramref name="who"/> actually drive from where it stands to <paramref name="target"/>? Being ON the mesh is not
+    /// enough: floor-edge cells and stranded islands sit on mesh nobody can path to, and the machine then logged "cannot reach task
+    /// position (path invalid)" and gave up (21 of block 34's 42 incidents, the same few coordinates over and over).</summary>
+    private static bool Reachable(EquipmentBattery who, Vector3 target)
+    {
+        var filter = new NavMeshQueryFilter { agentTypeID = who.AgentTypeId, areaMask = who.AgentAreaMask };
+        if (!NavMesh.SamplePosition(who.transform.position, out var from, 3f, filter)) return true;   // can't judge: don't block the spot
+        if (!NavMesh.CalculatePath(from.position, target, filter, s_path)) return false;
+        if (s_path.status != NavMeshPathStatus.PathComplete || s_path.corners.Length == 0) return false;
+        return Flat(s_path.corners[s_path.corners.Length - 1] - target).magnitude < 1f;
     }
 
     /// <summary>First free location for <paramref name="who"/> off <paramref name="bay"/>: left, right, front, else the nearest empty lane.</summary>

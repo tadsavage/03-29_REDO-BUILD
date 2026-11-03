@@ -613,6 +613,7 @@ public class EquipmentBattery : MonoBehaviour
     private float _locAt;
 
     public int AgentAreaMask => _agent != null ? _agent.areaMask : NavMesh.AllAreas;
+    public int AgentTypeId => _agent != null ? _agent.agentTypeID : 0;
 
     /// <summary>Half-size of the machine's footprint box (x = half width, y = half height, z = half length), for the parking checks.</summary>
     public Vector3 BodyHalfExtents

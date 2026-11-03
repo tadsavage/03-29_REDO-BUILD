@@ -488,18 +488,21 @@ namespace GameCore.Inventory
             if (order.UsesPalletPlan) return false;   // the plan already files every pallet; a short pick becomes SCRATCHES instead
             if (LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect)) return false;
 
+            // Split what is owed into cases a selector can take from a pick face RIGHT NOW and cases whose pick face ran dry but
+            // whose SKU still has reserve stock. The second kind used to get a continuation trip that could find nothing to pick
+            // (and sent the order back to Open); now the order waits for the hot replenishment (Tad, 2026-11-03).
             int remaining = 0;
-            bool stockExists = false;
+            var awaiting = new List<string>();
             foreach (var li in order.LineItems)
             {
                 int want = SelectableRemaining(order, li);
                 if (want <= 0) continue;
-                remaining += want;
-                if (!stockExists && (OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null ||
-                    (_inventoryService != null && GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, li.SkuId, out _))))
-                    stockExists = true;
+                if (OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null) remaining += want;
+                else if (_inventoryService != null && GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, li.SkuId, out _))
+                    awaiting.Add(li.SkuId);
             }
-            if (remaining <= 0 || !stockExists) return false;
+            if (awaiting.Count > 0) AwaitRestock(order, awaiting);
+            if (remaining <= 0) return awaiting.Count > 0;   // nothing to pick yet, but the order is held for the hot list
 
             var st = _workQueue.CreateTask(
                 WorkTaskType.OrderSelect,
@@ -512,6 +515,95 @@ namespace GameCore.Inventory
             st.Status = WorkTaskStatus.Available;
             Debug.Log($"[OrderService] Order {order.OrderNumber}: selector's pallets were full - filed another trip for {remaining} case(s).");
             return true;
+        }
+
+        // ── HOT LIST: one scratch run for everything an order was shorted on (Tad, 2026-11-03) ───────
+        // A pick face that runs dry mid-order: the selector takes what is there and stages it, the SKU's pick face gets a HOT
+        // replenishment (priority 900), and the order WAITS here. Once the pick faces are stocked again one HOT LIST pick list is
+        // filed for every short line at once - priority 900 and ahead of anything else a selector can take - staged to the order's
+        // lane. The booked slot still wins: when it is over (or the order has been fined) the shortfall is cut and the truck leaves.
+
+        private readonly Dictionary<string, HashSet<string>> _awaitingRestock = new Dictionary<string, HashSet<string>>();
+
+        /// <summary>True while the order is waiting for hot replenishments to refill the pick faces it was shorted on.</summary>
+        public bool IsAwaitingRestock(OrderData order) => order != null && _awaitingRestock.ContainsKey(order.OrderId);
+
+        private void AwaitRestock(OrderData order, List<string> skus)
+        {
+            if (!_awaitingRestock.TryGetValue(order.OrderId, out var set))
+            {
+                set = new HashSet<string>();
+                _awaitingRestock[order.OrderId] = set;
+            }
+            foreach (var sku in skus)
+            {
+                if (!set.Add(sku)) continue;
+                int hot = GameCore.Labor.ReplenishmentService.RequestHot(sku);
+                string msg = $"Order {order.OrderNumber}: pick face for {sku} ran out - hot replenishment {(hot > 0 ? "requested" : "already on its way")}; the shorted cases go out on one hot list when it lands.";
+                Debug.LogWarning($"[OrderService] {msg}");
+                SystemsLogWindow.LogWarning(msg);
+            }
+        }
+
+        /// <summary>Minutes until the order's booked slot ends (int.MaxValue with no appointment).</summary>
+        private int MinutesToSlotEnd(OrderData order)
+        {
+            if (_timeService == null || order == null) return int.MaxValue;
+            var appt = ServiceLocator.TryGet<DockScheduleService>(out var sched) && sched != null ? sched.FindForOrder(order.OrderId) : null;
+            if (appt == null) return int.MaxValue;
+            return (appt.Day - _timeService.Day) * 1440 + appt.EndMinute - (_timeService.Hour * 60 + _timeService.Minute);
+        }
+
+        /// <summary>Every few game minutes: keeps the hot replenishments hot, and files the hot list when the pick faces are stocked.</summary>
+        private void ServiceAwaitingRestock()
+        {
+            if (_awaitingRestock.Count == 0 || _workQueue == null) return;
+            foreach (var orderId in _awaitingRestock.Keys.ToList())
+            {
+                var order = _activeOrders.FirstOrDefault(o => o.OrderId == orderId);
+                if (order == null || order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled ||
+                    order.CancelledCases > 0 || order.ReturnsMode)
+                { _awaitingRestock.Remove(orderId); continue; }
+
+                if (DriverGaveUp(order))
+                {
+                    string cutMsg = $"Order {order.OrderNumber}: the driver gave up waiting and the pick faces were not restocked in time - the shorted cases are cut, not billed.";
+                    Debug.LogWarning($"[OrderService] {cutMsg}");
+                    SystemsLogWindow.LogWarning(cutMsg);
+                    _awaitingRestock.Remove(orderId);
+                    continue;
+                }
+                if (LiveTasksForOrder(orderId).Any(t => t.Type == WorkTaskType.OrderSelect)) continue;   // a selector is working the order
+
+                int pickable = 0, stillShort = 0;
+                foreach (var li in order.LineItems)
+                {
+                    int want = SelectableRemaining(order, li);
+                    if (want <= 0) continue;
+                    if (OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null) pickable += want;
+                    else { stillShort += want; GameCore.Labor.ReplenishmentService.RequestHot(li.SkuId); }
+                }
+                if (pickable <= 0 && stillShort <= 0) { _awaitingRestock.Remove(orderId); continue; }   // nothing owed any more
+                if (pickable <= 0) continue;
+                // One run for everything: wait until every short line is stocked, unless the slot is nearly over - then take what can be had.
+                if (stillShort > 0 && MinutesToDriverGiveUp(order) > 60) continue;
+
+                var hot = _workQueue.CreateTask(
+                    WorkTaskType.OrderSelect,
+                    EmployeeRole.OrderSelector,
+                    palletId: null,
+                    description: $"{WorkTask.HotPrefix} - {pickable} shorted case(s) for {order.CustomerName}",
+                    area: DominantArea(order),
+                    priority: WorkTask.HotPriority,
+                    orderId: order.OrderId);
+                if (hot == null) continue;
+                hot.Status = WorkTaskStatus.Available;
+                if (order.Status == OrderData.OrderStatus.Loaded) order.Status = OrderData.OrderStatus.PartiallyPicked;
+                _awaitingRestock.Remove(orderId);
+                string msg = $"Order {order.OrderNumber}: pick faces restocked - hot list filed for {pickable} shorted case(s).";
+                Debug.LogWarning($"[OrderService] {msg}");
+                SystemsLogWindow.LogWarning(msg);
+            }
         }
 
         // ── SCRATCHES: the deficit pick list ───────────────────────────────────────────────────────
@@ -1647,6 +1739,7 @@ namespace GameCore.Inventory
             SettleFloatingOutboundPallets();
             AssignLanesToScratchPicks();
             PromoteScratches();
+            ServiceAwaitingRestock();
             ReclaimOrphanedFreight();
             HealPhantomStagedOrders();
             AdoptStrayStagedPallets();
@@ -3196,6 +3289,19 @@ namespace GameCore.Inventory
             return true;
         }
 
+        /// <summary>True once the order's outbound driver has waited out the patience window past the booked slot (8 hours) and gives up.</summary>
+        private bool DriverGaveUp(OrderData order) => MinutesToDriverGiveUp(order) <= 0;
+
+        /// <summary>Minutes until the order's driver gives up (int.MaxValue with no appointment).</summary>
+        private int MinutesToDriverGiveUp(OrderData order)
+        {
+            if (_timeService == null || order == null) return int.MaxValue;
+            if (!ServiceLocator.TryGet<DockScheduleService>(out var sched) || sched == null) return int.MaxValue;
+            var appt = sched.FindForOrder(order.OrderId);
+            if (appt == null) return int.MaxValue;
+            return sched.DriverGiveUpMinute(appt) - (_timeService.Day * 1440 + _timeService.Hour * 60 + _timeService.Minute);
+        }
+
         /// <summary>True once the booked slot of the order's trailer is over (or the order's day has passed).</summary>
         private bool AppointmentElapsed(OrderData order)
         {
@@ -3215,8 +3321,10 @@ namespace GameCore.Inventory
             // cases (not billed) and let it ship what is aboard. Until it is late the stock may still arrive, so it waits.
             // It is no longer enough to wait for the fine: block 27 (2026-11-01) fined four loaded seafood orders for a truck that sat at the
             // door until midnight waiting for stock that never came. Once the booked slot is over, the trailer leaves with what is aboard.
+            // 2026-11-03: the trailer no longer leaves when the BLOCK ends - it waits until loading is finished, the player releases it,
+            // or the driver gives up (8 hours past the slot, DockScheduleService.OutboundDriverPatienceMinutes).
             foreach (var stuck in _activeOrders.Where(o => o != null && o.Status == OrderData.OrderStatus.Loaded && o.CancelledCases == 0 &&
-                                                          (o.HasBeenFined || AppointmentElapsed(o))).ToList())
+                                                          DriverGaveUp(o)).ToList())
             {
                 var liveTasks = LiveTasksForOrder(stuck.OrderId).ToList();
                 // Nothing left that can actually be done: pallet picks with no source pallet, and loose-case trips with no stock to pick.
@@ -3235,6 +3343,7 @@ namespace GameCore.Inventory
                             && CanCloseOut(o, out _)
                             && !AnyPalletInHand(o)
                             && StagedPalletsRemainingInLane(o) == 0
+                            && !IsAwaitingRestock(o)   // shorted cases are coming on a hot list: hold the truck (until the slot ends)
                             // Nothing still being picked or delivered: a pass can finish while reach
                             // trucks are still carrying this order's pallets to the lane.
                             && !LiveTasksForOrder(o.OrderId).Any(t => t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.OrderSelect))
@@ -3379,6 +3488,21 @@ namespace GameCore.Inventory
         /// the order Shipped. Called from CloseOutOrders once the player manually closes out a
         /// Loaded order. Safe to call more than once for the same order (a no-op, returning 0, after
         /// the first) so a bug upstream can't double-charge the customer. Returns the amount billed.</summary>
+        /// <summary>One line per shipped order: what it shipped with, what work was still live, and where the booked slot stood. Settles
+        /// "did the truck leave while selectors were still working?" (block 35) - grep "[ShipDecision]" in Logs/Editor.log (it is not a bug pattern, so it stays out of the bug log).</summary>
+        private void LogShipDecision(OrderData order)
+        {
+            var live = LiveTasksForOrder(order.OrderId).ToList();
+            string tasks = live.Count == 0 ? "none" : string.Join(", ", live.GroupBy(t => $"{t.Type}{(t.IsScratch ? "(scratch)" : "")}:{t.Status}")
+                                                                      .Select(g => $"{g.Key}x{g.Count()}"));
+            var appt = ServiceLocator.TryGet<DockScheduleService>(out var sched) && sched != null ? sched.FindForOrder(order.OrderId) : null;
+            string slot = appt == null ? "no appointment"
+                : $"slot day {appt.Day} {appt.TimeLabel}, {(AppointmentElapsed(order) ? "OVER" : "still open")}";
+            string now = _timeService != null ? $"day {_timeService.Day} {_timeService.Hour:00}:{_timeService.Minute:00}" : "?";
+            Debug.LogWarning($"[ShipDecision] Order {order.OrderNumber} ({order.CustomerName}) ships at {now}: picked {order.TotalUnitsPicked}/{order.TotalUnits} cs, " +
+                             $"status {order.Status}, fined={order.HasBeenFined}, {slot}, live tasks: {tasks}.");
+        }
+
         public int ShipOrder(string orderId)
         {
             var order = _activeOrders.FirstOrDefault(o => o.OrderId == orderId);
@@ -3392,6 +3516,8 @@ namespace GameCore.Inventory
                 return 0;
             }
             if (order.Status == OrderData.OrderStatus.Shipped) return 0;
+
+            LogShipDecision(order);
 
             // Per-pallet stage: everything of this order that rode the trailer out is now Shipped. The
             // order is archived below, so these pallets leave the Work Queue with it. A pallet still standing

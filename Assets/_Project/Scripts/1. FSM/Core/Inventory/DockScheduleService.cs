@@ -415,6 +415,13 @@ namespace GameCore.Inventory
             return appt.Day * 1440 + appt.StartMinute + AllowedMinutes(appt, orders);
         }
 
+        /// <summary>An outbound driver does not leave when the booked block ends (Tad, 2026-11-03): the trailer stays until loading is
+        /// finished or the player releases it. This long after the deadline the driver gives up and goes (taking whatever is aboard).</summary>
+        public const int OutboundDriverPatienceMinutes = 8 * 60;
+
+        /// <summary>The absolute game minute at which this appointment's outbound driver gives up and leaves.</summary>
+        public int DriverGiveUpMinute(DockAppointment appt) => DeadlineMinute(appt) + OutboundDriverPatienceMinutes;
+
         /// <summary>The deadline as day + "HH:MM" text, e.g. "Day 3 @ 20:30".</summary>
         public string DeadlineLabel(DockAppointment appt)
         {

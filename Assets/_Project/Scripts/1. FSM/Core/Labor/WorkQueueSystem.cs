@@ -73,6 +73,14 @@ namespace GameCore.Labor
         /// <summary>A SCRATCHES task: the deficit left when a selector ran out of stock mid-order, picked as a brand new pick
         /// list that must be done before the truck leaves (unless the player cancels the rest of the order).</summary>
         public bool IsScratch => (Type == WorkTaskType.OrderSelect || Type == WorkTaskType.PalletPick) && Description != null && Description.StartsWith(ScratchPrefix);
+        /// <summary>The Description prefix of a HOT LIST: the one pick list that collects every case an order was shorted on once the
+        /// hot replenishments have refilled the pick faces (OrderService.ServiceAwaitingRestock). Carried in the description, which is
+        /// already saved.</summary>
+        public const string HotPrefix = "HOT LIST";
+        public const int HotPriority = 900;
+
+        /// <summary>A hot list outranks every other task a selector can take, whatever priority the player gave the rest.</summary>
+        public bool IsHot => Type == WorkTaskType.OrderSelect && Description != null && Description.StartsWith(HotPrefix);
         private WorkTaskStatus _status = WorkTaskStatus.Available;
         /// <summary>Every change of a pallet's task is written to GameCore.Diagnostics.PalletHistory, with the method that made it,
         /// so "who cancelled this pallet's putaway" has an answer.</summary>
@@ -463,6 +471,7 @@ namespace GameCore.Labor
             // can still raise a return's priority to send it first.
             task = _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available)
                          .OrderByDescending(t => t.Priority)
+                         .ThenBy(t => t.IsHot ? 0 : 1)   // a hot list beats even a player-raised 900
                          .ThenBy(t => t.Type == WorkTaskType.Return ? 1 : 0)
                          .FirstOrDefault();
             if (task == null) return false;

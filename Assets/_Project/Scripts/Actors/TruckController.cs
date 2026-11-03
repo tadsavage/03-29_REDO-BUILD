@@ -3496,7 +3496,7 @@ private DockSlot        _dock;
     /// <summary>How long an outbound driver keeps waiting after their booked window ends (the late fee
     /// has already been charged by then) before giving up and leaving empty. The red stage of the
     /// delay bar counts this down.</summary>
-    private const int OutboundGraceMinutes = 60;
+    private const int OutboundGraceMinutes = GameCore.Inventory.DockScheduleService.OutboundDriverPatienceMinutes;   // 8 h (Tad, 2026-11-03)
 
     /// <summary>True when this outbound driver is done waiting: the appointment was pulled off the
     /// grid (Parked) or deleted, or its window ended more than OutboundGraceMinutes ago. A truck with
@@ -3635,6 +3635,8 @@ private DockSlot        _dock;
     /// departing anyway if unclaimed for too long (same self-preservation the inbound "no DS
     /// available" case has) — unlike inbound, an outbound trailer STARTS empty and fills up, so
     /// "still empty" is never a reason to leave early the way it is for offload.</summary>
+    private bool _gaveUpWithCargo;
+
     private void UpdateDockedOutbound()
     {
         if (_loadComplete)
@@ -3658,6 +3660,15 @@ private DockSlot        _dock;
                 SystemsLogWindow.LogWarning($"The driver for {OutboundLink()} sat at {door} through their " +
                                             $"appointment and another {OutboundGraceMinutes} minutes with nothing loaded and left empty.");
                 BeginDeparture();
+            }
+            else if (cargoAboard && !_gaveUpWithCargo && OutboundAppointmentGone(out string who) &&
+                     GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderSvc) && orderSvc != null)
+            {
+                // Eight hours past the booked slot with freight aboard: the driver has had enough and goes, taking what is on the
+                // trailer (billed); everything not aboard is cut, with the usual release penalties.
+                _gaveUpWithCargo = true;
+                SystemsLogWindow.LogWarning($"The driver for {OutboundLink()} waited {OutboundGraceMinutes / 60} hours past the slot and left with what was aboard.");
+                orderSvc.ReleaseTrailer(this, out _);
             }
         }
         else if (!_loadClaimed && _dockedTime >= offloadFallbackTimeout)
