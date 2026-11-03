@@ -3780,7 +3780,10 @@ private static void ApplyLilitaFont(VisualElement el)
                 if (s == null) continue;
                 if (s.Status != ShipmentData.ShipmentStatus.InTransit && s.Status != ShipmentData.ShipmentStatus.Receiving &&
                     s.Status != ShipmentData.ShipmentStatus.Delayed) continue;
-                int at = s.ArrivalDayNumber * 1440 + s.ArrivalTimeMinute;
+                // The PO's own ArrivalTimeMinute is only the minute it was ordered; the delivery time is the dock
+                // appointment it holds. Not on the grid yet (still in the unscheduled pool) = no time to show.
+                var po = Schedule()?.FindForPo(s.PONumber);
+                int at = po != null && !po.Parked ? po.Day * 1440 + po.StartMinute : int.MaxValue;
                 foreach (var li in s.LineItems)
                 {
                     if (li == null || li.Dropped || string.IsNullOrEmpty(li.SkuId)) continue;
@@ -3824,7 +3827,9 @@ private static void ApplyLilitaFont(VisualElement el)
             {
                 // Small hover card: which PO(s) the cases are on and when each delivery is booked.
                 var tip = string.Join("\n", dues.OrderBy(d => d.at).Select(d =>
-                    $"{d.qty:N0} cs. Due: Day{d.at / 1440} @ {d.at % 1440 / 60:00}:{d.at % 60:00}"));
+                    d.at == int.MaxValue
+                        ? $"{d.qty:N0} cs. Due: not booked at a door yet"
+                        : $"{d.qty:N0} cs. Due: Day {d.at / 1440} @ {d.at % 1440 / 60:00}:{d.at % 60:00}"));
                 // Double-size card (26px text, 680px max width) so it reads at a glance.
                 RuntimeTooltip.AttachRich(inboundCell, () =>
                 {

@@ -20,7 +20,7 @@ MonoBehaviour:
     worldAttenuation: 0.3
     worldSampleCount: 8
     maxWorldPixelRadius: 24
-    injectionPoint: 550
+    injectionPoint: 600
     showInSceneView: 1
   m_Shader: {fileID: 4800000, guid: 75efcb75f5431d5449529819182f4261, type: 3}
 --- !u!114 &-6538071992695117395
@@ -38,7 +38,7 @@ MonoBehaviour:
   m_Active: 1
   settings:
     passTag: AvatarsOverSSAO
-    Event: 500
+    Event: 200
     filterSettings:
       RenderQueueType: 0
       LayerMask:
@@ -49,8 +49,8 @@ MonoBehaviour:
     overrideMaterialPassIndex: 0
     overrideShader: {fileID: 0}
     overrideShaderPassIndex: 0
-    overrideMode: 1
-    overrideDepthState: 1
+    overrideMode: 0
+    overrideDepthState: 0
     depthCompareFunction: 4
     enableWrite: 0
     stencilSettings:
@@ -78,10 +78,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
   m_Name: FullScreenPassRendererFeature
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.FullScreenPassRendererFeature
-  m_Active: 0
-  injectionPoint: 550
+  m_Active: 1
+  injectionPoint: 450
   fetchColorBuffer: 1
-  requirements: 1
+  requirements: 3
   passMaterial: {fileID: 2100000, guid: 6b1967159ec5444428490c7b0353be3a, type: 2}
   passIndex: 0
   bindDepthStencilAttachment: 0
@@ -137,7 +137,7 @@ MonoBehaviour:
     zFailOperation: 0
   m_ShadowTransparentReceive: 0
   m_RenderingMode: 2
-  m_DepthPrimingMode: 1
+  m_DepthPrimingMode: 0
   m_CopyDepthMode: 0
   m_DepthAttachmentFormat: 0
   m_DepthTextureFormat: 0
@@ -163,9 +163,9 @@ MonoBehaviour:
     AfterOpaque: 0
     Source: 1
     NormalSamples: 1
-    Intensity: 0.6
+    Intensity: 0.25
     DirectLightingStrength: 0
-    Radius: 0.3
+    Radius: 0.15
     Samples: 1
     BlurQuality: 1
     Falloff: 100

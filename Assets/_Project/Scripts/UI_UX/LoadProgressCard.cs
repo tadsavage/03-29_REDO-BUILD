@@ -31,6 +31,8 @@ public static class LoadProgressCard
     {
         public SkuData Sku;
         public int NeedCases, FullCases, NeedPlt, NeedCs, StagedPlt, StagedCsCases;
+        public string SkuId;
+        public bool NoStock;
     }
 
     /// <summary>The hover body for <paramref name="appt"/>; <paramref name="header"/> is the existing one-line summary.</summary>
@@ -82,7 +84,7 @@ public static class LoadProgressCard
             foreach (var li in order.LineItems)
             {
                 if (!rows.TryGetValue(li.SkuId, out var row))
-                    rows[li.SkuId] = row = new SkuRow { Sku = inv?.GetSkuData(li.SkuId), FullCases = orders.FullPalletCases(li.SkuId) };
+                    rows[li.SkuId] = row = new SkuRow { SkuId = li.SkuId, Sku = inv?.GetSkuData(li.SkuId), FullCases = orders.FullPalletCases(li.SkuId) };
                 row.NeedCases += li.QuantityNeeded;
                 int nPlt = row.FullCases > 0 ? li.QuantityNeeded / row.FullCases : 0;
                 row.NeedPlt += nPlt;
@@ -118,7 +120,25 @@ public static class LoadProgressCard
         // The totals are estimates until every pallet exists; never show more staged than the estimate.
         pltTotal = Mathf.Max(pltTotal, pltStaged);
         caseTotal = Mathf.Max(caseTotal, caseStaged);
-        int total = pltTotal + caseTotal, staged = pltStaged + caseStaged;
+        int total = pltTotal + caseTotal;
+
+        // The headline is case-weighted, not a pallet count: a case-pick pallet that exists but is missing a
+        // SKU's cases (stock-out, still being picked) must not read as fully staged.
+        int needCasesAll = 0, stagedCasesAll = 0;
+        foreach (var r in rows.Values)
+        {
+            needCasesAll += r.NeedCases;
+            int stagedCs = StagedCases(r);
+            stagedCasesAll += stagedCs;
+            // Same stock test OrderService uses when it cuts a line ("not in stock - cut from the order").
+            int missing = r.NeedCases - stagedCs;
+            r.NoStock = missing > 0 && !string.IsNullOrEmpty(r.SkuId)
+                        && OrderPickPath.ChooseSlot(r.SkuId, missing, out _) == null
+                        && !(inv != null && GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(inv, r.SkuId, out _));
+        }
+        float stagedFraction = needCasesAll > 0 ? stagedCasesAll / (float)needCasesAll : (total > 0 ? 1f : 0f);
+        // Floor to 0.1 so a card that is short never rounds up to "N out of N".
+        float stagedPlts = stagedFraction >= 1f ? total : Mathf.Floor(stagedFraction * total * 10f) / 10f;
 
         root.Add(Divider());
         if (pltTotal > 0) root.Add(MakeLabel($"{pltStaged} out of {pltTotal} Plt. Picks Staged", 13, ColMuted));
@@ -128,8 +148,8 @@ public static class LoadProgressCard
         totalRow.style.flexDirection = FlexDirection.Row;
         totalRow.style.alignItems = Align.Center;
         totalRow.style.marginTop = 6;
-        totalRow.Add(MakeBar(total > 0 ? staged / (float)total : 0f, 110, 18, 10));
-        totalRow.Add(MakeLabel($"{staged} out of {total} plts. Total Staged", 19, Color.white, true));
+        totalRow.Add(MakeBar(total > 0 ? stagedFraction : 0f, 110, 18, 10));
+        totalRow.Add(MakeLabel($"{Fmt(stagedPlts)} out of {total} plts. Total Staged", 19, Color.white, true));
         root.Add(totalRow);
 
         root.Add(Divider());
@@ -170,9 +190,12 @@ public static class LoadProgressCard
         if (_lilita != null) el.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(_lilita));
     }
 
+    private static int StagedCases(SkuRow r) =>
+        Mathf.Min(r.NeedCases, r.StagedPlt * Mathf.Max(0, r.FullCases) + r.StagedCsCases);
+
     private static VisualElement BuildRow(SkuRow r)
     {
-        int stagedCases = Mathf.Min(r.NeedCases, r.StagedPlt * Mathf.Max(0, r.FullCases) + r.StagedCsCases);
+        int stagedCases = StagedCases(r);
         float fraction = r.NeedCases > 0 ? stagedCases / (float)r.NeedCases : 0f;
 
         var row = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -194,6 +217,14 @@ public static class LoadProgressCard
         var label = MakeLabel(text, 13, ColText);
         label.style.flexShrink = 1;
         row.Add(label);
+
+        if (r.NoStock)
+        {
+            var shortTag = MakeLabel("[Short - no stock]", 12, new Color(0.95f, 0.35f, 0.3f, 1f), true);
+            shortTag.style.marginLeft = 6;
+            shortTag.style.marginRight = 4;
+            row.Add(shortTag);
+        }
 
         bool hasPlt = r.NeedPlt > 0, hasCs = r.NeedCs > 0;
         if (hasCs) row.Add(Tag("[Cs.Pick]", r.StagedCsCases >= r.NeedCs, 6));

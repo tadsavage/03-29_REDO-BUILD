@@ -14,12 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Cavitoon.CavitoonCavityRendererFeature
   m_Active: 1
   m_Settings:
-    worldRadius: 0.2
-    worldRidge: 2
-    worldValley: 3
-    worldAttenuation: 0.05
+    worldRadius: 1
+    worldRidge: 2.5
+    worldValley: 0.71
+    worldAttenuation: 0.25
     worldSampleCount: 8
-    maxWorldPixelRadius: 12
+    maxWorldPixelRadius: 7
     injectionPoint: 600
     showInSceneView: 1
   m_Shader: {fileID: 4800000, guid: 75efcb75f5431d5449529819182f4261, type: 3}
@@ -38,21 +38,21 @@ MonoBehaviour:
   m_Active: 1
   settings:
     passTag: AvatarsOverSSAO
-    Event: 500
+    Event: 200
     filterSettings:
       RenderQueueType: 0
       LayerMask:
         serializedVersion: 2
         m_Bits: 640
       PassNames: []
-    overrideMaterial: {fileID: 0}
-    overrideMaterialPassIndex: 0
+    overrideMaterial: {fileID: 7786485892351307130, guid: 2c4e94183809f8e4eb225faa422f75bb, type: 3}
+    overrideMaterialPassIndex: 141
     overrideShader: {fileID: 0}
     overrideShaderPassIndex: 0
     overrideMode: 0
-    overrideDepthState: 1
-    depthCompareFunction: 4
-    enableWrite: 0
+    overrideDepthState: 0
+    depthCompareFunction: 2
+    enableWrite: 1
     stencilSettings:
       overrideStencilState: 0
       stencilReference: 0
@@ -79,9 +79,9 @@ MonoBehaviour:
   m_Name: FullScreenPassRendererFeature
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.FullScreenPassRendererFeature
   m_Active: 1
-  injectionPoint: 450
+  injectionPoint: 600
   fetchColorBuffer: 1
-  requirements: 3
+  requirements: 0
   passMaterial: {fileID: 2100000, guid: 6c5b17c6bbe17104f8d1ed7a8fc67921, type: 2}
   passIndex: 0
   bindDepthStencilAttachment: 0
@@ -163,10 +163,10 @@ MonoBehaviour:
     AfterOpaque: 0
     Source: 1
     NormalSamples: 1
-    Intensity: 0.6
+    Intensity: 0.5
     DirectLightingStrength: 0
     Radius: 0.3
-    Samples: 1
-    BlurQuality: 1
+    Samples: 0
+    BlurQuality: 0
     Falloff: 100
     SampleCount: -1

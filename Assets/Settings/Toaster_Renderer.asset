@@ -135,14 +135,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Cavitoon.CavitoonCavityRendererFeature
   m_Active: 1
   m_Settings:
-    worldRadius: 0.05
-    worldRidge: 2.5
+    worldRadius: 0.1
+    worldRidge: 0.1
     worldValley: 2.5
     worldAttenuation: 0.1
     worldSampleCount: 8
     maxWorldPixelRadius: 12
-    injectionPoint: 450
-    showInSceneView: 1
+    injectionPoint: 600
+    showInSceneView: 0
   m_Shader: {fileID: 4800000, guid: 75efcb75f5431d5449529819182f4261, type: 3}
 --- !u!114 &4265927563731151312
 MonoBehaviour:
@@ -156,7 +156,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f62c9c65cf3354c93be831c8bc075510, type: 3}
   m_Name: ScreenSpaceAmbientOcclusion
   m_EditorClassIdentifier: 
-  m_Active: 0
+  m_Active: 1
   m_Settings:
     AOMethod: 0
     Downsample: 1
