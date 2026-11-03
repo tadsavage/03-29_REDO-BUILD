@@ -52,6 +52,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Roundlightx 3
       objectReference: {fileID: 0}
+    - target: {fileID: 6681384845540061906, guid: ce654c371ce9c2240a12ed1f6affafe5, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9050902955121679243, guid: ce654c371ce9c2240a12ed1f6affafe5, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: d6d7334598ae4f7c98d37e1f4f2178fb, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -92,6 +100,9 @@ MonoBehaviour:
   rotation: 0
   customData: 
   worldSpaceYHeight: 0
+  hasSavedTransform: 0
+  savedWorldPos: {x: 0, y: 0, z: 0}
+  savedWorldRot: {x: 0, y: 0, z: 0, w: 0}
   isRackLive: 0
   rackAisle: -1
   rackBay: -1

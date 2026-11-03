@@ -79,7 +79,25 @@ namespace GameCore.Actors
         private const float PlaceSeconds     = 0.30f;  // setting the case down on the pallet
         private const float ParkOffset       = 2.1f;   // jack centreline distance from the pick face (into the aisle)
         private const float MaxPickReach = 5f;         // a case is never carried from a slot further than this from its pallet
-        private const float PickFaceStandOff = 0.65f;  // selector stops this far out from the slot pivot (≈ the pallet's front edge + a step) so they don't walk into the cases
+        private const float PickFaceStandOff = 0.65f;  // fallback distance from a slot pivot (the rack's depth centre) to the rack's aisle face
+        private const float RackFaceClearance = 0.6f;  // selector's body (0.5 m radius) plus a margin: they stand this far OUT from the face
+
+        /// <summary>How far out from a slot's pivot (the rack's depth centre) a selector stands to pick from it: the rack's aisle-facing
+        /// face plus body clearance. The pivot is inside the rack, so walking to it, or to a point only a face-width out, clips the selector
+        /// into the uprights and beams (Tad, 2026-11-03). The face distance comes from the slot's LocApproachAnchor, which sits 3 m out from
+        /// the face on the aisle side; where that isn't usable it falls back to PickFaceStandOff.</summary>
+        private static float PickStandOff(LocationData location)
+        {
+            float face = PickFaceStandOff;
+            var anchor = location != null ? location.transform.Find("LocApproachAnchor") : null;
+            if (anchor != null)
+            {
+                Vector3 d = anchor.position - location.transform.position; d.y = 0f;
+                float fromFace = d.magnitude - 3f;
+                if (fromFace >= 0.3f && fromFace <= 1.3f) face = fromFace;
+            }
+            return face + RackFaceClearance;
+        }
         private const float PalletSideOff    = 1.20f;  // where the selector stands to load the pallet
         private const float ForkLift         = 0.25f;  // pallet raised this high while it rides the jack (Tad, 2026-10-16)
         private const float ForkMoveSeconds  = 0.6f;   // time to raise / lower
@@ -306,18 +324,9 @@ namespace GameCore.Actors
                         _offJack = false;
                     }
                     Vector3 bayFlat = slotTooFar ? slotFlat : BayFirstPositionFlat(location, slotFlat);
-                    Vector3 heading = PickHeading(toAisle, location);
-                    Vector3 park = bayFlat + toAisle * ParkOffset - heading * ForkPalletZ[palletIndex];
-
-                    // End of the aisle: the jack would be left nose-first into the wall. Turn it ~45 degrees out toward the open
-                    // aisle instead (Tad, 2026-10-18: "turning towards the direction of travel, not driving into the wall").
-                    Vector3 parkHeading = heading;
-                    if (UnityEngine.AI.NavMesh.Raycast(park + Vector3.up * 0.05f, park + heading * 2.5f, out _, UnityEngine.AI.NavMesh.AllAreas))
-                        parkHeading = (heading + toAisle).normalized;
-                    park = KeepJackBodyOffWalls(park, parkHeading);
-                    park = KeepClearOfOtherJacks(park, parkHeading);
                     float bayMoveStart = OpsMetrics.Now;
-                    yield return DriveJackTo(park, parkHeading, $"bay {bayKey}");
+                    ComputeBayPark(bayFlat, toAisle, location, palletIndex, out Vector3 park, out Vector3 parkHeading);
+                    yield return DriveJackTo(park, parkHeading, $"bay {bayKey}", slotTooFar);
                     if (_jackLegOk) OpsMetrics.Record(OpsMetrics.Kind.JackBayMove, OpsMetrics.Now - bayMoveStart);
                     if (!_jackLegOk)
                     {
@@ -325,6 +334,23 @@ namespace GameCore.Actors
                         yield break;
                     }
                     if (JackOutOfPower) continue;   // died on the way here: handled at the top of the loop
+
+                    // VERIFY THE STOP (Tad, 2026-11-03): the first stop of a bay is never run through the reach check above, and DriveJackTo
+                    // leaves the jack where it is when the stop is "behind" it (never back up), so the selector walked up to ~10 m with every
+                    // case. If the pallet still isn't within reach of the slot, pull up (reversing if need be) in front of the slot itself.
+                    if (!slotTooFar && palletIndex < _pallets.Count && _pallets[palletIndex] != null &&
+                        PlanarDist(_pallets[palletIndex].transform.position, slotFlat) > MaxPickReach)
+                    {
+                        Debug.Log($"[OrderSelectionTaskDriver] '{name}': jack stopped {PlanarDist(_pallets[palletIndex].transform.position, slotFlat):0.0}m from {location.Address} - re-parking in front of it.");
+                        ComputeBayPark(slotFlat, toAisle, location, palletIndex, out park, out parkHeading);
+                        yield return DriveJackTo(park, parkHeading, $"bay {bayKey} (reach)", true);
+                        if (!_jackLegOk)
+                        {
+                            yield return AbandonJackOnFoot($"could not drive the jack to bay {bayKey}");
+                            yield break;
+                        }
+                        if (JackOutOfPower) continue;
+                    }
                     // Off the jack on the rack side (via that side's mount point).
                     yield return StepOut(slotFlat);
                     _offJack = true;
@@ -389,6 +415,22 @@ namespace GameCore.Actors
             return park;
         }
 
+        /// <summary>The jack's park pose for a stop whose bay line starts at <paramref name="bayFlat"/>: out in the aisle, forks aligned
+        /// with the pallet being loaded, turned out of a dead end, kept off walls and other jacks.</summary>
+        private void ComputeBayPark(Vector3 bayFlat, Vector3 toAisle, LocationData location, int palletIndex, out Vector3 park, out Vector3 parkHeading)
+        {
+            Vector3 heading = PickHeading(toAisle, location);
+            park = bayFlat + toAisle * ParkOffset - heading * ForkPalletZ[palletIndex];
+
+            // End of the aisle: the jack would be left nose-first into the wall. Turn it ~45 degrees out toward the open
+            // aisle instead (Tad, 2026-10-18: "turning towards the direction of travel, not driving into the wall").
+            parkHeading = heading;
+            if (UnityEngine.AI.NavMesh.Raycast(park + Vector3.up * 0.05f, park + heading * 2.5f, out _, UnityEngine.AI.NavMesh.AllAreas))
+                parkHeading = (heading + toAisle).normalized;
+            park = KeepJackBodyOffWalls(park, parkHeading);
+            park = KeepClearOfOtherJacks(park, parkHeading);
+        }
+
         private bool _capReached;
         private bool _offJack;            // selector standing at a bay, jack parked
         private string _parkedBay;        // "AA-BB" of the bay the jack is parked at
@@ -432,7 +474,7 @@ namespace GameCore.Actors
             int hi = Mathf.Max(1, sku.Hi);
 
             float y = transform.position.y;
-            Vector3 faceSpot = Flat(slotFlat + toAisle * PickFaceStandOff, y);
+            Vector3 faceSpot = Flat(slotFlat + toAisle * PickStandOff(location), y);
             if (_metTripStart < 0f) _metTripStart = OpsMetrics.Now;   // the trip time study (the jack path never started it, so it logged almost nothing)
 
             for (int i = 0; i < takeQty; i++)
@@ -1164,7 +1206,7 @@ namespace GameCore.Actors
 
         /// <summary>NavMesh leg to near <paramref name="target"/>, then a precise scripted finish onto it,
         /// ending with the jack's forward along <paramref name="finalForward"/>. Sets _jackLegOk.</summary>
-        private IEnumerator DriveJackTo(Vector3 target, Vector3 finalForward, string phase)
+        private IEnumerator DriveJackTo(Vector3 target, Vector3 finalForward, string phase, bool allowReverse = false)
         {
             _jackLegOk = false;
             if (_jack == null) yield break;
@@ -1181,8 +1223,16 @@ namespace GameCore.Actors
             {
                 // NEVER BACK UP (Tad, 2026-10-18): a stop behind the jack is not driven to - the selector just walks there
                 // on foot. The jack only ever moves forward through an aisle.
+                // ...unless the selector would then walk further than MaxPickReach with every case (allowReverse): then back up the short way.
                 if (Vector3.Dot(toT, headF) < 0f && toT.magnitude > 0.3f)
                 {
+                    if (!allowReverse)
+                    {
+                        _jackLegOk = _jack != null;
+                        yield break;
+                    }
+                    yield return JackFace(headF);
+                    yield return JackMoveStraight(target, JackDriveSpeed);   // slides without turning = reverse
                     _jackLegOk = _jack != null;
                     yield break;
                 }

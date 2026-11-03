@@ -27,7 +27,7 @@ Transform:
   m_GameObject: {fileID: 2745637466715403156}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 8.23, z: -0}
+  m_LocalPosition: {x: 0, y: 7.167, z: -0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -45,7 +45,7 @@ Light:
   m_Type: 0
   m_Color: {r: 0.7875187, g: 0.86234003, b: 0.86415094, a: 1}
   m_Intensity: 25
-  m_Range: 11.085759
+  m_Range: 11
   m_SpotAngle: 125
   m_InnerSpotAngle: 75
   m_CookieSize2D: {x: 0.5, y: 0.5}
@@ -185,7 +185,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -6258308266687358523, guid: ba50933cc472bcb4f86d27fe13d7f7c2, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: -6258308266687358523, guid: ba50933cc472bcb4f86d27fe13d7f7c2, type: 3}
       propertyPath: m_LocalRotation.w
@@ -218,7 +218,7 @@ PrefabInstance:
     - target: {fileID: 6959186870197602566, guid: ba50933cc472bcb4f86d27fe13d7f7c2, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 4c749473dacb37442a5413c9c8c21009, type: 2}
+      objectReference: {fileID: 2100000, guid: d6d7334598ae4f7c98d37e1f4f2178fb, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
@@ -350,7 +350,7 @@ MonoBehaviour:
   _lightBulb: {fileID: 721997109548176097}
   _lightIntensityAdjustment: 50
   _lightColorAdjustment: {r: 0.90188676, g: 0.8399668, b: 0.7334211, a: 1}
-  _lightRangeAdjustment: 15
+  _lightRangeAdjustment: 12
   _lightSpotAngleAdjustment: 30
-  _lightsOn: {fileID: 2100000, guid: ef32c02ce51dbd148a9190f5a9b4be47, type: 2}
-  _lightsOff: {fileID: 2100000, guid: 59f805fae02e42542ac7c83d1814562d, type: 2}
+  _lightsOn: {fileID: 2100000, guid: d6d7334598ae4f7c98d37e1f4f2178fb, type: 2}
+  _lightsOff: {fileID: 2100000, guid: ef32c02ce51dbd148a9190f5a9b4be47, type: 2}

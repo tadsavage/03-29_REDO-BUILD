@@ -35,6 +35,29 @@ public class GraphicsPresetManager : MonoBehaviour
 {
     public enum Preset { Ultra, Good, Toaster }
 
+    // Environment specular per tier (RenderSettings.reflectionIntensity: how strongly probes and the skybox show in
+    // reflective surfaces). It is global, so no material is touched. Direct sun glints still follow each material's own smoothness.
+    const float UltraReflectionIntensity   = 1.0f;
+    const float GoodReflectionIntensity    = 0.6f;
+    const float ToasterReflectionIntensity = 0.2f;
+
+    // Direct glints: multiplies every warehouse material's smoothness (WarehouseLitInput.hlsl, _PresetGlossScale).
+    // Lower smoothness = wider, dimmer highlight. 1 = each material's own authored smoothness.
+    const float UltraGlossScale   = 1.0f;
+    const float GoodGlossScale    = 0.75f;
+    const float ToasterGlossScale = 0.4f;
+    static readonly int GlossScaleId = Shader.PropertyToID("_PresetGlossScale");
+
+    static float GlossScaleFor(Preset preset)
+    {
+        switch (preset)
+        {
+            case Preset.Good:    return GoodGlossScale;
+            case Preset.Toaster: return ToasterGlossScale;
+            default:             return UltraGlossScale;
+        }
+    }
+
     [Header("Render Pipeline Assets")]
     [Tooltip("Assign PC_RPAsset here (the project default / full quality).")]
     [SerializeField] private UniversalRenderPipelineAsset urpUltra;
@@ -61,13 +84,19 @@ public class GraphicsPresetManager : MonoBehaviour
         if (gp == null || gp.urpUltra == null || gp.CurrentPreset == Preset.Ultra) { render(); return; }
         var prev = QualitySettings.renderPipeline;
         var prevAmbient = RenderSettings.ambientLight;
+        var prevReflection = RenderSettings.reflectionIntensity;
+        var prevGloss = Shader.GetGlobalFloat(GlossScaleId);
+        Shader.SetGlobalFloat(GlossScaleId, UltraGlossScale);   // portraits keep the Ultra glints
         QualitySettings.renderPipeline = gp.urpUltra;
         if (DayNightCycle.HasUltraAmbient) RenderSettings.ambientLight = DayNightCycle.UltraAmbient;   // no Good/Toaster boost
+        RenderSettings.reflectionIntensity = UltraReflectionIntensity;                                 // no Good/Toaster specular cut
         try { render(); }
         finally
         {
             QualitySettings.renderPipeline = prev;
             RenderSettings.ambientLight = prevAmbient;
+            RenderSettings.reflectionIntensity = prevReflection;
+            Shader.SetGlobalFloat(GlossScaleId, prevGloss);
         }
     }
     public Preset CurrentPreset { get; private set; } = Preset.Ultra;
@@ -97,6 +126,7 @@ public class GraphicsPresetManager : MonoBehaviour
             case Preset.Good:    ApplyGood();    break;
             case Preset.Toaster: ApplyToaster(); break;
         }
+        Shader.SetGlobalFloat(GlossScaleId, GlossScaleFor(preset));   // direct glints for every warehouse material
         DioramaStage.ApplyPreset(preset);   // stage plane, overhead light, backdrop colour + fog
 
         ShaderWarmup.Run($"preset {preset}");
@@ -116,12 +146,13 @@ public class GraphicsPresetManager : MonoBehaviour
     private void ApplyUltra()
     {
         FXPool.DisabledKeys.Remove("dust");
-        // Lower ambient than the other presets so the sun's soft shadows read bold (the overhead light lifts the tops).
-        DayNightCycle.PresetAmbientMultiplier = 0.85f;
+        // Same ambient character as Toaster and Good (one step up on the ladder); the quality gain is in shadows and AA.
+        DayNightCycle.PresetAmbientMultiplier = 1.0f;
         SetPipeline(urpUltra);
         SetVolume(profileUltra);
         SetSceneBlurVolumes(true);
         RenderSettings.fog = true;
+        RenderSettings.reflectionIntensity = UltraReflectionIntensity;
 
         QualitySettings.lodBias                  = 2.0f;
         QualitySettings.anisotropicFiltering     = AnisotropicFiltering.ForceEnable;
@@ -135,13 +166,13 @@ public class GraphicsPresetManager : MonoBehaviour
     private void ApplyGood()
     {
         FXPool.DisabledKeys.Remove("dust");
-        // Measured 2026-10-20: Good averaged 0.28 against Ultra's 0.45 (no backdrop fill lights). 1.4x only reached
-        // 0.40 in a verification pass, so 1.55x is what actually matches.
-        DayNightCycle.PresetAmbientMultiplier = 1.55f;
+        // Toaster's ambient, pushed one notch (0.9 -> 0.95). Same ambient character across the ladder.
+        DayNightCycle.PresetAmbientMultiplier = 0.95f;
         SetPipeline(urpGood);
         SetVolume(profileGood);
         SetSceneBlurVolumes(true);
         RenderSettings.fog = true;
+        RenderSettings.reflectionIntensity = GoodReflectionIntensity;
 
         QualitySettings.lodBias                  = 1.5f;
         QualitySettings.anisotropicFiltering     = AnisotropicFiltering.Enable;
@@ -155,20 +186,20 @@ public class GraphicsPresetManager : MonoBehaviour
     private void ApplyToaster()
     {
         FXPool.DisabledKeys.Add("dust");
-        // Same story as Good (no backdrop fill lights): Toaster measured ~0.27 against Ultra's 0.45.
-        // Coloring-book: bright and flat, but not so flat the hard shadows disappear.
+        // Base of the ladder (the look Tad signed off on). Bright and flat, but the hard shadows still read.
         DayNightCycle.PresetAmbientMultiplier = 0.9f;
         SetPipeline(urpToaster);
         SetVolume(profileToaster);
         SetSceneBlurVolumes(false);   // no depth-of-field blur anywhere on Toaster
         RenderSettings.fog = false;   // no distance haze on Toaster (Tad, 2026-10-20)
+        RenderSettings.reflectionIntensity = ToasterReflectionIntensity;   // matte: probes off, skybox sheen mostly gone
 
-        QualitySettings.lodBias                  = 0.7f;
+        QualitySettings.lodBias                  = 0.3f;   // drop to lower LODs early
         // Anisotropic filtering is nearly free on any modern GPU; disabling it
         // causes heavy vertical shimmer/streaking on walls at grazing angles.
         QualitySettings.anisotropicFiltering     = AnisotropicFiltering.ForceEnable;
-        QualitySettings.particleRaycastBudget    = 4;
-        QualitySettings.globalTextureMipmapLimit = 1;   // half-res textures (bandwidth/VRAM)
+        QualitySettings.particleRaycastBudget    = 0;
+        QualitySettings.globalTextureMipmapLimit = 2;   // quarter-res textures (bandwidth/VRAM)
         QualitySettings.skinWeights              = SkinWeights.TwoBones;
         QualitySettings.realtimeReflectionProbes = false;
         SetCameraAA(AntialiasingMode.FastApproximateAntialiasing);

@@ -249,7 +249,7 @@ namespace GameCore.Actors
 
                 yield return StepOut(slotFlat);
                 float y = transform.position.y;
-                Vector3 faceSpot = Flat(slotFlat + toAisle * PickFaceStandOff, y);
+                Vector3 faceSpot = Flat(slotFlat + toAisle * PickStandOff(loc), y);
                 // Every consecutive case that came from this slot goes back on this visit.
                 while (pallet != null && pallet.TotalCases > 0 &&
                        pallet.CaseSources.Count > 0 && pallet.CaseSources[pallet.CaseSources.Count - 1] == source)

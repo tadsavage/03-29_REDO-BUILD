@@ -244,7 +244,11 @@ namespace GameCore.Actors
                 ThrottledLog.Warn("osd-reach-" + name + location.Address, $"[OrderSelectionTaskDriver] '{name}' could not get within {OnFootMaxPickReach:0}m of {location.Address} - skipping that pick.");
                 AdvanceToNextPick();
             };
-            _nav.SeekPosition(location.WorldPosition, () =>
+            // Walk to the aisle-facing side of the rack, not to the slot's own origin (inside the rack).
+            Vector3 seekTarget = location.WorldPosition;
+            if (TryGetPickGeometry(location, out Vector3 pivot, out Vector3 toAisle))
+                seekTarget = new Vector3(pivot.x + toAisle.x * PickStandOff(location), location.WorldPosition.y, pivot.z + toAisle.z * PickStandOff(location));
+            _nav.SeekPosition(seekTarget, () =>
             {
                 if (insideCall) StartCoroutine(RunNextFrame(handle)); else handle();
             });
@@ -705,11 +709,15 @@ namespace GameCore.Actors
             _nav.Patrol();
         }
 
+        private const bool JoinSameCustomerPlans = false;
+
         /// <summary>SAME-CUSTOMER JOIN: called once the jack's current planned pallet is built. If the jack has room, claims
         /// the next Available planned OrderSelect task for the same customer (queue priority order) and starts another
         /// pallet for it on this jack. Returns false when the jack is full, nothing is waiting, or no claim succeeds.</summary>
         private bool TryJoinSameCustomerPlan()
         {
+            // ONE GroSel TASK AT A TIME (Tad, 2026-11-03): a selector finishes and stages its task before claiming another.
+            if (!JoinSameCustomerPlans) return false;
             if (_pallets.Count >= MaxPalletsPerOrder || _currentOrder == null || _currentTask == null) return false;
             if (!_currentTask.HasPlan || _currentOrder.ReturnsMode) return false;
             if (ResolveChepEmptyPrefab() == null) return false;

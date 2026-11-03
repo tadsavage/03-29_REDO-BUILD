@@ -313,8 +313,9 @@ public class FreeLookCamera : MonoBehaviour
     {
         var preset = GraphicsPresetManager.Instance != null ? GraphicsPresetManager.Instance.CurrentPreset : GraphicsPresetManager.Preset.Ultra;
 
-        // Good leaves the project default alone (our volume off); Toaster must not blur at all.
-        bool wantVolume = dioramaDepthOfField && preset != GraphicsPresetManager.Preset.Good;
+        // Off for now: Ultra uses the same profile depth of field as Good (Gaussian 10 to 30 m), so the two match.
+        // The focus-follow code below is kept intact; set this back to `dioramaDepthOfField && preset != Good` to restore it.
+        bool wantVolume = false;
         if (!wantVolume) { if (_dofVolume != null) _dofVolume.enabled = false; return; }
 
         EnsureDioramaDof();

@@ -32,6 +32,7 @@ namespace GameCore.Labor
             public int SrcDoor; public string SrcLane;
             public int DstDoor; public string DstLane; public Vector2Int DstCell;
             public bool NewLane;
+            public bool Rehome;   // moving toward the trailer's dock door, not just tidying
         }
 
         private void TryStartDockCleanup(WorkQueueSystem workQueue)
@@ -53,7 +54,8 @@ namespace GameCore.Labor
                 if (order == null || order.Status != OrderData.OrderStatus.Staged) continue;
                 if (_cleanupRetryAt.TryGetValue(order.OrderId, out float retry) && Time.time < retry) continue;
                 if (orders.LiveTasksForOrder(order.OrderId).Any()) continue;   // still being picked or loaded: leave it be
-                if (TryPlanCleanup(inv, workQueue, orders, order, out var m)) { move = m; break; }
+                // First get the pallets to the door the trailer will dock at; only then tidy the order's lanes up.
+                if (TryPlanRehome(inv, workQueue, orders, order, out var m) || TryPlanCleanup(inv, workQueue, orders, order, out m)) { move = m; break; }
             }
             if (move == null) return;
 
@@ -61,7 +63,7 @@ namespace GameCore.Labor
             if (slot == null) return;
 
             var mv = move.Value;
-            Debug.Log($"[TrailerLoad][CLEANUP] {slot.name}: order {mv.Order.OrderId} is spread over too many lanes - moving a pallet " +
+            Debug.Log($"[TrailerLoad][CLEANUP] {slot.name}: order {mv.Order.OrderId} {(mv.Rehome ? $"is staged away from its dock door {mv.Order.AssignedDoorNumber}" : "is spread over too many lanes")} - moving a pallet " +
                       $"{mv.SrcDoor}{mv.SrcLane} -> {LaneNamingService.AddressAt(mv.DstCell)}{(mv.NewLane ? " (new lane)" : "")}.");
             StartCoroutine(DockCleanupRoutine(slot, mv));
         }
@@ -70,7 +72,8 @@ namespace GameCore.Labor
         /// number; within a door by lane letter. The first two are "a" and "b".</summary>
         private List<(int door, string lane)> OrderLanesInUse(InventoryService inv, OrderData order)
         {
-            int homeDoor = order.EffectiveStagingDoor;
+            // The trailer's dock door comes first, so "a" and "b" are the lanes right there and tidying never pulls pallets away from it.
+            int homeDoor = order.AssignedDoorNumber > 0 ? order.AssignedDoorNumber : order.EffectiveStagingDoor;
             var lanes = new List<(int, string)>();
             foreach (var (d, l) in order.AllStagingLanes().Distinct())
                 if (LanePallets(inv, d, l).Any(p => p.OrderId == order.OrderId)) lanes.Add((d, l));
@@ -95,6 +98,44 @@ namespace GameCore.Labor
                     if (ob != null && OutboundPalletBuilder.IsOnFloorTransform(ob.transform)) list.Add(ob);
                 }
             return list;
+        }
+
+        /// <summary>DOCK REHOME (Tad, 2026-11-03): an order's pallets belong in lanes at the door its trailer will dock at, so they are all in
+        /// place BEFORE the trailer arrives. When some are staged at another door (its own lanes were taken when it was released), the dock
+        /// stocker moves them over, one pallet per run, whenever a lane at the dock door has room. Fills the order's lanes there first,
+        /// then a completely free lane at that door. No room at the dock door = no move (the loader still handles a cross-door load).</summary>
+        private bool TryPlanRehome(InventoryService inv, WorkQueueSystem queue, OrderService orders, OrderData order, out CleanupMove move)
+        {
+            move = default;
+            int dock = order.AssignedDoorNumber;
+            if (dock <= 0) return false;
+
+            var lanes = OrderLanesInUse(inv, order);
+            int si = -1;
+            for (int i = lanes.Count - 1; i >= 0; i--)
+                if (lanes[i].door != dock) { si = i; break; }
+            if (si < 0) return false;   // everything is already at the dock door
+
+            var (srcDoor, srcLane) = lanes[si];
+            if (!TryFrontOrderPallet(inv, srcDoor, srcLane, order.OrderId, out var pallet)) return false;
+
+            foreach (var (d, l) in lanes)
+            {
+                if (d != dock || !LaneIsOnlyThisOrders(inv, d, l, order.OrderId)) continue;
+                if (inv.IsStagingSlotReserved(LaneNamingService.GetLane(d, l).FirstOrDefault().Cell)) continue;
+                if (TryFindSlotFromFarEnd(inv, queue, d, l, LaneNamingService.GetLane(d, l), out var cell))
+                {
+                    move = new CleanupMove { Order = order, Pallet = pallet.transform, SrcDoor = srcDoor, SrcLane = srcLane,
+                                             DstDoor = d, DstLane = l, DstCell = cell, Rehome = true };
+                    return true;
+                }
+            }
+
+            if (!TryFindFreeAdjacentLane(inv, orders, dock, "A", lanes, out string freeLane)) return false;
+            if (!TryFindSlotFromFarEnd(inv, queue, dock, freeLane, LaneNamingService.GetLane(dock, freeLane), out var freeCell)) return false;
+            move = new CleanupMove { Order = order, Pallet = pallet.transform, SrcDoor = srcDoor, SrcLane = srcLane,
+                                     DstDoor = dock, DstLane = freeLane, DstCell = freeCell, NewLane = true, Rehome = true };
+            return true;
         }
 
         private bool TryPlanCleanup(InventoryService inv, WorkQueueSystem queue, OrderService orders, OrderData order, out CleanupMove move)
@@ -248,7 +289,16 @@ namespace GameCore.Labor
                 var order = mv.Order;
                 order.AddOverflowLane(mv.DstDoor, mv.DstLane);
                 if (!LanePallets(inv, mv.SrcDoor, mv.SrcLane).Any(p => p.OrderId == order.OrderId))
+                {
                     order.OverflowLanes.RemoveAll(r => r.door == mv.SrcDoor && r.lane == mv.SrcLane);
+                    // The emptied lane was the order's primary one: the lane it was moved to takes over (door and lane stay paired).
+                    if (mv.SrcDoor == order.EffectiveStagingDoor && mv.SrcLane == order.AssignedLane)
+                    {
+                        order.StagingDoorNumber = mv.DstDoor;
+                        order.AssignedLane = mv.DstLane;
+                        order.OverflowLanes.RemoveAll(r => r.door == mv.DstDoor && r.lane == mv.DstLane);
+                    }
+                }
                 SystemsLogWindow.Log($"Dock stocker consolidated order {order.OrderId}: moved a pallet from {mv.SrcDoor}{mv.SrcLane} " +
                                      $"to {LaneNamingService.AddressAt(mv.DstCell)}.");
             }

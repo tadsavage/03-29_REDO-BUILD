@@ -15,13 +15,15 @@ public static class OrderPickPath
 {
     /// <summary>
     /// The pick face a selector will take this line item from: the first assigned slot holding enough
-    /// to satisfy it outright, else whichever assigned slot holds the most (the selector tops up from
-    /// a second location on its next pass). Null if no assigned slot has any stock at all.
+    /// to satisfy it outright, else the earliest assigned slot in the pick sequence that holds any stock
+    /// (the selector tops up from the next one on its next pass, always moving forward). Null if no
+    /// assigned slot has any stock at all.
     /// </summary>
     public static LocationData ChooseSlot(string skuId, int remaining, out int takeQty, long minKey = long.MinValue)
     {
         LocationData best = null;
         int bestQty = 0;
+        long bestKey = long.MaxValue;
 
         foreach (var address in SlotAssignmentService.GetSlotsForSku(skuId))
         {
@@ -37,10 +39,16 @@ public static class OrderPickPath
                 bestQty = remaining;
                 break;
             }
-            if (candidate.Quantity > bestQty)
+            // No slot holds enough on its own: take the EARLIEST slot in the sequence that has any stock, not the fullest.
+            // "Fullest" jumped ahead of the other slots, and with ascending-only picking everything it skipped was then behind the
+            // trip and stranded: a line spread over several 1-case slots was filled one case per trip (block 1025: orders of 18-27
+            // cases staged short 16/20, 17/20, 18/20, 19/20 on four separate trips).
+            long key = SequenceKey(candidate.Address);
+            if (best == null || key < bestKey)
             {
                 best = candidate;
                 bestQty = candidate.Quantity;
+                bestKey = key;
             }
         }
 
