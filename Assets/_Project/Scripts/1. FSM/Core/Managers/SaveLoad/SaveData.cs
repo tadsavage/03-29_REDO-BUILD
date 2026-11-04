@@ -447,6 +447,13 @@ public class OutboundPalletSnapshot
     /// <summary>Whole-pallet pick (one SKU, built by PalletBuilder): its SKU and case count, for PalletData.</summary>
     public string wholeSkuId = "";
     public int wholeCases;
+    /// <summary>Employee guid of the operator whose pallet jack carried this pallet at save time ("" = not on a jack).
+    /// The pallet is put back on that jack's forks on load (OutboundPalletPersistence.SetDownCarried), so the
+    /// selector who was picking it finds it again instead of starting over with an empty pallet.</summary>
+    public string carrierEmployeeGuid = "";
+    /// <summary>Pose relative to the jack's own transform, so the pallet lands in the same place on the forks.</summary>
+    public Vector3 carrierLocalPosition;
+    public Quaternion carrierLocalRotation = Quaternion.identity;
 }
 
 /// <summary>

@@ -349,6 +349,9 @@ public class BuildMenuUI : MonoBehaviour
             if (_reportsBtnOperational != null) _reportsBtnOperational.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Operational);
             if (_reportsBtnInventory != null) _reportsBtnInventory.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Inventory);
             if (_reportsBtnItemListing != null) _reportsBtnItemListing.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.ItemListing);
+            // The same report, also reachable from the ORDERS bar.
+            var ordersBtnItemListing = _root.Q<Button>("OrdersBtnItemListing");
+            if (ordersBtnItemListing != null) ordersBtnItemListing.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.ItemListing);
 
             // UI Toolkit's built-in `tooltip` property only renders inside the Editor's own UI — a
             // runtime UIDocument HUD like this one never shows it — so the mode tabs hook into the

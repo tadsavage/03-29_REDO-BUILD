@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using GameCore.Inventory;
+using GameCore.Actors;
 using GameCore.Labor;
 using GameCore.Services;
 using UnityEngine;
@@ -25,6 +26,16 @@ namespace GameCore.Persistence
     {
         private static readonly List<OutboundPalletBuilder> s_toSetDown = new();
 
+        /// <summary>True from RestoreAll until SetDownCarried has put jack-carried pallets back on their jacks. Selectors must not
+        /// claim work in that window, or they claim before their jack is boarded and start over with an empty pallet.</summary>
+        public static bool RestorePending { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetRestorePending() => RestorePending = false;
+
+        /// <summary>Pallets that were riding a pallet jack at save time, with the operator and pose to put them back on it.</summary>
+        private static readonly Dictionary<OutboundPalletBuilder, (string guid, Vector3 lp, Quaternion lr)> s_carrierPose = new();
+
         public static List<OutboundPalletSnapshot> CaptureAll()
         {
             var result = new List<OutboundPalletSnapshot>();
@@ -44,6 +55,16 @@ namespace GameCore.Persistence
                     worldRotation = p.transform.rotation,
                     returnId = p.ReturnId ?? "",
                 };
+
+                // Riding a pallet jack: remember which operator's jack, and the pose on its forks, so the pallet goes back
+                // on that same jack after load (SetDownCarried) instead of being set down in a lane.
+                var jack = p.GetComponentInParent<MHEOperatorSlot>();
+                if (snap.wasCarried && jack != null && jack.IsPalletJack && jack.CurrentOperator != null && jack.CurrentOperator.Record != null)
+                {
+                    snap.carrierEmployeeGuid = jack.CurrentOperator.Record.employeeGuid ?? "";
+                    snap.carrierLocalPosition = jack.transform.InverseTransformPoint(p.transform.position);
+                    snap.carrierLocalRotation = Quaternion.Inverse(jack.transform.rotation) * p.transform.rotation;
+                }
 
                 var pd = p.GetComponent<PalletData>();
                 if (p.CaseCountsBySku.Count == 0 && pd != null && !string.IsNullOrEmpty(pd.ItemNumber))
@@ -83,6 +104,8 @@ namespace GameCore.Persistence
         public static void RestoreAll(List<OutboundPalletSnapshot> snapshots)
         {
             s_toSetDown.Clear();
+            s_carrierPose.Clear();
+            RestorePending = snapshots != null && snapshots.Any(s => s != null && !string.IsNullOrEmpty(s.carrierEmployeeGuid));
             if (snapshots == null || snapshots.Count == 0) return;
 
             var prefab = ResolveChepEmptyPrefab();
@@ -138,6 +161,8 @@ namespace GameCore.Persistence
                     outbound.Stage = OutboundPalletBuilder.PalletStage.Moving;   // IN TRANSIT until it lands in a lane
                     outbound.SetNavObstacleActive(false);
                     s_toSetDown.Add(outbound);
+                    if (!string.IsNullOrEmpty(snap.carrierEmployeeGuid))
+                        s_carrierPose[outbound] = (snap.carrierEmployeeGuid, snap.carrierLocalPosition, snap.carrierLocalRotation);
                 }
                 else
                 {
@@ -154,6 +179,7 @@ namespace GameCore.Persistence
         /// geometry, so it runs from the post-load coroutine. A pallet with nowhere to go stays on the floor and is reported.</summary>
         public static void SetDownCarried()
         {
+            RestorePending = false;   // jack-carried pallets are back on their jacks (or in lanes) from here on
             if (s_toSetDown.Count == 0) return;
             ServiceLocator.TryGet<InventoryService>(out var inv);
             ServiceLocator.TryGet<OrderService>(out var orders);
@@ -161,6 +187,8 @@ namespace GameCore.Persistence
             foreach (var p in s_toSetDown)
             {
                 if (p == null) continue;
+                // On a pallet jack at save time and its operator is riding one again: back on the forks, not in a lane.
+                if (s_carrierPose.TryGetValue(p, out var pose) && TryPutBackOnJack(p, pose.guid, pose.lp, pose.lr)) continue;
                 var order = orders?.ActiveOrders.FirstOrDefault(o => o.OrderId == p.OrderId);
                 bool placed = false;
                 if (order != null && inv != null &&
@@ -186,6 +214,44 @@ namespace GameCore.Persistence
                     order.Status = OrderData.OrderStatus.Loading;   // freight back in the lane: the loader must come for it
             }
             s_toSetDown.Clear();
+            s_carrierPose.Clear();
+        }
+
+        /// <summary>Puts a pallet that was riding a pallet jack back on that jack's forks, at its saved pose. Returns false
+        /// (and leaves it for the lane path) when the operator is not aboard a pallet jack after load.</summary>
+        private static bool TryPutBackOnJack(OutboundPalletBuilder p, string guid, Vector3 localPos, Quaternion localRot)
+        {
+            var identity = EmployeeRegistry.Instance != null ? EmployeeRegistry.Instance.GetByGuid(guid) : null;
+            var jack = identity != null ? identity.AssignedSlot : null;
+            if (jack == null || !jack.IsPalletJack) return false;
+
+            p.transform.SetParent(jack.transform, false);
+            p.transform.localPosition = localPos;
+            p.transform.localRotation = localRot;
+            p.Stage = OutboundPalletBuilder.PalletStage.Staged;
+            p.SetNavObstacleActive(false);
+            Debug.Log($"[OutboundPalletPersistence] Pallet for order {p.OrderId} put back on pallet jack {jack.name} (its selector is riding it).");
+
+            // Resume the selector's run from here. Their pick task was released on load (no resume path for selectors), so it goes
+            // straight back to them; the driver mounts nothing (already aboard) and carries on with the pallet on the forks.
+            var driver = identity.GetComponent<OrderSelectionTaskDriver>();
+            if (driver != null && ServiceLocator.TryGet(out WorkQueueSystem queue) && ServiceLocator.TryGet(out OrderService orders))
+            {
+                var order = orders.ActiveOrders.FirstOrDefault(o => o.OrderId == p.OrderId);
+                // The pick task is often saved as Complete: the trip marks its picking done before the pallet is delivered to
+                // staging. Reopen the order's latest select task for this rider rather than requiring it to be unfinished.
+                var task = queue.Tasks.LastOrDefault(t => t.OrderId == p.OrderId && t.Type == WorkTaskType.OrderSelect
+                                                          && t.Status != WorkTaskStatus.Cancelled
+                                                          && (string.IsNullOrEmpty(t.AssignedToEmployeeGuid) || t.AssignedToEmployeeGuid == guid));
+                if (order != null && task != null)
+                {
+                    task.Status = WorkTaskStatus.Assigned;
+                    task.AssignedToEmployeeGuid = guid;
+                    if (driver.ResumeJackRun(jack, order, task))
+                        Debug.Log($"[OutboundPalletPersistence] Resumed {identity.Record?.employeeName} picking order {order.OrderNumber} on {jack.name}.");
+                }
+            }
+            return true;
         }
 
         private static GameObject ResolveChepEmptyPrefab()

@@ -118,6 +118,11 @@
     background-image: url("project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/SchedulerThumb.png?fileID=2800000&guid=d366eaa448c876248bd93228cd2eb730&type=3#SchedulerThumb");
 }
 
+/* Item Listing (ORDERS bar): the parchment-and-table artwork (2026-11-04). Same GUID-based URL form as the rules above. */
+.playbar-icon-itemlisting {
+    background-image: url("project://database/Assets/_Project/Sprites/Icons/Play%20Bar%20Icons/ItemListingThumb.png?fileID=2800000&guid=dba3e972b39f44bb9be40f76b2095540&type=3#ItemListingThumb");
+}
+
 /* ── Build / Play mode tabs ──────────────────────────────────────────────
    Anchored at bottom:120px — the bar's height, not BottomBarHeight (122) — so the
    tab's bottom edge overlaps the bar's 2px top border and the active tab reads as

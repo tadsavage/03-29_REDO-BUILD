@@ -5,6 +5,7 @@ using System.Linq;
 using GameCore.Services;
 using GameCore.Labor;
 using GameCore.Inventory;
+using GameCore.Persistence;
 
 namespace GameCore.Actors
 {
@@ -128,6 +129,9 @@ namespace GameCore.Actors
             _pollTimer -= Time.deltaTime;
             if (_pollTimer > 0f) return;
             _pollTimer = TaskPollInterval;
+
+            // A save is putting jack-carried pallets back on their jacks: don't claim work until they are (or the jack is lost).
+            if (OutboundPalletPersistence.RestorePending) return;
 
             if (!TryClaimNextOrderTask(out _currentTask, out _currentOrder))
                 return;
@@ -344,7 +348,25 @@ namespace GameCore.Actors
         /// <summary>Ensures at least one outbound WIP pallet exists for this order (the first one).</summary>
         private void EnsurePallet()
         {
+            if (_pallets.Count == 0 && AdoptPalletOnJack()) return;
             if (_pallets.Count == 0) StartNextPallet();
+        }
+
+        /// <summary>After a reload, the pallet this order was being picked onto can still be riding the jack (save/load puts it back
+        /// on the forks). Take it over instead of starting an empty pallet, so the cases already picked are still there.</summary>
+        private bool AdoptPalletOnJack()
+        {
+            if (_jack == null || _currentOrder == null) return false;
+            foreach (var p in _jack.GetComponentsInChildren<OutboundPalletBuilder>(true))
+            {
+                if (p == null || p.OrderId != _currentOrder.OrderId || _pallets.Contains(p)) continue;
+                _pallets.Add(p);
+                p.SetNavObstacleActive(false);
+                p.Stage = OutboundPalletBuilder.PalletStage.Staged;
+                Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId}: took over the pallet already on the jack ({p.TotalCases} case(s) picked).");
+                return true;
+            }
+            return false;
         }
 
         /// <summary>Spawns an additional outbound WIP pallet (up to MaxPalletsPerOrder), riding along

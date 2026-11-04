@@ -64,6 +64,12 @@
                 <ui:Label text="0" class="playbar-key"/>
             </ui:Button>
 
+            <!-- Item Listing report (same window as the Reports bar's Item Listing button). -->
+            <ui:Button name="OrdersBtnItemListing" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-itemlisting"/>
+                <ui:Label text="Item Listing" class="buildmenu-category-label playbar-label playbar-label-two-line"/>
+            </ui:Button>
+
         </ui:VisualElement>
         <!-- Read-only picture of TODAY's dock schedule (MiniDockTimeline.cs fills the door rows and chips). -->
         <ui:VisualElement name="MiniDockTimeline" picking-mode="Position" class="mini-timeline">

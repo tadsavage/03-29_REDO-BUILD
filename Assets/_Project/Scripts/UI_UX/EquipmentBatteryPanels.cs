@@ -99,35 +99,13 @@ public class EquipmentBatteryPanels : MonoBehaviour
         if (_instance == this) _instance = null;
     }
 
-    // ── Right-click menu: "Charge Battery" (Tad, 2026-10-17) ─────────────────────
-    private VisualElement _menu;
-    private Vector2 _rmbDownPos;
-    private float _rmbDownTime = -10f;
-
-    /// <summary>A quick right-click (not a right-drag, which turns the camera) on a machine opens its menu.</summary>
+    /// <summary>Right-click on a floating battery card closes it (and keeps it closed while the machine keeps charging).
+    /// The old right-click "Charge Battery" menu was removed (Tad, 2026-11-04).</summary>
     private void HandleRightClick()
     {
         var mouse = UnityEngine.InputSystem.Mouse.current;
         if (mouse == null) return;
-
-        // Close the menu on any left click outside it, or Escape.
-        if (_menu != null && (UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true ||
-                              (mouse.leftButton.wasPressedThisFrame && !UIInputGuard.IsPointerOverUIToolkit())))
-            CloseMenu();
-
-        // Right-click on a floating battery card closes it (and keeps it closed while the machine keeps charging).
-        if (mouse.rightButton.wasPressedThisFrame && TryDismissCardUnderPointer(mouse.position.ReadValue())) { _rmbDownTime = -10f; return; }
-
-        if (mouse.rightButton.wasPressedThisFrame) { _rmbDownPos = mouse.position.ReadValue(); _rmbDownTime = Time.unscaledTime; }
-        if (!mouse.rightButton.wasReleasedThisFrame) return;
-        if (Time.unscaledTime - _rmbDownTime > 0.4f || (mouse.position.ReadValue() - _rmbDownPos).magnitude > 8f) return;
-        if (UIInputGuard.IsPointerOverUIToolkit()) return;
-        if (_cam == null) _cam = Camera.main;
-        if (_cam == null) return;
-        if (!WorldClickPick.Raycast(_cam.ScreenPointToRay(mouse.position.ReadValue()), out var hit)) { CloseMenu(); return; }
-        var b = hit.collider.GetComponentInParent<EquipmentBattery>();
-        if (b == null) { CloseMenu(); return; }
-        OpenMenu(b, mouse.position.ReadValue());
+        if (mouse.rightButton.wasPressedThisFrame) TryDismissCardUnderPointer(mouse.position.ReadValue());
     }
 
     private bool TryDismissCardUnderPointer(Vector2 screen)
@@ -148,72 +126,15 @@ public class EquipmentBatteryPanels : MonoBehaviour
         return false;
     }
 
-    private void OpenMenu(EquipmentBattery b, Vector2 screen)
-    {
-        CloseMenu();
-        var host = HudRoot();
-        if (host == null || host.panel == null) return;
-
-        _menu = new VisualElement();
-        _menu.style.position = UnityEngine.UIElements.Position.Absolute;
-        _menu.style.width = 190;
-        _menu.style.backgroundColor = new Color(0.07f, 0.10f, 0.14f, 0.97f);
-        _menu.style.borderTopWidth = _menu.style.borderBottomWidth = _menu.style.borderLeftWidth = _menu.style.borderRightWidth = 2;
-        _menu.style.borderTopColor = _menu.style.borderBottomColor = _menu.style.borderLeftColor = _menu.style.borderRightColor = new Color(0.36f, 0.61f, 0.77f, 1f);
-        _menu.style.borderTopLeftRadius = _menu.style.borderTopRightRadius = _menu.style.borderBottomLeftRadius = _menu.style.borderBottomRightRadius = 6;
-        _menu.style.paddingLeft = _menu.style.paddingRight = 8;
-        _menu.style.paddingTop = _menu.style.paddingBottom = 6;
-
-        var title = Text($"{b.KindName}  {Mathf.FloorToInt(b.Charge01 * 100f)}%", 13, new Color(0.81f, 0.89f, 0.94f, 1f));
-        title.style.marginBottom = 5;
-        _menu.Add(title);
-
-        bool can = b.CanRequestCharge;
-        var btn = new Button(() => { AudioManager.Play("UIClick"); if (ChargeMheService.Request(b)) UIToast.Show("Charge job sent to the Work Queue (everyone)."); CloseMenu(); })
-        { text = "Charge Battery" };
-        ApplyLilita(btn, 15);
-        btn.style.height = 32;
-        btn.style.marginLeft = btn.style.marginRight = 0;
-        btn.style.backgroundColor = can ? new Color(0.71f, 0.45f, 0.23f, 1f) : new Color(0.25f, 0.28f, 0.32f, 1f);
-        btn.style.color = can ? Color.white : new Color(0.6f, 0.63f, 0.66f, 1f);
-        btn.SetEnabled(can);
-        _menu.Add(btn);
-
-        if (!can)
-        {
-            string why = b.OnChargeTrip || b.NeedsCharge ? "Already going to charge."
-                       : b.IsFull ? "Battery is already full."
-                       : b.Slot != null && b.Slot.IsOccupied ? "Someone is driving it."
-                       : "Busy with a job.";
-            var note = Text(why, 11, new Color(0.6f, 0.68f, 0.75f, 1f));
-            note.style.marginTop = 4;
-            note.style.whiteSpace = WhiteSpace.Normal;
-            _menu.Add(note);
-        }
-
-        host.Add(_menu);
-        _menu.BringToFront();
-        Vector2 p = RuntimePanelUtils.ScreenToPanel(host.panel, new Vector2(screen.x, Screen.height - screen.y));
-        _menu.style.left = p.x + 6;
-        _menu.style.top = p.y + 6;
-    }
-
-    private void CloseMenu()
-    {
-        _menu?.RemoveFromHierarchy();
-        _menu = null;
-    }
-
     private void Update()
     {
-        // A report window has the screen: no battery cards, bolts or menus over it (Tad, 2026-10-23). They come back when it closes.
+        // A report window has the screen: no battery cards or bolts over it (Tad, 2026-10-23). They come back when it closes.
         if (ReportsPanelController.AnyReportOpen)
         {
             _scratch.Clear();
             _scratch.AddRange(_cards.Keys);
             foreach (var b in _scratch) Remove(b);
             foreach (var v in _bolts.Values) if (v != null) v.style.display = DisplayStyle.None;
-            CloseMenu();
             return;
         }
 

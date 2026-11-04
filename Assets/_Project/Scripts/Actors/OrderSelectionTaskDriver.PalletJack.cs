@@ -165,8 +165,38 @@ namespace GameCore.Actors
             return true;
         }
 
+        /// <summary>After a save/load, a selector who was riding a jack with a pallet of this order goes straight back to
+        /// that jack: the same run as a fresh claim, except the mount step is skipped (they are already aboard). The pallet
+        /// on the forks is adopted by EnsurePallet, so the picked cases are not lost. Called by OutboundPalletPersistence.</summary>
+        public bool ResumeJackRun(MHEOperatorSlot jack, OrderData order, WorkTask task)
+        {
+            if (jack == null || order == null || task == null) return false;
+            if (_currentOrder != null || _jack != null) return false;   // already doing something
+
+            _currentOrder = order;
+            _currentTask = task;
+            _jack = jack;
+            _ejectedFromJack = false;
+            _flatBatteryStop = false;
+            _jackNav = jack.GetComponent<AiNavigation>();
+            _jackAgent = jack.GetComponent<NavMeshAgent>();
+            s_jackClaims[jack] = this;
+            PalletJackParkingSpot.ReleaseJack(jack);
+            _jackRun = StartCoroutine(JackOrderRoutine());
+            return true;
+        }
+
         private MHEOperatorSlot FindFreeJack()
         {
+            // Already aboard a jack (a selector resumed after a save/load, or a rider who was left on one): that jack is theirs.
+            // Without this their own occupied jack looked taken and they picked by hand with the pallet still on the forks.
+            var self = GetComponent<EmployeeIdentity>();
+            if (self != null)
+                foreach (var own in FindObjectsByType<MHEOperatorSlot>())
+                    if (own != null && own.isActiveAndEnabled && own.IsPalletJack && own.CurrentOperator == self
+                        && !(s_jackClaims.TryGetValue(own, out var holder) && holder != null && holder != this))
+                        return own;
+
             MHEOperatorSlot best = null;
             float bestD = float.MaxValue;
             foreach (var slot in FindObjectsByType<MHEOperatorSlot>())
@@ -204,33 +234,38 @@ namespace GameCore.Actors
         {
             var identity = GetComponent<EmployeeIdentity>();
 
-            // 1. Walk to the jack's nearer mount point (MountLeft / MountRight), then step in.
-            bool reached = false;
-            _nav.CancelSeekPosition();
-            _nav.SeekPosition(MountPointNear(transform.position), () => reached = true);
-            float waited = 0f;
-            while (!reached && waited < MountWalkTimeout)
+            // 1. Walk to the jack's nearer mount point (MountLeft / MountRight), then step in. Skipped when this selector
+            // is already aboard (a resume after a save/load): the mount is done, only the pallet is still to adopt.
+            bool alreadyAboard = _jack != null && _jack.CurrentOperator == identity;
+            if (!alreadyAboard)
             {
-                if (_jack == null || _jack.IsOccupied) break;
-                waited += Time.deltaTime;
-                yield return null;
-            }
-            if (!reached || _jack == null || _jack.IsOccupied)
-            {
-                Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' could not get to pallet jack — picking order {_currentOrder.OrderId} by hand.");
-                ReleaseJack();
-                AdvanceToNextPick();
-                yield break;
-            }
-            _nav.CancelSeekPosition();
+                bool reached = false;
+                _nav.CancelSeekPosition();
+                _nav.SeekPosition(MountPointNear(transform.position), () => reached = true);
+                float waited = 0f;
+                while (!reached && waited < MountWalkTimeout)
+                {
+                    if (_jack == null || _jack.IsOccupied) break;
+                    waited += Time.deltaTime;
+                    yield return null;
+                }
+                if (!reached || _jack == null || _jack.IsOccupied)
+                {
+                    Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' could not get to pallet jack — picking order {_currentOrder.OrderId} by hand.");
+                    ReleaseJack();
+                    AdvanceToNextPick();
+                    yield break;
+                }
+                _nav.CancelSeekPosition();
 
-            // Scripted from here so the step-in is exact: mount point → turn to the operator spot → step in.
-            BeginScriptedFoot();
-            yield return StepIn();
-            if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
-            _jack.AssignOperator(identity);
-            _footScripted = false;   // the MHE slot owns the body's navigation state while riding
-            SetJackDrive(false, "selector mounted");
+                // Scripted from here so the step-in is exact: mount point → turn to the operator spot → step in.
+                BeginScriptedFoot();
+                yield return StepIn();
+                if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
+                _jack.AssignOperator(identity);
+                _footScripted = false;   // the MHE slot owns the body's navigation state while riding
+                SetJackDrive(false, "selector mounted");
+            }
             EnsurePallet();
             _offJack = false; _parkedBay = null; _parkedPalletIndex = -1;
             yield return MoveForks(ForkLift);
@@ -240,6 +275,9 @@ namespace GameCore.Actors
             while (true)
             {
                 if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
+
+                // The order was cleared under this run (returned to Open, or the trip was torn down): stop, don't dereference it.
+                if (_currentOrder == null) { ReleaseJack(); yield break; }
 
                 // Route closed mid-pick: put it all back (OrderSelectionTaskDriver.Returns.cs).
                 if (ReturnsRequested) { yield return MidPickReturnRoutine(); yield break; }
