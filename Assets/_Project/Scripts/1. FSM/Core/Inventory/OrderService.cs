@@ -3313,6 +3313,86 @@ namespace GameCore.Inventory
             return _timeService.Hour * 60 + _timeService.Minute >= appt.EndMinute;
         }
 
+        // ── Why is a Loaded order not shipping? (Tad, 2026-11-03) ────────────────────────────────────
+        // Block 1031: orders sat Loaded for 25 min to 5 hours before they shipped (OG4413: loaded 13:06, shipped 18:06, fined at its 15:27
+        // deadline) and nothing said why. Every tick this names the blocker for each Loaded order that is not closing out, logs it when it
+        // starts or changes (and hourly while it lasts), and [ShipDecision] prints the whole trail when the order finally ships.
+        // grep "[LoadedHold]" in Logs/Editor.log. Not a bug pattern, so it stays out of the bug log.
+        private sealed class LoadedHoldState
+        {
+            public string reason; public int since; public int lastLog;
+            public readonly List<string> trail = new List<string>();
+        }
+        private readonly Dictionary<string, LoadedHoldState> _loadedHold = new Dictionary<string, LoadedHoldState>();
+
+        private static string HmAbs(int abs) => abs <= 0 ? "-" : $"d{abs / 1440} {abs % 1440 / 60:00}:{abs % 60:00}";
+        private int LoadedHoldNowAbs() => _timeService != null ? _timeService.Day * 1440 + _timeService.Hour * 60 + _timeService.Minute : 0;
+
+        /// <summary>The same tests AutoCloseLoadedOrders' ready-list applies, in the same order, as words. Null never: "no blocker" means the order closes next tick.</summary>
+        private string LoadedHoldReason(OrderData o)
+        {
+            if (!CanCloseOut(o, out string whyNot)) return whyNot;
+            if (AnyPalletInHand(o)) return "a pallet of this order is still being moved";
+            int staged = StagedPalletsRemainingInLane(o);
+            if (staged > 0) return $"{staged} staged pallet(s) still standing in the lane";
+            if (_awaitingRestock.TryGetValue(o.OrderId, out var skus))
+                return "held for the hot restock of " + string.Join(", ", skus) + " (shorted cases are coming)";
+            var picks = LiveTasksForOrder(o.OrderId).Where(t => t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.OrderSelect).ToList();
+            if (picks.Count > 0)
+                return "pick work still open: " + string.Join(", ", picks.GroupBy(t => $"{t.Type}{(t.IsScratch ? "(scratch)" : "")}{(t.IsHot ? "(hot)" : "")}:{t.Status}")
+                                                                          .Select(g => $"{g.Key}x{g.Count()}"));
+            return "no blocker found (closes on the next tick)";
+        }
+
+        private void LogLoadedHold(OrderData o, LoadedHoldState st, int now, bool stillHeld)
+        {
+            string deadline = "";
+            if (ServiceLocator.TryGet<DockScheduleService>(out var sch) && sch != null)
+            {
+                var a = sch.FindForOrder(o.OrderId);
+                if (a != null) deadline = $", deadline {HmAbs(sch.DeadlineMinute(a))}";
+            }
+            Debug.LogWarning($"[LoadedHold] Order {o.OrderNumber} ({o.CustomerName}) loaded {HmAbs(o.LoadedAbs)}, not shipping " +
+                             $"{(stillHeld ? $"(still, {now - st.since} min so far)" : "(now)")}: {st.reason}{deadline}.");
+        }
+
+        private void TrackLoadedHolds(List<OrderData> ready)
+        {
+            if (_timeService == null) return;
+            int now = LoadedHoldNowAbs();
+            var readyIds = new HashSet<string>(ready.Select(r => r.OrderId));
+            foreach (var o in _activeOrders)
+            {
+                if (o == null || o.Status != OrderData.OrderStatus.Loaded) continue;
+                string why = !readyIds.Contains(o.OrderId) ? LoadedHoldReason(o)
+                           : o.CancelledCases > 0 ? "waiting for the player to press Close Out (cases were cancelled)" : null;
+                if (!_loadedHold.TryGetValue(o.OrderId, out var st))
+                {
+                    if (why == null) continue;
+                    st = new LoadedHoldState();
+                    _loadedHold[o.OrderId] = st;
+                }
+                if (st.reason == why)
+                {
+                    if (why != null && now - st.lastLog >= 60) { st.lastLog = now; LogLoadedHold(o, st, now, true); }
+                    continue;
+                }
+                if (st.reason != null) st.trail.Add($"{st.reason} ({HmAbs(st.since)}-{HmAbs(now)})");
+                st.reason = why; st.since = now; st.lastLog = now;
+                if (why != null) LogLoadedHold(o, st, now, false);
+            }
+        }
+
+        /// <summary>Everything that held this order Loaded, oldest first, for the [ShipDecision] line. Forgets the order.</summary>
+        private string ConsumeLoadedHolds(string orderId, int now)
+        {
+            if (!_loadedHold.TryGetValue(orderId, out var st)) return "none";
+            _loadedHold.Remove(orderId);
+            var parts = new List<string>(st.trail);
+            if (st.reason != null) parts.Add($"{st.reason} ({HmAbs(st.since)}-{HmAbs(now)})");
+            return parts.Count == 0 ? "none" : string.Join(" ; ", parts);
+        }
+
         public int AutoCloseLoadedOrders()
         {
             CheckScratchPrompts();
@@ -3349,6 +3429,9 @@ namespace GameCore.Inventory
                             // trucks are still carrying this order's pallets to the lane.
                             && !LiveTasksForOrder(o.OrderId).Any(t => t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.OrderSelect))
                 .ToList();
+
+            try { TrackLoadedHolds(ready); }
+            catch (System.Exception e) { ThrottledLog.Warn("loadedhold-ex", "[LoadedHold] tracker failed: " + e.Message); }
 
             int shipped = 0;
             foreach (var order in ready)
@@ -3505,8 +3588,9 @@ namespace GameCore.Inventory
             int nowAbs = _timeService != null ? _timeService.Day * 1440 + _timeService.Hour * 60 + _timeService.Minute : 0;
             string timeline = appt == null || sched == null ? "no timeline"
                 : $"timeline: gate {Hm(appt.GatePassAbs)}, docked {Hm(appt.DockedAbs)}, loaded {Hm(order.LoadedAbs)}, shipped {Hm(nowAbs)}, deadline {Hm(sched.DeadlineMinute(appt))}";
+            string holds = ConsumeLoadedHolds(order.OrderId, nowAbs);
             Debug.LogWarning($"[ShipDecision] Order {order.OrderNumber} ({order.CustomerName}) ships at {now}: picked {order.TotalUnitsPicked}/{order.TotalUnits} cs, " +
-                             $"status {order.Status}, fined={order.HasBeenFined}, {slot}, {timeline}, live tasks: {tasks}.");
+                             $"status {order.Status}, fined={order.HasBeenFined}, {slot}, {timeline}, held Loaded by: {holds}, live tasks: {tasks}.");
         }
 
         public int ShipOrder(string orderId)
