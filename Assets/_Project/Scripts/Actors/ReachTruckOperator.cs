@@ -1406,6 +1406,7 @@ namespace GameCore.Actors
             if (palletData != null) palletData.SetLocation(toGrid, toAddress);
 
             _putawayLogic?.CompletePutaway(palletId, toAddress, toGrid);
+            if (task.Type == WorkTaskType.Replenish) NoteReplenishDone(task, toAddress);
             _workQueue?.CompleteTask(task.TaskId);
             Debug.Log($"[ReachTruckOperator] SUCCESS: {palletId} put away at {toAddress}");
 
@@ -2947,7 +2948,27 @@ namespace GameCore.Actors
         {
             Transform reference = _palletAnchor != null ? _palletAnchor : forks;
             float deltaY = targetWorldY - reference.position.y;
+            float liftStart = Time.time;
             yield return LiftForks(forks, forks.localPosition.y + deltaY);
+            // Time study: how long the forks take to move, in centimetres (so the average is minutes per cm).
+            int cm = Mathf.RoundToInt(Mathf.Abs(deltaY) * 100f);
+            if (cm >= 5) OpsMetrics.Record(OpsMetrics.Kind.ForkLift, Time.time - liftStart, cm, (int)EmployeeRole.ReachTruckOperator);
+        }
+
+        /// <summary>Time study: a replenish drop at a pick slot, claim to set-down, filed under the slot's level letter.
+        /// The address ends in "LC" (level, then column), e.g. "01-01-A0" is level A.</summary>
+        private void NoteReplenishDone(WorkTask task, string toAddress)
+        {
+            if (string.IsNullOrEmpty(toAddress) || toAddress.Length < 2 || task.AssignedAtGame < 0f) return;
+            OpsMetrics.Kind kind;
+            switch (char.ToUpperInvariant(toAddress[toAddress.Length - 2]))
+            {
+                case 'A': kind = OpsMetrics.Kind.ReplenishA; break;
+                case 'B': kind = OpsMetrics.Kind.ReplenishB; break;
+                case 'C': kind = OpsMetrics.Kind.ReplenishC; break;
+                default: return;
+            }
+            OpsMetrics.Record(kind, Time.time - task.AssignedAtGame, 1, (int)EmployeeRole.ReachTruckOperator);
         }
 
         private IEnumerator RetractForks(Transform forks, float targetLocalZ, float speedOverride = -1f)

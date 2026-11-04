@@ -14,7 +14,8 @@ using UnityEngine;
 public static class OpsMetrics
 {
     // New kinds go on the end: samples are saved by number.
-    public enum Kind { GateToDoor, Offload, LoadCycle, LoadTotal, PalletPick, CasePick, OffloadCycle, Receive, CaseCycle, JackBayMove, JackStaging }
+    public enum Kind { GateToDoor, Offload, LoadCycle, LoadTotal, PalletPick, CasePick, OffloadCycle, Receive, CaseCycle, JackBayMove, JackStaging,
+                       TaskWait, TaskRun, JackMount, ReplenishA, ReplenishB, ReplenishC, ForkLift }
 
     /// <summary>Who was running the warehouse when the sample was taken. Bot = HAL playing; Player = a human (including HAL only watching).</summary>
     public enum Source { Bot, Player }
@@ -35,10 +36,18 @@ public static class OpsMetrics
         new Info { kind = Kind.CaseCycle, title = "CASE: ONE CASE", what = "One case on a pallet jack trip: walk to the slot, take it, carry it to the pallet and set it down.", unit = "per case" },
         new Info { kind = Kind.JackBayMove, title = "CASE: JACK TO NEXT BAY", what = "The pallet jack driving from one pick stop to the next.", unit = "per move" },
         new Info { kind = Kind.JackStaging, title = "CASE: STAGE THE PALLETS", what = "Drive to the staging lane, back in, set the pallets down and leave, per trip.", unit = "per trip" },
+        new Info { kind = Kind.TaskWait, title = "TASK WAIT", what = "A work task created until a worker claims it (all roles; the role is on each sample).", unit = "per task" },
+        new Info { kind = Kind.TaskRun, title = "TASK RUN", what = "A work task claimed until it is completed (all roles; the role is on each sample).", unit = "per task" },
+        new Info { kind = Kind.JackMount, title = "CASE: MOUNT THE JACK", what = "Selector claims a pallet jack until they are aboard it and the forks are up.", unit = "per mount" },
+        new Info { kind = Kind.ReplenishA, title = "REPLENISH: LEVEL A", what = "Reach truck replenishment claimed until the pallet is set down in a level A pick slot.", unit = "per replenish" },
+        new Info { kind = Kind.ReplenishB, title = "REPLENISH: LEVEL B", what = "Reach truck replenishment claimed until the pallet is set down in a level B pick slot.", unit = "per replenish" },
+        new Info { kind = Kind.ReplenishC, title = "REPLENISH: LEVEL C", what = "Reach truck replenishment claimed until the pallet is set down in a level C pick slot.", unit = "per replenish" },
+        new Info { kind = Kind.ForkLift, title = "FORK LIFT", what = "Raising or lowering a pallet on the forks to a set height (deck stacking and rack levels). Units = centimetres lifted.", unit = "per lift" },
     };
 
     // t = real-world UTC ticks and d = difficulty, so the data can be sliced later (balance passes, difficulty levels, achievements, labor standards).
-    [Serializable] class Sample { public int k; public float min; public int units; public long t; public int d; }
+    // r = role + 1 (0 = not recorded: samples written before roles were added), g = game minute the sample was taken.
+    [Serializable] class Sample { public int k; public float min; public int units; public long t; public int d; public int r; public float g; }
     [Serializable] class Store { public List<Sample> s = new(); }
 
     const int MaxPerKind = 300;           // kept per kind PER SOURCE
@@ -74,13 +83,15 @@ public static class OpsMetrics
         }
     }
 
-    public static void Record(Kind kind, float minutes, int units = 1)
+    /// <param name="role">The employee role (EmployeeRole) doing the job, or -1 when it is not a worker's job.</param>
+    public static void Record(Kind kind, float minutes, int units = 1, int role = -1)
     {
         if (minutes <= 0.01f || minutes > 60f * 24f) return;
         Load();
         var map = _data[CurrentSource];
         if (!map.TryGetValue(kind, out var list)) map[kind] = list = new List<Sample>();
-        list.Add(new Sample { k = (int)kind, min = minutes, units = Mathf.Max(1, units), t = DateTime.UtcNow.Ticks, d = PlayerPrefs.GetInt("Difficulty", 0) });
+        list.Add(new Sample { k = (int)kind, min = minutes, units = Mathf.Max(1, units), t = DateTime.UtcNow.Ticks, d = PlayerPrefs.GetInt("Difficulty", 0),
+                              r = role + 1, g = Now });
         if (list.Count > MaxPerKind) list.RemoveAt(0);
         Version++;
         if (++_sinceSave >= 10) Save();

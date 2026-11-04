@@ -107,6 +107,11 @@ namespace GameCore.Labor
         /// matches the exact same guid).</summary>
         public float AssignedAtRealtime { get; set; }
 
+        /// <summary>Game minute (Time.time) the task was created, and when it was last claimed. Feeds OpsMetrics (task wait and run
+        /// time by role). Tasks restored from a save get the load time as their creation stamp, so their wait is not measured.</summary>
+        public float CreatedAtGame { get; set; } = Time.time;
+        public float AssignedAtGame { get; set; } = -1f;
+
         /// <summary>Where the pallet/work starts and ends, as human location labels (e.g. "STG1A",
         /// a reserve/pick address, or a door). FromLocation is immutable once set at creation.
         /// ToLocation starts null for Putaway tasks and is assigned by PutawayLogic at RTO pickup
@@ -478,7 +483,15 @@ namespace GameCore.Labor
             task.Status = WorkTaskStatus.Assigned;
             task.AssignedToEmployeeGuid = employeeGuid;
             task.AssignedAtRealtime = Time.realtimeSinceStartup;
+            NoteClaimed(task);
             return true;
+        }
+
+        /// <summary>Time-study stamps: how long the task waited to be claimed (OpsMetrics.TaskWait). The claim time is kept for TaskRun.</summary>
+        private static void NoteClaimed(WorkTask task)
+        {
+            task.AssignedAtGame = Time.time;
+            OpsMetrics.Record(OpsMetrics.Kind.TaskWait, task.AssignedAtGame - task.CreatedAtGame, 1, (int)task.RequiredRole);
         }
 
         /// <summary>Claims a specific already-known task (e.g. one a caller picked by proximity
@@ -491,6 +504,7 @@ namespace GameCore.Labor
             task.Status = WorkTaskStatus.Assigned;
             task.AssignedToEmployeeGuid = employeeGuid;
             task.AssignedAtRealtime = Time.realtimeSinceStartup;
+            NoteClaimed(task);
             return true;
         }
 
@@ -498,6 +512,9 @@ namespace GameCore.Labor
         {
             var task = _tasks.FirstOrDefault(t => t.TaskId == taskId);
             if (task == null) return;
+            // Time-study: claim to completion (OpsMetrics.TaskRun). Only for tasks this session saw claimed.
+            if (task.AssignedAtGame >= 0f)
+                OpsMetrics.Record(OpsMetrics.Kind.TaskRun, Time.time - task.AssignedAtGame, 1, (int)task.RequiredRole);
             task.Status = WorkTaskStatus.Complete;
             OnTaskCompleted?.Invoke(task);
             // An outbound task of an order that is still on the books stays in the list as Complete until the order is

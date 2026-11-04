@@ -233,6 +233,7 @@ namespace GameCore.Actors
         private IEnumerator JackOrderRoutine()
         {
             var identity = GetComponent<EmployeeIdentity>();
+            float mountStart = Time.time;   // time study: claim until aboard with the forks up (OpsMetrics.JackMount)
 
             // 1. Walk to the jack's nearer mount point (MountLeft / MountRight), then step in. Skipped when this selector
             // is already aboard (a resume after a save/load): the mount is done, only the pallet is still to adopt.
@@ -269,6 +270,7 @@ namespace GameCore.Actors
             EnsurePallet();
             _offJack = false; _parkedBay = null; _parkedPalletIndex = -1;
             yield return MoveForks(ForkLift);
+            OpsMetrics.Record(OpsMetrics.Kind.JackMount, Time.time - mountStart, 1, (int)EmployeeRole.OrderSelector);
 
             // 2. Pick, slot by slot.
             OrderData.OrderStatus completion = OrderData.OrderStatus.Staged;
