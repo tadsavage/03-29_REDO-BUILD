@@ -90,6 +90,10 @@ public class PalletJackParkingSpot : MonoBehaviour
             // so the distance test below would drop it at once and every machine piled onto one bay - 2026-10-17).
             var rb = _reservedFor.GetComponent<EquipmentBattery>();
             if (rb != null && rb.OnChargeTrip) return false;
+            // A selector still driving its jack in to park holds the claim until it is parked and has stepped off. Without this the
+            // distance test below judged a jack arriving from across the building "stale", the bay read free, and a second selector
+            // finishing at the same time reserved it too: two jacks parked on the same spot (seen 2026-11-04, both STA-B).
+            if (GameCore.Actors.OrderSelectionTaskDriver.IsJackClaimed(_reservedFor)) return false;
             // A reservation whose jack has since gone somewhere else is stale (it was driven off without
             // releasing, or the save was reloaded).
             if (Flat(_reservedFor.transform.position - Center).magnitude < StaleReservationDistance) return false;
