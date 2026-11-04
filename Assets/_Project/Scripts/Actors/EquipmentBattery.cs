@@ -881,10 +881,15 @@ public class EquipmentBattery : MonoBehaviour
             t += Time.deltaTime;
             // They were given work (or climbed on another machine) on the way: let someone else do this.
             if (helper.AssignedSlot != null || HasAssignedTask(helper)) break;
+            // A selector's pick run took this jack: it is not free to be driven to a charger any more.
+            if (PickRunHasJack()) break;
             yield return null;
         }
 
-        bool boarded = this != null && helper != null && Slot != null && Slot.CurrentOperator == helper;
+        // The helper is aboard, but if a pick run claimed the jack they boarded for THAT, not for this errand (CRITICAL, Tad 2026-11-04:
+        // a selector idle beside an unmanned jack was sent to fetch it, claimed it for an order, boarded - and this trip then drove the
+        // jack to a charger mid-pick, leaving the selector to walk back across the warehouse with the case in hand).
+        bool boarded = this != null && helper != null && Slot != null && Slot.CurrentOperator == helper && !PickRunHasJack();
         if (boarded)
         {
             // Boarding switched the vehicle's own patrol on (GoActive): stop it at once, this employee drives it from here.
@@ -949,6 +954,9 @@ public class EquipmentBattery : MonoBehaviour
         done?.Invoke();
     }
     private bool IdleAndFree => Slot != null && !Slot.IsOccupied && !IsBusy;
+
+    /// <summary>A selector's pick run holds this pallet jack. Nothing else may drive it to a charger or a bay while that is true.</summary>
+    private bool PickRunHasJack() => Slot != null && Slot.IsPalletJack && OrderSelectionTaskDriver.IsJackClaimed(Slot);
 
     private bool AnotherMachineWaiting()
     {

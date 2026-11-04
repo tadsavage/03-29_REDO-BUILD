@@ -244,6 +244,7 @@ namespace GameCore.Actors
                 // Battery: a dead jack stays on its charger; a low one (under an hour left) only if nothing better is free.
                 var batt = slot.GetComponent<EquipmentBattery>();
                 if (batt != null && (batt.IsDead || batt.NeedsCharge)) continue;   // flat, or on its way to / sitting on a charger
+                if (batt != null && batt.VacatingBay) continue;                     // someone is being sent to drive it to a station
                 float d = PlanarDist(slot.transform.position, transform.position);
                 if (batt != null && batt.HoursLeft <= EquipmentBattery.LowHours) d += 1000f;
                 if (d < bestD) { bestD = d; best = slot; }
