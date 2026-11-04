@@ -1021,9 +1021,16 @@ public class ContractsPanel : IUIPanel
             nameLabel.style.whiteSpace = WhiteSpace.Normal;
             textCol.Add(nameLabel);
 
+            // Each figure also shows its pallet count (Tad, 2026-11-04): a part pallet reads with one decimal, e.g. "5.6 plt".
+            int perPallet = TrailerCapacity.CasesPerPallet(sku);
+            string Plt(int cases)
+            {
+                float p = cases / (float)perPallet;
+                return (Mathf.Abs(p - Mathf.Round(p)) < 0.05f ? Mathf.RoundToInt(p).ToString("N0") : p.ToString("0.0")) + " plt";
+            }
             string statusText = have
-                ? $"On hand: {onHand:N0} — enough"
-                : $"SHORT {line.Quantity - onHand:N0} — need {line.Quantity:N0}, have {onHand:N0}";
+                ? $"On hand: {onHand:N0} ({Plt(onHand)}) — enough"
+                : $"SHORT {line.Quantity - onHand:N0} ({Plt(line.Quantity - onHand)}) — need {line.Quantity:N0} ({Plt(line.Quantity)}), have {onHand:N0} ({Plt(onHand)})";
             var statusLabel = MakeText(statusText, 12, have ? ColMoney : ColDanger, bold: !have);
             statusLabel.style.whiteSpace = WhiteSpace.Normal;
             textCol.Add(statusLabel);

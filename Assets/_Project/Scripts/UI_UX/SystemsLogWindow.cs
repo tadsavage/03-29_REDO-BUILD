@@ -37,7 +37,9 @@ public class SystemsLogWindow : MonoBehaviour
     private const float DockedCardHeight = 100f;
     // Fixed home for the log: always opens here at this size (UI reference space, 1920x1080), per Tad.
     private const float FloatingWidth = 420f;
-    private const float FloatingHeight = 839f;
+    // 720 puts the bottom edge at y=788 of the 1080 reference: ~2 inches clear of the bottom bar, whose tab row starts near y=930
+    // (it was 839, which ran the newest messages under the ORDERS/BUILD/STAFF/REPORTS tabs - Tad, 2026-11-04).
+    private const float FloatingHeight = 720f;
     private const float FloatingLeft = 5f;
     private const float FloatingTop = 68f;
     private const float CardPadding = 12f;

@@ -1098,3 +1098,457 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 2 00:54 | **WARN** | [OrderService] Order OG1824 closed with a STAGED pallet (4 cs) that never made the trailer - not billed, returning it to stock.
 - day 2 00:54 | **WARN** | [OrderService] Order OG1824 closed with a STAGED pallet (4 cs) that never made the trailer - not billed, returning it to stock.
 - day 2 00:54 | **WARN** | [OrderService] Order OG1824 closed with a STAGED pallet (4 cs) that never made the trailer - not billed, returning it to stock.
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  NegotiatorGestures.PoseArm (NegotiatorGestures+Arm arm, System.Single t, System.Single wRest, System.Boolean isRight) (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:140)
+  NegotiatorGestures.LateUpdate () (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:120)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  NegotiatorGestures.PoseArm (NegotiatorGestures+Arm arm, System.Single t, System.Single wRest, System.Boolean isRight) (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:140)
+  NegotiatorGestures.LateUpdate () (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:120)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  NegotiatorGestures.PoseArm (NegotiatorGestures+Arm arm, System.Single t, System.Single wRest, System.Boolean isRight) (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:140)
+  NegotiatorGestures.LateUpdate () (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:120)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  NegotiatorGestures.PoseArm (NegotiatorGestures+Arm arm, System.Single t, System.Single wRest, System.Boolean isRight) (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:140)
+  NegotiatorGestures.LateUpdate () (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:120)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  NegotiatorGestures.PoseArm (NegotiatorGestures+Arm arm, System.Single t, System.Single wRest, System.Boolean isRight) (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:140)
+  NegotiatorGestures.LateUpdate () (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:120)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  NegotiatorGestures.PoseArm (NegotiatorGestures+Arm arm, System.Single t, System.Single wRest, System.Boolean isRight) (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:140)
+  NegotiatorGestures.LateUpdate () (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:120)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  NegotiatorGestures.PoseArm (NegotiatorGestures+Arm arm, System.Single t, System.Single wRest, System.Boolean isRight) (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:140)
+  NegotiatorGestures.LateUpdate () (at Assets/_Project/Scripts/Actors/ModularAvatar/NegotiatorGestures.cs:120)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (8.56, 1.11, 53.61) (cell (56, 90)). Putting it back on its last inside spot (8.56, 1.11, 53.61). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (8.56, 1.11, 53.61) (cell (56, 90)). Putting it back on its last inside spot (8.56, 1.11, 53.61). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (8.56, 1.11, 53.61) (cell (56, 90)). Putting it back on its last inside spot (8.56, 1.11, 53.61). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (8.56, 1.11, 53.61) (cell (56, 90)). Putting it back on its last inside spot (8.56, 1.11, 53.61). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (8.56, 1.11, 53.61) (cell (56, 90)). Putting it back on its last inside spot (8.56, 1.11, 53.61). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (8.56, 1.11, 53.61) (cell (56, 90)). Putting it back on its last inside spot (8.56, 1.11, 53.61). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (8.56, 1.11, 53.61) (cell (56, 90)). Putting it back on its last inside spot (8.56, 1.11, 53.61). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.71, 1.19, 50.96) (cell (47, 88)). Putting it back on its last inside spot (0.53, 1.11, 50.05). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.71, 1.19, 50.96) (cell (47, 88)). Putting it back on its last inside spot (0.53, 1.11, 50.05). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.71, 1.19, 50.96) (cell (47, 88)). Putting it back on its last inside spot (0.53, 1.11, 50.05). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.71, 1.19, 50.96) (cell (47, 88)). Putting it back on its last inside spot (0.53, 1.11, 50.05). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.71, 1.19, 50.96) (cell (47, 88)). Putting it back on its last inside spot (0.53, 1.11, 50.05). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.71, 1.19, 50.96) (cell (47, 88)). Putting it back on its last inside spot (0.53, 1.11, 50.05). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' drove OUT of the building at (-3.71, 1.19, 50.96) (cell (47, 88)). Putting it back on its last inside spot (0.53, 1.11, 50.05). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (5.23, 1.11, 50.96) (cell (53, 88)). Putting it back on its last inside spot (5.23, 1.11, 50.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (5.23, 1.11, 50.96) (cell (53, 88)). Putting it back on its last inside spot (5.23, 1.11, 50.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (5.23, 1.11, 50.96) (cell (53, 88)). Putting it back on its last inside spot (5.23, 1.11, 50.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (5.23, 1.11, 50.96) (cell (53, 88)). Putting it back on its last inside spot (5.23, 1.11, 50.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (5.23, 1.11, 50.96) (cell (53, 88)). Putting it back on its last inside spot (5.23, 1.11, 50.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (5.23, 1.11, 50.96) (cell (53, 88)). Putting it back on its last inside spot (5.23, 1.11, 50.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' drove OUT of the building at (5.23, 1.11, 50.96) (cell (53, 88)). Putting it back on its last inside spot (5.23, 1.11, 50.96). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (8.56, 1.11, 53.61)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (8.56, 1.11, 53.61)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (8.56, 1.11, 53.61)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (8.56, 1.11, 53.61)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (8.56, 1.11, 53.61)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (8.56, 1.11, 53.61)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (8.56, 1.11, 53.61)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' keeps driving out of the building (6 times in 10s, at (0.53, 1.21, 50.05)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' keeps driving out of the building (6 times in 10s, at (0.53, 1.21, 50.05)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' keeps driving out of the building (6 times in 10s, at (0.53, 1.21, 50.05)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' keeps driving out of the building (6 times in 10s, at (0.53, 1.21, 50.05)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' keeps driving out of the building (6 times in 10s, at (0.53, 1.21, 50.05)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' keeps driving out of the building (6 times in 10s, at (0.53, 1.21, 50.05)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'RT_Full(Clone)' keeps driving out of the building (6 times in 10s, at (0.53, 1.21, 50.05)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (5.23, 1.11, 50.96)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (5.23, 1.11, 50.96)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (5.23, 1.11, 50.96)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (5.23, 1.11, 50.96)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (5.23, 1.11, 50.96)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (5.23, 1.11, 50.96)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **ERROR** | [MHEBoundary] 'PltJack_FULL(Clone)' keeps driving out of the building (6 times in 10s, at (5.23, 1.11, 50.96)). Not putting it back any more; something is steering it outside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:87)
+  ```
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- day 5 13:47 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-5.68, 1.11, 51.32) — walking out to (-12.16, 1.15, 39.63) (12.37m to mesh).
+- day 5 13:47 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-5.68, 1.11, 51.32) — walking out to (-12.16, 1.15, 39.63) (12.37m to mesh).
+- day 5 13:47 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-5.68, 1.11, 51.32) — walking out to (-12.16, 1.15, 39.63) (12.37m to mesh).
+- day 5 13:47 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-5.68, 1.11, 51.32) — walking out to (-12.16, 1.15, 39.63) (12.37m to mesh).
+- day 5 13:47 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-5.68, 1.11, 51.32) — walking out to (-12.16, 1.15, 39.63) (12.37m to mesh).
+- day 5 13:47 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-5.68, 1.11, 51.32) — walking out to (-12.16, 1.15, 39.63) (12.37m to mesh).
+- day 5 13:47 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-5.68, 1.11, 51.32) — walking out to (-12.16, 1.15, 39.63) (12.37m to mesh).
+- day 5 15:06 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-5.06, 1.11, 49.50) — walking out to (6.16, 1.19, 43.01) (12.28m to mesh).
+- day 5 15:06 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-5.06, 1.11, 49.50) — walking out to (6.16, 1.19, 43.01) (12.28m to mesh).
+- day 5 15:06 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-5.06, 1.11, 49.50) — walking out to (6.16, 1.19, 43.01) (12.28m to mesh).
+- day 5 15:06 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-5.06, 1.11, 49.50) — walking out to (6.16, 1.19, 43.01) (12.28m to mesh).
+- day 5 15:06 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-5.06, 1.11, 49.50) — walking out to (6.16, 1.19, 43.01) (12.28m to mesh).
+- day 5 15:06 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-5.06, 1.11, 49.50) — walking out to (6.16, 1.19, 43.01) (12.28m to mesh).
+- day 5 15:06 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-5.06, 1.11, 49.50) — walking out to (6.16, 1.19, 43.01) (12.28m to mesh).
+- day 5 19:26 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 797/930.
+- day 5 19:26 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 797/930.
+- day 5 19:26 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 797/930.
+- day 5 19:26 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 797/930.
+- day 5 19:26 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 797/930.
+- day 5 19:26 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 797/930.
+- day 5 19:26 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 797/930.
+- day 5 21:51 | **WARN** | [OrderSelectionTaskDriver] Order 93419ca1-9ba1-477b-a9b3-191f74861d44 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 344/360.
+- day 5 21:51 | **WARN** | [OrderSelectionTaskDriver] Order 93419ca1-9ba1-477b-a9b3-191f74861d44 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 344/360.
+- day 5 21:51 | **WARN** | [OrderSelectionTaskDriver] Order 93419ca1-9ba1-477b-a9b3-191f74861d44 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 344/360.
+- day 5 21:51 | **WARN** | [OrderSelectionTaskDriver] Order 93419ca1-9ba1-477b-a9b3-191f74861d44 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 344/360.
+- day 5 21:51 | **WARN** | [OrderSelectionTaskDriver] Order 93419ca1-9ba1-477b-a9b3-191f74861d44 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 344/360.
+- day 5 21:51 | **WARN** | [OrderSelectionTaskDriver] Order 93419ca1-9ba1-477b-a9b3-191f74861d44 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 344/360.
+- day 5 21:51 | **WARN** | [OrderSelectionTaskDriver] Order 93419ca1-9ba1-477b-a9b3-191f74861d44 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 344/360.
+- day 6 01:28 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 857/930.
+- day 6 01:28 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 857/930.
+- day 6 01:28 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 857/930.
+- day 6 01:28 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 857/930.
+- day 6 01:28 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 857/930.
+- day 6 01:28 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 857/930.
+- day 6 01:28 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 857/930.
+- day 6 03:40 | **WARN** | [OrderSelectionTaskDriver] Order 4749ec70-28a5-4900-8a7a-a52f02fafb7a (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 89/117.
+- day 6 03:40 | **WARN** | [OrderSelectionTaskDriver] Order 4749ec70-28a5-4900-8a7a-a52f02fafb7a (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 89/117.
+- day 6 03:40 | **WARN** | [OrderSelectionTaskDriver] Order 4749ec70-28a5-4900-8a7a-a52f02fafb7a (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 89/117.
+- day 6 03:40 | **WARN** | [OrderSelectionTaskDriver] Order 4749ec70-28a5-4900-8a7a-a52f02fafb7a (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 89/117.
+- day 6 03:40 | **WARN** | [OrderSelectionTaskDriver] Order 4749ec70-28a5-4900-8a7a-a52f02fafb7a (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 89/117.
+- day 6 03:40 | **WARN** | [OrderSelectionTaskDriver] Order 4749ec70-28a5-4900-8a7a-a52f02fafb7a (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 89/117.
+- day 6 03:40 | **WARN** | [OrderSelectionTaskDriver] Order 4749ec70-28a5-4900-8a7a-a52f02fafb7a (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 89/117.
+- day 6 03:50 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/142 case(s).
+- day 6 03:50 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/142 case(s).
+- day 6 03:50 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/142 case(s).
+- day 6 03:50 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/142 case(s).
+- day 6 03:50 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/142 case(s).
+- day 6 03:50 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/142 case(s).
+- day 6 03:50 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/142 case(s).
+- day 6 06:26 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 125/142.
+- day 6 06:26 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 125/142.
+- day 6 06:26 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 125/142.
+- day 6 06:26 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 125/142.
+- day 6 06:26 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 125/142.
+- day 6 06:26 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 125/142.
+- day 6 06:26 | **WARN** | [OrderSelectionTaskDriver] Order c26f3199-8b5b-4f84-9930-8c4004a20ad6 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 125/142.
+- day 6 08:05 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 905/930.
+- day 6 08:05 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 905/930.
+- day 6 08:05 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 905/930.
+- day 6 08:05 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 905/930.
+- day 6 08:05 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 905/930.
+- day 6 08:05 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 905/930.
+- day 6 08:05 | **WARN** | [OrderSelectionTaskDriver] Order 44117fa8-1020-4e10-84e0-4eaa1619aae9 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 905/930.
+- day 6 08:46 | **WARN** | [OrderService] Order OG5845 closed with a STAGED pallet (48 cs) that never made the trailer - not billed, returning it to stock.
+- day 6 08:46 | **WARN** | [OrderService] Order OG5845 closed with a STAGED pallet (48 cs) that never made the trailer - not billed, returning it to stock.
+- day 6 08:46 | **WARN** | [OrderService] Order OG5845 closed with a STAGED pallet (48 cs) that never made the trailer - not billed, returning it to stock.
+- day 6 08:46 | **WARN** | [OrderService] Order OG5845 closed with a STAGED pallet (48 cs) that never made the trailer - not billed, returning it to stock.
+- day 6 08:46 | **WARN** | [OrderService] Order OG5845 closed with a STAGED pallet (48 cs) that never made the trailer - not billed, returning it to stock.
+- day 6 08:46 | **WARN** | [OrderService] Order OG5845 closed with a STAGED pallet (48 cs) that never made the trailer - not billed, returning it to stock.
+- day 6 08:46 | **WARN** | [OrderService] Order OG5845 closed with a STAGED pallet (48 cs) that never made the trailer - not billed, returning it to stock.
+- day 6 10:06 | **WARN** | [AiNavigation] Employee_Susan Mccarty: stuck at (-11.38, 1.16, 48.25) — walking out to (-11.29, 2.35, 42.63) (5.12m to mesh).
+- day 6 10:06 | **WARN** | [AiNavigation] Employee_Susan Mccarty: stuck at (-11.38, 1.16, 48.25) — walking out to (-11.29, 2.35, 42.63) (5.12m to mesh).
+- day 6 10:06 | **WARN** | [AiNavigation] Employee_Susan Mccarty: stuck at (-11.38, 1.16, 48.25) — walking out to (-11.29, 2.35, 42.63) (5.12m to mesh).
+- day 6 10:06 | **WARN** | [AiNavigation] Employee_Susan Mccarty: stuck at (-11.38, 1.16, 48.25) — walking out to (-11.29, 2.35, 42.63) (5.12m to mesh).
+- day 6 10:06 | **WARN** | [AiNavigation] Employee_Susan Mccarty: stuck at (-11.38, 1.16, 48.25) — walking out to (-11.29, 2.35, 42.63) (5.12m to mesh).
+- day 6 10:06 | **WARN** | [AiNavigation] Employee_Susan Mccarty: stuck at (-11.38, 1.16, 48.25) — walking out to (-11.29, 2.35, 42.63) (5.12m to mesh).
+- day 6 10:06 | **WARN** | [AiNavigation] Employee_Susan Mccarty: stuck at (-11.38, 1.16, 48.25) — walking out to (-11.29, 2.35, 42.63) (5.12m to mesh).
+- day 6 22:16 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 83/228 case(s).
+- day 6 22:16 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 83/228 case(s).
+- day 6 22:16 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 83/228 case(s).
+- day 6 22:16 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 83/228 case(s).
+- day 6 22:16 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 83/228 case(s).
+- day 6 22:16 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 83/228 case(s).
+- day 6 22:16 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 83/228 case(s).
+- day 6 23:23 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 118/228.
+- day 6 23:23 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 118/228.
+- day 6 23:23 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 118/228.
+- day 6 23:23 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 118/228.
+- day 6 23:23 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 118/228.
+- day 6 23:23 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 118/228.
+- day 6 23:23 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 118/228.
+- day 6 23:36 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 127/228 case(s).
+- day 6 23:36 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 127/228 case(s).
+- day 6 23:36 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 127/228 case(s).
+- day 6 23:36 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 127/228 case(s).
+- day 6 23:36 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 127/228 case(s).
+- day 6 23:36 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 127/228 case(s).
+- day 6 23:36 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 127/228 case(s).
+- day 6 23:55 | **WARN** | [OrderSelectionTaskDriver] Order c5f5cc1b-e2a4-4444-9fd8-8f8ee9704682 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 69/81.
+- day 6 23:55 | **WARN** | [OrderSelectionTaskDriver] Order c5f5cc1b-e2a4-4444-9fd8-8f8ee9704682 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 69/81.
+- day 6 23:55 | **WARN** | [OrderSelectionTaskDriver] Order c5f5cc1b-e2a4-4444-9fd8-8f8ee9704682 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 69/81.
+- day 6 23:55 | **WARN** | [OrderSelectionTaskDriver] Order c5f5cc1b-e2a4-4444-9fd8-8f8ee9704682 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 69/81.
+- day 6 23:55 | **WARN** | [OrderSelectionTaskDriver] Order c5f5cc1b-e2a4-4444-9fd8-8f8ee9704682 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 69/81.
+- day 6 23:55 | **WARN** | [OrderSelectionTaskDriver] Order c5f5cc1b-e2a4-4444-9fd8-8f8ee9704682 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 69/81.
+- day 6 23:55 | **WARN** | [OrderSelectionTaskDriver] Order c5f5cc1b-e2a4-4444-9fd8-8f8ee9704682 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 69/81.
+- day 7 00:38 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 150/228 case(s).
+- day 7 00:38 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 150/228 case(s).
+- day 7 00:38 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 150/228 case(s).
+- day 7 00:38 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 150/228 case(s).
+- day 7 00:38 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 150/228 case(s).
+- day 7 00:38 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 150/228 case(s).
+- day 7 00:38 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 150/228 case(s).
+- day 7 02:20 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 190/228.
+- day 7 02:20 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 190/228.
+- day 7 02:20 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 190/228.
+- day 7 02:20 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 190/228.
+- day 7 02:20 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 190/228.
+- day 7 02:20 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 190/228.
+- day 7 02:20 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 190/228.
+- day 7 02:23 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.15, 36.39) (path invalid) — abandoning the walk and handing the task back.
+- day 7 02:23 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.15, 36.39) (path invalid) — abandoning the walk and handing the task back.
+- day 7 02:23 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.15, 36.39) (path invalid) — abandoning the walk and handing the task back.
+- day 7 02:23 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.15, 36.39) (path invalid) — abandoning the walk and handing the task back.
+- day 7 02:23 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.15, 36.39) (path invalid) — abandoning the walk and handing the task back.
+- day 7 02:23 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.15, 36.39) (path invalid) — abandoning the walk and handing the task back.
+- day 7 02:23 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.15, 36.39) (path invalid) — abandoning the walk and handing the task back.
+- day 7 04:22 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 216/228.
+- day 7 04:22 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 216/228.
+- day 7 04:22 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 216/228.
+- day 7 04:22 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 216/228.
+- day 7 04:22 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 216/228.
+- day 7 04:22 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 216/228.
+- day 7 04:22 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 216/228.
+- day 7 07:07 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 225/228.
+- day 7 07:07 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 225/228.
+- day 7 07:07 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 225/228.
+- day 7 07:07 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 225/228.
+- day 7 07:07 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 225/228.
+- day 7 07:07 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 225/228.
+- day 7 07:07 | **WARN** | [OrderSelectionTaskDriver] Order ab3af4e7-eb20-4ab6-a956-76e885a4a612 (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 225/228.
+- day 7 12:06 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.16, 41.69) (path invalid) — abandoning the walk and handing the task back.
+- day 7 12:06 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.16, 41.69) (path invalid) — abandoning the walk and handing the task back.
+- day 7 12:06 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.16, 41.69) (path invalid) — abandoning the walk and handing the task back.
+- day 7 12:06 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.16, 41.69) (path invalid) — abandoning the walk and handing the task back.
+- day 7 12:06 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.16, 41.69) (path invalid) — abandoning the walk and handing the task back.
+- day 7 12:06 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.16, 41.69) (path invalid) — abandoning the walk and handing the task back.
+- day 7 12:06 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-44.44, 1.16, 41.69) (path invalid) — abandoning the walk and handing the task back.
+- day 7 14:49 | **WARN** | [OrderSelectionTaskDriver] Order 89157185-0d5b-4dcd-80e0-a41bb2409352 (Pony Express Oats) has no reachable pick location for its remaining line item(s) — staging short at 243/472.
+- day 7 14:49 | **WARN** | [OrderSelectionTaskDriver] Order 89157185-0d5b-4dcd-80e0-a41bb2409352 (Pony Express Oats) has no reachable pick location for its remaining line item(s) — staging short at 243/472.
+- day 7 14:49 | **WARN** | [OrderSelectionTaskDriver] Order 89157185-0d5b-4dcd-80e0-a41bb2409352 (Pony Express Oats) has no reachable pick location for its remaining line item(s) — staging short at 243/472.
+- day 7 14:49 | **WARN** | [OrderSelectionTaskDriver] Order 89157185-0d5b-4dcd-80e0-a41bb2409352 (Pony Express Oats) has no reachable pick location for its remaining line item(s) — staging short at 243/472.
+- day 7 14:49 | **WARN** | [OrderSelectionTaskDriver] Order 89157185-0d5b-4dcd-80e0-a41bb2409352 (Pony Express Oats) has no reachable pick location for its remaining line item(s) — staging short at 243/472.
+- day 7 14:49 | **WARN** | [OrderSelectionTaskDriver] Order 89157185-0d5b-4dcd-80e0-a41bb2409352 (Pony Express Oats) has no reachable pick location for its remaining line item(s) — staging short at 243/472.
+- day 7 14:49 | **WARN** | [OrderSelectionTaskDriver] Order 89157185-0d5b-4dcd-80e0-a41bb2409352 (Pony Express Oats) has no reachable pick location for its remaining line item(s) — staging short at 243/472.
+- day 7 17:01 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-13.96, 1.16, 49.64) (path invalid) — abandoning the walk and handing the task back.
+- day 7 17:01 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-13.96, 1.16, 49.64) (path invalid) — abandoning the walk and handing the task back.
+- day 7 17:01 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-13.96, 1.16, 49.64) (path invalid) — abandoning the walk and handing the task back.
+- day 7 17:01 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-13.96, 1.16, 49.64) (path invalid) — abandoning the walk and handing the task back.
+- day 7 17:01 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-13.96, 1.16, 49.64) (path invalid) — abandoning the walk and handing the task back.
+- day 7 17:01 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-13.96, 1.16, 49.64) (path invalid) — abandoning the walk and handing the task back.
+- day 7 17:01 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (-13.96, 1.16, 49.64) (path invalid) — abandoning the walk and handing the task back.
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(33, 82)  <<HISTORY: d6 21:10 picked 1 (left 11) by InventoryService.PickFromPallet | d6 21:11 picked 1 (left 10) by InventoryService.PickFromPallet | d6 22:08 picked 1 (left 9) by InventoryService.PickFromPallet | d6 22:11 picked 1 (left 8) by InventoryService.PickFromPallet | d6 22:13 picked 1 (left 7) by InventoryService.PickFromPallet | d6 22:15 picked 1 (left 6) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 registered at (33, 82) 30x134958 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 87)  <<HISTORY: d7 02:01 picked 1 (left 25) by InventoryService.PickFromPallet | d7 02:05 picked 1 (left 24) by InventoryService.PickFromPallet | d7 02:08 picked 1 (left 23) by InventoryService.PickFromPallet | d7 02:12 picked 1 (left 22) by InventoryService.PickFromPallet | d7 02:15 picked 1 (left 21) by InventoryService.PickFromPallet | d7 02:18 picked 1 (left 20) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 registered at (24, 87) 40x856320 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 78)  <<HISTORY: d5 17:41 Putaway task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 08:04 Replenish task created (01-11-B1->01-11-01) by ReplenishmentService.CreateReplenishTask | d6 08:04 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 08:13 moved (25, 78)->(-1, -1) by InventoryService.MovePallet | d6 08:22 moved (-1, -1)->(25, 78) by InventoryService.MovePallet | d6 08:22 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask>>  <<HISTORY: d5 12:54 registered at (24, 78) 48x209875 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(23, 83)  <<HISTORY: d5 12:54 restored from save at (23, 83) 4x678132 by InventoryService.RegisterPalletDirect | d6 04:23 picked 1 (left 3) by InventoryService.PickFromPallet | d6 04:24 picked 1 (left 2) by InventoryService.PickFromPallet | d6 04:25 picked 1 (left 1) by InventoryService.PickFromPallet | d6 04:25 picked 1 (left 0) by InventoryService.PickFromPallet | d6 04:25 record destroyed by InventoryService.DestroyPallet>>  <<HISTORY: d6 04:41 moved (23, 83)->(-1, -1) by InventoryService.MovePallet | d6 04:47 moved (-1, -1)->(23, 83) by InventoryService.MovePallet | d6 04:47 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 09:14 picked 1 (left 31) by InventoryService.PickFromPallet | d6 09:16 picked 1 (left 30) by InventoryService.PickFromPallet | d6 09:18 picked 1 (left 29) by InventoryService.PickFromPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 78)  <<HISTORY: d6 03:26 Replenish task created (01-08-B1->01-07-01) by ReplenishmentService.CreateReplenishTask | d6 03:27 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 03:42 moved (28, 82)->(-1, -1) by InventoryService.MovePallet | d6 03:51 moved (-1, -1)->(29, 78) by InventoryService.MovePallet | d6 03:51 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 08:01 picked 1 (left 15) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 registered at (28, 78) 16x172495 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 78)  <<HISTORY: d6 03:26 Replenish task created (01-08-B1->01-07-01) by ReplenishmentService.CreateReplenishTask | d6 03:27 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 03:42 moved (28, 82)->(-1, -1) by InventoryService.MovePallet | d6 03:51 moved (-1, -1)->(29, 78) by InventoryService.MovePallet | d6 03:51 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 08:01 picked 1 (left 15) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 restored from save at (29, 78) 1x172495 by InventoryService.RegisterPalletDirect | d5 12:54 moved (29, 78)->(28, 78) by InventoryService.MovePallet | d6 03:26 picked 1 (left 0) by InventoryService.PickFromPallet | d6 03:26 record destroyed by InventoryService.DestroyPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 78)  <<HISTORY: d5 12:54 registered at (35, 78) 48x102435 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d5 12:54 restored from save at (35, 78) 40x102435 by InventoryService.RegisterPalletDirect>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 78)  <<HISTORY: d5 12:54 registered at (28, 78) 16x172495 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d5 12:54 restored from save at (29, 78) 1x172495 by InventoryService.RegisterPalletDirect | d5 12:54 moved (29, 78)->(28, 78) by InventoryService.MovePallet | d6 03:26 picked 1 (left 0) by InventoryService.PickFromPallet | d6 03:26 record destroyed by InventoryService.DestroyPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 87)  <<HISTORY: d6 04:03 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 06:03 Replenish task Assigned->Available by ReachTruckOperator.ReleaseTaskWithBackoff | d6 06:03 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 06:14 moved (30, 82)->(-1, -1) by InventoryService.MovePallet | d6 06:28 moved (-1, -1)->(35, 87) by InventoryService.MovePallet | d6 06:28 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask>>  <<HISTORY: d6 03:47 picked 1 (left 4) by InventoryService.PickFromPallet | d6 03:48 picked 1 (left 3) by InventoryService.PickFromPallet | d6 03:48 picked 1 (left 2) by InventoryService.PickFromPallet | d6 03:49 picked 1 (left 1) by InventoryService.PickFromPallet | d6 03:50 picked 1 (left 0) by InventoryService.PickFromPallet | d6 03:50 record destroyed by InventoryService.DestroyPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(33, 82)  <<HISTORY: d6 21:10 picked 1 (left 11) by InventoryService.PickFromPallet | d6 21:11 picked 1 (left 10) by InventoryService.PickFromPallet | d6 22:08 picked 1 (left 9) by InventoryService.PickFromPallet | d6 22:11 picked 1 (left 8) by InventoryService.PickFromPallet | d6 22:13 picked 1 (left 7) by InventoryService.PickFromPallet | d6 22:15 picked 1 (left 6) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 registered at (33, 82) 30x134958 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 87)  <<HISTORY: d7 02:01 picked 1 (left 25) by InventoryService.PickFromPallet | d7 02:05 picked 1 (left 24) by InventoryService.PickFromPallet | d7 02:08 picked 1 (left 23) by InventoryService.PickFromPallet | d7 02:12 picked 1 (left 22) by InventoryService.PickFromPallet | d7 02:15 picked 1 (left 21) by InventoryService.PickFromPallet | d7 02:18 picked 1 (left 20) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 registered at (24, 87) 40x856320 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 78)  <<HISTORY: d5 17:41 Putaway task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 08:04 Replenish task created (01-11-B1->01-11-01) by ReplenishmentService.CreateReplenishTask | d6 08:04 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 08:13 moved (25, 78)->(-1, -1) by InventoryService.MovePallet | d6 08:22 moved (-1, -1)->(25, 78) by InventoryService.MovePallet | d6 08:22 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask>>  <<HISTORY: d5 12:54 registered at (24, 78) 48x209875 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(23, 83)  <<HISTORY: d5 12:54 restored from save at (23, 83) 4x678132 by InventoryService.RegisterPalletDirect | d6 04:23 picked 1 (left 3) by InventoryService.PickFromPallet | d6 04:24 picked 1 (left 2) by InventoryService.PickFromPallet | d6 04:25 picked 1 (left 1) by InventoryService.PickFromPallet | d6 04:25 picked 1 (left 0) by InventoryService.PickFromPallet | d6 04:25 record destroyed by InventoryService.DestroyPallet>>  <<HISTORY: d6 04:41 moved (23, 83)->(-1, -1) by InventoryService.MovePallet | d6 04:47 moved (-1, -1)->(23, 83) by InventoryService.MovePallet | d6 04:47 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 09:14 picked 1 (left 31) by InventoryService.PickFromPallet | d6 09:16 picked 1 (left 30) by InventoryService.PickFromPallet | d6 09:18 picked 1 (left 29) by InventoryService.PickFromPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 78)  <<HISTORY: d6 03:26 Replenish task created (01-08-B1->01-07-01) by ReplenishmentService.CreateReplenishTask | d6 03:27 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 03:42 moved (28, 82)->(-1, -1) by InventoryService.MovePallet | d6 03:51 moved (-1, -1)->(29, 78) by InventoryService.MovePallet | d6 03:51 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 08:01 picked 1 (left 15) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 registered at (28, 78) 16x172495 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 78)  <<HISTORY: d6 03:26 Replenish task created (01-08-B1->01-07-01) by ReplenishmentService.CreateReplenishTask | d6 03:27 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 03:42 moved (28, 82)->(-1, -1) by InventoryService.MovePallet | d6 03:51 moved (-1, -1)->(29, 78) by InventoryService.MovePallet | d6 03:51 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 08:01 picked 1 (left 15) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 restored from save at (29, 78) 1x172495 by InventoryService.RegisterPalletDirect | d5 12:54 moved (29, 78)->(28, 78) by InventoryService.MovePallet | d6 03:26 picked 1 (left 0) by InventoryService.PickFromPallet | d6 03:26 record destroyed by InventoryService.DestroyPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 78)  <<HISTORY: d5 12:54 registered at (35, 78) 48x102435 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d5 12:54 restored from save at (35, 78) 40x102435 by InventoryService.RegisterPalletDirect>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 78)  <<HISTORY: d5 12:54 registered at (28, 78) 16x172495 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d5 12:54 restored from save at (29, 78) 1x172495 by InventoryService.RegisterPalletDirect | d5 12:54 moved (29, 78)->(28, 78) by InventoryService.MovePallet | d6 03:26 picked 1 (left 0) by InventoryService.PickFromPallet | d6 03:26 record destroyed by InventoryService.DestroyPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 87)  <<HISTORY: d6 04:03 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 06:03 Replenish task Assigned->Available by ReachTruckOperator.ReleaseTaskWithBackoff | d6 06:03 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 06:14 moved (30, 82)->(-1, -1) by InventoryService.MovePallet | d6 06:28 moved (-1, -1)->(35, 87) by InventoryService.MovePallet | d6 06:28 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask>>  <<HISTORY: d6 03:47 picked 1 (left 4) by InventoryService.PickFromPallet | d6 03:48 picked 1 (left 3) by InventoryService.PickFromPallet | d6 03:48 picked 1 (left 2) by InventoryService.PickFromPallet | d6 03:49 picked 1 (left 1) by InventoryService.PickFromPallet | d6 03:50 picked 1 (left 0) by InventoryService.PickFromPallet | d6 03:50 record destroyed by InventoryService.DestroyPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(33, 82)  <<HISTORY: d6 21:10 picked 1 (left 11) by InventoryService.PickFromPallet | d6 21:11 picked 1 (left 10) by InventoryService.PickFromPallet | d6 22:08 picked 1 (left 9) by InventoryService.PickFromPallet | d6 22:11 picked 1 (left 8) by InventoryService.PickFromPallet | d6 22:13 picked 1 (left 7) by InventoryService.PickFromPallet | d6 22:15 picked 1 (left 6) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 registered at (33, 82) 30x134958 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 87)  <<HISTORY: d7 02:01 picked 1 (left 25) by InventoryService.PickFromPallet | d7 02:05 picked 1 (left 24) by InventoryService.PickFromPallet | d7 02:08 picked 1 (left 23) by InventoryService.PickFromPallet | d7 02:12 picked 1 (left 22) by InventoryService.PickFromPallet | d7 02:15 picked 1 (left 21) by InventoryService.PickFromPallet | d7 02:18 picked 1 (left 20) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 registered at (24, 87) 40x856320 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 78)  <<HISTORY: d5 17:41 Putaway task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 08:04 Replenish task created (01-11-B1->01-11-01) by ReplenishmentService.CreateReplenishTask | d6 08:04 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 08:13 moved (25, 78)->(-1, -1) by InventoryService.MovePallet | d6 08:22 moved (-1, -1)->(25, 78) by InventoryService.MovePallet | d6 08:22 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask>>  <<HISTORY: d5 12:54 registered at (24, 78) 48x209875 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(23, 83)  <<HISTORY: d5 12:54 restored from save at (23, 83) 4x678132 by InventoryService.RegisterPalletDirect | d6 04:23 picked 1 (left 3) by InventoryService.PickFromPallet | d6 04:24 picked 1 (left 2) by InventoryService.PickFromPallet | d6 04:25 picked 1 (left 1) by InventoryService.PickFromPallet | d6 04:25 picked 1 (left 0) by InventoryService.PickFromPallet | d6 04:25 record destroyed by InventoryService.DestroyPallet>>  <<HISTORY: d6 04:41 moved (23, 83)->(-1, -1) by InventoryService.MovePallet | d6 04:47 moved (-1, -1)->(23, 83) by InventoryService.MovePallet | d6 04:47 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 09:14 picked 1 (left 31) by InventoryService.PickFromPallet | d6 09:16 picked 1 (left 30) by InventoryService.PickFromPallet | d6 09:18 picked 1 (left 29) by InventoryService.PickFromPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 78)  <<HISTORY: d6 03:26 Replenish task created (01-08-B1->01-07-01) by ReplenishmentService.CreateReplenishTask | d6 03:27 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 03:42 moved (28, 82)->(-1, -1) by InventoryService.MovePallet | d6 03:51 moved (-1, -1)->(29, 78) by InventoryService.MovePallet | d6 03:51 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 08:01 picked 1 (left 15) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 registered at (28, 78) 16x172495 by InventoryService.RegisterPhysicalPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 78)  <<HISTORY: d6 03:26 Replenish task created (01-08-B1->01-07-01) by ReplenishmentService.CreateReplenishTask | d6 03:27 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 03:42 moved (28, 82)->(-1, -1) by InventoryService.MovePallet | d6 03:51 moved (-1, -1)->(29, 78) by InventoryService.MovePallet | d6 03:51 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask | d6 08:01 picked 1 (left 15) by InventoryService.PickFromPallet>>  <<HISTORY: d5 12:54 restored from save at (29, 78) 1x172495 by InventoryService.RegisterPalletDirect | d5 12:54 moved (29, 78)->(28, 78) by InventoryService.MovePallet | d6 03:26 picked 1 (left 0) by InventoryService.PickFromPallet | d6 03:26 record destroyed by InventoryService.DestroyPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 78)  <<HISTORY: d5 12:54 registered at (35, 78) 48x102435 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d5 12:54 restored from save at (35, 78) 40x102435 by InventoryService.RegisterPalletDirect>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(28, 78)  <<HISTORY: d5 12:54 registered at (28, 78) 16x172495 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d5 12:54 restored from save at (29, 78) 1x172495 by InventoryService.RegisterPalletDirect | d5 12:54 moved (29, 78)->(28, 78) by InventoryService.MovePallet | d6 03:26 picked 1 (left 0) by InventoryService.PickFromPallet | d6 03:26 record destroyed by InventoryService.DestroyPallet>>
+- day 7 21:15 | **OVERLAP** | OVERLAP A Chep & A Chep @(35, 87)  <<HISTORY: d6 04:03 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 06:03 Replenish task Assigned->Available by ReachTruckOperator.ReleaseTaskWithBackoff | d6 06:03 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d6 06:14 moved (30, 82)->(-1, -1) by InventoryService.MovePallet | d6 06:28 moved (-1, -1)->(35, 87) by InventoryService.MovePallet | d6 06:28 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask>>  <<HISTORY: d6 03:47 picked 1 (left 4) by InventoryService.PickFromPallet | d6 03:48 picked 1 (left 3) by InventoryService.PickFromPallet | d6 03:48 picked 1 (left 2) by InventoryService.PickFromPallet | d6 03:49 picked 1 (left 1) by InventoryService.PickFromPallet | d6 03:50 picked 1 (left 0) by InventoryService.PickFromPallet | d6 03:50 record destroyed by InventoryService.DestroyPallet>>
+- day 8 00:00 | **REPEATING** | x25 and counting: [PlaytestBot] PLAYER BLOCK 1029 DONE: score 61.0. Report: Assets/_Project/Docs/Playtest\Block_1029.md
+- day 8 00:00 | **REPEATING** | x25 and counting: [PlaytestBot] PLAYER BLOCK 1029 DONE: score 61.0. Report: Assets/_Project/Docs/Playtest\Block_1029.md
+- day 8 00:00 | **REPEATING** | x25 and counting: [PlaytestBot] PLAYER BLOCK 1029 DONE: score 61.0. Report: Assets/_Project/Docs/Playtest\Block_1029.md
+- day 8 00:00 | **REPEATING** | x25 and counting: [PlaytestBot] PLAYER BLOCK 1029 DONE: score 61.0. Report: Assets/_Project/Docs/Playtest\Block_1029.md
+- day 8 00:00 | **REPEATING** | x25 and counting: [PlaytestBot] PLAYER BLOCK 1029 DONE: score 61.0. Report: Assets/_Project/Docs/Playtest\Block_1029.md
+- day 8 00:00 | **REPEATING** | x25 and counting: [PlaytestBot] PLAYER BLOCK 1029 DONE: score 61.0. Report: Assets/_Project/Docs/Playtest\Block_1029.md
+- day 8 00:00 | **REPEATING** | x25 and counting: [PlaytestBot] PLAYER BLOCK 1029 DONE: score 61.0. Report: Assets/_Project/Docs/Playtest\Block_1029.md

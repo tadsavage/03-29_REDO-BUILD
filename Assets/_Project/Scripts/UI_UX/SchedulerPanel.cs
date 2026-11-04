@@ -3693,6 +3693,7 @@ private static void ApplyLilitaFont(VisualElement el)
         var head = Row(true);
         head.Add(Cell("Item #", ColOrangeText, true, 70, 0, TextAnchor.MiddleLeft));
         head.Add(Cell("Description", ColOrangeText, true, 0, 1, TextAnchor.MiddleLeft));
+        head.Add(Cell("Ord Qty", ColOrangeText, true, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
         head.Add(Cell("Balance On Hand", ColOrangeText, true, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
         head.Add(Cell("On Inbound Order", ColOrangeText, true, InboundColWidth, 0, TextAnchor.MiddleRight));
         head.Add(Cell("Pending Shipment", ColOrangeText, true, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
@@ -3748,6 +3749,10 @@ private static void ApplyLilitaFont(VisualElement el)
             var r = Row(false);
             r.Add(Cell(line.sku, short_ ? ColDanger : covered ? ColOrangeText : ColTitleText, bold, 70, 0, TextAnchor.MiddleLeft));
             r.Add(Cell(string.IsNullOrEmpty(line.desc) ? "—" : line.desc, ink, bold, 0, 1, TextAnchor.MiddleLeft));
+            // Ord Qty (Tad, 2026-11-04): what this trailer's orders ask for of the item. Green = the shelf covers every pending
+            // shipment, orange = it only does once an inbound PO lands, red = a potential scratch (the row's own tests).
+            Color ordInk = short_ ? ColDanger : covered ? ColOrangeText : ColMoney;
+            r.Add(Cell(line.qty.ToString("N0"), ordInk, true, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
             r.Add(Cell(onHand.ToString("N0"), ink, true, ItemTableNumWidth, 0, TextAnchor.MiddleRight));
 
             var inboundCell = new VisualElement();
