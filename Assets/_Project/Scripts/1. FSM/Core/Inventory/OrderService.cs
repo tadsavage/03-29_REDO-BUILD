@@ -1728,12 +1728,34 @@ namespace GameCore.Inventory
             foreach (var kv in remembered) _pickShortfallSeen[kv.Key] = kv.Value;
         }
 
+        /// <summary>An order whose every case is already picked owes no more pallet picks. A leftover unclaimed one (a duplicate filed for a pallet
+        /// that was already moved) kept "Still to pick: 1" on a fully loaded truck and blocked close-out (OG8851, 2026-11-04), so drop it.
+        /// Claimed (Assigned) picks are left to finish.</summary>
+        private void CancelStalePalletPicks()
+        {
+            if (_workQueue == null) return;
+            foreach (var order in _activeOrders)
+            {
+                if (order == null || !order.IsFullyPicked) continue;
+                foreach (var t in LiveTasksForOrder(order.OrderId).ToList())
+                {
+                    if (t.Type != WorkTaskType.PalletPick) continue;
+                    if (t.Status != WorkTaskStatus.Open && t.Status != WorkTaskStatus.Available) continue;
+                    if (!string.IsNullOrEmpty(t.FromLocation) && LocationRegistry.TryGet(t.FromLocation, out var src) && src.Status == LocationStatus.Reserved)
+                        src.Unreserve();
+                    t.Status = WorkTaskStatus.Cancelled;
+                    Debug.LogWarning($"[OrderService] Order {order.OrderNumber} is fully picked - cancelled a leftover pallet pick for {t.SkuId} (from {t.FromLocation}).");
+                }
+            }
+        }
+
         // Every few in-game minutes; AssignWaitingLanes is a no-op (one LINQ pass) when nothing waits.
         private void OnMinuteForLanes(string eventId, GameCore.Events.Payloads.SimulationTimeData _)
         {
             if (++_waitingLaneTick % 3 != 0) return;
             AssignWaitingLanes();
             RefilePalletPickShortfalls();
+            CancelStalePalletPicks();
             RefileSelectForRestockedCases();
             ReleaseFullyShippedTrucks();
             SettleFloatingOutboundPallets();

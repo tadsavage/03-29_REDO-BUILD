@@ -324,6 +324,10 @@ public class LocationRegistry : MonoBehaviour
             foreach (var pp in palletPositions)
             {
                 float dx = pp.x - lp.x, dz = pp.z - lp.z;
+                // Height counts too: a pick face and the reserve slot above it share an x/z, so a pallet on the upper beam used to make the
+                // EMPTY face below read "physical" for ever. The face stayed Occupied with blank contents, replenishment skipped it, and an
+                // order's planned pallets were all picked off empty shelves (OG3814, 2026-11-04). Levels are well over 1 m apart.
+                if (Mathf.Abs(pp.y - lp.y) > 0.8f) continue;
                 if (dx * dx + dz * dz <= RadiusSq) { physical = true; break; }
             }
             if (physical) { _phantomStrikes.Remove(address); continue; }

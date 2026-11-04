@@ -351,6 +351,14 @@ namespace GameCore.Actors
                         Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for its remaining line item(s) — staging short at {_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits}.");
                         break;
                     }
+                    if (_currentTask != null && _currentTask.HasPlan && _currentOrder.TotalUnitsPicked < _currentOrder.TotalUnits)
+                    {
+                        // Every pick face is empty: give the planned pallet back instead of completing it empty (see HandPlanTaskBack).
+                        DestroyEmptyPallets();
+                        ReleaseJack();
+                        HandPlanTaskBack();
+                        yield break;
+                    }
                     if (_orderService.HasLivePalletPicks(_currentOrder))
                     {
                         completion = OrderData.OrderStatus.PartiallyPicked;

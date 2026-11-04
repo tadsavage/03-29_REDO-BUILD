@@ -1016,6 +1016,9 @@ namespace GameCore.Labor
                 yield return LiftForks(forks, forks.localPosition.y - lower);
             }
             // 10. Unparent off the forks into the trailer's cargo container.
+            // The pallet (or the trailer) can be destroyed while the forks lower - a save load, a cancelled order, a truck leaving (MissingReference here, block 1029).
+            if (palletT == null) yield break;
+            if (TruckGone(truck) || truck.LoadContainer == null) { yield return AbortCarry(ds, forks, palletT); yield break; }
             Vector3 facingOnForks = palletT.forward; // world facing while still carried
             palletT.SetParent(truck.LoadContainer, worldPositionStays: false);
             palletT.localPosition = targetLocal;

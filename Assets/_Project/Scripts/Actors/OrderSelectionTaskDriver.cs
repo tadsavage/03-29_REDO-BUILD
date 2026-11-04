@@ -132,6 +132,7 @@ namespace GameCore.Actors
 
             // A save is putting jack-carried pallets back on their jacks: don't claim work until they are (or the jack is lost).
             if (OutboundPalletPersistence.RestorePending) return;
+            if (Time.time < _planRetryAfter) return;   // handed a planned pallet back (empty pick faces) a moment ago
 
             if (!TryClaimNextOrderTask(out _currentTask, out _currentOrder))
                 return;
@@ -196,6 +197,13 @@ namespace GameCore.Actors
                     // QuantityPicked (see OrderService.ShipOrder), so a 16/23 order bills 16.
                     Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for its remaining line item(s) — staging short at {_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits} case(s).");
                     FinishOrder();
+                }
+                else if (_currentTask != null && _currentTask.HasPlan && _currentOrder.TotalUnitsPicked < _currentOrder.TotalUnits)
+                {
+                    // A planned pallet that found every pick face empty is not "done": completing it used up one of the order's planned
+                    // pallets for nothing, and with all of them burned the order could never finish (OG3814, 2026-11-04: seven plan tasks
+                    // Complete, zero cases picked). Hand it back and try again once replenishment has stocked the faces.
+                    HandPlanTaskBack();
                 }
                 else if (_orderService.HasLivePalletPicks(_currentOrder))
                 {
@@ -681,6 +689,32 @@ namespace GameCore.Actors
         /// needs doing once the stock exists; the player re-releases it from the Work Queue, or
         /// cancels it. This is the replacement for the old Backorder dead end, which left the order
         /// invisible in the panel while it silently owned a whole door.</summary>
+        private float _planRetryAfter;
+        private const float PlanRetryDelay = 45f;
+
+        /// <summary>Gives a planned pallet whose pick faces are all empty back to the queue (Available, unassigned) and stands the
+        /// selector down for a while, so it does not bounce the same task every poll.</summary>
+        private void HandPlanTaskBack()
+        {
+            var task = _currentTask;
+            Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderNumber} pallet {task.PlanNumber} of {task.PlanTotal}: every pick face is empty - " +
+                             "handing the task back until replenishment stocks them.");
+            _orderService.ReleasePick(task.TaskId);
+            task.Status = WorkTaskStatus.Available;
+            task.AssignedToEmployeeGuid = null;
+
+            foreach (var p in _pallets) if (p != null) Destroy(p.gameObject);
+            _pallets.Clear();
+            ClearJoinState();
+            _cubingCapHit = false;
+            _currentTask = null;
+            _currentOrder = null;
+            _planRetryAfter = Time.time + PlanRetryDelay;
+            _taskInProgress = false;
+            _nav.SetTaskBusy(false);
+            _nav.Patrol();
+        }
+
         private void ReturnOrderToOpen()
         {
             var task = _currentTask;

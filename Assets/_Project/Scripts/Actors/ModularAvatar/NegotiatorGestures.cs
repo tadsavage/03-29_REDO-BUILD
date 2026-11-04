@@ -137,6 +137,8 @@ public class NegotiatorGestures : MonoBehaviour
     // Targets are written for the CHARACTER'S RIGHT arm in (outward, up, forward) terms; the left arm mirrors the outward axis.
     void PoseArm(Arm arm, float t, float wRest, bool isRight)
     {
+        // The avatar rig can be rebuilt/destroyed while the window is open (NullReference at LateUpdate every frame, block 1029).
+        if (arm == null || arm.Shoulder == null || arm.Elbow == null || _root == null) return;
         arm.Shoulder.localRotation = arm.Shoulder0;
         arm.Elbow.localRotation = arm.Elbow0;
 

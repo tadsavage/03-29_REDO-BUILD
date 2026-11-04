@@ -158,6 +158,10 @@ namespace GameCore.Labor
                 var record = inventory.GetPallet(t.PalletId);
                 if (record == null || record.SkuId != skuId) continue;
                 if (PalletLifecycleResolver.IsReservedByTask(t.PalletId, out _)) continue;   // already claimed by another task
+                // A pallet an order already picked (its PalletPick is Complete) is outbound freight, not stock awaiting putaway; its stale Putaway
+                // task must not be handed out again (OG8851, 2026-11-04: a second pick for the same pallet blocked a fully loaded truck).
+                string pid = t.PalletId;
+                if (workQueue.Tasks.Any(x => x.Type == WorkTaskType.PalletPick && x.PalletId == pid && x.Status == WorkTaskStatus.Complete)) continue;
 
                 if (record.ReceivedDayNumber < bestDay)
                 {

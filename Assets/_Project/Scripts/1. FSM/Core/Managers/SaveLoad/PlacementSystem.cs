@@ -1133,6 +1133,9 @@ public class PlacementSystem : MonoBehaviour
         // Case-picked and mid-carry outbound pallets first, so the reconcile below sees their orders' freight.
         GameCore.Persistence.OutboundPalletPersistence.RestoreAll(save.outboundPallets);
 
+        // The tracker's next sync runs before restored pallets are re-linked; keep it from registering them as unknown stock (duplicate "A Chep" records).
+        PalletInventoryTracker.SuppressPhantomsUntil = Time.unscaledTime + 4f;
+
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderServiceForReconcile))
             orderServiceForReconcile.ReconcileStagedOrdersAgainstScene();
 

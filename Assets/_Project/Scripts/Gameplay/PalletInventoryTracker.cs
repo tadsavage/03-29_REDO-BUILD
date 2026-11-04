@@ -101,6 +101,9 @@ public class PalletInventoryTracker : MonoBehaviour
         return holder != null && holder.gameObject != self && holder.isActiveAndEnabled;
     }
 
+    /// <summary>Set by the save loader: until this unscaled time, unidentified pallets are not registered as new stock.</summary>
+    public static float SuppressPhantomsUntil;
+
     private static bool IsPallet(PlacedObject po)
         => po != null && po.gameObject.activeInHierarchy && po.data != null && po.data.category == "Inventory";
 
@@ -215,6 +218,10 @@ public class PalletInventoryTracker : MonoBehaviour
                         if (sameLoad.CurrentLocation != cell) inv.MovePallet(sameLoad.PalletId, cell);
                         continue;
                     }
+                    // Just after a save load the restored pallets have not been re-linked to their records yet (that happens a few frames on); a pallet
+                    // with no PalletData seen in that gap is NOT stock nobody knows about. Registering it made a phantom "A Chep" record on the same cell
+                    // as the real restored one - the OVERLAP/FLOATING pairs after every F9 in block 1029. Wait; the next heartbeat re-checks.
+                    if (!known && Time.unscaledTime < SuppressPhantomsUntil) continue;
                     string sku = known ? knownData.ItemNumber : (po.data != null ? po.data.name : "PHYS");
                     int qty = known ? knownData.CaseQuantity : (po.GetComponent<PalletBuilder>()?.TotalCases ?? 1);
                     var pallet = inv.RegisterPhysicalPallet(cell, sku, Mathf.Max(1, qty));

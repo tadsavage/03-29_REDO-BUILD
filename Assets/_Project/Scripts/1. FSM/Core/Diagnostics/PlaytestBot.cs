@@ -1311,6 +1311,8 @@ namespace GameCore.Diagnostics
             // working. And one physical problem is one bug: the same vehicle stuck at the same spot, or the same pallet without a record,
             // counts once per block, not once per health check.
             if (type != LogType.Log && (IsGameMechanic(msg) || SeenSameSpotBefore(msg))) return;
+            // The bot's own status lines ("PLAYER BLOCK n DONE", "Block n started") are not game events; it counted its block-end line as a stuck loop.
+            if (type != LogType.Log && msg.StartsWith("[PlaytestBot]")) return;
             if (type != LogType.Log)
             {
                 string rk = Digits.Replace(msg.Split((char)10)[0], "#");
