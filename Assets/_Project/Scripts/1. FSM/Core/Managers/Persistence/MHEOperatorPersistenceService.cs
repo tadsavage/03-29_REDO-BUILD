@@ -205,12 +205,14 @@ namespace GameCore.Persistence
             {
                 if (snap == null || string.IsNullOrEmpty(snap.employeeGuid)) continue;
 
+                // An operator who did not re-board (vehicle moved, or no free MHE within reach of the saved spot) used to
+                // drop the carried pallet here: the object was never built, but its InventoryService record survived with
+                // no grid cell, so the game still counted a pallet that was nowhere on the floor (2026-11-04 playtest).
+                // Now the pallet is still rebuilt and set down in a lane, and its existing record is reused.
                 var identity = EmployeeRegistry.Instance.GetByGuid(snap.employeeGuid);
-                if (identity == null || identity.AssignedSlot == null)
-                {
-                    Debug.LogWarning($"[MHEOperatorPersistenceService] Operator {snap.employeeGuid} isn't boarded — carried pallet '{snap.inventoryPalletId}' dropped.");
-                    continue;
-                }
+                bool boarded = identity != null && identity.AssignedSlot != null;
+                if (!boarded)
+                    Debug.LogWarning($"[MHEOperatorPersistenceService] Operator {snap.employeeGuid} isn't boarded — carried pallet '{snap.inventoryPalletId}' will be set down in a lane instead of dropped.");
 
                 var so = registry.GetByID(snap.objDataId);
                 if (so == null || so.prefab == null)
@@ -219,19 +221,22 @@ namespace GameCore.Persistence
                     continue;
                 }
 
-                Transform vehicleRoot = identity.AssignedSlot.transform;
-                Transform anchor = !string.IsNullOrEmpty(snap.carrierAnchorName)
+                Transform vehicleRoot = boarded ? identity.AssignedSlot.transform : null;
+                Transform anchor = boarded && !string.IsNullOrEmpty(snap.carrierAnchorName)
                     ? FindDeepChild(vehicleRoot, snap.carrierAnchorName)
                     : null;
-                if (anchor == null) anchor = vehicleRoot;
+                if (boarded && anchor == null) anchor = vehicleRoot;
 
                 var sku = inv?.GetSkuData(snap.skuId);
 
                 GameObject go = Object.Instantiate(so.prefab);
                 go.name = so.objName;
                 go.transform.SetParent(anchor, worldPositionStays: false);
-                go.transform.localPosition = snap.localPosition;
-                go.transform.localRotation = snap.localRotation;
+                if (anchor != null)
+                {
+                    go.transform.localPosition = snap.localPosition;
+                    go.transform.localRotation = snap.localRotation;
+                }
 
                 // Cargo-in-transit, same as TruckController.BuildOnePallet: keep PlacedObject
                 // disabled (unregistered) while it rides — not a real grid placement yet.
@@ -322,14 +327,23 @@ namespace GameCore.Persistence
                 if (obstacle != null) obstacle.enabled = false;
 
                 // Hand off to the operator to finish the job.
-                var rto = identity.AssignedSlot.GetComponent<ReachTruckOperator>();
-                WorkTask task = workQueue?.Tasks.FirstOrDefault(t =>
-                    t.AssignedToEmployeeGuid == snap.employeeGuid && t.Status == WorkTaskStatus.Assigned);
+                var rto = boarded ? identity.AssignedSlot.GetComponent<ReachTruckOperator>() : null;
+                WorkTask task = boarded ? workQueue?.Tasks.FirstOrDefault(t =>
+                    t.AssignedToEmployeeGuid == snap.employeeGuid && t.Status == WorkTaskStatus.Assigned) : null;
+
+                bool recordHasCell = record != null && record.CurrentLocation.x >= 0 && record.CurrentLocation.y >= 0;
 
                 if (rto != null && task != null && !string.IsNullOrEmpty(task.ToLocation))
                 {
                     rto.ResumeDeliverToRack(task, go.transform);
                     Debug.Log($"[MHEOperatorPersistenceService] Resuming putaway for '{snap.inventoryPalletId}' → {task.ToLocation}.");
+                }
+                else if (record != null && !recordHasCell && inv != null)
+                {
+                    // In transit at save time: the record has no grid cell. Put the pallet in the first free lane slot
+                    // and move its existing record there, so the record and the object agree.
+                    if (!SetDownCarriedInLane(inv, go, record, obstacle, po))
+                        Debug.LogError($"[MHEOperatorPersistenceService] Carried pallet '{snap.inventoryPalletId}' has no grid cell and no free lane slot — it stays in the save with no location.");
                 }
                 else if (record != null && grid != null)
                 {
@@ -367,6 +381,40 @@ namespace GameCore.Persistence
                     Debug.LogWarning($"[MHEOperatorPersistenceService] Carried pallet '{snap.inventoryPalletId}' restored but nothing could resume it — left on operator's forks.");
                 }
             }
+        }
+
+        /// <summary>
+        /// Sets a restored carried pallet whose inventory record has no grid cell (it was in transit at save time) into the
+        /// first free lane slot, moving the EXISTING record there. Unlike SetDownUnreceivedPallet this creates no new record.
+        /// </summary>
+        private static bool SetDownCarriedInLane(InventoryService inv, GameObject go, PalletMasterRecord record,
+                                                 UnityEngine.AI.NavMeshObstacle obstacle, PlacedObject po)
+        {
+            foreach (var (door, lane) in LaneNamingService.AllLanes())
+            {
+                if (!inv.LaneAcceptsPutaway(door, lane)) continue;
+                if (!inv.TryGetNextFreeSlot(door, lane, out var slot)) continue;
+                if (!LaneNamingService.TryGetSlotWorldPos(slot.Cell, out var pos)) continue;
+                if (!inv.MovePallet(record.PalletId, slot.Cell)) continue;
+                record.StagingLaneId = $"{door}{lane}";   // same convention as TrailerLoadController.DigOut
+
+                float y = TrailerOffloadController.StagingDropBaseY(door, lane, slot.Cell, go);
+                go.transform.SetParent(null, worldPositionStays: true);
+                go.transform.position = new Vector3(pos.x, y, pos.z);
+                if (LaneNamingService.TryGetLaneGeometry(door, lane, out var geo) && geo.DepthAxis.sqrMagnitude > 0.0001f)
+                    go.transform.rotation = Quaternion.LookRotation(geo.DepthAxis.normalized, Vector3.up);
+                if (obstacle != null) obstacle.enabled = true;
+                if (po != null)
+                {
+                    po.gridX = slot.Cell.x;
+                    po.gridY = slot.Cell.y;
+                    po.enabled = true;
+                    PlacedObjectRegistry.Register(po);
+                }
+                Debug.LogWarning($"[MHEOperatorPersistenceService] Carried pallet '{record.PalletId}' was in transit at save time - set down in {door}{lane} at {slot.Cell}.");
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
