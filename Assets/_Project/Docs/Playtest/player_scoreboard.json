@@ -2949,6 +2949,61 @@
                 1,
                 1
             ]
+        },
+        {
+            "block": 1029,
+            "startDay": 1,
+            "endDay": 8,
+            "score": 54.40823745727539,
+            "onTime": 0.0,
+            "fill": 79.88863372802734,
+            "throughput": 79.76190185546875,
+            "revenue": 91.60536193847656,
+            "profit": 0.0,
+            "cash": 100.0,
+            "reliability": 42.85714340209961,
+            "reputation": 100.0,
+            "revenueTotal": 51299,
+            "repStart": 0,
+            "repEnd": 75,
+            "utilReceiver": 0.0,
+            "utilReach": 0.3333333432674408,
+            "utilDock": 0.0,
+            "utilSelector": 0.0,
+            "headReceiver": 2,
+            "headReach": 2,
+            "headDock": 3,
+            "headSelector": 4,
+            "doors": 3,
+            "machines": 13,
+            "backlogReceive": 2.6666667461395264,
+            "backlogPutaway": 1.3333333730697632,
+            "backlogPick": 0.0,
+            "backlogLoad": 0.0,
+            "backlogOrders": 6.666666507720947,
+            "waitingTrucks": 0.0,
+            "shipFrac": 0.0,
+            "ordersShipped": 0,
+            "ordersLate": 0,
+            "palletsShipped": 67,
+            "bugIncidents": 5,
+            "errors": 1,
+            "cashStart": 500000,
+            "cashEnd": 16691,
+            "inventoryStart": 0,
+            "inventoryEnd": 56934,
+            "bugKeys": [
+                "OVERLAP| A Chep & A Chep @(#, #)",
+                "EXCEPTION|MissingReferenceException: The object of type 'UnityEngine.AI.NavMeshAgent' has been destroyed but you are still trying to access it.",
+                "FLOATING| A Chep @(#, #) bottom=#",
+                "GHOST-SLOT|RECORD # # x# cell=(#, #) lane= - no object"
+            ],
+            "bugCounts": [
+                2,
+                1,
+                1,
+                1
+            ]
         }
     ]
 }
