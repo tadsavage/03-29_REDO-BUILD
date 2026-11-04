@@ -138,11 +138,15 @@ namespace GameCore.Actors
         /// <summary>Called right after a task is claimed. True = the jack run owns this order now.</summary>
         private bool TryStartJackRun()
         {
+            // Already aboard a jack that is carrying this order's pallet (a resume after a save/load): that run has to go on
+            // whether or not anything is left to pick - it may be the delivery of a finished pallet. Without this, the claim
+            // returned here with the rider still mounted, and the stranded-on-a-jack watchdog dismounted them after 8 s.
+            var own = OwnJackWithOrderPallet();
             // Nothing a case picker can take right now (no stock, or the rest is Reach Truck pallets): don't fetch
             // a jack for it. The on-foot path makes the exact same out-of-stock decisions, with no walk.
-            if (!TryFindBestPickLocation(_currentOrder, out _, out _, out _)) return false;
+            if (own == null && !TryFindBestPickLocation(_currentOrder, out _, out _, out _)) return false;
 
-            var jack = FindFreeJack();
+            var jack = own ?? FindFreeJack();
             if (jack == null)
             {
                 if (!s_warnedNoJack)
@@ -181,9 +185,30 @@ namespace GameCore.Actors
             _jackNav = jack.GetComponent<AiNavigation>();
             _jackAgent = jack.GetComponent<NavMeshAgent>();
             s_jackClaims[jack] = this;
+            // Same state a fresh claim sets (see Update): without _taskInProgress the next poll takes this driver for idle and
+            // TryClaimNextOrderTask overwrites the resumed order with null, which ended the run at once.
+            _taskInProgress = true;
+            _pickFloorKey = long.MinValue;
+            _nav.SetTaskBusy(true);
             PalletJackParkingSpot.ReleaseJack(jack);
             _jackRun = StartCoroutine(JackOrderRoutine());
             return true;
+        }
+
+        /// <summary>The pallet jack this selector is already riding that holds a pallet of the current order, or null.</summary>
+        private MHEOperatorSlot OwnJackWithOrderPallet()
+        {
+            if (_currentOrder == null) return null;
+            var self = GetComponent<EmployeeIdentity>();
+            if (self == null) return null;
+            foreach (var jack in FindObjectsByType<MHEOperatorSlot>())
+            {
+                if (jack == null || !jack.isActiveAndEnabled || !jack.IsPalletJack || jack.CurrentOperator != self) continue;
+                if (s_jackClaims.TryGetValue(jack, out var holder) && holder != null && holder != this) continue;
+                foreach (var p in jack.GetComponentsInChildren<OutboundPalletBuilder>(true))
+                    if (p != null && p.OrderId == _currentOrder.OrderId) return jack;
+            }
+            return null;
         }
 
         private MHEOperatorSlot FindFreeJack()

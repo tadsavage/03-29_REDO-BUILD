@@ -240,9 +240,9 @@ namespace GameCore.Persistence
                 var order = orders.ActiveOrders.FirstOrDefault(o => o.OrderId == p.OrderId);
                 // The pick task is often saved as Complete: the trip marks its picking done before the pallet is delivered to
                 // staging. Reopen the order's latest select task for this rider rather than requiring it to be unfinished.
+                // Any select task of the order will do, whoever it was last saved under: the rider is the one who carries the pallet.
                 var task = queue.Tasks.LastOrDefault(t => t.OrderId == p.OrderId && t.Type == WorkTaskType.OrderSelect
-                                                          && t.Status != WorkTaskStatus.Cancelled
-                                                          && (string.IsNullOrEmpty(t.AssignedToEmployeeGuid) || t.AssignedToEmployeeGuid == guid));
+                                                          && t.Status != WorkTaskStatus.Cancelled);
                 if (order != null && task != null)
                 {
                     task.Status = WorkTaskStatus.Assigned;
