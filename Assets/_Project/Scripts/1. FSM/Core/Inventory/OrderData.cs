@@ -296,7 +296,7 @@ namespace GameCore.Inventory
         {
             get
             {
-                int billed = LineItems.Sum(item => item.QuantityPicked * item.SellingPrice);
+                int billed = Mathf.RoundToInt(LineItems.Sum(item => item.QuantityPicked * item.SellingPrice) * GoodsRevenueMultiplier);
                 if (ClosedDayNumber >= 0 && QualifiesForSameDayBonus(ClosedDayNumber))
                     billed = Mathf.RoundToInt(billed * SameDayRushRevenueMultiplier);
                 // Negotiated handling income (see ContractTerms) - the same figure ShipOrder books as Handling.
@@ -331,6 +331,20 @@ namespace GameCore.Inventory
         /// is actually credited.
         /// </summary>
         public const float SameDayRushRevenueMultiplier = 2f;
+
+        /// <summary>Case Pick income dial (Tad, 2026-11-04: "triple the revenue made for case pick"). Scales the GOODS revenue of
+        /// an order - shipped cases x selling price - before the same-day rush bonus, so a rush now pays 2 x this. Handling fees
+        /// (pick fee per case, pallet fee) are separate and untouched. Set to 1 for the original rate. Used by OrderService.ShipOrder
+        /// (the money booked) and ShippedRevenue (the Completed tab), which must always agree.</summary>
+        public const float CasePickRevenueMultiplier = 3f;
+
+        /// <summary>Pallet Pick income dial (Tad, 2026-11-04: "raise the revenue for pallet pick by 25%"). Applies to BULK orders -
+        /// the ones fulfilled in whole pallets by PalletPick tasks (<see cref="IsBulk"/>) - in place of the case pick multiplier.
+        /// Both income kinds are still booked under the Case Pick category (there is no separate line).</summary>
+        public const float PalletPickRevenueMultiplier = 1.25f;
+
+        /// <summary>The goods-revenue multiplier for THIS order: pallet pick for a bulk order, case pick for everything else.</summary>
+        public float GoodsRevenueMultiplier => IsBulk ? PalletPickRevenueMultiplier : CasePickRevenueMultiplier;
 
         /// <summary>
         /// True when the customer wanted this out the door the same day it arrived AND is paying the

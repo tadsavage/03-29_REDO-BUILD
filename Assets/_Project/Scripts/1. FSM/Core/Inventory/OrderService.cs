@@ -3638,7 +3638,7 @@ namespace GameCore.Inventory
                                      $"({unbilledTotal} cs) that never made the trailer - not billed, returning it to stock.");
             }
 
-            int revenue = order.LineItems.Sum(li => li.QuantityPicked * li.SellingPrice);
+            int revenue = Mathf.RoundToInt(order.LineItems.Sum(li => li.QuantityPicked * li.SellingPrice) * order.GoodsRevenueMultiplier);
 
             // SAME-DAY RUSH BONUS. An order the customer wanted out the door on its own arrival day
             // pays double when it actually makes it — that premium is what makes a rush worth taking,

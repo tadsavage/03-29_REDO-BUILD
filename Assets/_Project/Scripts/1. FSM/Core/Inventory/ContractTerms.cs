@@ -17,11 +17,11 @@ namespace GameCore.Inventory
         /// <summary>Goods are billed at cost x (1 + this). Cost = the SKU's BuyValue.</summary>
         public float MarkupPercent = 0.20f;
 
-        /// <summary>Dollars per case the selectors pick.</summary>
-        public float PickFeePerCase = 0.75f;
+        /// <summary>Dollars per case the selectors pick. Doubled from $0.75 (Tad, 2026-11-04: small warehouses could not break even).</summary>
+        public float PickFeePerCase = 1.50f;
 
-        /// <summary>Dollars per pallet that goes out - covers staging AND loading.</summary>
-        public int PalletFee = 25;
+        /// <summary>Dollars per pallet that goes out - covers staging AND loading. Raised from $25 (Tad, 2026-11-04).</summary>
+        public int PalletFee = 60;
 
         /// <summary>How many days ahead the customer must tell us what they want. Also how far ahead the
         /// player gets to SEE each order (orders are raised this many days before they ship).</summary>
@@ -78,10 +78,10 @@ namespace GameCore.Inventory
                 Opening = 0.08f, Standard = 0.20f, Limit = 0.44f, Step = 0.01f,
                 Get = t => t.MarkupPercent, Set = (t, v) => t.MarkupPercent = v, Format = v => $"{Mathf.RoundToInt(v * 100f)}%" },
             new TermSpec { Id = TermId.PickFee, Label = "Pick fee / case", Hint = "Paid per case our selectors pick.",
-                Opening = 0.25f, Standard = 0.75f, Limit = 1.75f, Step = 0.05f,
+                Opening = 0.50f, Standard = 1.50f, Limit = 3.50f, Step = 0.05f,   // doubled 2026-11-04 (was 0.25 / 0.75 / 1.75)
                 Get = t => t.PickFeePerCase, Set = (t, v) => t.PickFeePerCase = v, Format = v => $"${v:0.00}" },
             new TermSpec { Id = TermId.PalletFee, Label = "Pallet handling", Hint = "Per pallet out the door - staging and loading.",
-                Opening = 10f, Standard = 25f, Limit = 55f, Step = 1f,
+                Opening = 25f, Standard = 60f, Limit = 130f, Step = 1f,   // raised 2026-11-04 (was 10 / 25 / 55)
                 Get = t => t.PalletFee, Set = (t, v) => t.PalletFee = Mathf.RoundToInt(v), Format = v => $"${Mathf.RoundToInt(v)}" },
             new TermSpec { Id = TermId.Notice, Label = "Advance notice", Hint = "Days ahead they must place each order.",
                 Opening = 1f, Standard = 2f, Limit = 4f, Step = 1f,
