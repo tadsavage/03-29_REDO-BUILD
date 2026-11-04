@@ -1365,7 +1365,7 @@ namespace GameCore.Actors
             }
 
             Vector3 driveTarget = Flat(target, jt.position.y);
-            if (NavMesh.SamplePosition(driveTarget, out var hit, 4f, _jackAgent.areaMask)) driveTarget = hit.position;
+            if (NavSample.OnAgentMesh(_jackAgent, driveTarget, 4f, out var hit)) driveTarget = hit.position;
 
             _jackNav.CancelSeekPosition();
             _jackAgent.Warp(jt.position);

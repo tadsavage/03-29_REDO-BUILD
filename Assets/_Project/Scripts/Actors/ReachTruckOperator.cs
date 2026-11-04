@@ -2633,7 +2633,7 @@ namespace GameCore.Actors
             // leg was faithful to the anchor's altitude.) Take the anchor's XZ, drop it to the
             // vehicle's drive height, then snap that to real navmesh.
             Vector3 driveTarget = new Vector3(target.x, transform.position.y, target.z);
-            if (NavMesh.SamplePosition(driveTarget, out var groundHit, 4f, _vehicleAgent.areaMask))
+            if (NavSample.OnAgentMesh(_vehicleAgent, driveTarget, 4f, out var groundHit))
             {
                 driveTarget = groundHit.position;
             }

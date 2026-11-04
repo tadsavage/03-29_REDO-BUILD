@@ -684,6 +684,10 @@ namespace GameCore.Actors
                 return;
             }
 
+            // Tell the player WHY it came back (the Debug warning is muted in a build, and a silent bounce looks like a bug).
+            SystemsLogWindow.LogWarning($"Order {order.OrderNumber} ({order.CustomerName}) was sent back to Open: nothing on it could be picked - " +
+                                        "no stock on hand, or the stock is not reachable. Buy or receive the items, then release it again.");
+
             order.Status = OrderData.OrderStatus.Pending;
             order.AssignedDoorNumber = 0;
             order.StagingDoorNumber = 0;

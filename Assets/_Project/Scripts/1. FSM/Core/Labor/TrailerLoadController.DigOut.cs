@@ -689,7 +689,7 @@ namespace GameCore.Labor
             }
 
             Vector3 driveTarget = new Vector3(target.x, ds.position.y, target.z);
-            if (NavMesh.SamplePosition(driveTarget, out var hit, 4f, agent.areaMask)) driveTarget = hit.position;
+            if (NavSample.OnAgentMesh(agent, driveTarget, 4f, out var hit)) driveTarget = hit.position;
 
             nav.CancelSeekPosition();
             agent.Warp(ds.position);

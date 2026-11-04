@@ -1138,7 +1138,7 @@ namespace GameCore.Labor
 
             // ── Flatten the target to drive height, then snap to real navmesh (load-bearing) ──
             Vector3 driveTarget = new Vector3(target.x, ds.position.y, target.z);
-            if (NavMesh.SamplePosition(driveTarget, out var groundHit, 4f, agent.areaMask))
+            if (NavSample.OnAgentMesh(agent, driveTarget, 4f, out var groundHit))
                 driveTarget = groundHit.position;
             else
                 Debug.LogWarning($"[TrailerOffload] '{ds.name}' {phase}: no navmesh within 4m of the " +

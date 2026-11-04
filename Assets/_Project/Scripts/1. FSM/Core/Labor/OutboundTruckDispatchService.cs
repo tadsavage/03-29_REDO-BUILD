@@ -118,7 +118,7 @@ namespace GameCore.Labor
         /// 90 minutes lets the trailer be at the door when the block starts instead of the player being fined for the driver's travel time (Tad).</summary>
         private const int ArrivalLeadMinutes = 90;
         private const int MaxArrivalLeadMinutes = 300;
-        private const int GateToDoorMinutes = 72;      // measured guard shack to door, game minutes
+        private const int GateToDoorMinutes = DockScheduleService.GateToDoorMinutes;      // measured guard shack to door, game minutes
 
         private readonly Dictionary<string, (int lead, float until)> _leadCache = new Dictionary<string, (int, float)>();
 

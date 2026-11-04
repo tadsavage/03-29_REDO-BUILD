@@ -41,6 +41,7 @@ namespace GameCore.Actors
         private ReceiverReceivingWorkflow _workflow;
         private WorkQueueSystem _workQueue;
         private int _agentAreaMask = NavMesh.AllAreas;
+        private int _agentTypeId;
 
         private float _pollTimer;
         private bool _taskInProgress;
@@ -81,7 +82,7 @@ namespace GameCore.Actors
                 _workflow = gameObject.AddComponent<ReceiverReceivingWorkflow>();
 
             var agent = GetComponent<NavMeshAgent>();
-            if (agent != null) _agentAreaMask = agent.areaMask;
+            if (agent != null) { _agentAreaMask = agent.areaMask; _agentTypeId = agent.agentTypeID; }
 
             _workflow.OnWorkflowComplete += HandleWorkflowComplete;
             _workflow.OnWorkflowCancelled += HandleWorkflowCancelled;
@@ -220,7 +221,7 @@ namespace GameCore.Actors
                 Vector3 side = -toPallet; side.y = 0f;
                 side = side.sqrMagnitude > 0.0001f ? side.normalized : palletTransform.right;
                 Vector3 want = palletTransform.position + side * CloseApproachDistance;
-                if (NavMesh.SamplePosition(want, out var hit, 1.5f, _agentAreaMask))
+                if (NavSample.OnAgentMesh(_agentTypeId, _agentAreaMask, want, 1.5f, out var hit))
                 {
                     _nav.CancelSeekPosition();
                     _nav.SeekPosition(hit.position, () => OnArrivedAtStandPosition(task, palletTransform, attempt + 1));
@@ -463,7 +464,7 @@ namespace GameCore.Actors
             {
                 Vector3 candidate = palletTransform.position + dir * StandoffDistance;
 
-                if (!NavMesh.SamplePosition(candidate, out var hit, NavSampleRadius, _agentAreaMask))
+                if (!NavSample.OnAgentMesh(_agentTypeId, _agentAreaMask, candidate, NavSampleRadius, out var hit))
                     continue; // not walkable at all — never pick this side
                 candidate = hit.position;
 

@@ -566,7 +566,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             // Restrict sampling to this agent's own allowed areas — NavMesh.AllAreas would also match
             // the ground-level (y~0) layer baked under every dock/floor for non-human agents ("rats"),
             // letting a human/MHE agent snap down onto that layer during an edge-case rebake.
-            if (NavMesh.SamplePosition(sample, out NavMeshHit hit, 0.5f, agent.areaMask))
+            if (NavSample.OnAgentMesh(agent, sample, 0.5f, out NavMeshHit hit))
             {
                 try { agent.Warp(hit.position); } catch { }
                 return;
@@ -1358,7 +1358,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         }
         if (nearest == null) return;
 
-        if (!NavMesh.SamplePosition(nearest.position, out NavMeshHit hit, 4f, agent.areaMask))
+        if (!NavSample.OnAgentMesh(agent, nearest.position, 4f, out NavMeshHit hit))
         {
             if (Time.time - _lastStrandedLog > 60f) { _lastStrandedLog = Time.time; Debug.LogWarning($"[AiNavigation] {name}: stranded on an isolated NavMesh island at {transform.position}, " +
                              $"and the nearest waypoint has no NavMesh within 4m either — cannot self-rescue."); }
@@ -1817,7 +1817,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     private bool SetDestinationSnapped(Vector3 target)
     {
         if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) return false;
-        if (NavMesh.SamplePosition(target, out NavMeshHit hit, 2.0f, agent.areaMask))
+        if (NavSample.OnAgentMesh(agent, target, 2.0f, out NavMeshHit hit))
             return agent.SetDestination(hit.position);
         return agent.SetDestination(target);
     }

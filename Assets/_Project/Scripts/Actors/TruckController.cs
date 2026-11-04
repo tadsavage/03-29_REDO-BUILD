@@ -455,6 +455,9 @@ public class TruckController : MonoBehaviour
     /// lets the truck depart.</summary>
     public void CompleteLoad() => _loadComplete = true;
 
+    /// <summary>True once the load was closed out or released: a loader must take no more pallets.</summary>
+    public bool LoadIsComplete => _loadComplete;
+
     /// <summary>Resets the docked idle clock (same "reset timer slightly" pattern the inbound
     /// offload fallback already uses when pallets remain but no dock stocker is free yet) so
     /// offloadFallbackTimeout doesn't force this outbound truck to depart empty while it's still
@@ -3294,6 +3297,9 @@ private DockSlot        _dock;
         // Leave the gate queue — the manager advances everyone behind us.
         _clearedGate = true;
         OnClearedGate?.Invoke();
+        // The outbound driver's loading clock starts here (see DockScheduleService.DeadlineMinute).
+        if (_isOutbound && !string.IsNullOrEmpty(_outboundAppointmentId) && GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService gateSched) && gateSched != null)
+            gateSched.NoteGatePass(_outboundAppointmentId);
 
         // Unified 8-hour inbound dwell clock starts the instant the truck clears the gate — Tad's
         // spec: "every timer bar should run for 8 hours length and should initiate as soon as he
@@ -3596,6 +3602,8 @@ private DockSlot        _dock;
         if (_metGateT >= 0f && !_metWaited) OpsMetrics.Record(OpsMetrics.Kind.GateToDoor, OpsMetrics.Now - _metGateT);
         _metGateT = -1f;
         _dock.LightController?.SetOccupied(true);
+        if (_isOutbound && !string.IsNullOrEmpty(_outboundAppointmentId) && GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService dockedSched) && dockedSched != null)
+            dockedSched.NoteDocked(_outboundAppointmentId);
 
         // Docked and being offloaded/loaded now — the "Heading to Door X" banner has done its job.
         _doorWaitBar?.Hide();
@@ -3637,10 +3645,16 @@ private DockSlot        _dock;
     /// "still empty" is never a reason to leave early the way it is for offload.</summary>
     private bool _gaveUpWithCargo;
 
+    /// <summary>A closed-out / cut order must not drive away while a dock stocker still has a pallet on his forks (he chased the truck out
+    /// of the property, 2026-11-03). The truck waits for the loader to finish the pallet in hand, but never longer than this (real seconds).</summary>
+    private float _departHoldSeconds;
+    private const float MaxDepartHoldSeconds = 120f;
+
     private void UpdateDockedOutbound()
     {
         if (_loadComplete)
         {
+            if (_loadClaimed && _departHoldSeconds < MaxDepartHoldSeconds) { _departHoldSeconds += Time.deltaTime; return; }
             BeginDeparture();
         }
         else if (!string.IsNullOrEmpty(_outboundAppointmentId))

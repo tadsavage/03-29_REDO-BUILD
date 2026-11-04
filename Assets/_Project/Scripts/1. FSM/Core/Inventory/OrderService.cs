@@ -2713,6 +2713,7 @@ namespace GameCore.Inventory
             var order = _activeOrders.FirstOrDefault(o => o.OrderId == orderId);
             if (order == null) return;
             order.Status = OrderData.OrderStatus.Loaded;
+            if (_timeService != null) order.LoadedAbs = _timeService.Day * 1440 + _timeService.Hour * 60 + _timeService.Minute;   // timeline for [ShipDecision]
             if (palletsLoaded > 0) order.PalletsShipped += palletsLoaded;
             Debug.Log($"[OrderService] Order {orderId} ({order.CustomerName}) loaded onto its trailer — awaiting close-out.");
         }
@@ -3499,8 +3500,13 @@ namespace GameCore.Inventory
             string slot = appt == null ? "no appointment"
                 : $"slot day {appt.Day} {appt.TimeLabel}, {(AppointmentElapsed(order) ? "OVER" : "still open")}";
             string now = _timeService != null ? $"day {_timeService.Day} {_timeService.Hour:00}:{_timeService.Minute:00}" : "?";
+            // Where the minutes went: gate -> dock -> loaded -> shipped, against the deadline the sweep judged it by ("-" = never happened).
+            string Hm(int abs) => abs <= 0 ? "-" : $"d{abs / 1440} {abs % 1440 / 60:00}:{abs % 60:00}";
+            int nowAbs = _timeService != null ? _timeService.Day * 1440 + _timeService.Hour * 60 + _timeService.Minute : 0;
+            string timeline = appt == null || sched == null ? "no timeline"
+                : $"timeline: gate {Hm(appt.GatePassAbs)}, docked {Hm(appt.DockedAbs)}, loaded {Hm(order.LoadedAbs)}, shipped {Hm(nowAbs)}, deadline {Hm(sched.DeadlineMinute(appt))}";
             Debug.LogWarning($"[ShipDecision] Order {order.OrderNumber} ({order.CustomerName}) ships at {now}: picked {order.TotalUnitsPicked}/{order.TotalUnits} cs, " +
-                             $"status {order.Status}, fined={order.HasBeenFined}, {slot}, live tasks: {tasks}.");
+                             $"status {order.Status}, fined={order.HasBeenFined}, {slot}, {timeline}, live tasks: {tasks}.");
         }
 
         public int ShipOrder(string orderId)

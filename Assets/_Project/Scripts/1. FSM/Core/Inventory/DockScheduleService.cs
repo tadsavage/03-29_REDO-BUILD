@@ -131,6 +131,12 @@ namespace GameCore.Inventory
         /// </summary>
         public bool WasLate;
 
+        /// <summary>Absolute game minute (day x 1440 + minute of day) at which this appointment's OUTBOUND truck cleared the gate; 0 until it does.
+        /// The truck driver's own clock starts here (Tad, 2026-11-03): see DockScheduleService.DeadlineMinute. Saved.</summary>
+        public int GatePassAbs;
+        /// <summary>Absolute game minute the outbound truck finished docking. Not saved: only for the [ShipDecision] timeline.</summary>
+        public int DockedAbs;
+
         /// <summary>Dollar amount of the real late fee already charged against this trailer's order(s)
         /// — see OrderData.LastFineAmount, summed at the moment SweepElapsedAppointments fines them.
         /// 0 when the lateness cost reputation only (the inbound vendor case), never both at once.</summary>
@@ -239,6 +245,8 @@ namespace GameCore.Inventory
         /// <summary>False/0 in a save written before the LATE badge existed — the forgiving default,
         /// same reasoning as the other penalty flags above.</summary>
         public bool wasLate;
+        /// <summary>0 in a save written before the gate-pass clock existed: the deadline then falls back to the booked slot, as before.</summary>
+        public int gatePassAbs;
         public int lateFineAmount;
         public int lateRelationshipPenalty;
     }
@@ -403,8 +411,14 @@ namespace GameCore.Inventory
                     pallets += o.ReleasedToFloor && o.PlannedPallets > 0 ? o.PlannedPallets : orders.PreviewPalletCount(o);
                 }
             }
-            return System.Math.Max(span, pallets * MinutesPerPalletLoad);
+            int allowed = System.Math.Max(span, pallets * MinutesPerPalletLoad);
+            // Outbound loads get a quarter more time than the bare figure (Tad, 2026-11-03: be more forgiving). Inbound offloads are unchanged.
+            if (appt.Kind != AppointmentKind.Inbound) allowed = Mathf.CeilToInt(allowed * OutboundLoadAllowanceFactor);
+            return allowed;
         }
+
+        /// <summary>Multiplier on an outbound trailer's loading allowance (slot span or 19 min per pallet, whichever is longer).</summary>
+        public const float OutboundLoadAllowanceFactor = 1.25f;
 
         /// <summary>THE deadline of an appointment, as an absolute game minute (day x 1440 + minute of day): its start plus
         /// <see cref="AllowedMinutes"/>. Every judgment, countdown, lock and label uses this one function so the fine, the
@@ -412,7 +426,35 @@ namespace GameCore.Inventory
         public int DeadlineMinute(DockAppointment appt)
         {
             ServiceLocator.TryGet(out OrderService orders);
-            return appt.Day * 1440 + appt.StartMinute + AllowedMinutes(appt, orders);
+            int allowed = AllowedMinutes(appt, orders);
+            int fromSlot = appt.Day * 1440 + appt.StartMinute + allowed;
+            // An outbound driver's clock starts when the truck passes the gate (Tad, 2026-11-03): the drive from the gate to the door is
+            // budgeted on top of the loading allowance, so a driver who is held up at the gate or in the yard never costs the player the
+            // loading time he was promised. Never EARLIER than the booked slot's deadline: the slot is still the customer's promise.
+            if (appt.Kind != AppointmentKind.Inbound && appt.GatePassAbs > 0)
+                return System.Math.Max(fromSlot, appt.GatePassAbs + GateToDoorMinutes + allowed);
+            return fromSlot;
+        }
+
+        /// <summary>Game minutes budgeted for an outbound truck's drive from the guard shack to its door (measured; OutboundTruckDispatchService sends the driver early by this much).</summary>
+        public const int GateToDoorMinutes = 72;
+
+        private int NowAbs() => CurrentDay * 1440 + CurrentHour * 60 + (Clock?.Minute ?? 0);
+
+        /// <summary>The outbound truck for this appointment has cleared the gate: starts the driver's clock (first call wins).</summary>
+        public void NoteGatePass(string appointmentId)
+        {
+            var a = FindById(appointmentId);
+            if (a == null || a.Kind == AppointmentKind.Inbound || a.GatePassAbs > 0) return;
+            a.GatePassAbs = NowAbs();
+        }
+
+        /// <summary>The outbound truck for this appointment has docked (timeline for the ship log; first call wins).</summary>
+        public void NoteDocked(string appointmentId)
+        {
+            var a = FindById(appointmentId);
+            if (a == null || a.Kind == AppointmentKind.Inbound || a.DockedAbs > 0) return;
+            a.DockedAbs = NowAbs();
         }
 
         /// <summary>An outbound driver does not leave when the booked block ends (Tad, 2026-11-03): the trailer stays until loading is
@@ -2218,6 +2260,7 @@ namespace GameCore.Inventory
             offSlotPenaltyApplied = a.OffSlotPenaltyApplied,
             closedOut = a.ClosedOut,
             wasLate = a.WasLate,
+            gatePassAbs = a.GatePassAbs,
             lateFineAmount = a.LateFineAmount,
             lateRelationshipPenalty = a.LateRelationshipPenalty
         }).ToList();
@@ -2250,6 +2293,7 @@ namespace GameCore.Inventory
                     OffSlotPenaltyApplied = s.offSlotPenaltyApplied,
                     ClosedOut = s.closedOut,
                     WasLate = s.wasLate,
+                    GatePassAbs = s.gatePassAbs,
                     LateFineAmount = s.lateFineAmount,
                     LateRelationshipPenalty = s.lateRelationshipPenalty
                 });

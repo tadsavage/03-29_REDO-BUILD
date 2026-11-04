@@ -1074,7 +1074,7 @@ public class EquipmentBattery : MonoBehaviour
         _nav.CancelSeekPosition();
 
         Vector3 drive = target;
-        if (NavMesh.SamplePosition(target, out var hit, 4f, _agent.areaMask)) drive = hit.position;
+        if (NavSample.OnAgentMesh(_agent, target, 4f, out var hit)) drive = hit.position;
         bool arrived = false;
         _nav.SeekPosition(drive, () => arrived = true);
         _inNavTo = true;

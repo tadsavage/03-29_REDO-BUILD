@@ -564,3 +564,4 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 7 17:25 | **OVERLAP** | OVERLAP OutboundPallet_e9c39b61-df4a-4379-bb70-5844e0325efd_1 & OutboundPallet_e9c39b61-df4a-4379-bb70-5844e0325efd_1 @1A-1
 - day 7 17:25 | **FLOATING** | FLOATING OutboundPallet_e9c39b61-df4a-4379-bb70-5844e0325efd_1 @1A-2 bottom=1.41
 - day 7 17:25 | **OVERLAP** | OVERLAP OutboundPallet_e9c39b61-df4a-4379-bb70-5844e0325efd_1 & OutboundPallet_e9c39b61-df4a-4379-bb70-5844e0325efd_1 @1A-2
+- day 2 21:25 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh

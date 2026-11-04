@@ -160,6 +160,9 @@ namespace GameCore.Inventory
         /// </summary>
         public bool HasBeenFined { get; set; }
 
+        /// <summary>Absolute game minute (day x 1440 + minute of day) the order was marked Loaded. Not saved: only for the [ShipDecision] timeline.</summary>
+        public int LoadedAbs { get; set; }
+
         /// <summary>Dollar amount of the fine actually charged when HasBeenFined was set — written once
         /// by OrderService.ChargeLateFee. Exists so a caller (DockAppointment's "LATE" tooltip) can
         /// show the real number that left the balance instead of recomputing LateFeePercent × revenue

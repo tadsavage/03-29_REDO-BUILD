@@ -518,6 +518,8 @@ namespace GameCore.Labor
             {
                 var pallet = pallets[i];
                 if (pallet == null) continue;
+                // The player cut / closed out the order, or the trailer has already pulled away: take no more pallets.
+                if (TruckGone(truck) || truck.LoadIsComplete) break;
                 // Rig destroyed mid-run — stop dispatching pallets and FALL THROUGH to the restore
                 // block below, rather than piling up more exceptions and skipping cleanup entirely.
                 if (ds == null) break;
@@ -934,6 +936,8 @@ namespace GameCore.Labor
             // dig-out route enters here too, with a pallet it just adopted as outbound freight.
             var stagedPallet = palletT.GetComponent<OutboundPalletBuilder>();
             if (stagedPallet != null) stagedPallet.Stage = OutboundPalletBuilder.PalletStage.Loading;
+            // The trailer left while this pallet was on the way: set it down here rather than chase the truck (2026-11-03).
+            if (TruckGone(truck)) { yield return AbortCarry(ds, forks, palletT); yield break; }
             Vector3 into = TrailerIntoDir(truck);
             Vector3 rightAxis = Vector3.Cross(Vector3.up, into);
 
@@ -983,6 +987,7 @@ namespace GameCore.Labor
             //    across the dock.)
             yield return FaceDir(ds, shippingDoorPivot - ds.position);
             yield return DriveTailFirst(ds, shippingDoorPivot);
+            if (TruckGone(truck)) { yield return AbortCarry(ds, forks, palletT); yield break; }
             // 7. Spin so the forks (and the carried pallet) face straight into the trailer.
             yield return FaceForks(ds, into);
             // 7b. Stacking on a pallet already in the slot: raise the forks by that stack's height BEFORE
@@ -998,6 +1003,7 @@ namespace GameCore.Labor
                 float raise = (targetWorld.y + StackApproachClearance) - palletT.position.y;
                 if (raise > 0.001f) yield return LiftForks(forks, forks.localPosition.y + raise);
             }
+            if (TruckGone(truck)) { yield return AbortCarry(ds, forks, palletT); yield break; }
             // 8. Drive straight in until the carried pallet's XZ lines up over its cargo slot.
             Vector3 palletOffset = palletT.position - ds.position; palletOffset.y = 0f;
             Vector3 targetXZ = new Vector3(targetWorld.x, driveY, targetWorld.z);
@@ -1026,6 +1032,21 @@ namespace GameCore.Labor
             // 11. Reverse straight back out of the trailer to the shipping door pivot — cab-first,
             //     forks trailing, no spin. The next pallet's run starts from here.
             yield return DriveTailFirst(ds, shippingDoorPivot);
+        }
+
+        /// <summary>The trailer was destroyed, is pulling out, or has no door any more: nothing to load into.</summary>
+        private static bool TruckGone(TruckController truck) => truck == null || truck.IsLeaving || truck.DockedAt == null;
+
+        /// <summary>The trailer left with a pallet on the forks: lower it and leave it on the floor where the stocker stands (the dock apron).
+        /// It is staged freight again; if its order is already shipped or cancelled the orphan sweep puts it back in stock.</summary>
+        private IEnumerator AbortCarry(Transform ds, Transform forks, Transform palletT)
+        {
+            if (forks != null) yield return LiftForks(forks, forks.localPosition.y - PalletLiftClearance);
+            if (palletT == null) yield break;
+            palletT.SetParent(null, worldPositionStays: true);
+            var pb = palletT.GetComponent<OutboundPalletBuilder>();
+            if (pb != null) { pb.Stage = OutboundPalletBuilder.PalletStage.Staged; pb.SetNavObstacleActive(true); }
+            Debug.LogWarning($"[TrailerLoad] The trailer left while {ds.name} was carrying {palletT.name} - set it down at {ds.position} instead of following the truck.");
         }
 
         // Resolves a lane's ENTRY (the end nearest the dock door) and its down-lane direction (entry
@@ -1129,7 +1150,7 @@ namespace GameCore.Labor
             }
 
             Vector3 driveTarget = new Vector3(target.x, ds.position.y, target.z);
-            if (NavMesh.SamplePosition(driveTarget, out var groundHit, 4f, agent.areaMask))
+            if (NavSample.OnAgentMesh(agent, driveTarget, 4f, out var groundHit))
                 driveTarget = groundHit.position;
 
             nav.CancelSeekPosition();
