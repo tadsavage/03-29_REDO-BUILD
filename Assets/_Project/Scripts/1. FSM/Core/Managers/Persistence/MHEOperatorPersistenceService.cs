@@ -127,18 +127,20 @@ namespace GameCore.Persistence
                     continue;
                 }
 
+                // The grid cell is the stable id: a vehicle that drove around before the save is no longer at its saved world
+                // position, so nearest-by-position could board the operator onto a different vehicle. Cell first, position second.
                 Vector3 savedVehiclePos = new Vector3(record.boardedVehicleWorldX, record.boardedVehicleWorldY, record.boardedVehicleWorldZ);
-                var vehiclePo = PlacedObjectRegistry.All
-                    .Where(po => po != null && po.GetComponent<MHEOperatorSlot>() != null && !po.GetComponent<MHEOperatorSlot>().IsOccupied)
-                    .OrderBy(po => Vector3.Distance(po.transform.position, savedVehiclePos))
-                    .FirstOrDefault();
+                var vehiclePo = PlacedObjectRegistry.All.FirstOrDefault(po =>
+                    po != null && po.gridX == record.boardedVehicleGridX && po.gridY == record.boardedVehicleGridY
+                    && po.GetComponent<MHEOperatorSlot>() != null && !po.GetComponent<MHEOperatorSlot>().IsOccupied);
 
-                // Fallback to grid cell if distance is too far or world position wasn't saved (older saves)
-                if (vehiclePo == null || Vector3.Distance(vehiclePo.transform.position, savedVehiclePos) > 1f)
+                if (vehiclePo == null)
                 {
-                    vehiclePo = PlacedObjectRegistry.All.FirstOrDefault(po =>
-                        po != null && po.gridX == record.boardedVehicleGridX && po.gridY == record.boardedVehicleGridY
-                        && po.GetComponent<MHEOperatorSlot>() != null && !po.GetComponent<MHEOperatorSlot>().IsOccupied);
+                    vehiclePo = PlacedObjectRegistry.All
+                        .Where(po => po != null && po.GetComponent<MHEOperatorSlot>() != null && !po.GetComponent<MHEOperatorSlot>().IsOccupied)
+                        .OrderBy(po => Vector3.Distance(po.transform.position, savedVehiclePos))
+                        .FirstOrDefault();
+                    if (vehiclePo != null && Vector3.Distance(vehiclePo.transform.position, savedVehiclePos) > 1f) vehiclePo = null;
                 }
 
                 var slot = vehiclePo != null ? vehiclePo.GetComponent<MHEOperatorSlot>() : null;

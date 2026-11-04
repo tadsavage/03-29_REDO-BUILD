@@ -53,10 +53,17 @@ public class EmployeeRegistry : MonoBehaviour
             return;
         }
 
-        if (_byGuid.ContainsKey(guid))
+        if (_byGuid.TryGetValue(guid, out var existing) && existing != null && existing != identity)
         {
-            Debug.LogWarning($"[EmployeeRegistry] Duplicate GUID {guid} for {identity.name} — skipping.");
-            return;
+            // A save load respawns employees while the previous instances are still being torn down. Keeping the old entry
+            // left boarding (and the jacks) pointing at an identity that was about to be destroyed. A live duplicate is
+            // still refused; a destroyed or disabled one is replaced by the new instance.
+            if (existing.isActiveAndEnabled)
+            {
+                Debug.LogWarning($"[EmployeeRegistry] Duplicate GUID {guid} for {identity.name} — skipping.");
+                return;
+            }
+            Debug.Log($"[EmployeeRegistry] Replacing the inactive entry for {guid} with {identity.name}.");
         }
 
         _byGuid[guid] = identity;
