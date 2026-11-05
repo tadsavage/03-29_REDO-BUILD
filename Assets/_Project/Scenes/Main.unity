@@ -7844,6 +7844,63 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &757910565
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 3802374995707641965, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 11.505299
+      objectReference: {fileID: 0}
+    - target: {fileID: 3802374995707641965, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.025000116
+      objectReference: {fileID: 0}
+    - target: {fileID: 3802374995707641965, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 30.566334
+      objectReference: {fileID: 0}
+    - target: {fileID: 3802374995707641965, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3802374995707641965, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3802374995707641965, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3802374995707641965, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3802374995707641965, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3802374995707641965, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3802374995707641965, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4580001689063070423, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
+      propertyPath: m_Name
+      value: FloorTile
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 77c2605dd21a20c4ab0504f6263439eb, type: 3}
 --- !u!1 &763062701
 GameObject:
   m_ObjectHideFlags: 0
@@ -14269,6 +14326,7 @@ MonoBehaviour:
   nightAmbient: {r: 0.1, g: 0.13, b: 0.22, a: 1}
   controlAmbient: 1
   globalBrightness: 1.4
+  lockToMidday: 1
 --- !u!4 &1706856163
 Transform:
   m_ObjectHideFlags: 0
@@ -18302,3 +18360,4 @@ SceneRoots:
   - {fileID: 137735297}
   - {fileID: 1636985265}
   - {fileID: 1635529926}
+  - {fileID: 757910565}

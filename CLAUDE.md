@@ -330,6 +330,20 @@ by clicking a rack (`PlacementStateMachine` → `ShowForAisle`).
 
 ---
 
+## Latest session notes (2026-11-04, player block 1029, score ~61-63)
+
+Details also in `Assets/_Project/Docs/Playtest/Cleanup_Plan_2026-11-04.md`. Commits `1101b7332` (UI + plan) and `e98eb8ad5` (fixes). **Fixes below are compiled but NOT yet proven in a played block** — run a block with no code changes and look for the new log lines.
+
+- **Phantom pick face (OG3814).** `LocationRegistry.ReleasePhantomOccupancy` compared x/z only, so a reserve pallet on the beam ABOVE an empty pick face made it read "physical" for ever: face stayed Occupied/blank, `ReplenishmentService` skipped it, order's planned pallets were picked off empty shelves. Now also compares height (0.8 m). Rack levels share x/z — never test slot occupancy in 2D.
+- **Planned pallets must not be burned.** A plan `OrderSelect` task whose selector finds every pick face empty used to finish Complete with 0 cases, so the order could never finish (and was cut at ship time). `OrderSelectionTaskDriver.HandPlanTaskBack` (used by both the on-foot and jack paths) returns it to Available and stands the selector down 45 s. Log line: "every pick face is empty - handing the task back".
+- **Stale duplicate PalletPick (OG8851).** `RefilePalletPickShortfalls` re-filed a pick for a staged pallet whose pick was already Complete (its Putaway task was still live); the extra "Still to pick: 1" held a fully loaded truck. `TryFindStagedPalletAwaitingPutaway` now skips pallets with a Complete PalletPick, and `OrderService.CancelStalePalletPicks` (every 3 game-min) cancels unclaimed picks once an order `IsFullyPicked`. Log: "is fully picked - cancelled a leftover pallet pick".
+- **Post-load phantoms.** `PalletInventoryTracker.SuppressPhantomsUntil` (set 4 s after `ApplySaveData`) stops it registering unidentified pallets as new "A Chep" stock before restored pallets are re-linked (was the OVERLAP/FLOATING pairs after F9).
+- Null guards: `NegotiatorGestures.PoseArm`, `TrailerLoadController.PlaceCarriedInTrailer`. `PlaytestBot.OnLog` ignores its own `[PlaytestBot]` lines (it counted "PLAYER BLOCK DONE" as REPEATING). **Bug counts before/after this are not comparable.**
+- UI: Accept Order tooltip shows pallet counts; Scheduler item table has an `Ord Qty` column (green covered / orange covered by inbound / red potential scratch — orange not yet seen live); message log default height 720 (clears the bottom bar).
+- Earlier this session: carried/staged pallet persistence across F5/F9, jack charge-trip + double-parking fixes, case-pick x3 / pallet-pick +25% revenue, time-study metrics (TaskWait/TaskRun/JackMount/ReplenishA-C/ForkLift). Right-click "Charge Battery" menu removed (battery system stays).
+- **Still open:** edge-of-floor / in-rack NavMesh targets ("cannot reach task position", "stuck, walking out"); "closed with a STAGED/IN TRANSIT pallet that never made the trailer" (watch after the duplicate-pick fix); jack staging stall (`jackBlocked`); economy dials stacked untested (revenue multipliers, handling fees, contract gates — HAL scores not comparable to old blocks); metrics tabs per-role filter.
+- Gotchas learned: `execute_code` needs fully qualified names (`GameCore.Services.ServiceLocator`, `GameCore.Inventory.OrderService`, `GameCore.Labor.WorkQueueSystem`); after Play stops, statics persist but scene objects are gone, so pallet/location reads are NOT representative — check logs instead. Orders are shown by `OrderNumber` (OG####) but keyed by GUID `OrderId`.
+
 ## Current focus (as of 2026-11-02)
 
 **Roadmap step 1 of 7: close the CORE LOOP** (see `roadmap` skill). Step 1 closes only when, with no code changes between blocks, three consecutive 7-day HAL blocks each show ≥80% orders on time, zero deadlocked doors/lanes, zero `REPEATING` bugs, positive profit, and no manual intervention. Then step 2 (Tutorial). Latest HAL blocks 27–28 scored ~58–59. Open items: rack double-booking overlaps, unreleased big orders, click-on-avatar/equipment info cards not opening (`[ClickProbe]` logs), staged pallets not persisted, reach-truck/dock-stocker reliability near NavMesh islands.
