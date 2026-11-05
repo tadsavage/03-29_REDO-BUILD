@@ -466,3 +466,167 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 1 19:31 | **WARN** | [AiNavigation] Employee_Eric Ritter: task target (2.36, 1.16, 41.69) is not reachable — the partial path ends 7.02m short of it. Handing the task back.
 - day 1 19:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet c78b991a-8e06-441d-9ce8-5c5334c4e8b2 but the employee is 6.4m away (max 4.5m) — refusing to start receiving.
 - day 1 20:15 | **WARN** | [AiNavigation] Employee_Eric Ritter cannot reach task position at (2.84, 1.18, 43.02) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **EXCEPTION** | AssertionException: Assertion failure. Value was False
+  ```
+  UnityEngine.Assertions.Assert.Fail (System.String message, System.String userMessage) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Assertions.Assert.IsTrue (System.Boolean condition, System.String message) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Assertions.Assert.IsTrue (System.Boolean condition) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Rendering.InstanceCuller.DisposeCompactVisibilityMasks () (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/Culling/InstanceCuller.cs:2650)
+  UnityEngine.Rendering.InstanceCuller.UpdateFrame (System.Int32 cameraCount) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/Culling/InstanceCuller.cs:3040)
+  UnityEngine.Rendering.GPUResidentDrawer.CullerUpdateFrame () (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:702)
+  UnityEngine.Rendering.GPUResidentDrawer.EditorFrameUpdate (System.Collections.Generic.List`1[T] cameras) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:631)
+  UnityEngine.Rendering.GPUResidentDrawer.OnBeginContextRendering (UnityEngine.Rendering.ScriptableRenderContext context, System.Collections.Generic.List`1[T] cameras) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:648)
+  ```
+- day 1 12:28 | **EXCEPTION** | AssertionException: Assertion failure. Value was False
+  ```
+  UnityEngine.Assertions.Assert.Fail (System.String message, System.String userMessage) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Assertions.Assert.IsTrue (System.Boolean condition, System.String message) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Assertions.Assert.IsTrue (System.Boolean condition) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Rendering.InstanceCuller.DisposeCompactVisibilityMasks () (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/Culling/InstanceCuller.cs:2650)
+  UnityEngine.Rendering.InstanceCuller.UpdateFrame (System.Int32 cameraCount) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/Culling/InstanceCuller.cs:3040)
+  UnityEngine.Rendering.GPUResidentDrawer.CullerUpdateFrame () (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:702)
+  UnityEngine.Rendering.GPUResidentDrawer.EditorFrameUpdate (System.Collections.Generic.List`1[T] cameras) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:631)
+  UnityEngine.Rendering.GPUResidentDrawer.OnBeginContextRendering (UnityEngine.Rendering.ScriptableRenderContext context, System.Collections.Generic.List`1[T] cameras) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:648)
+  ```
+- day 1 12:28 | **EXCEPTION** | AssertionException: Assertion failure. Value was False
+  ```
+  UnityEngine.Assertions.Assert.Fail (System.String message, System.String userMessage) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Assertions.Assert.IsTrue (System.Boolean condition, System.String message) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Assertions.Assert.IsTrue (System.Boolean condition) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Rendering.InstanceCuller.DisposeCompactVisibilityMasks () (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/Culling/InstanceCuller.cs:2650)
+  UnityEngine.Rendering.InstanceCuller.UpdateFrame (System.Int32 cameraCount) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/Culling/InstanceCuller.cs:3040)
+  UnityEngine.Rendering.GPUResidentDrawer.CullerUpdateFrame () (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:702)
+  UnityEngine.Rendering.GPUResidentDrawer.EditorFrameUpdate (System.Collections.Generic.List`1[T] cameras) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:631)
+  UnityEngine.Rendering.GPUResidentDrawer.OnBeginContextRendering (UnityEngine.Rendering.ScriptableRenderContext context, System.Collections.Generic.List`1[T] cameras) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:648)
+  ```
+- day 1 12:28 | **EXCEPTION** | AssertionException: Assertion failure. Value was False
+  ```
+  UnityEngine.Assertions.Assert.Fail (System.String message, System.String userMessage) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Assertions.Assert.IsTrue (System.Boolean condition, System.String message) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Assertions.Assert.IsTrue (System.Boolean condition) (at <d5ea965f39d74501b56f4006ef80da34>:0)
+  UnityEngine.Rendering.InstanceCuller.DisposeCompactVisibilityMasks () (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/Culling/InstanceCuller.cs:2650)
+  UnityEngine.Rendering.InstanceCuller.UpdateFrame (System.Int32 cameraCount) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/Culling/InstanceCuller.cs:3040)
+  UnityEngine.Rendering.GPUResidentDrawer.CullerUpdateFrame () (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:702)
+  UnityEngine.Rendering.GPUResidentDrawer.EditorFrameUpdate (System.Collections.Generic.List`1[T] cameras) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:631)
+  UnityEngine.Rendering.GPUResidentDrawer.OnBeginContextRendering (UnityEngine.Rendering.ScriptableRenderContext context, System.Collections.Generic.List`1[T] cameras) (at ./Library/PackageCache/com.unity.render-pipelines.core@2d66c71e606e/Runtime/GPUDriven/GPUResidentDrawer.cs:648)
+  ```
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **ERROR** | Trying to render a BatchRendererGroup (or Entities Graphics) batch with wrong cbuffer setup. Missing DOTS_INSTANCING_ON variant?
+  ```
+  UnityEditor.GUIView:ProcessEvent (UnityEngine.EntityId,intptr,bool&)
+  ```
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Jose Wilson cannot reach task position at (6.34, 2.29, 43.01) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Brian Johnson cannot reach task position at (5.47, 1.11, 51.18) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Brian Johnson cannot reach task position at (5.47, 1.11, 51.18) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:28 | **WARN** | [AiNavigation] Employee_Brian Johnson cannot reach task position at (5.47, 1.11, 51.18) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:32 | **WARN** | [AiNavigation] DS_FULL(Clone): task target (1.59, 1.12, 50.33) is not reachable — the partial path ends 13.47m short of it. Handing the task back.
+- day 1 12:32 | **WARN** | [AiNavigation] DS_FULL(Clone): task target (1.59, 1.12, 50.33) is not reachable — the partial path ends 13.47m short of it. Handing the task back.
+- day 1 12:32 | **WARN** | [AiNavigation] DS_FULL(Clone): task target (1.59, 1.12, 50.33) is not reachable — the partial path ends 13.47m short of it. Handing the task back.
+- day 1 12:33 | **WARN** | [AiNavigation] Employee_Joseph Jackson: task target (-31.19, 1.11, 41.76) is not reachable — the partial path ends 17.08m short of it. Handing the task back.
+- day 1 12:33 | **WARN** | [AiNavigation] Employee_Joseph Jackson: task target (-31.19, 1.11, 41.76) is not reachable — the partial path ends 17.08m short of it. Handing the task back.
+- day 1 12:33 | **WARN** | [AiNavigation] Employee_Joseph Jackson: task target (-31.19, 1.11, 41.76) is not reachable — the partial path ends 17.08m short of it. Handing the task back.
+- day 1 13:01 | **WARN** | [AiNavigation] RT_Full(Clone): task target (-31.19, 1.11, 46.64) is not reachable — the partial path ends 6.80m short of it. Handing the task back.
+- day 1 13:01 | **WARN** | [AiNavigation] RT_Full(Clone): task target (-31.19, 1.11, 46.64) is not reachable — the partial path ends 6.80m short of it. Handing the task back.
+- day 1 13:01 | **WARN** | [AiNavigation] RT_Full(Clone): task target (-31.19, 1.11, 46.64) is not reachable — the partial path ends 6.80m short of it. Handing the task back.
+- day 1 13:13 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-23.53, 1.11, 39.67) — walking out to (-25.39, 1.08, 35.50) (4.12m to mesh).
+- day 1 13:13 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-23.53, 1.11, 39.67) — walking out to (-25.39, 1.08, 35.50) (4.12m to mesh).
+- day 1 13:13 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-23.53, 1.11, 39.67) — walking out to (-25.39, 1.08, 35.50) (4.12m to mesh).
+- day 1 13:21 | **WARN** | [AiNavigation] PltJack_FULL(Clone): task target (-3.07, 1.08, 50.33) is not reachable — the partial path ends 19.74m short of it. Handing the task back.
+- day 1 13:21 | **WARN** | [AiNavigation] PltJack_FULL(Clone): task target (-3.07, 1.08, 50.33) is not reachable — the partial path ends 19.74m short of it. Handing the task back.
+- day 1 13:21 | **WARN** | [AiNavigation] PltJack_FULL(Clone): task target (-3.07, 1.08, 50.33) is not reachable — the partial path ends 19.74m short of it. Handing the task back.
+- day 1 13:41 | **WARN** | [AiNavigation] Employee_Joseph Jackson: task target (-31.19, 1.11, 41.76) only partially reachable — stopped 0.43m short. Treating as arrived.
+- day 1 13:41 | **WARN** | [AiNavigation] Employee_Joseph Jackson: task target (-31.19, 1.11, 41.76) only partially reachable — stopped 0.43m short. Treating as arrived.
+- day 1 13:41 | **WARN** | [AiNavigation] Employee_Joseph Jackson: task target (-31.19, 1.11, 41.76) only partially reachable — stopped 0.43m short. Treating as arrived.
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 12:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment

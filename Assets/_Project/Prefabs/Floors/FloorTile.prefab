@@ -56,6 +56,10 @@ PrefabInstance:
       propertyPath: m_MotionVectors
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: b6aaa18ba3f817642ba210140358a247, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: e711b9fd6c1eb314ea8c0be6abf7d855, type: 2}
     - target: {fileID: -5754084199372789682, guid: b6aaa18ba3f817642ba210140358a247, type: 3}
       propertyPath: m_Mesh
       value: 
@@ -172,7 +176,7 @@ MonoBehaviour:
   m_GenerateLinks: 0
   m_IgnoreFromBuild: 0
   m_ApplyToChildren: 1
-  m_AffectedAgents: ffffffff
+  m_AffectedAgents: ffffffffi
 --- !u!65 &6008725346853769874
 BoxCollider:
   m_ObjectHideFlags: 0

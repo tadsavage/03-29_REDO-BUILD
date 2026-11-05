@@ -50,6 +50,7 @@ public class TruckDoorWaitBar : MonoBehaviour
     private string _currentMessage;
     private Color _currentColor = NoDoorColor;
     private float _currentFillAmount;
+    private int _lastDwellFrame = -100;   // frame ShowDwellStatus last ran; drives the world canvas' visibility
 
     public string CurrentMessage => _currentMessage;
     public Color CurrentColor => _currentColor;
@@ -81,7 +82,7 @@ public class TruckDoorWaitBar : MonoBehaviour
 
         var canvasGO = new GameObject("TruckDoorWaitCanvas");
         canvasGO.transform.SetParent(transform, false);
-        canvasGO.transform.localPosition = new Vector3(0f, 4.2f, 0f); // above the cab roof
+        canvasGO.transform.localPosition = new Vector3(0f, 5.8f, 0f); // above the trailer roof (4.2 sank into it, Tad 2026-11-04)
         canvasGO.transform.localRotation = Quaternion.identity;
         canvasGO.transform.localScale = Vector3.one * 0.0075f; // 3x the previous 0.0025f size, per request
 
@@ -202,7 +203,8 @@ public class TruckDoorWaitBar : MonoBehaviour
     }
 
     /// <summary>Ensures the canvas exists so the fill/label/frame objects are available to write
-    /// state into. Deliberately does NOT activate the canvas any more — this banner used to float
+    /// state into. Does NOT activate the canvas itself (ShowDwellStatus does, for the countdown only,
+    /// 2026-11-04) — this banner used to float
     /// above every truck's cab at all times, which the world hover tooltip (WorldHoverPopupUI.
     /// TickHoverTruck) replaced per Tad's request: "take the fill bar off and implement it here."
     /// The Show*/Hide methods below still run in full (so _currentMessage/_currentColor/
@@ -255,12 +257,19 @@ public class TruckDoorWaitBar : MonoBehaviour
         PrepareToShow();
         SetColor(color);
         if (_fillImage != null) _fillImage.fillAmount = Mathf.Clamp01(fillFraction);
-        if (_label != null) _label.text = message;
-        FaceCamera();
+        if (_label != null && _label.text != message) _label.text = message;   // per-frame call: don't retrigger TMP auto-size for the same text
 
         _currentColor = color;
         _currentFillAmount = Mathf.Clamp01(fillFraction);
         _currentMessage = message;
+
+        // The countdown floats over the cab again (Tad, 2026-11-04), same fill and "X minutes until ..." text as the truck
+        // card. Only this countdown shows in the world - the heading-to-door / departing lines stay card-only. The clocks
+        // that call this tick every frame, so LateUpdate hides the canvas as soon as they stop (offload claimed, truck
+        // leaving, load complete) instead of leaving the last reading frozen above the cab.
+        _lastDwellFrame = Time.frameCount;
+        if (_canvas != null && !_canvas.gameObject.activeSelf) _canvas.gameObject.SetActive(true);
+        FaceCamera();
     }
 
     /// <summary>Truck has finished offloading and is departing the yard.</summary>
@@ -324,6 +333,9 @@ public class TruckDoorWaitBar : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (_canvas != null && _canvas.gameObject.activeSelf) FaceCamera();
+        if (_canvas == null || !_canvas.gameObject.activeSelf) return;
+        // Countdown no longer being fed (see ShowDwellStatus): take the world bar down.
+        if (Time.frameCount - _lastDwellFrame > 3) { _canvas.gameObject.SetActive(false); return; }
+        FaceCamera();
     }
 }
