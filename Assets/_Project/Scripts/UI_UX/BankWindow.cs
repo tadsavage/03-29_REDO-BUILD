@@ -132,8 +132,10 @@ public static class BankWindow
             var r = Row(ColRow);
             var info = new VisualElement(); info.style.flexGrow = 1;
             info.Add(Text(loan.name, 20, ColText, true));
-            int weeksLeft = loan.WeeksLeft(LoanService.WeeklyRate(loan.apr));
-            info.Add(Text($"Owes ${Mathf.CeilToInt(loan.balance):N0} of ${loan.amount:N0}  |  {loan.apr:P0} APR  |  ${loan.weeklyPayment:N0}/week  |  ~{weeksLeft} weeks left  |  next due day {loan.nextDueDay}" +
+            int weeksLeft = bank.WeeksRemaining(loan);
+            int minDue = loan.IsFixedWeekly ? loan.MinimumDue() : loan.weeklyPayment;
+            string rateText = loan.IsFixedWeekly ? $"{loan.weeklyRate:P1}/week (First-Time Build)" : $"{loan.apr:P0} APR";
+            info.Add(Text($"Owes ${Mathf.CeilToInt(loan.balance):N0} of ${loan.amount:N0}  |  {rateText}  |  min ${minDue:N0}/week  |  ~{weeksLeft} weeks left  |  next due day {loan.nextDueDay}" +
                           (loan.missedPayments > 0 ? $"  |  {loan.missedPayments} missed" : ""), 13, ColMuted));
             r.Add(info);
             var l = loan;
@@ -143,6 +145,21 @@ public static class BankWindow
             string why = bank.WhyNoRefinance(loan);
             r.Add(Btn(why == null ? $"Refinance to {LoanService.AprFor(band):P0}" : "Refinance", why == null, ColOrange, () => bank.Refinance(l), why));
             _body.Add(r);
+
+            // Overpayment (mortgage-portal style): extra principal paid every week after the minimum. Set it here; it applies at each due date.
+            if (loan.IsFixedWeekly)
+            {
+                var op = Row(ColRow);
+                var opInfo = new VisualElement(); opInfo.style.flexGrow = 1;
+                opInfo.Add(Text($"WEEKLY OVERPAYMENT: ${loan.weeklyOverpayment:N0}", 16, loan.weeklyOverpayment > 0 ? ColGood : ColText, true));
+                opInfo.Add(Text("Extra principal on top of the minimum, paid each week if you can afford it. Skipped quietly if cash is short.", 12, ColMuted));
+                op.Add(opInfo);
+                op.Add(Btn("-$5k", loan.weeklyOverpayment > 0, ColBlue, () => bank.SetOverpayment(l, Mathf.Max(0, l.weeklyOverpayment - 5000))));
+                op.Add(Btn("+$5k", true, ColBlue, () => bank.SetOverpayment(l, l.weeklyOverpayment + 5000)));
+                op.Add(Btn("+$25k", true, ColBlue, () => bank.SetOverpayment(l, l.weeklyOverpayment + 25000)));
+                op.Add(Btn("Off", loan.weeklyOverpayment > 0, ColMuted, () => bank.SetOverpayment(l, 0)));
+                _body.Add(op);
+            }
         }
 
         // Offers
@@ -165,7 +182,8 @@ public static class BankWindow
         }
 
         _body.Add(Text("Interest is an expense (Lease / Mortgage > Loan Interest). Borrowed cash and principal repayments are not income or expenses. " +
-                       "A missed payment adds a 5% fee to the balance and costs 10 reputation. Refinance needs Respected reputation, once every 4 weeks.",
+                       "First-Time Build loans: 1.5% interest a week on the balance plus 1% of the original principal, paid each week. " +
+                       "A missed payment adds a 5% fee to the balance and costs 10 reputation. Legacy APR loans can refinance at Respected reputation.",
                        12, ColMuted));
     }
 

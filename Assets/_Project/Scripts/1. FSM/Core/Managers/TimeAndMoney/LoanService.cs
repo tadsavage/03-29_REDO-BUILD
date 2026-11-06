@@ -25,6 +25,25 @@ namespace GameCore.Economy
         public int    missedPayments;
         public int    interestPaid;
 
+        // Fixed-rate loans (the First-Time Build mortgage): weekly interest on the balance and a flat weekly principal floor.
+        // weeklyRate == 0 means a legacy APR loan, which uses apr/52 and the amortised weeklyPayment.
+        public float  weeklyRate;
+        public int    minPrincipal;
+        // Player-set extra principal every week, applied after the minimum is paid (the "overpayment" in the Bank window).
+        public int    weeklyOverpayment;
+
+        public bool IsFixedWeekly => weeklyRate > 0f;
+        public float EffectiveWeeklyRate => IsFixedWeekly ? weeklyRate : apr / 52f;
+
+        /// <summary>Weekly minimum due right now: interest on the balance plus the principal floor (fixed-rate loans only).</summary>
+        public int MinimumDue()
+        {
+            if (balance <= 0.5f) return 0;
+            int interest = Mathf.CeilToInt(balance * EffectiveWeeklyRate);
+            int principal = Mathf.Min(minPrincipal, Mathf.CeilToInt(balance));
+            return interest + principal;
+        }
+
         public int WeeksLeft(float rWeekly)
         {
             if (balance <= 0.5f) return 0;
@@ -70,6 +89,11 @@ namespace GameCore.Economy
         public const float MissedPaymentFeePercent = 0.05f;
         public const int MissedPaymentReputation = 10;
         public const int RefinanceCooldownDays = 28;
+
+        // First-Time Build mortgage (easy mode, Tad 2026-11-05): 1.5% interest per week on the balance, plus a minimum
+        // principal of 1% of the original loan per week. $500k => $7,500 interest + $5,000 principal = $12,500 minimum.
+        public const float FirstTimeBuildWeeklyRate = 0.015f;
+        public const float FirstTimeBuildPrincipalPercent = 0.01f;
         public const ReputationBand RefinanceBand = ReputationBand.Respected;
 
         public static readonly LoanOffer[] Offers =
@@ -107,7 +131,7 @@ namespace GameCore.Economy
 
         public IReadOnlyList<Loan> Loans => _loans;
         public int TotalDebt => Mathf.CeilToInt(_loans.Sum(l => Mathf.Max(0f, l.balance)));
-        public int WeeklyPayments => _loans.Where(l => l.balance > 0.5f).Sum(l => l.weeklyPayment);
+        public int WeeklyPayments => _loans.Where(l => l.balance > 0.5f).Sum(l => l.IsFixedWeekly ? l.MinimumDue() : l.weeklyPayment);
         public static event Action OnLoansChanged;
 
         public void Initialize()
@@ -134,16 +158,37 @@ namespace GameCore.Economy
         {
             if (_mortgageCreated || amount <= 0) return;
             _mortgageCreated = true;
-            float apr = AprFor(CurrentBand);
-            _loans.Add(new Loan
+            var loan = new Loan
             {
                 id = Guid.NewGuid().ToString("N"), offerId = "mortgage", name = "Warehouse Mortgage",
-                amount = amount, balance = amount, apr = apr, termWeeks = MortgageWeeks,
-                weeklyPayment = PaymentFor(amount, apr, MortgageWeeks),
+                amount = amount, balance = amount, apr = FirstTimeBuildWeeklyRate * 52f, termWeeks = 0,
+                weeklyRate = FirstTimeBuildWeeklyRate,
+                minPrincipal = Mathf.CeilToInt(amount * FirstTimeBuildPrincipalPercent),
                 startDay = Today, nextDueDay = Today + 7,
-            });
-            SystemsLogWindow.LogSystem($"BANK: your warehouse is financed - ${amount:N0} mortgage at {apr:P0} APR, " +
-                                       $"${PaymentFor(amount, apr, MortgageWeeks):N0} a week for {MortgageWeeks} weeks. Click Capital > BANK.");
+            };
+            loan.weeklyPayment = loan.MinimumDue();
+            _loans.Add(loan);
+            SystemsLogWindow.LogSystem($"BANK: First-Time Build loan - ${amount:N0} at {FirstTimeBuildWeeklyRate:P1} a week. " +
+                                       $"Minimum ${loan.weeklyPayment:N0} a week. Overpay from Capital > BANK.");
+            OnLoansChanged?.Invoke();
+        }
+
+        /// <summary>Weeks until a fixed-rate loan is cleared at its current overpayment. Principal is a flat floor, so this is exact
+        /// for the minimum and an upper bound once overpaying.</summary>
+        public int WeeksRemaining(Loan loan)
+        {
+            if (loan == null || loan.balance <= 0.5f) return 0;
+            if (!loan.IsFixedWeekly) return loan.WeeksLeft(loan.EffectiveWeeklyRate);
+            int perWeek = loan.minPrincipal + loan.weeklyOverpayment;
+            return perWeek <= 0 ? 999 : Mathf.CeilToInt(Mathf.CeilToInt(loan.balance) / (float)perWeek);
+        }
+
+        /// <summary>Sets the weekly overpayment for a loan (from the Bank window). Takes effect at the next weekly payment.</summary>
+        public void SetOverpayment(Loan loan, int amount)
+        {
+            if (loan == null) return;
+            loan.weeklyOverpayment = Mathf.Max(0, amount);
+            SystemsLogWindow.LogSystem($"BANK: overpayment on the {loan.name} set to ${loan.weeklyOverpayment:N0} a week.");
             OnLoansChanged?.Invoke();
         }
 
@@ -210,6 +255,7 @@ namespace GameCore.Economy
         public string WhyNoRefinance(Loan loan)
         {
             if (loan == null || loan.balance <= 0.5f) return "Nothing owed";
+            if (loan.IsFixedWeekly) return "Fixed First-Time Build rate";
             if (CurrentBand < RefinanceBand) return $"Requires {ReputationService.BandLabel(RefinanceBand)} reputation";
             if (Today - loan.lastRefinanceDay < RefinanceCooldownDays) return $"Again on day {loan.lastRefinanceDay + RefinanceCooldownDays}";
             if (AprFor(CurrentBand) >= loan.apr - 0.0001f) return "No better rate yet";
@@ -244,15 +290,19 @@ namespace GameCore.Economy
                 loan.nextDueDay += 7;
                 changed = true;
 
-                float r = WeeklyRate(loan.apr);
+                float r = loan.EffectiveWeeklyRate;
                 int interest = Mathf.CeilToInt(loan.balance * r);
-                int principal = Mathf.Min(Mathf.Max(0, loan.weeklyPayment - interest), Mathf.CeilToInt(loan.balance));
+                int principal;
+                if (loan.IsFixedWeekly)
+                    principal = Mathf.Min(loan.minPrincipal, Mathf.CeilToInt(loan.balance));
+                else
+                    principal = Mathf.Min(Mathf.Max(0, loan.weeklyPayment - interest), Mathf.CeilToInt(loan.balance));
                 int due = interest + principal;
 
                 if (!_money.CanAfford(due))
                 {
                     // MISSED: the interest is added to what is owed, plus the late fee; reputation takes the hit.
-                    int fee = Mathf.CeilToInt(loan.weeklyPayment * MissedPaymentFeePercent);
+                    int fee = Mathf.CeilToInt(Mathf.Max(loan.weeklyPayment, due) * MissedPaymentFeePercent);
                     loan.balance += interest + fee;
                     loan.missedPayments++;
                     if (ServiceLocator.TryGet(out ReputationService rep) && rep != null)
@@ -267,7 +317,19 @@ namespace GameCore.Economy
                     loan.interestPaid += interest;
                 }
                 PayPrincipal(loan, principal);
-                if (loan.balance <= 0.5f) PaidOff(loan);
+                if (loan.balance <= 0.5f) { PaidOff(loan); continue; }
+
+                // Overpayment: the player's extra principal, only when the cash is there after the minimum. Skipped quietly otherwise
+                // (it is optional, so it never counts as a missed payment).
+                if (loan.IsFixedWeekly && loan.weeklyOverpayment > 0)
+                {
+                    int extra = Mathf.Min(loan.weeklyOverpayment, Mathf.CeilToInt(loan.balance));
+                    if (_money.CanAfford(extra))
+                    {
+                        PayPrincipal(loan, extra);
+                        if (loan.balance <= 0.5f) PaidOff(loan);
+                    }
+                }
             }
             if (changed) OnLoansChanged?.Invoke();
         }
