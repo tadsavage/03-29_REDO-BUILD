@@ -60,6 +60,7 @@ namespace GameCore.Economy
     {
         public List<Loan> loans = new();
         public bool mortgageCreated;
+        public int totalBorrowed;
     }
 
     /// <summary>A loan the bank will write, gated by reputation band (greyed out in the Bank window until reached).</summary>
@@ -126,6 +127,8 @@ namespace GameCore.Economy
 
         private readonly List<Loan> _loans = new();
         private bool _mortgageCreated;
+        private int _totalBorrowed;   // every dollar drawn from a loan offer, ever (saved). Lets the playtest bot tell loan cash from profit.
+        public int TotalBorrowed => _totalBorrowed;
         private SimulationTimeService _time;
         private MoneyService _money;
 
@@ -214,6 +217,7 @@ namespace GameCore.Economy
                 startDay = Today, nextDueDay = Today + 7,
             };
             _loans.Add(loan);
+            _totalBorrowed += offer.Amount;
             // Borrowed money is not revenue: move the balance without a ledger entry.
             _money.RestoreCapital(_money.CurrentCapital + offer.Amount);
             SystemsLogWindow.LogSystem($"BANK: {offer.Name} approved - ${offer.Amount:N0} at {apr:P0} APR, ${loan.weeklyPayment:N0} a week for {offer.TermWeeks} weeks.");
@@ -336,12 +340,13 @@ namespace GameCore.Economy
 
         // ── Persistence ────────────────────────────────────────────────────
 
-        public LoanSnapshot Export() => new LoanSnapshot { loans = _loans.Select(Clone).ToList(), mortgageCreated = _mortgageCreated };
+        public LoanSnapshot Export() => new LoanSnapshot { loans = _loans.Select(Clone).ToList(), mortgageCreated = _mortgageCreated, totalBorrowed = _totalBorrowed };
 
         public void Import(LoanSnapshot snap)
         {
             _loans.Clear();
             _mortgageCreated = snap != null && snap.mortgageCreated;
+            _totalBorrowed = snap != null ? snap.totalBorrowed : 0;
             if (snap?.loans != null) _loans.AddRange(snap.loans.Where(l => l != null).Select(Clone));
             OnLoansChanged?.Invoke();
         }

@@ -449,7 +449,7 @@ public static class HalSummaryWindow
         }
         else
         {
-            var pl = L(10, Pending, TextAnchor.MiddleCenter); pl.text = "feeds Reliability"; pl.style.whiteSpace = WhiteSpace.Normal;
+            var pl = L(10, Pending, TextAnchor.MiddleCenter); pl.text = r.pointsNote ?? "feeds Reliability"; pl.style.whiteSpace = WhiteSpace.Normal;
             pts.Add(pl);
         }
         row.Add(pts);
