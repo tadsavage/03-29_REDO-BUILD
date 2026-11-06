@@ -1149,7 +1149,7 @@ private void ShowLocation(LocationData location)
         // Explicit rather than relying on the inherited USS class value — matches the house
         // semi-transparent dark navy used elsewhere (SystemsLogWindow's floating panel, etc.).
         popup.style.backgroundColor = new Color(0.078f, 0.110f, 0.173f, 0.94f);
-        popup.style.width = 300;
+        popup.style.width = 420;
         popup.style.paddingLeft = 10;
         popup.style.paddingRight = 10;
         popup.style.paddingTop = 8;
@@ -1329,6 +1329,10 @@ private void ShowLocation(LocationData location)
         infoRow.style.alignItems = Align.Stretch;
         var infoText = new VisualElement { pickingMode = PickingMode.Ignore };
         infoText.style.flexGrow = 1; infoText.style.flexShrink = 1;
+        infoText.style.minWidth = 0;   // let long names wrap inside the column instead of running under the vendor icon
+        vendorLabel.style.whiteSpace = WhiteSpace.Normal;
+        orderLabel.style.whiteSpace = WhiteSpace.Normal;
+        apptLabel.style.whiteSpace = WhiteSpace.Normal;
         infoText.Add(vendorLabel);
         infoText.Add(orderLabel);
         infoText.Add(apptLabel);
@@ -1971,7 +1975,7 @@ private void ShowLocation(LocationData location)
 
         ui.TotalPalletsLabel.text = outboundPalletText ?? (loadedPalletCount >= 0 ? $"PALLETS: {loadedPalletCount} aboard" : $"TOTAL PALLETS: {totalPalletCount}");
         ui.TotalPalletsLabel.style.whiteSpace = WhiteSpace.Normal;
-        ui.Popup.style.width = loadedPalletCount >= 0 ? 480 : 300;   // outbound cards carry a per-item progress bar
+        ui.Popup.style.width = loadedPalletCount >= 0 ? 480 : 420;   // outbound cards carry a per-item progress bar; inbound 300 -> 420 so the vendor icon no longer sits over the header text (Tad, 2026-11-05: widen the card, keep the icon size)
 
         ui.ItemsList.Clear();
         if (items.Count == 0)

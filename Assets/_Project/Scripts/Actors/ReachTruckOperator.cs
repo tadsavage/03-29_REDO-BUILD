@@ -650,6 +650,26 @@ namespace GameCore.Actors
                                               t.Status != WorkTaskStatus.Complete && t.Status != WorkTaskStatus.Cancelled)) continue;
 
                 string from = $"STG{slot.DoorNumber}{slot.Lane}-{slot.Slot}";
+
+                // An open order still needs a whole pallet of this SKU (its pallet pick lost its pallet, or never had one):
+                // give it THIS pallet, lane to lane, instead of a putaway followed by a pick straight back out (Tad, 2026-11-05:
+                // OG6862's raisins sat in a door-2 lane for 5 hours, then a reach truck racked them and picked them back out).
+                var waitingPick = _workQueue.Tasks.FirstOrDefault(t =>
+                    t.Type == WorkTaskType.PalletPick && t.SkuId == record.SkuId &&
+                    (t.Status == WorkTaskStatus.Open || t.Status == WorkTaskStatus.Available) &&
+                    string.IsNullOrEmpty(t.AssignedToEmployeeGuid) &&
+                    (string.IsNullOrEmpty(t.PalletId) || _inventoryService.GetPallet(t.PalletId) == null));
+                if (waitingPick != null)
+                {
+                    waitingPick.PalletId = palletId;
+                    waitingPick.AssignFromLocation(from);
+                    if (waitingPick.Status == WorkTaskStatus.Open && !string.IsNullOrEmpty(waitingPick.ToLocation))
+                        waitingPick.Status = WorkTaskStatus.Available;
+                    Debug.LogWarning($"[ReachTruckOperator] Pallet {palletId} ({record.SkuId}) in {slot.DoorNumber}{slot.Lane} had no task - " +
+                                     $"linked it to the waiting pallet pick for order {waitingPick.OrderId} (lane to lane, no putaway).");
+                    continue;
+                }
+
                 var created = _workQueue.CreateTask(
                     WorkTaskType.Putaway,
                     EmployeeRole.ReachTruckOperator,

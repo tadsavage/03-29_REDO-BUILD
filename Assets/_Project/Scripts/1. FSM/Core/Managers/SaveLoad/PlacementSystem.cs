@@ -384,6 +384,8 @@ public class PlacementSystem : MonoBehaviour
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.BrokerService brokerService))
             save.broker = brokerService.Export();
+        if (ServiceLocator.TryGet(out GameCore.Economy.LoanService loanService))
+            save.loans = loanService.Export();
 
         if (ToolsWindowController.Instance != null)
         {
@@ -927,6 +929,8 @@ public class PlacementSystem : MonoBehaviour
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.BrokerService brokerRestore))
             brokerRestore.Import(save.broker);
+        if (ServiceLocator.TryGet(out GameCore.Economy.LoanService loanRestore))
+            loanRestore.Import(save.loans);
 
         if (save.cameraData != null && freeLookCamera != null)
             freeLookCamera.SetState(save.cameraData);

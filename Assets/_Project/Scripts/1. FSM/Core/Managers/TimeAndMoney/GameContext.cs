@@ -71,6 +71,7 @@ public class GameContext : MonoBehaviour
         var vendorPerformanceTracker = new GameCore.Inventory.VendorPerformanceTracker();
         var contractRevenueTracker = new GameCore.Inventory.ContractRevenueTracker();
         var vendorDealService = new GameCore.Inventory.VendorDealService();
+        var loanService = new LoanService();
 
         // Register services with ServiceLocator for dependency injection
         ServiceLocator.Register<SimulationTimeService>(TimeService as SimulationTimeService);
@@ -93,6 +94,7 @@ public class GameContext : MonoBehaviour
         ServiceLocator.Register<GameCore.Inventory.VendorPerformanceTracker>(vendorPerformanceTracker);
         ServiceLocator.Register<GameCore.Inventory.ContractRevenueTracker>(contractRevenueTracker);
         ServiceLocator.Register<GameCore.Inventory.VendorDealService>(vendorDealService);
+        ServiceLocator.Register<LoanService>(loanService);
 
         // Initialize services (subscribes to events, publishes initial state)
         TimeService.Initialize();
@@ -141,6 +143,8 @@ public class GameContext : MonoBehaviour
         // AFTER reputation: the broker reads the score to decide whether it will deal with the
         // player at all, and resolves it out of the locator on Initialize.
         brokerService.Initialize();
+        // The bank: needs time (weekly payments), money and reputation (rates), all initialized above.
+        loanService.Initialize();
 
         // Defensive reset in case a same-process "New Game"/reload path ever re-runs GameContext.Awake()
         // without a full domain reload — SlotAssignmentService is in-memory only (see its own doc
@@ -228,6 +232,9 @@ public class GameContext : MonoBehaviour
             Debug.Log("[GameContext.Start] New game path: starting fresh.");
             PlayerPrefs.SetInt("IsNewGame", 0);
             PlayerPrefs.Save();
+
+            // The starting capital is the bank's money: it becomes the mortgage on the warehouse (Tad, 2026-11-05).
+            ServiceLocator.Get<LoanService>()?.CreateStartingMortgage(MoneyService.CurrentCapital);
 
             string playerName = PlayerPrefs.GetString("PlayerName", "Boss");
             var welcomeOverlay = FindAnyObjectByType<WelcomeOverlayManager>(FindObjectsInactive.Include);

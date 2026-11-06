@@ -135,8 +135,9 @@ public class SchedulerWarningService : MonoBehaviour
         else
         {
             string coveredPhrase = string.Join(" and ", covered.Select(m => $"the {m.label} will be here at {m.arrivalLabel}"));
+            // Everything missing is already on an inbound PO in time: nothing for the player to do, so no message (Tad, 2026-11-05).
             if (uncovered.Count == 0)
-                message = $"{body} However, {coveredPhrase} — nothing further to order.";
+                return;
             else
                 message = $"{body} However, {coveredPhrase}, but you still need to order the " +
                            string.Join(" and ", uncovered.Select(m => m.label)) + ".";

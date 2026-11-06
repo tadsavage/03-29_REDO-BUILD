@@ -81,30 +81,19 @@ namespace GameCore.Inventory
                 onHand[p.SkuId] = n + p.Quantity;
             }
 
-            // Outbound demand per SKU: (due minute, cases still owed). Orders already staged/loaded have their stock out of
-            // the building's inventory, so only orders still waiting to be picked count.
+            // Outbound demand per SKU: (due minute, cases still owed = needed - picked). Picked cases have already left the
+            // building's inventory, so only the unpicked remainder is compared against on-hand stock.
             var demand = new Dictionary<string, List<(long due, int qty)>>();
             if (orders != null)
             {
-                // An order the first load pass already marked Staged/Loading/Loaded can STILL owe cases (selectors are mid-trip, or later trips
-                // are queued) - the status alone said "done" and hid that demand. Those orders count while pick work for them is live.
-                var liveWorkOrders = new HashSet<string>();
-                if (ServiceLocator.TryGet<GameCore.Labor.WorkQueueSystem>(out var queue) && queue != null)
-                    foreach (var task in queue.Tasks)
-                    {
-                        if (string.IsNullOrEmpty(task.OrderId)) continue;
-                        if (task.Type != GameCore.Labor.WorkTaskType.OrderSelect && task.Type != GameCore.Labor.WorkTaskType.PalletPick) continue;
-                        if (task.Status == GameCore.Labor.WorkTaskStatus.Complete || task.Status == GameCore.Labor.WorkTaskStatus.Cancelled) continue;
-                        liveWorkOrders.Add(task.OrderId);
-                    }
-
                 foreach (var o in orders.ActiveOrders)
                 {
                     if (o == null || o.ReturnsMode) continue;
                     if (o.Status == OrderData.OrderStatus.Shipped || o.Status == OrderData.OrderStatus.Cancelled) continue;
-                    bool stillPicking = o.Status == OrderData.OrderStatus.Pending || o.Status == OrderData.OrderStatus.PartiallyPicked ||
-                                        o.Status == OrderData.OrderStatus.Backorder;
-                    if (!stillPicking && !liveWorkOrders.Contains(o.OrderId)) continue;
+                    // Every unshipped order counts, whatever its status (Tad, 2026-11-05). QuantityRemaining is already net of what was
+                    // picked, so a Staged/Loaded order only adds the cases it is still SHORT. Gating on "still picking or has live pick
+                    // work" hid exactly those: OG6866 sat Staged at 115/140 with no pick task left (nothing in stock to pick), the
+                    // Item Listing showed no scratches at all, and the truck shipped 25 cases short without a warning.
                     long due = ((long)o.DueDay + 1) * MinutesPerDay;   // end of the due day
                     foreach (var li in o.LineItems)
                     {

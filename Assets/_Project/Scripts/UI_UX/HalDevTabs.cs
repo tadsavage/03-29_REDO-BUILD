@@ -81,7 +81,7 @@ public static class HalDevTabs
 
         // knobs
         var run = Section(root, "RUN", Blue);
-        Slider(run, "Game speed", 1, 5, 1, () => Mathf.RoundToInt(S.gameSpeed), v => { S.gameSpeed = v; if (PlaytestBot.Instance != null && PlaytestBot.Instance.Running && !PlaytestBot.Instance.ObserveOnly) Time.timeScale = v; }, v => v + "x");
+        Slider(run, "Game speed", 1, 8, 1, () => Mathf.RoundToInt(S.gameSpeed), v => { S.gameSpeed = v; if (PlaytestBot.Instance != null && PlaytestBot.Instance.Running && !PlaytestBot.Instance.ObserveOnly) Time.timeScale = v; }, v => v + "x");
         Slider(run, "Days per block", 1, 14, 1, () => S.daysPerBlock, v => S.daysPerBlock = v, v => v + " days");
         Slider(run, "Decides every", 15, 120, 15, () => S.decisionIntervalMinutes, v => S.decisionIntervalMinutes = v, v => v + " min");
         Toggle(run, "Pause when a block ends", () => S.pauseAtBlockEnd, v => S.pauseAtBlockEnd = v);

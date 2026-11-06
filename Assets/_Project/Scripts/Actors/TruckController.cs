@@ -1834,7 +1834,32 @@ private DockSlot        _dock;
         using (_mCab.Auto()) UpdateCabSteering();
         using (_mIn.Auto()) UpdateInboundDwellClock();
         using (_mOut.Auto()) UpdateOutboundDwellClock();
+        UpdateDockBar();
         using (_mSwitch.Auto()) UpdateStateMachine();
+    }
+
+    /// <summary>World bar while docked, once the dwell countdown has stopped (offload claimed / load complete): a live
+    /// "Unloading at Door N - 3/12 pallets off" or "Loading at Door N - 5 pallet(s) aboard". Out the gate (Idle) = hidden.</summary>
+    private void UpdateDockBar()
+    {
+        if (_doorWaitBar == null) return;
+        if (_state == TruckState.Idle) { if (_doorWaitBar.HasMessage) _doorWaitBar.Hide(); return; }
+        if (_state != TruckState.Docked || _dock == null) return;
+        var load = LoadContainer;
+        int onTrailer = load != null ? load.childCount : 0;
+        if (!_isOutbound)
+        {
+            if (!_offloadClaimed && !_offloadComplete) return;   // the inbound dwell countdown is still showing
+            int total = Mathf.Max(TotalPalletsAtDock, onTrailer);
+            int off = Mathf.Max(0, total - onTrailer);
+            _doorWaitBar.ShowDockProgress(total > 0 ? off / (float)total : 1f,
+                _offloadComplete ? $"Unloaded at Door {_dock.DoorNumber}" : $"Unloading at Door {_dock.DoorNumber} - {off}/{total} pallets off");
+        }
+        else
+        {
+            if (!_loadComplete && !string.IsNullOrEmpty(_outboundAppointmentId)) return;   // the pickup-window countdown is showing
+            _doorWaitBar.ShowDockProgress(1f, $"Loaded at Door {_dock.DoorNumber} - {onTrailer} pallet(s) aboard");
+        }
     }
 
     private void UpdateStateMachine()
@@ -3404,7 +3429,7 @@ private DockSlot        _dock;
         SystemsLogWindow.LogWarning("THE DRIVER FOR: " + who +
             " HAS A MESSAGE FOR YOU. PULL YOUR HEAD OUT OF YOUR ASS! THERE'S NO WHERE TO PARK!");
 
-        _doorWaitBar?.Hide();
+        // (bar stays up until the truck is out the gate - Tad 2026-11-05)
         BeginDeparture(succeeded: false);
     }
 
@@ -3605,8 +3630,7 @@ private DockSlot        _dock;
         if (_isOutbound && !string.IsNullOrEmpty(_outboundAppointmentId) && GameCore.Services.ServiceLocator.TryGet(out GameCore.Inventory.DockScheduleService dockedSched) && dockedSched != null)
             dockedSched.NoteDocked(_outboundAppointmentId);
 
-        // Docked and being offloaded/loaded now — the "Heading to Door X" banner has done its job.
-        _doorWaitBar?.Hide();
+        // Docked: the bar stays up (Tad, 2026-11-05) and switches to the live "Unloading / Loading at Door N" line (UpdateDockBar).
 
         // Reset offload/load handoff — the truck now waits in Docked until a dock stocker offloads
         // or loads it (TrailerOffloadController / TrailerLoadController) or the fallback timeout fires.

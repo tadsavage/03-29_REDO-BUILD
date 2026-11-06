@@ -101,7 +101,10 @@ public class WallSeeThrough : MonoBehaviour
 
         // Same material the trailer uses while docked, so "you can see through this" reads the same way
         // everywhere in the game rather than inventing a second visual language for the same idea.
-        _ghostMaterial = Resources.Load<Material>("Materials/GhostLoweredWall");
+        // Walls use their own clean faded material (no outline lines, back faces culled, 15% opaque). GhostLoweredWall is the
+        // outline-style "Factorio" material shared by docked trailers and ghost pallets, so it is only a fallback here.
+        _ghostMaterial = Resources.Load<Material>("Materials/WallFadeGhost");
+        if (_ghostMaterial == null) _ghostMaterial = Resources.Load<Material>("Materials/GhostLoweredWall");
         if (_ghostMaterial == null)
         {
             Debug.LogWarning("[WallSeeThrough] Resources/Materials/GhostLoweredWall not found — " +

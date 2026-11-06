@@ -68,6 +68,9 @@ public class SaveData
     /// <summary>The player's standing in the trade. Score 0 in a save written before reputation
     /// existed, which is exactly right — that player hasn't earned anything yet.</summary>
     public ReputationSnapshot reputation = new();
+
+    /// <summary>Bank loans incl. the warehouse mortgage (LoanService). Empty in saves written before 2026-11-05.</summary>
+    public GameCore.Economy.LoanSnapshot loans = new();
     /// <summary>The player's running observe-mode block (HAL scoring), so a reload resumes it. Empty when none.</summary>
     public string playtestState;
 

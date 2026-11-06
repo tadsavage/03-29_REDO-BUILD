@@ -228,6 +228,7 @@ public class TruckDoorWaitBar : MonoBehaviour
         _currentColor = HeadingToDoorColor;
         _currentFillAmount = 1f;
         _currentMessage = $"Heading to Door {doorNumber}";
+        RememberBase();
     }
 
     /// <summary>Truck has no door assigned and is heading to the side lot (or generic wait point) —
@@ -243,6 +244,7 @@ public class TruckDoorWaitBar : MonoBehaviour
         _currentColor = NoDoorColor;
         _currentFillAmount = 1f;
         _currentMessage = "Heading to Side Lot";
+        RememberBase();
     }
 
     /// <summary>Unified 8-hour inbound dwell-clock display (2026-09-10, Tad's ladder spec) — driven
@@ -292,6 +294,7 @@ public class TruckDoorWaitBar : MonoBehaviour
         _currentColor = DepartingColor;
         _currentFillAmount = 1f;
         _currentMessage = message;
+        RememberBase();
     }
 
     /// <summary>Truck beat its offload Standard (TruckController.ApplyOffloadStandardBonus) and is
@@ -310,6 +313,7 @@ public class TruckDoorWaitBar : MonoBehaviour
         _currentColor = DepartingColor;
         _currentFillAmount = 1f;
         _currentMessage = message;
+        RememberBase();
     }
 
     public void Hide()
@@ -317,6 +321,26 @@ public class TruckDoorWaitBar : MonoBehaviour
         if (_canvas != null) _canvas.gameObject.SetActive(false);
         _currentMessage = null;
         _currentFillAmount = 0f;
+        _baseMessage = null;
+    }
+
+    // ALWAYS ON from the gate in to the gate out (Tad, 2026-11-05: "I'd rather just leave them on"). The last steady line
+    // (heading to door / at the door / departing) is kept so the bar falls back to it when a per-frame countdown stops,
+    // instead of disappearing or freezing on a stale "X minutes" reading.
+    private string _baseMessage;
+    private Color _baseColor;
+    private float _baseFill;
+    private void RememberBase()
+    {
+        _baseMessage = _currentMessage; _baseColor = _currentColor; _baseFill = _currentFillAmount;
+        if (_canvas != null && !_canvas.gameObject.activeSelf) _canvas.gameObject.SetActive(true);
+    }
+
+    /// <summary>Docked: live "Unloading / Loading at Door N" line with its progress, fed every frame by TruckController.</summary>
+    public void ShowDockProgress(float fillFraction, string message)
+    {
+        ShowDwellStatus(fillFraction, DepartingColor, message);
+        RememberBase();
     }
 
     private void FaceCamera()
@@ -334,8 +358,14 @@ public class TruckDoorWaitBar : MonoBehaviour
     private void LateUpdate()
     {
         if (_canvas == null || !_canvas.gameObject.activeSelf) return;
-        // Countdown no longer being fed (see ShowDwellStatus): take the world bar down.
-        if (Time.frameCount - _lastDwellFrame > 3) { _canvas.gameObject.SetActive(false); return; }
+        // Countdown no longer being fed (see ShowDwellStatus): fall back to the last steady line instead of hiding.
+        if (Time.frameCount - _lastDwellFrame > 3 && !string.IsNullOrEmpty(_baseMessage) && _currentMessage != _baseMessage)
+        {
+            SetColor(_baseColor);
+            if (_fillImage != null) _fillImage.fillAmount = _baseFill;
+            if (_label != null) _label.text = _baseMessage;
+            _currentMessage = _baseMessage; _currentColor = _baseColor; _currentFillAmount = _baseFill;
+        }
         FaceCamera();
     }
 }

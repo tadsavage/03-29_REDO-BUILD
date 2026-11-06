@@ -292,6 +292,8 @@ by clicking a rack (`PlacementStateMachine` → `ShowForAisle`).
 ## Hard rules (each one cost real time — keep these current)
 
 **Unity / tooling**
+- **Compile gate DLL:** the game scripts build into `Library/ScriptAssemblies/GameCore.Simulation.dll` (Assembly-CSharp.dll is a 15 KB stub). Time THAT dll against the edited `.cs`.
+- Private (non-`[NonSerialized]`) arrays on a MonoBehaviour come back EMPTY, not null, after an Editor reload: lazy-init with a length check (GraphicsPresetManager, 2026-11-05).
 - **Never edit scripts while Play is running.** A recompile is a domain reload: `ServiceLocator`/`EventManager`/service objects are wiped and the UI looks alive while nothing runs. Stop Play, edit, let it compile, then Play. (Domain Reload is OFF for Play entry, so *statics persist between Play sessions* — clear static caches explicitly.)
 - **Compile gate:** newest `Library/ScriptAssemblies/*.dll` mtime must be newer than the edited `.cs`, then grep `Logs/Editor.log` (project-relative, not `%LOCALAPPDATA%`) for `error CS`. A compile error leaves the OLD assembly running silently. `Unity_ValidateScript` is a syntax check only. Unity only compiles while its window has OS focus.
 - Never `git reset` / `git pull` while Unity is open. `Debug.Log` is muted by `DebugLogSwitch` (warnings/errors show; toggle `Tools > Logging`). `read_console` is unreliable — read `Logs/Editor.log` / Player.log (`%USERPROFILE%/AppData/LocalLow/SavageDev/Warehouse/`).

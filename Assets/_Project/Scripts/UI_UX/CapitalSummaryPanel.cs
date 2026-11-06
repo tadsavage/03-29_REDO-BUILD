@@ -18,6 +18,8 @@ public class CapitalSummaryPanel : ITopBarPanel
     Label         _expenseTotalLabel;
     Label         _netLabel;
     VisualElement _netRow;
+    Label         _debtLabel;
+    Label         _netWorthLabel;
     bool          _visible;
 
     public CapitalSummaryPanel(VisualElement root, MoneyService money, VisualElement trigger = null)
@@ -96,6 +98,19 @@ public class CapitalSummaryPanel : ITopBarPanel
         _netRow.Add(_netLabel);
         panel.Add(_netRow);
 
+        // The bank (Tad, 2026-11-05): what is owed, what the company is worth, and the way into the Bank window.
+        _debtLabel = ValueLabel(bold: true, color: ColBlueTint);
+        panel.Add(TotalRow("Bank Debt", _debtLabel, ColTotalBg, ColBlueTint, LargeKeySize, LargeRowHeight + 2f, LargeValueWidth));
+        _netWorthLabel = ValueLabel(bold: true, color: ColOrange);
+        panel.Add(TotalRow("Net Worth (cash - debt)", _netWorthLabel, ColTotalBg, ColOrange, LargeKeySize, LargeRowHeight + 2f, LargeValueWidth));
+        var bank = new Button(() => BankWindow.Toggle(_panel)) { text = "BANK" };
+        bank.style.height = 40; bank.style.marginTop = 6; bank.style.marginLeft = bank.style.marginRight = 8;
+        bank.style.fontSize = 22; bank.style.color = Color.white;
+        bank.style.backgroundColor = new Color(0xB5 / 255f, 0x74 / 255f, 0x3A / 255f, 1f);
+        bank.style.borderTopLeftRadius = bank.style.borderTopRightRadius = bank.style.borderBottomLeftRadius = bank.style.borderBottomRightRadius = 6;
+        bank.style.flexShrink = 0;
+        panel.Add(bank);
+
         return panel;
     }
 
@@ -117,6 +132,10 @@ public class CapitalSummaryPanel : ITopBarPanel
 
         int net = totalIncome - totalExpense;
         _netLabel.text = FormatMoney(net);
+
+        int debt = GameCore.Services.ServiceLocator.TryGet(out LoanService bank) && bank != null ? bank.TotalDebt : 0;
+        if (_debtLabel != null) _debtLabel.text = FormatMoney(debt);
+        if (_netWorthLabel != null) _netWorthLabel.text = FormatMoney(_money.CurrentCapital - debt);
         if (_netRow != null)
             _netRow.style.backgroundColor = new StyleColor(net >= 0 ? ColNetPos : ColNetNeg);
     }

@@ -118,10 +118,9 @@ namespace GameCore.Actors
 
         // ── Claims: one selector per jack ─────────────────────────────────────────────────────────────
         private static readonly Dictionary<MHEOperatorSlot, OrderSelectionTaskDriver> s_jackClaims = new();
-        private static bool s_warnedNoJack;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetJackStatics() { s_jackClaims.Clear(); s_warnedNoJack = false; s_warnedNoParking = false; }
+        private static void ResetJackStatics() { s_jackClaims.Clear(); s_warnedNoJackDay = -1; s_warnedNoParking = false; }
 
         private MHEOperatorSlot _jack;
         private AiNavigation _jackNav;
@@ -149,12 +148,7 @@ namespace GameCore.Actors
             var jack = own ?? FindFreeJack();
             if (jack == null)
             {
-                if (!s_warnedNoJack)
-                {
-                    s_warnedNoJack = true;
-                    Debug.LogWarning("[OrderSelectionTaskDriver] No free pallet jack — order selector is picking by hand. Place a Pallet Jack (Vehicles) for them.");
-                    UIToast.Show("Order Selectors need a Pallet Jack - picking by hand until one is placed (Vehicles).");
-                }
+                WarnNoJack(true);
                 return false;
             }
 
@@ -167,6 +161,36 @@ namespace GameCore.Actors
             PalletJackParkingSpot.ReleaseJack(jack);   // leaving its bay (if it was parked in one)
             _jackRun = StartCoroutine(JackOrderRoutine());
             return true;
+        }
+
+        /// <summary>Gate before claiming a pick (Tad, 2026-11-05: "she shouldn't be picking without a pallet jack"). True when this
+        /// selector can get a jack (already aboard one, or one is free), or when the building has NO jack at all (the hand-pick
+        /// fallback stays only so a warehouse without jacks doesn't stall). Every jack placed but busy = wait.</summary>
+        private bool JackAvailableForNextPick()
+        {
+            bool anyJack = false;
+            foreach (var s in FindObjectsByType<MHEOperatorSlot>())
+                if (s != null && s.isActiveAndEnabled && s.IsPalletJack && s.GetComponent<PlacedObject>() != null) { anyJack = true; break; }
+            if (!anyJack) { WarnNoJack(true); return true; }
+            if (FindFreeJack() != null) return true;
+            WarnNoJack(false);
+            return false;
+        }
+
+        // Once per game day (it used to fire once per SESSION, so on day 5 nobody knew a 4th selector was picking by hand).
+        private static int s_warnedNoJackDay = -1;
+        private void WarnNoJack(bool noneAtAll)
+        {
+            int day = GameCore.Services.ServiceLocator.TryGet<GameCore.Economy.SimulationTimeService>(out var time) && time != null ? time.Day : 0;
+            if (s_warnedNoJackDay == day) return;
+            s_warnedNoJackDay = day;
+            string who = GetComponent<EmployeeIdentity>()?.Record?.employeeName ?? name;
+            string msg = noneAtAll
+                ? "Order Selectors need a Pallet Jack - picking by hand until one is placed (Vehicles)."
+                : $"More order selectors than pallet jacks - {who} is waiting for a free jack. Buy another Pallet Jack (Vehicles).";
+            Debug.LogWarning("[OrderSelectionTaskDriver] " + msg);
+            UIToast.Show(msg);
+            SystemsLogWindow.LogWarning(msg);
         }
 
         /// <summary>After a save/load, a selector who was riding a jack with a pallet of this order goes straight back to
@@ -891,7 +915,9 @@ namespace GameCore.Actors
         // A selector froze on a continuation trip (a jack leg / seek to an unreachable spot never called back) and held the
         // order's last OrderSelect task for five game days. Update refreshes the claim every frame, so the stale-claim sweep
         // never freed it; the order could not close, its trailer held door 1, and five later orders went late behind it.
-        private const float NoProgressGameMinutes = 30f;   // Time.deltaTime is game minutes (1 game minute = 1 scaled second)
+        // 10 (was 30, Tad 2026-11-05): OG4856's two selectors sat in the charger jam and the order was freed far too late to make its
+        // door - fined $581, two in-transit pallets missed the trailer.
+        private const float NoProgressGameMinutes = 10f;   // Time.deltaTime is game minutes (1 game minute = 1 scaled second)
         private float _noProgressSeconds;
         private Vector3 _progressAnchor;
         private int _progressPicked = -1;

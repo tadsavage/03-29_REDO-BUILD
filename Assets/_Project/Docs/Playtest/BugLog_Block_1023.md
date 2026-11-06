@@ -8289,3 +8289,4 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 3 21:23 | **WARN** | [AiNavigation] ReachTruck: stuck at (-2.42, 1.16, 46.65) — walking out to (4.97, 1.08, 35.50) (12.98m to mesh).
 - day 1 08:00 | **GHOST-SLOT** | SLOT 01-07-01 names 8f0a49d1 - no object
 - day 1 08:00 | **WARN** | To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 1 08:00 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh

@@ -40,6 +40,17 @@ public class EquipmentBattery : MonoBehaviour
     public const float HoursToFull = 1f;     // empty to full on a charger
     public const float LowHours = 2f;          // red bolt + log warning at this many hours left (Tad, 2026-10-18)
     public const float DriverlessSpeedMultiplier = 2f;
+    /// <summary>Tad, 2026-11-05: a machine goes to charge only at this charge or less, and only after the pallet job in hand
+    /// is finished. No idle top-ups (they filled the charger row and caused the bumper-to-bumper jam on day 4).</summary>
+    public const float ChargeAt01 = 0.20f;
+    /// <summary>Charging stops here instead of at 100% when another machine is waiting for a charger.</summary>
+    public const float ChargeEnoughIfWaiting01 = 0.80f;
+    /// <summary>Game minutes a machine may wait beside a full charger row before it gives up (if it still has charge to work).</summary>
+    private const float QueueGiveUpGameMinutes = 3f;
+    private const float QueueGiveUpMinCharge01 = 0.30f;
+
+    /// <summary>Full, or charged enough while another machine queues for a charger.</summary>
+    private bool ChargedEnough => IsFull || (Charge01 >= ChargeEnoughIfWaiting01 && AnotherMachineWaiting());
     private const string Key = "batt=";
     private const float MoveEpsilon = 0.003f;      // metres per frame that counts as moving
     private const float TurnEpsilon = 0.25f;       // degrees per frame that counts as moving (turning in place)
@@ -184,6 +195,7 @@ public class EquipmentBattery : MonoBehaviour
         _liftLast = new Vector3[_lift.Length];
         for (int i = 0; i < _lift.Length; i++) _liftLast[i] = _lift[i].localPosition;
         EquipmentBatteryPanels.Ensure();
+        if (_po != null) MheAvoidanceObstacle.Ensure(gameObject);   // placed machines only (not build-menu ghosts)
     }
 
     private Transform[] _lift;
@@ -272,7 +284,7 @@ public class EquipmentBattery : MonoBehaviour
         if (CarryingPallet) { _idle = null; yield break; }
 
         // 1. A free charger: plug in while there is nothing to do.
-        if (Charge01 < 0.95f && !IsBusy && PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) != null)
+        if (Charge01 <= ChargeAt01 && !IsBusy && PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) != null)
         {
             _idleCharge = true;
             _wantPark = true;
@@ -391,6 +403,9 @@ public class EquipmentBattery : MonoBehaviour
         // NOTHING MOVES UNLESS AN EMPLOYEE IS DRIVING IT (Tad, 2026-10-18). A machine that has to go to a charger is either
         // driven there by whoever is aboard (once any job in hand is delivered), or an idle employee is sent to get it.
         bool occupied = Slot != null && Slot.IsOccupied;
+        // Stale flag: a machine at 95%+ that still says it needs a charge (block 1083: reach trucks at 100% sat in the charger
+        // queue as "NeedsCharge") is simply done.
+        if (NeedsCharge && !IsDead && !_switchTrip && Charge01 >= 0.95f && _trip == null && _vacate == null) { NeedsCharge = false; _wantPark = false; }
         if (WantsStation && _trip == null && _vacate == null && !IsBusy)
         {
             if (occupied) _trip = StartCoroutine(ChargeTrip());
@@ -458,7 +473,7 @@ public class EquipmentBattery : MonoBehaviour
         if (operated && !IsBusy && !WantsStation && _trip == null && _vacate == null && _idle == null && _lap == null)
         {
             bool parkedAtSpot = _idlePos.HasValue && Flat(BodyCentre - _idlePos.Value).magnitude < 1.5f && PalletJackParkingSpot.ChargerAt(BodyCentre) == null;
-            bool wantsCharge = Charge01 < 0.6f && PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) != null;
+            bool wantsCharge = Charge01 <= ChargeAt01 && PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) != null;
             if (parkedAtSpot && !wantsCharge)
             {
                 // Parked out of the way with still nothing to do: now and then take a lap, 2-5 minutes, then park again.
@@ -536,16 +551,12 @@ public class EquipmentBattery : MonoBehaviour
 
     public bool ShouldChargeBetweenJobs()
     {
-        if (!CanChangeBattery || IsBusy || NeedsCharge || HoursLeft > LowHours || CarryingPallet) return false;
-        if (PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) == null) return false;   // every charger is taken
-        foreach (var other in All)
-        {
-            if (other == null || other == this || other.KindLower != KindLower) continue;
-            if (other.Slot == null || !other.Slot.IsOccupied) continue;
-            if (other.NeedsCharge || other.IsCharging || other.HoursLeft <= CoverHours) continue;
-            return true;   // someone else of this kind can keep working for a while yet
-        }
-        return false;
+        // Tad, 2026-11-05: 20% or less, between jobs (never with a pallet aboard - the putaway / replen / pallet pick / staging
+        // in hand is delivered first). The old "someone else can cover" rule is gone: it held machines working until they died.
+        if (!CanChangeBattery || IsBusy || NeedsCharge || Charge01 > ChargeAt01 || CarryingPallet) return false;
+        // Every charger taken: keep working until one frees up rather than queue (queues jammed the charger row) - unless nearly flat.
+        if (PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) == null && Charge01 > 0.05f) return false;
+        return true;
     }
 
     public void RequestChangeBattery()
@@ -682,7 +693,7 @@ public class EquipmentBattery : MonoBehaviour
             if (Station != null || PalletJackParkingSpot.ChargerAt(BodyCentre) != null)
             {
                 DismountIfNotStaying();
-                while (WantsStation && !IsFull) { if (ClaimedForWork()) break; yield return null; }
+                while (WantsStation && !ChargedEnough) { if (ClaimedForWork()) break; yield return null; }
                 FinishCharging();
                 break;
             }
@@ -750,23 +761,45 @@ public class EquipmentBattery : MonoBehaviour
             {
                 // Wait beside it until a station frees up, then drive in (next loop pass).
                 WaitingForCharger = true;
+                float waitedGameMin = 0f;
+                bool gaveUp = false;
                 while (WantsStation && PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) == null)
+                {
                     yield return new WaitForSeconds(2f);
+                    waitedGameMin += 2f * (_time != null ? _time.TimeScale : 1f);
+                    // A stale flag (it charged somewhere / was already full) or a long wait with charge left: stop queueing and go
+                    // back to work. Day 4 of block 1083: every machine sat bumper to bumper on the charger row, some at 100%.
+                    if (Charge01 >= 0.95f ||
+                        (waitedGameMin >= QueueGiveUpGameMinutes && Charge01 > QueueGiveUpMinCharge01))
+                    {
+                        Debug.LogWarning($"[EquipmentBattery] {Label} gave up waiting for a charger after {waitedGameMin:F0} game min at {Charge01:P0} - back to work.");
+                        gaveUp = true;
+                        break;
+                    }
+                }
                 WaitingForCharger = false;
                 _queueSpot = null;
+                if (gaveUp)
+                {
+                    NeedsCharge = false;
+                    _wantPark = false;
+                    _switchTrip = false;
+                    if (Slot != null && Slot.IsOccupied && _nav != null) _nav.SetTaskBusy(false);
+                    break;
+                }
                 continue;
             }
 
             // Plugged in: charge to full (the Update above does the charging and the toast).
             float notThere = 0f;
-            while (WantsStation && !IsFull)
+            while (WantsStation && !ChargedEnough)
             {
                 if (ClaimedForWork()) break;
                 notThere = PalletJackParkingSpot.ChargerAt(BodyCentre) == null ? notThere + Time.deltaTime : 0f;
                 if (notThere > 3f) break;   // got moved off the charger somehow: go round again
                 yield return null;
             }
-            if (IsFull) { FinishCharging(); break; }
+            if (ChargedEnough) { FinishCharging(); break; }
         }
         if (_reserved != null) { _reserved.Release(Slot); _reserved = null; }
         WaitingForCharger = false;
@@ -980,7 +1013,9 @@ public class EquipmentBattery : MonoBehaviour
     }
 
     private Vector3? _queueSpot;
-    private const float QueueFirstGap = 4.5f;    // from the bay's charge spot back past its open end
+    // 7 m (was 4.5): the old first queue spot sat on the bay line, right where the neighbouring bays' approach paths cross, so a
+    // queued machine blocked the very bay it was waiting for (block 1083 day 4 jam). Back past the approach points (park - fwd*3).
+    private const float QueueFirstGap = 7f;      // from the bay's charge spot back past its open end
     private const float QueueSpacing = 3.6f;     // one machine length between waiting machines
 
     /// <summary>Every station taken: wait in a line at the station's OPEN end (behind its bay, never across the
@@ -1260,6 +1295,7 @@ public class EquipmentBattery : MonoBehaviour
         if (_cam == null) return;
         var ray = _cam.ScreenPointToRay(Mouse.current.position.ReadValue());
         if (!WorldClickPick.Raycast(ray, out var hit)) return;
+        if (WorldClickPick.IsOrderPallet(hit)) return;   // the pallet on the forks opens its own pick-progress card
         if (hit.collider.GetComponentInParent<EquipmentBattery>() != this) return;
         EquipmentBatteryPanels.Instance.Toggle(this);
     }

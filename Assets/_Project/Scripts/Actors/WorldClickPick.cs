@@ -40,7 +40,31 @@ public static class WorldClickPick
             if (c.GetComponentInParent<PalletJackParkingSpot>() != null && c.GetComponentInParent<EquipmentBattery>() == null) continue;
             if (h.distance < bestDist) { bestDist = h.distance; best = h; found = true; }
         }
+        // A pallet riding a jack / forks sits INSIDE the machine's (and its driver's) click trigger, so the trigger always won
+        // and the pallet's pick-progress card could not be opened (Tad, 2026-11-05: "even at a perfectly clear angle"). When the
+        // nearest hit is a person/machine trigger and an order pallet is hit within 2.5 m behind it, the pallet wins.
+        if (found && best.collider.isTrigger)
+        {
+            float limit = bestDist + 2.5f;
+            float palletDist = float.MaxValue;
+            for (int i = 0; i < n; i++)
+            {
+                var h = hits[i];
+                if (h.collider == null || h.distance > limit || h.distance >= palletDist) continue;
+                var ob = h.collider.GetComponentInParent<OutboundPalletBuilder>();
+                if (ob == null || string.IsNullOrEmpty(ob.OrderId)) continue;
+                palletDist = h.distance; best = h;
+            }
+        }
         return found;
+    }
+
+    /// <summary>True when the hit is an order pallet (it opens its own card, not the machine's or the driver's).</summary>
+    public static bool IsOrderPallet(RaycastHit hit)
+    {
+        if (hit.collider == null) return false;
+        var ob = hit.collider.GetComponentInParent<OutboundPalletBuilder>();
+        return ob != null && !string.IsNullOrEmpty(ob.OrderId);
     }
 
     /// <summary>A trigger collider counts only when it belongs to something the player clicks: a person or a machine.
@@ -54,6 +78,7 @@ public static class WorldClickPick
     public static bool Hits(Ray ray, Transform owner)
     {
         if (!Raycast(ray, out var hit)) return false;
+        if (IsOrderPallet(hit)) return false;   // a pallet on a machine's forks is its own click target
         return hit.collider.transform == owner || hit.collider.transform.IsChildOf(owner);
     }
 }

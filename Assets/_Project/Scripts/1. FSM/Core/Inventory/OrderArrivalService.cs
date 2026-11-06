@@ -1148,13 +1148,20 @@ namespace GameCore.Inventory
         /// <summary>Longest an order may take the current crew to pick (OrderPickEstimate), Tad 2026-11-01: orders must fit one
         /// trailer AND be manageable. Block 29 rolled 400-730 case orders that no crew could pick before their slot.</summary>
         public const float MaxPickPrepHours = 6f;
+        public const float MaxPickPrepHoursLarge = 12f;
+
+        private enum OrderSizeTier { Small, Medium, Large }
+
+        /// <summary>Chance per delivery day that a recurring account sends a SECOND order (its own order number and trailer).
+        /// Tad, 2026-11-05: "ramp it up by around 25-30 percent frequency".</summary>
+        private const int SecondOrderChancePercent = 28;
 
         /// <summary>Shaves the order's biggest line until its pick estimate is under <see cref="MaxPickPrepHours"/>: by about a tenth,
         /// or by one full pallet when <paramref name="wholePallets"/> (bulk stays full pallets). A line is dropped only when it
         /// empties and others remain.</summary>
-        private void CapToPickHours(OrderData order, bool wholePallets)
+        private void CapToPickHours(OrderData order, bool wholePallets, float maxHours = MaxPickPrepHours)
         {
-            for (int guard = 0; guard < 2000 && order.LineItems.Count > 0 && OrderPickEstimate.For(order).Hours > MaxPickPrepHours; guard++)
+            for (int guard = 0; guard < 2000 && order.LineItems.Count > 0 && OrderPickEstimate.For(order).Hours > maxHours; guard++)
             {
                 var li = order.LineItems.OrderByDescending(l => l.QuantityNeeded).First();
                 int step = Mathf.Max(1, Mathf.CeilToInt(li.QuantityNeeded * 0.1f));
@@ -1252,6 +1259,14 @@ namespace GameCore.Inventory
         /// until the last minute. Deterministic per contract+day so a save/load can't re-roll it.</summary>
         private const int ShortNoticeChancePercent = 12;
 
+        private static bool RollsSecondOrder(string contractId, int deliveryDay)
+        {
+            int h = 101;
+            foreach (char c in contractId ?? "") h = h * 37 + c;
+            h = h * 37 + deliveryDay * 104729;
+            return Mathf.Abs(h % 100) < SecondOrderChancePercent;
+        }
+
         private static bool IsLateOrderer(string contractId, int deliveryDay)
         {
             int h = 17;
@@ -1290,6 +1305,9 @@ namespace GameCore.Inventory
 
                 signed.LastGeneratedDay = d;
                 GenerateFor(contract, d, signed, shortNotice);
+                // Occasionally a second, separate order for the same day (its own order number; DockScheduleService gives every
+                // order its own trailer). Deterministic per contract+day so a save/load can't re-roll it.
+                if (RollsSecondOrder(signed.ContractId, d)) GenerateFor(contract, d, signed, false);
             }
         }
 
@@ -1313,16 +1331,7 @@ namespace GameCore.Inventory
 
             var rand = new System.Random();
 
-            // Used to roll a separate OrderData (its own OrderId/OrderNumber) per batch, and every
-            // batch for the same customer+contract on the same day joins the same trailer appointment
-            // (see HandleOrderArrived's join branch) -- so one recurring account's single daily
-            // delivery could show up in the Work Queue under two or three different order numbers for
-            // what was really one trailer. Per Tad: one accepted order = one order number. The
-            // OrdersPerDay roll still drives how much gets ordered today -- more batches means more
-            // total line variety/volume -- it just no longer mints a new order number per batch; every
-            // batch folds into the SAME OrderData, merging quantity into an existing line if a later
-            // batch happens to pick a SKU an earlier one already did.
-            int batchCount = rand.Next(contract.OrdersPerDayMin, contract.OrdersPerDayMax + 1);
+            // One accepted order = one order number (Tad). Its size comes from the tier roll below.
 
             var order = new OrderData(
                 customer.CustomerId,
@@ -1339,26 +1348,58 @@ namespace GameCore.Inventory
                 ShortNoticeFee = shortNotice && terms != null ? terms.ShortNoticeFee : 0
             };
 
-            for (int i = 0; i < batchCount; i++)
+            // ORDER SIZE TIERS (Tad, 2026-11-05): "very random - one to two pallets, to massive 20 pallet loads of case pick,
+            // middle of the road 12 pallets of pallet picks with two or three pallets of case pick". Sized in PALLETS, not lines:
+            //   Small  35%  1-2 pallets, all case pick
+            //   Medium 45%  ~12 pallets: 9-10 full-pallet picks + 2-3 case-pick pallets
+            //   Large  20%  14-20 pallets, mostly case pick (1-3 full pallets)
+            // The contract's own LineItems/CasesPerLine ranges are no longer used for recurring orders.
+            void AddLine(SkuData sku, int qty)
             {
-                int lineCount = Mathf.Min(eligible.Count, rand.Next(contract.LineItemsMin, contract.LineItemsMax + 1));
-                var chosen = eligible.OrderBy(_ => rand.Next()).Take(lineCount).ToList();
+                if (qty <= 0) return;
+                var existingLine = order.LineItems.FirstOrDefault(li => li.SkuId == sku.SkuId);
+                if (existingLine != null) { existingLine.QuantityNeeded += qty; return; }
+                order.LineItems.Add(new OrderLineItem(
+                    sku.SkuId,
+                    qty,
+                    Mathf.RoundToInt(sku.BuyValue),
+                    // Negotiated accounts bill cost-plus (cost x (1 + markup)); legacy accounts keep list price x pay rate.
+                    terms != null ? Mathf.RoundToInt(sku.BuyValue * (1f + terms.MarkupPercent))
+                                  : Mathf.RoundToInt(sku.SellValue * contract.PayRateMultiplier)));
+            }
+            int FullCases(SkuData sku) => sku.Ti > 0 && sku.Hi > 0 ? sku.Ti * sku.Hi : 0;
+            var palletable = eligible.Where(sk => FullCases(sk) > 0).ToList();
+            if (palletable.Count == 0) palletable = eligible;
 
-                foreach (var sku in chosen)
-                {
-                    int qty = rand.Next(contract.CasesPerLineMin, contract.CasesPerLineMax + 1);
-                    var existingLine = order.LineItems.FirstOrDefault(li => li.SkuId == sku.SkuId);
-                    if (existingLine != null)
-                        existingLine.QuantityNeeded += qty;
-                    else
-                        order.LineItems.Add(new OrderLineItem(
-                            sku.SkuId,
-                            qty,
-                            Mathf.RoundToInt(sku.BuyValue),
-                            // Negotiated accounts bill cost-plus (cost x (1 + markup)); legacy accounts keep list price x pay rate.
-                            terms != null ? Mathf.RoundToInt(sku.BuyValue * (1f + terms.MarkupPercent))
-                                          : Mathf.RoundToInt(sku.SellValue * contract.PayRateMultiplier)));
-                }
+            int tierRoll = rand.Next(100);
+            OrderSizeTier tier = tierRoll < 35 ? OrderSizeTier.Small : tierRoll < 80 ? OrderSizeTier.Medium : OrderSizeTier.Large;
+            int fullPallets, casePickPallets;
+            switch (tier)
+            {
+                case OrderSizeTier.Small:  fullPallets = 0;                 casePickPallets = rand.Next(1, 3);   break;
+                case OrderSizeTier.Medium: fullPallets = rand.Next(9, 11);  casePickPallets = rand.Next(2, 4);   break;
+                default:                   fullPallets = rand.Next(1, 4);   casePickPallets = rand.Next(13, 18); break;
+            }
+
+            // Whole pallets: one SKU each (a full Ti x Hi), different SKUs where possible.
+            var fullPool = palletable.Where(sk => FullCases(sk) > 0).OrderBy(_ => rand.Next()).ToList();
+            for (int i = 0; i < fullPallets && fullPool.Count > 0; i++)
+                AddLine(fullPool[i % fullPool.Count], FullCases(fullPool[i % fullPool.Count]));
+
+            // Case pick: mixed lines of 5-25% of a pallet each until the planned case-pick pallets are filled (the pallet plan
+            // counts each case as 1/(Ti x Hi) of a pallet - OrderService.PlanLoosePallets).
+            float filled = 0f;
+            var casePool = palletable.OrderBy(_ => rand.Next()).ToList();
+            for (int guard = 0, k = 0; filled < casePickPallets - 0.05f && guard < 400 && casePool.Count > 0; guard++, k++)
+            {
+                var sku = casePool[k % casePool.Count];
+                int full = FullCases(sku);
+                int qty = full > 0 ? Mathf.Max(1, Mathf.RoundToInt(full * (0.05f + (float)rand.NextDouble() * 0.20f)))
+                                   : rand.Next(Mathf.Max(1, contract.CasesPerLineMin), Mathf.Max(2, contract.CasesPerLineMax + 1));
+                if (full > 0) qty = Mathf.Min(qty, full - 1);   // a case-pick line is never a whole pallet
+                if (qty <= 0) continue;
+                AddLine(sku, qty);
+                filled += full > 0 ? qty / (float)full : 0.1f;
             }
 
             // One order = one trailer. Trim the lines until the whole order fits a single trailer, so a
@@ -1376,11 +1417,12 @@ namespace GameCore.Inventory
                 order.LineItems.RemoveAll(li => !keep.ContainsKey(li.SkuId));
                 foreach (var li in order.LineItems) li.QuantityNeeded = keep[li.SkuId];
             }
-            CapToPickHours(order, wholePallets: false);
+            // Large loads are allowed to take longer to pick (they are booked with more lead) - Tad: relax the cap for big orders.
+            CapToPickHours(order, wholePallets: false, tier == OrderSizeTier.Large ? MaxPickPrepHoursLarge : MaxPickPrepHours);
 
             _orderService.ReceiveOrder(order);
             Debug.Log($"[OrderArrivalService] {customer.CompanyName}: 1 order raised on day {today} " +
-                      $"({order.LineItems.Count} line item(s) across {batchCount} batch(es)), " +
+                      $"({tier}: {fullPallets} full pallet(s) + ~{casePickPallets} case-pick pallet(s), {order.LineItems.Count} line(s)), " +
                       $"due day {deliveryDay}" + (shortNotice ? " - SHORT NOTICE, fee applies." : "."));
         }
 

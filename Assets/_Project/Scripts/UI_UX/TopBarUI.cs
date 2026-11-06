@@ -35,7 +35,7 @@ public class TopBarUI : MonoBehaviour
     private TopBarSettingsPanel _settingsPanel;
 
     // Game-speed (time advancer) buttons.
-    private Button _spdPause, _spdQuarter, _spdHalf, _spd1x, _spd2x, _spd3x;
+    private Button _spdPause, _spdQuarter, _spdHalf, _spd1x, _spd2x, _spd3x, _spd5x, _spd8x;
 
     private MoneyService _moneyService;
     private SimulationTimeService _timeService;
@@ -425,6 +425,9 @@ public class TopBarUI : MonoBehaviour
         _spd1x      = topBar.Q<Button>("Speed1x");
         _spd2x      = topBar.Q<Button>("Speed2x");
         _spd3x      = topBar.Q<Button>("Speed3x");
+        // 5x / 8x on the regular bar (Tad, 2026-11-05: "put them up there on the regular old speed bar").
+        _spd5x      = topBar.Q<Button>("Speed5x");
+        _spd8x      = topBar.Q<Button>("Speed8x");
 
         _spdPause?.RegisterCallback<ClickEvent>(_ => SetSpeed(0f));
         _spdQuarter?.RegisterCallback<ClickEvent>(_ => SetSpeed(0.25f));
@@ -432,6 +435,8 @@ public class TopBarUI : MonoBehaviour
         _spd1x?.RegisterCallback<ClickEvent>(_ => SetSpeed(1f));
         _spd2x?.RegisterCallback<ClickEvent>(_ => SetSpeed(2f));
         _spd3x?.RegisterCallback<ClickEvent>(_ => SetSpeed(3f));
+        _spd5x?.RegisterCallback<ClickEvent>(_ => SetSpeed(5f));
+        _spd8x?.RegisterCallback<ClickEvent>(_ => SetSpeed(8f));
 
         SetSpeed(0f); // always start paused — per Tad's explicit request, so a fresh session (or a
                       // just-loaded save) never has trucks/employees/the clock already moving before
@@ -456,10 +461,14 @@ public class TopBarUI : MonoBehaviour
         _spd1x?.RemoveFromClassList("topbar-speed-btn--active");
         _spd2x?.RemoveFromClassList("topbar-speed-btn--active");
         _spd3x?.RemoveFromClassList("topbar-speed-btn--active");
+        _spd5x?.RemoveFromClassList("topbar-speed-btn--active");
+        _spd8x?.RemoveFromClassList("topbar-speed-btn--active");
 
         Button active = scale <= 0f ? _spdPause
                       : Mathf.Approximately(scale, 0.25f) ? _spdQuarter
                       : Mathf.Approximately(scale, 0.5f) ? _spdHalf
+                      : scale >= 8f ? _spd8x
+                      : scale >= 5f ? _spd5x
                       : scale >= 3f ? _spd3x
                       : scale >= 2f ? _spd2x
                                     : _spd1x;

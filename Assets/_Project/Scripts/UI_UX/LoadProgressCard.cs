@@ -143,6 +143,14 @@ public static class LoadProgressCard
         root.Add(Divider());
         if (pltTotal > 0) root.Add(MakeLabel($"{pltStaged} out of {pltTotal} Plt. Picks Staged", 13, ColMuted));
         if (caseTotal > 0) root.Add(MakeLabel($"{caseStaged} out of {caseTotal} plts. of case pick have been Staged", 13, ColMuted));
+        // Pallets on the floor are not cases on the floor: say so when the staged pallets are missing stock (Tad, 2026-11-05 -
+        // "5 out of 5 staged" read as done while 7 SKUs were out of stock and the truck shipped 25 cases short).
+        int noStockCases = 0, noStockLines = 0;
+        foreach (var r in rows.Values)
+            if (r.NoStock) { noStockLines++; noStockCases += Mathf.Max(0, r.NeedCases - StagedCases(r)); }
+        if (noStockCases > 0)
+            root.Add(MakeLabel($"SHORT: {noStockCases} case(s) across {noStockLines} item(s) are out of stock - this load will ship short unless stock arrives.",
+                13, new Color(0.95f, 0.35f, 0.3f, 1f), true, 2));
 
         var totalRow = new VisualElement { pickingMode = PickingMode.Ignore };
         totalRow.style.flexDirection = FlexDirection.Row;

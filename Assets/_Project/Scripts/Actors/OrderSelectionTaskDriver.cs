@@ -133,6 +133,9 @@ namespace GameCore.Actors
             // A save is putting jack-carried pallets back on their jacks: don't claim work until they are (or the jack is lost).
             if (OutboundPalletPersistence.RestorePending) return;
             if (Time.time < _planRetryAfter) return;   // handed a planned pallet back (empty pick faces) a moment ago
+            // NO HAND PICKING (Tad, 2026-11-05): with jacks in the building but none free, a selector waits for one instead of
+            // claiming a pick and doing it on foot with the pallet on their back. Only a building with no jack at all falls back.
+            if (!JackAvailableForNextPick()) return;
 
             if (!TryClaimNextOrderTask(out _currentTask, out _currentOrder))
                 return;

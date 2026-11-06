@@ -732,6 +732,8 @@ MonoBehaviour:
   honkVolume: 1.5
   honkPitch: 1.1
   honkProbability: 0.1
+  backupAlarmClip: {fileID: 0}
+  backupAlarmVolume: 0.6
 --- !u!114 &894282299918833025
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -802,7 +804,7 @@ MonoBehaviour:
   m_GenerateLinks: 0
   m_IgnoreFromBuild: 1
   m_ApplyToChildren: 1
-  m_AffectedAgents: ffffffff
+  m_AffectedAgents: ffffffffi
 --- !u!1 &6245394892165333976
 GameObject:
   m_ObjectHideFlags: 0
@@ -815,6 +817,7 @@ GameObject:
   - component: {fileID: 2897278613203564113}
   - component: {fileID: 4815315113445347223}
   - component: {fileID: 4887035648973990930}
+  - component: {fileID: 6591706033456111707}
   m_Layer: 0
   m_Name: SafetyLight
   m_TagString: Untagged
@@ -915,6 +918,24 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &6591706033456111707
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6245394892165333976}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 15672443d156a1346bc1e915bd8b6162, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameCore.Simulation::RotatingBeacon
+  secondsPerTurn: 1
+  dimIntensity: 0.15
+  peakIntensity: 5
+  beamSharpness: 3
+  emissionColor: {r: 1, g: 0.38, b: 0, a: 1}
+  spinTransform: 1
 --- !u!1 &6897361452196641161
 GameObject:
   m_ObjectHideFlags: 0

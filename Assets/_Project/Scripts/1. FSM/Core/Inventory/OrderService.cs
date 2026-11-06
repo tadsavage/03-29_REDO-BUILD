@@ -635,21 +635,40 @@ namespace GameCore.Inventory
             // trip (FileContinuationSelect), not a cut. The old count treated every owed case as "not in stock", so it logged
             // a cut that never happened and an order with 444 cases on hand was left with nothing filed (OG4587, 2026-10-31).
             int deficit = 0;
+            var shortNames = new List<string>();
             foreach (var li in order.LineItems)
             {
                 int want = SelectableRemaining(order, li);
                 if (want <= 0) continue;
                 bool stock = OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null ||
                              (_inventoryService != null && GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, li.SkuId, out _));
-                if (!stock) deficit += want;
+                if (stock) continue;
+                deficit += want;
+                var sd = _inventoryService?.GetSkuData(li.SkuId);
+                shortNames.Add($"{(sd != null ? sd.ItemDescription : li.SkuId)} x{want}");
             }
             if (deficit <= 0) return false;
 
             string msg = $"Order {order.OrderNumber}: {deficit} case(s) not in stock - cut from the order, not billed.";
             Debug.LogWarning($"[OrderService] {msg}");
             SystemsLogWindow.LogWarning(msg);
+
+            // Tell the PLAYER once per order, naming the items, while there is still time to buy or cancel (Tad, 2026-11-05:
+            // OG6866 shipped 25 cases short and the only sign was a debug line he never saw).
+            if (s_shortWarned.Add(order.OrderId))
+            {
+                string items = string.Join(", ", shortNames.Take(6)) + (shortNames.Count > 6 ? $" +{shortNames.Count - 6} more" : "");
+                string player = $"{order.CustomerName} ({order.OrderNumber}) will ship SHORT {deficit} case(s) - out of stock: {items}. Buy them (Purchasing, key 9) before the truck closes out.";
+                SystemsLogWindow.Log(player, new Color(0.95f, 0.35f, 0.3f, 1f));
+                UIToast.Show(player);
+            }
             return false;
         }
+
+        // Orders already warned "will ship short" (one warning per order, not per selector trip).
+        private static readonly HashSet<string> s_shortWarned = new HashSet<string>();
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetShortWarned() => s_shortWarned.Clear();
 
         /// <summary>A pallet pick filed before any stock of its SKU existed (stock still inbound, or not put away yet). It is
         /// Open with no source and waits for a pallet to appear.</summary>
