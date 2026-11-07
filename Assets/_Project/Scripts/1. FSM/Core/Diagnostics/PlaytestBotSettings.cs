@@ -15,6 +15,7 @@ namespace GameCore.Diagnostics
         [Tooltip("In-game days per scored block.")] public int daysPerBlock = 7;
         [Tooltip("Pause at the end of each block so fixes can be made. Off = roll straight into the next block.")] public bool pauseAtBlockEnd = true;
         [Tooltip("Write a quicksave slot at the end of every block (bot_block_N).")] public bool saveAtBlockEnd = true;
+        [Tooltip("When a bug involves something you can see (worker, machine, trailer, door, pallet): pause, fly the camera to 3 m from it and show the full text in the toast.")] public bool pauseOnBug = true;
         [Tooltip("How often (in-game minutes) the bot makes decisions.")] public int decisionIntervalMinutes = 30;
 
         [Header("Starting a company (HAL builds from nothing)")]
@@ -61,14 +62,14 @@ namespace GameCore.Diagnostics
         [Tooltip("Where reports are written, relative to the project root.")] public string reportFolder = "Assets/_Project/Docs/Playtest";
 
         [Header("Score weights - whole points, meant to total 100 (edited on the Balance tab)")]
-        public int wOnTime = 15;
+        public int wOnTime = 10;
         public int wFill = 10;
-        public int wThroughput = 15;
-        public int wRevenue = 15;
+        public int wThroughput = 10;
+        public int wRevenue = 0;
         public int wProfit = 10;
-        public int wCash = 5;
-        public int wReliability = 25;
-        public int wReputation = 5;
+        public int wCash = 0;
+        public int wReliability = 50;
+        public int wReputation = 10;
 
         [Header("Score targets (100% of a component = hitting its target)")]
         public float targetRevenuePerDay = 8000f;
@@ -103,7 +104,7 @@ namespace GameCore.Diagnostics
 
         public void ResetWeightsToBaseline()
         {
-            wOnTime = 15; wFill = 10; wThroughput = 15; wRevenue = 15; wProfit = 10; wCash = 5; wReliability = 25; wReputation = 5;
+            wOnTime = 10; wFill = 10; wThroughput = 10; wRevenue = 0; wProfit = 10; wCash = 0; wReliability = 50; wReputation = 10;
         }
     }
 }

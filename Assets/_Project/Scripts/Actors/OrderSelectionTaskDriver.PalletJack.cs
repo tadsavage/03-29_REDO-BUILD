@@ -120,7 +120,59 @@ namespace GameCore.Actors
         private static readonly Dictionary<MHEOperatorSlot, OrderSelectionTaskDriver> s_jackClaims = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetJackStatics() { s_jackClaims.Clear(); s_warnedNoJackDay = -1; s_warnedNoParking = false; }
+        private static void ResetJackStatics() { s_jackClaims.Clear(); s_loadedIdleSince.Clear(); s_warnedNoJackDay = -1; s_warnedNoParking = false; s_allJacks.Clear(); s_allJacksAt = -10f; }
+
+        // ── Rescue of a stranded loaded jack (2026-11-07, OG2892) ─────────────────────────────────────────
+        // A pallet jack can be left unmanned with a selector's pallet still aboard (its run was torn down or timed out); nothing then owns the
+        // pallet, and a dock stocker only loads pallets set down on a lane floor, so the order's last pallet sat on the jack for ever. An idle
+        // selector who finds such a jack (unmanned, unclaimed, a pallet of a live order aboard for 15+ real seconds) takes it over and
+        // delivers: the same resume path a save/load uses (OutboundPalletPersistence), mount walk included.
+        private static readonly Dictionary<MHEOperatorSlot, float> s_loadedIdleSince = new();
+        private const float StrandedJackGraceSeconds = 15f;
+
+        private bool TryRescueStrandedJack()
+        {
+            if (_workQueue == null || _orderService == null || _taskInProgress || _jack != null) return false;
+            var self = GetComponent<EmployeeIdentity>();
+            string guid = self?.Record?.employeeGuid;
+            if (string.IsNullOrEmpty(guid)) return false;
+
+            MHEOperatorSlot best = null; OrderData bestOrder = null; WorkTask bestTask = null;
+            float bestD = float.MaxValue;
+            foreach (var slot in FindObjectsByType<MHEOperatorSlot>())
+            {
+                if (slot == null || !slot.isActiveAndEnabled || !slot.IsPalletJack || slot.IsOccupied) continue;
+                if (slot.GetComponent<PlacedObject>() == null) continue;   // build-menu ghost
+                if (s_jackClaims.TryGetValue(slot, out var owner) && owner != null) { s_loadedIdleSince.Remove(slot); continue; }
+
+                OutboundPalletBuilder load = null;
+                foreach (var p in slot.GetComponentsInChildren<OutboundPalletBuilder>(true))
+                    if (p != null && !string.IsNullOrEmpty(p.OrderId)) { load = p; break; }
+                if (load == null) { s_loadedIdleSince.Remove(slot); continue; }
+
+                if (!s_loadedIdleSince.TryGetValue(slot, out float since)) { s_loadedIdleSince[slot] = Time.unscaledTime; continue; }
+                if (Time.unscaledTime - since < StrandedJackGraceSeconds) continue;
+
+                var order = _orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == load.OrderId);
+                if (order == null) continue;
+                var task = _workQueue.Tasks.LastOrDefault(t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect
+                                                               && t.Status != WorkTaskStatus.Cancelled);
+                if (task == null) continue;
+                if (task.Status == WorkTaskStatus.Assigned && !string.IsNullOrEmpty(task.AssignedToEmployeeGuid) && task.AssignedToEmployeeGuid != guid) continue;
+
+                float d = PlanarDist(slot.transform.position, transform.position);
+                if (d < bestD) { bestD = d; best = slot; bestOrder = order; bestTask = task; }
+            }
+            if (best == null) return false;
+
+            bestTask.Status = WorkTaskStatus.Assigned;
+            bestTask.AssignedToEmployeeGuid = guid;
+            bestTask.AssignedAtRealtime = Time.realtimeSinceStartup;
+            s_loadedIdleSince.Remove(best);
+            if (!ResumeJackRun(best, bestOrder, bestTask)) return false;
+            Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' is taking over a pallet jack left unmanned with a pallet of order {bestOrder.OrderNumber} aboard - delivering it.");
+            return true;
+        }
 
         private MHEOperatorSlot _jack;
         private AiNavigation _jackNav;
@@ -315,10 +367,14 @@ namespace GameCore.Actors
                 if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
                 _jack.AssignOperator(identity);
                 _footScripted = false;   // the MHE slot owns the body's navigation state while riding
-                SetJackDrive(false, "selector mounted");
             }
+            // The run drives this jack now, by script: its own AiNavigation must be off. A RESUMED run (already aboard after a save/load)
+            // used to skip this, so the jack's agent kept patrolling by itself - carrying the selector off, or leaving them walking behind
+            // it while it drove through whatever was in the way (2026-11-07, three resumed selectors on OG3901).
+            SetJackDrive(false, alreadyAboard ? "resumed run" : "selector mounted");
             EnsurePallet();
             _offJack = false; _parkedBay = null; _parkedPalletIndex = -1;
+            _queuedStop = false; _queueProbe = null; EndTravel();
             yield return MoveForks(ForkLift);
             OpsMetrics.Record(OpsMetrics.Kind.JackMount, Time.time - mountStart, 1, (int)EmployeeRole.OrderSelector);
 
@@ -406,13 +462,23 @@ namespace GameCore.Actors
                 // BAY STOPS (Tad, 2026-10-17): the jack parks ONCE per bay, at the bay's first position, and the selector
                 // walks to every slot they need in that bay before the jack moves on. Same bay + same pallet = stay off.
                 string bayKey = BayKey(location.Address);
+
+                // QUEUE STOP (Tad, 2026-11-07, JackTraffic.cs): the jack is parked in a queue behind another jack and the selector is on
+                // foot. While the way is still blocked, walk to anything within QueueWalkMax (10 m) of the jack rather than stand there;
+                // once it clears, or the next pick is further than that, step back on and drive as normal.
+                QueueWalk queueWalk = null;
+                if (_queuedStop && _offJack)
+                {
+                    if (!StillQueued(slotFlat) || !TryPlanQueueWalk(location, out queueWalk)) { queueWalk = null; _queuedStop = false; }
+                }
+
                 // Never pick from a slot more than MaxPickReach from the pallet: if the parked jack is too far away, re-park
                 // right in front of THIS slot instead of walking the cases across the warehouse (Tad, 2026-10-21).
-                bool slotTooFar = _offJack && palletIndex < _pallets.Count && _pallets[palletIndex] != null &&
+                bool slotTooFar = queueWalk == null && _offJack && palletIndex < _pallets.Count && _pallets[palletIndex] != null &&
                                   PlanarDist(_pallets[palletIndex].transform.position, slotFlat) > MaxPickReach;
                 if (slotTooFar)
                     Debug.Log($"[OrderSelectionTaskDriver] '{name}': {location.Address} is more than {MaxPickReach:0}m from the parked jack - re-parking in front of it.");
-                if (slotTooFar || !(_offJack && bayKey == _parkedBay && palletIndex == _parkedPalletIndex))
+                if (queueWalk == null && (slotTooFar || !(_offJack && bayKey == _parkedBay && palletIndex == _parkedPalletIndex)))
                 {
                     if (_offJack)
                     {
@@ -424,8 +490,10 @@ namespace GameCore.Actors
                     Vector3 bayFlat = slotTooFar ? slotFlat : BayFirstPositionFlat(location, slotFlat);
                     float bayMoveStart = OpsMetrics.Now;
                     ComputeBayPark(bayFlat, toAisle, location, palletIndex, out Vector3 park, out Vector3 parkHeading);
+                    _queueProbe = location;   // a long wait on the way lets the selector walk to this slot instead
                     yield return DriveJackTo(park, parkHeading, $"bay {bayKey}", slotTooFar);
-                    if (_jackLegOk) OpsMetrics.Record(OpsMetrics.Kind.JackBayMove, OpsMetrics.Now - bayMoveStart);
+                    _queueProbe = null;
+                    if (_jackLegOk && !_jackLegQueued) OpsMetrics.Record(OpsMetrics.Kind.JackBayMove, OpsMetrics.Now - bayMoveStart);
                     if (!_jackLegOk)
                     {
                         yield return AbandonJackOnFoot($"could not drive the jack to bay {bayKey}");
@@ -433,30 +501,55 @@ namespace GameCore.Actors
                     }
                     if (JackOutOfPower) continue;   // died on the way here: handled at the top of the loop
 
-                    // VERIFY THE STOP (Tad, 2026-11-03): the first stop of a bay is never run through the reach check above, and DriveJackTo
-                    // leaves the jack where it is when the stop is "behind" it (never back up), so the selector walked up to ~10 m with every
-                    // case. If the pallet still isn't within reach of the slot, pull up (reversing if need be) in front of the slot itself.
-                    if (!slotTooFar && palletIndex < _pallets.Count && _pallets[palletIndex] != null &&
-                        PlanarDist(_pallets[palletIndex].transform.position, slotFlat) > MaxPickReach)
+                    if (_jackLegQueued)
                     {
-                        Debug.Log($"[OrderSelectionTaskDriver] '{name}': jack stopped {PlanarDist(_pallets[palletIndex].transform.position, slotFlat):0.0}m from {location.Address} - re-parking in front of it.");
-                        ComputeBayPark(slotFlat, toAisle, location, palletIndex, out park, out parkHeading);
-                        yield return DriveJackTo(park, parkHeading, $"bay {bayKey} (reach)", true);
-                        if (!_jackLegOk)
-                        {
-                            yield return AbandonJackOnFoot($"could not drive the jack to bay {bayKey}");
-                            yield break;
-                        }
-                        if (JackOutOfPower) continue;
+                        _jackLegQueued = false;
+                        // Re-plan from where the jack actually stopped. If it no longer works out, go round again (drive / wait).
+                        if (!TryPlanQueueWalk(location, out queueWalk)) continue;
+                        BeginQueueStop(bayKey, location, queueWalk);
+                        yield return StepOut(queueWalk.Face);
                     }
-                    // Off the jack on the rack side (via that side's mount point).
-                    yield return StepOut(slotFlat);
+                    else
+                    {
+                        // VERIFY THE STOP (Tad, 2026-11-03): the first stop of a bay is never run through the reach check above, and DriveJackTo
+                        // leaves the jack where it is when the stop is "behind" it (never back up), so the selector walked up to ~10 m with every
+                        // case. If the pallet still isn't within reach of the slot, pull up (reversing if need be) in front of the slot itself.
+                        if (!slotTooFar && palletIndex < _pallets.Count && _pallets[palletIndex] != null &&
+                            PlanarDist(_pallets[palletIndex].transform.position, slotFlat) > MaxPickReach)
+                        {
+                            Debug.Log($"[OrderSelectionTaskDriver] '{name}': jack stopped {PlanarDist(_pallets[palletIndex].transform.position, slotFlat):0.0}m from {location.Address} - re-parking in front of it.");
+                            ComputeBayPark(slotFlat, toAisle, location, palletIndex, out park, out parkHeading);
+                            _queueProbe = location;
+                            yield return DriveJackTo(park, parkHeading, $"bay {bayKey} (reach)", true);
+                            _queueProbe = null;
+                            if (!_jackLegOk)
+                            {
+                                yield return AbandonJackOnFoot($"could not drive the jack to bay {bayKey}");
+                                yield break;
+                            }
+                            if (JackOutOfPower) continue;
+                        }
+                        if (_jackLegQueued)
+                        {
+                            // Held up re-parking: walk from the queue instead.
+                            _jackLegQueued = false;
+                            if (!TryPlanQueueWalk(location, out queueWalk)) continue;
+                            BeginQueueStop(bayKey, location, queueWalk);
+                            yield return StepOut(queueWalk.Face);
+                        }
+                        else
+                        {
+                            // Off the jack on the rack side (via that side's mount point).
+                            yield return StepOut(slotFlat);
+                        }
+                    }
                     _offJack = true;
-                    _parkedBay = bayKey;
+                    // A queue stop is not parked AT this bay: once the queue clears, the next pick must re-park, not walk from here.
+                    _parkedBay = queueWalk != null ? null : bayKey;
                     _parkedPalletIndex = palletIndex;
                 }
 
-                yield return PickCasesFromSlot(location, lineItem, takeQty, slotFlat, toAisle);
+                yield return PickCasesFromSlot(location, lineItem, takeQty, slotFlat, toAisle, queueWalk);
                 if (_jack == null) { yield return AbandonJackOnFoot("the pallet jack disappeared"); yield break; }
 
                 if (_capReached)
@@ -479,6 +572,7 @@ namespace GameCore.Actors
                 _jack.StepOn();
                 _offJack = false;
             }
+            _queuedStop = false;
 
             // 3. Stage.
             float stageStart = OpsMetrics.Now;
@@ -559,7 +653,8 @@ namespace GameCore.Actors
 
         /// <summary>The round trips between the slot and the pallet. Stock and pick counts change at the moment
         /// each case lands on the pallet, so an interrupted trip never counts a case that isn't there.</summary>
-        private IEnumerator PickCasesFromSlot(LocationData location, OrderLineItem lineItem, int takeQty, Vector3 slotFlat, Vector3 toAisle)
+        private IEnumerator PickCasesFromSlot(LocationData location, OrderLineItem lineItem, int takeQty, Vector3 slotFlat, Vector3 toAisle,
+                                              QueueWalk queueWalk = null)
         {
             var sku = _inventoryService.GetSkuData(lineItem.SkuId);
             if (sku == null || sku.Prefab == null)
@@ -580,8 +675,9 @@ namespace GameCore.Actors
                 if (_jack == null || ReturnsRequested) yield break;
                 float caseStart = OpsMetrics.Now;
 
-                // To the slot, reach in, take a case.
-                yield return WalkTo(faceSpot);
+                // To the slot, reach in, take a case. From a queue stop the walk is routed (round racks, jacks and pallets).
+                if (queueWalk != null) yield return WalkRoute(queueWalk.Route, false);
+                else yield return WalkTo(faceSpot);
                 yield return FaceDir(-toAisle);
                 // Cases in the back half of the slot: lean in to reach them.
                 bool reach = NextPickIsDeep(location, slotFlat, toAisle);
@@ -601,9 +697,17 @@ namespace GameCore.Actors
                 var activePallet = _pallets[_pallets.Count - 1];
                 if (activePallet == null) { DestroyHeldCase(); yield break; }
                 Vector3 palletPos = activePallet.transform.position;
-                Vector3 palletSide = Flat(palletPos - toAisle * (ParkOffset - PalletSideOff), y);
-                yield return WalkTo(palletSide);
-                yield return FaceDir(toAisle);
+                if (queueWalk != null)
+                {
+                    yield return WalkRoute(queueWalk.Route, true);
+                    yield return FaceDir(palletPos - transform.position);
+                }
+                else
+                {
+                    Vector3 palletSide = Flat(palletPos - toAisle * (ParkOffset - PalletSideOff), y);
+                    yield return WalkTo(palletSide);
+                    yield return FaceDir(toAisle);
+                }
                 yield return new WaitForSeconds(PlaceSeconds);
 
                 DestroyHeldCase();
@@ -850,11 +954,14 @@ namespace GameCore.Actors
                 s_jackClaims.Remove(_jack);
             }
             EndScriptedFoot();   // walked by script but never mounted (e.g. the jack vanished mid step-in)
+            if (_jackNav != null) _jackNav.HeldInQueue = false;
             _jack = null;
             _jackNav = null;
             _jackAgent = null;
             _jackRun = null;
             _forkY = 0f;
+            _queuedStop = false; _queueProbe = null; _jackLegQueued = false;
+            EndTravel();
 
             // Own navigation is back on: resync the agent to where the script left the body.
             var agent = GetComponent<NavMeshAgent>();
@@ -920,6 +1027,7 @@ namespace GameCore.Actors
         private const float NoProgressGameMinutes = 10f;   // Time.deltaTime is game minutes (1 game minute = 1 scaled second)
         private float _noProgressSeconds;
         private Vector3 _progressAnchor;
+        private Vector3 _progressBodyAnchor;
         private int _progressPicked = -1;
         private WorkTask _progressTask;
 
@@ -933,11 +1041,19 @@ namespace GameCore.Actors
             if (_jack != null && _jack.GetComponent<EquipmentBattery>() is EquipmentBattery b && b.IsCharging)
             { _noProgressSeconds = 0f; return; }
 
+            // So is waiting in a queue behind a jack that is itself working (JackTraffic.cs). At the bot's 3x speed this watchdog fires
+            // after ~3 real seconds, before the 5 s step-off-and-walk, so without this a short queue handed the order back.
+            if (_jack != null && QueuedBehindWorkingJack())
+            { _noProgressSeconds = 0f; return; }
+
+            // Watch the jack (it carries the work once aboard) AND the selector's own body: walking to a parked jack 40 m away
+            // moves only the selector, and watching the jack alone handed the order back mid-walk, for ever (2026-11-07, OG3875).
             Vector3 pos = _jack != null ? _jack.transform.position : transform.position;
+            Vector3 body = transform.position;
             int picked = _currentOrder.TotalUnitsPicked;
-            if (_progressTask != _currentTask || picked != _progressPicked || PlanarDist(pos, _progressAnchor) > 1f)
+            if (_progressTask != _currentTask || picked != _progressPicked || PlanarDist(pos, _progressAnchor) > 1f || PlanarDist(body, _progressBodyAnchor) > 1f)
             {
-                _progressTask = _currentTask; _progressPicked = picked; _progressAnchor = pos; _noProgressSeconds = 0f;
+                _progressTask = _currentTask; _progressPicked = picked; _progressAnchor = pos; _progressBodyAnchor = body; _noProgressSeconds = 0f;
                 return;
             }
             _noProgressSeconds += Time.deltaTime;
@@ -998,6 +1114,8 @@ namespace GameCore.Actors
             // Assignment changed / fired / destroyed mid-run: never leave a lane locked or a jack claimed.
             ReleaseJackLaneLock();
             DestroyHeldCase();
+            if (_jackNav != null) _jackNav.HeldInQueue = false;
+            _travelDir = Vector3.zero;
             if (_jack != null)
             {
                 var identity = GetComponent<EmployeeIdentity>();
@@ -1309,6 +1427,7 @@ namespace GameCore.Actors
         private IEnumerator DriveJackTo(Vector3 target, Vector3 finalForward, string phase, bool allowReverse = false)
         {
             _jackLegOk = false;
+            _jackLegQueued = false;   // set by a leg that ended in a queue (bay legs only: _queueProbe)
             if (_jack == null) yield break;
             Transform jt = _jack.transform;
             target = Flat(target, jt.position.y);
@@ -1340,12 +1459,14 @@ namespace GameCore.Actors
                 // the jack translate diagonally relative to its local Z axis.
                 yield return JackFace(toT);
                 yield return JackMoveStraight(target, JackDriveSpeed);
+                if (_jackLegQueued) { _jackLegOk = _jack != null; yield break; }   // stopped in a queue: no squaring up, the selector walks
                 yield return JackFace(headF);
                 _jackLegOk = _jack != null;
                 yield break;
             }
 
             yield return JackNavLeg(target, phase);
+            if (_jackLegQueued) yield break;   // _jackLegOk already true: parked in a queue
             if (!_jackLegOk || _jack == null) yield break;
 
             // TRUST BUT VERIFY (2026-10-23): the nav leg reports "arrived" from AiNavigation's callbacks, which also fire for a
@@ -1356,6 +1477,7 @@ namespace GameCore.Actors
             {
                 Debug.LogWarning($"[OrderSelectionTaskDriver] Pallet jack stopped {PlanarDist(jt.position, target):0.0}m short of '{phase}' - re-issuing the drive ({retry + 1}/{NavLegRetries}).");
                 yield return JackNavLeg(target, phase);
+                if (_jackLegQueued) yield break;
                 if (!_jackLegOk || _jack == null) yield break;
             }
             if (_jack != null && PlanarDist(jt.position, target) > NavLegArriveTolerance)
@@ -1371,45 +1493,89 @@ namespace GameCore.Actors
             {
                 yield return JackFace(to);
                 yield return JackMoveStraight(target, JackDriveSpeed);
+                if (_jackLegQueued) { _jackLegOk = _jack != null; yield break; }
             }
             yield return JackFace(finalForward);
             _jackLegOk = _jack != null;
         }
 
+        /// <summary>Turns the jack in place. Turning swings 2.5 m of forks round the operator, so every step is checked: a turn that
+        /// would sweep into a rack, wall, machine or pallet tries the other way round, and if that is blocked too the jack gives the
+        /// turn up after TurnBlockedGiveUpReal and keeps its heading (an aisle is too narrow to spin a jack in - that was the
+        /// "turning round" through the racking).</summary>
         private IEnumerator JackFace(Vector3 dir)
         {
             dir.y = 0f;
             if (_jack == null || dir.sqrMagnitude < 0.0001f) yield break;
             Transform jt = _jack.transform;
-            Quaternion goal = Quaternion.LookRotation(dir.normalized);
+            dir.Normalize();
+            Quaternion goal = Quaternion.LookRotation(dir);
+            float sign = 0f, blockedFor = 0f;
+            bool flipped = false;
             while (_jack != null && Quaternion.Angle(jt.rotation, goal) > 0.5f)
             {
-                jt.rotation = Quaternion.RotateTowards(jt.rotation, goal, JackTurnSpeed * Time.deltaTime);
+                Vector3 fwd = jt.forward; fwd.y = 0f;
+                float signed = Vector3.SignedAngle(fwd, dir, Vector3.up);
+                if (sign == 0f) sign = signed >= 0f ? 1f : -1f;                       // the short way first
+                float left = sign > 0f ? (signed >= 0f ? signed : signed + 360f) : (signed <= 0f ? -signed : 360f - signed);
+                float step = Mathf.Min(JackTurnSpeed * Time.deltaTime, left);
+                Quaternion next = Quaternion.AngleAxis(sign * step, Vector3.up) * jt.rotation;
+                if (step > 0f && StepBlocked(jt.position, next, out string what))
+                {
+                    if (!flipped) { flipped = true; sign = -sign; continue; }           // try swinging the other way round
+                    blockedFor += RealDt;
+                    if (blockedFor >= TurnBlockedGiveUpReal)
+                    {
+                        WarnSolid("turning", what);
+                        yield break;                                                    // keep the heading it has
+                    }
+                    yield return null;
+                    continue;
+                }
+                blockedFor = 0f;
+                jt.rotation = next;
+                if (step >= left - 0.01f) break;
                 yield return null;
             }
-            if (_jack != null) jt.rotation = goal;
+            if (_jack != null && Quaternion.Angle(jt.rotation, goal) <= 1f) jt.rotation = goal;
         }
 
-        /// <summary>Slides the jack in a straight line without turning (forward or backward).</summary>
+        /// <summary>Slides the jack in a straight line without turning (forward or backward). Waits behind a manned jack in its lane of
+        /// travel (no time limit: see JackTraffic.cs), and never steps into a rack, wall, machine or pallet. On the way to a bay
+        /// (_queueProbe set) a wait of QueueWaitRealSeconds ends the move early (_jackLegQueued) so the selector can walk.</summary>
         private IEnumerator JackMoveStraight(Vector3 target, float speed)
         {
             if (_jack == null) yield break;
             Transform jt = _jack.transform;
             Vector3 flat = Flat(target, jt.position.y);
-            float yielded = 0f;
+            float solidFor = 0f;
             while (_jack != null && PlanarDist(jt.position, flat) > 0.02f)
             {
-                // Another jack in the way: wait behind it (capped, so a head-on meeting can't freeze both).
-                if (yielded < JackYieldMaxSeconds && JackPathBlocked(flat - jt.position))
+                Vector3 move = flat - jt.position; move.y = 0f;
+                _travelDir = move.normalized;
+                Vector3 next = Vector3.MoveTowards(jt.position, Flat(flat, jt.position.y), speed * Time.deltaTime);
+                bool jackHold = JackAhead(move, out var blocker);
+                string what = null;
+                bool solidHold = !jackHold && StepBlocked(next, jt.rotation, out what);
+                if (jackHold || solidHold)
                 {
-                    yielded += Time.deltaTime;
+                    NoteHeld(true, blocker, what);
+                    if (ShouldStepOffAndWalk()) { _jackLegQueued = true; break; }
+                    if (solidHold)
+                    {
+                        solidFor += RealDt;
+                        if (solidFor >= SolidGiveUpReal) { WarnSolid("straight move", what); break; }   // stop here rather than drive through it
+                    }
                     yield return null;
                     continue;
                 }
-                jt.position = Vector3.MoveTowards(jt.position, Flat(flat, jt.position.y), speed * Time.deltaTime);
+                NoteHeld(false, null, null);
+                solidFor = 0f;
+                jt.position = next;
                 yield return null;
             }
-            if (_jack != null) jt.position = Flat(flat, jt.position.y);
+            if (_jack != null && PlanarDist(jt.position, flat) <= 0.02f) jt.position = Flat(flat, jt.position.y);
+            EndTravel();
         }
 
         /// <summary>Script owns the jack (manual) vs its own NavMeshAgent drives it. Same rules as
@@ -1440,6 +1606,37 @@ namespace GameCore.Actors
 
         /// <summary>The jack's own NavMeshAgent carries it across open floor (avoids racks). Mirrors
         /// ReachTruckOperator.SeekViaNavMesh, including its hard-won guards. Leaves the jack in manual mode.</summary>
+        /// <summary>For the [JackStall] line: what is physically around a stuck jack (2026-11-07, block 1088: jacks stopped 6-13 m from a bay with a
+        /// complete path and nothing the old line could name). Other agents (and whether they are stopped), solid colliders within reach of the
+        /// jack's nose, and the gap between where it points and where the agent wants to go.</summary>
+        private string DescribeJackSurroundings()
+        {
+            if (_jack == null) return "";
+            Transform jt = _jack.transform;
+            Vector3 c = JackCentre(jt);
+            var sb = new System.Text.StringBuilder();
+            Vector3 dv = _jackAgent != null ? _jackAgent.desiredVelocity : Vector3.zero; dv.y = 0f;
+            if (dv.sqrMagnitude > 0.0001f) { Vector3 fw = jt.forward; fw.y = 0f; sb.Append($"turnNeeded={Vector3.SignedAngle(fw, dv, Vector3.up):0}deg "); }
+            sb.Append($"avoidPrio={(_jackAgent != null ? _jackAgent.avoidancePriority : -1)} vel={(_jackAgent != null ? _jackAgent.velocity.magnitude : 0f):0.00} ");
+            var seen = new System.Collections.Generic.HashSet<string>();
+            foreach (var a in FindObjectsByType<NavMeshAgent>())
+            {
+                if (a == null || !a.enabled || a.transform.IsChildOf(jt) || a.transform == jt) continue;
+                float d = PlanarDist(a.transform.position, c);
+                if (d > 4f) continue;
+                if (seen.Add(a.name)) sb.Append($"[agent {a.name} {d:0.0}m stopped={a.isStopped} vel={a.velocity.magnitude:0.0}] ");
+            }
+            var cols = Physics.OverlapSphere(c + jt.forward * 1.2f + Vector3.up * 0.6f, 1.8f, ~0, QueryTriggerInteraction.Ignore);
+            foreach (var col in cols)
+            {
+                if (col == null || col.transform.IsChildOf(jt) || col.transform == jt) continue;
+                if (col.GetComponentInParent<EmployeeIdentity>() != null) continue;
+                if (col.GetComponentInParent<PlacedObject>() is PlacedObject po && po.data != null && po.data.isFloor) continue;
+                if (seen.Add(col.transform.root.name + col.name)) sb.Append($"[solid {col.transform.root.name}/{col.name}] ");
+            }
+            return sb.ToString();
+        }
+
         private IEnumerator JackNavLeg(Vector3 target, string phase)
         {
             _jackLegOk = false;
@@ -1490,13 +1687,14 @@ namespace GameCore.Actors
                 yield break;
             }
 
-            float elapsed = 0f, sinceRecheck = 0f, navYielded = 0f, stillFor = 0f;
-            int reissues = 0;
+            float elapsed = 0f, sinceRecheck = 0f, stillFor = 0f, solidFor = 0f;
+            int reissues = 0, creeps = 0;
             Vector3 lastPos = jt.position;
-            bool stallLogged = false;
+            bool stallLogged = false, solidGaveUp = false;
             while (_jack != null && !arrived && _jackNav.IsSeekingTask && elapsed < 45f)
             {
-                elapsed += Time.deltaTime;
+                // Time spent waiting in a queue is not driving time: a long wait behind a working jack must not time the leg out.
+                if (_heldRealSeconds <= 0f) elapsed += Time.deltaTime;
                 sinceRecheck += Time.deltaTime;
 
                 // Diagnostic: log each stall of 3s+ (not moving > 5 cm), to locate the stuck spot. 0.5s was firing on every pull-away
@@ -1512,17 +1710,47 @@ namespace GameCore.Actors
                         $"hasPath={_jackAgent.hasPath} pathPending={_jackAgent.pathPending} " +
                         $"desiredVel={_jackAgent.desiredVelocity} stopped={_jackAgent.isStopped} " +
                         $"onMesh={_jackAgent.isOnNavMesh} jackBlocked={JackPathBlocked(_jackAgent.desiredVelocity.sqrMagnitude > 0.01f ? _jackAgent.desiredVelocity : jt.forward)} " +
-                        $"elapsed={elapsed:F1}s reissues={reissues}");
+                        $"elapsed={elapsed:F1}s reissues={reissues} " + DescribeJackSurroundings());
                 }
                 else if (stillFor == 0f) stallLogged = false;
 
-                // Another jack in the way: hold the agent still behind it (capped, see JackYieldMaxSeconds).
+                // QUEUE + GUARD (Tad, 2026-11-07, JackTraffic.cs). A manned jack in this jack's lane of travel: hold still behind it,
+                // for as long as it takes (no "go anyway" - that weaved and drove through). And the agent only steers the jack's centre,
+                // so check the whole outline a couple of frames ahead: a step that would put the body or forks into a rack, wall,
+                // machine or pallet is not taken. Held velocity is zeroed so a waiting jack doesn't coast or swing round.
                 if (_jackAgent.isActiveAndEnabled && _jackAgent.isOnNavMesh)
                 {
-                    Vector3 heading = _jackAgent.desiredVelocity.sqrMagnitude > 0.01f ? _jackAgent.desiredVelocity : jt.forward;
-                    bool hold = navYielded < JackYieldMaxSeconds && JackPathBlocked(heading);
-                    if (hold) navYielded += Time.deltaTime;
+                    Vector3 dv = _jackAgent.desiredVelocity; dv.y = 0f;
+                    Vector3 heading = dv.sqrMagnitude > 0.01f ? dv : jt.forward;
+                    _travelDir = heading.normalized;
+                    bool jackHold = JackAhead(heading, out var blocker);
+                    string what = null;
+                    bool solidHold = false;
+                    if (!jackHold && dv.sqrMagnitude > 0.01f)
+                    {
+                        float look = Mathf.Max(_jackAgent.speed * Time.deltaTime * 2f, 0.15f);
+                        Vector3 predPos = jt.position + dv.normalized * look;
+                        Quaternion predRot = Quaternion.RotateTowards(jt.rotation, Quaternion.LookRotation(dv.normalized), _jackAgent.angularSpeed * Time.deltaTime * 2f);
+                        solidHold = StepBlocked(predPos, predRot, out what);
+                    }
+                    bool hold = jackHold || solidHold;
+                    NoteHeld(hold, blocker, what);
+                    _jackNav.HeldInQueue = jackHold;   // queued: AiNavigation's 10 s no-progress backstop must not end the leg
                     if (_jackAgent.isStopped != hold) _jackAgent.isStopped = hold;
+                    if (hold) _jackAgent.velocity = Vector3.zero;
+
+                    if (solidHold)
+                    {
+                        solidFor += RealDt;
+                        // Body / forks would clip something (a corner cut into an aisle, typically): nudge straight on or back a little
+                        // so the next attempt swings wider, a few times; then give the leg up rather than drive through.
+                        if (solidFor >= SolidCreepAfterReal && creeps < MaxCreepsPerLeg && TryCreep(heading)) { creeps++; solidFor = SolidCreepAfterReal * 0.5f; }
+                        if (solidFor >= SolidGiveUpReal) { WarnSolid(phase, what); solidGaveUp = true; break; }
+                    }
+                    else solidFor = 0f;
+
+                    // Queued long enough on the way to a bay, and the slot is within walking reach: park here, the selector walks.
+                    if (hold && ShouldStepOffAndWalk()) { _jackLegQueued = true; break; }
                 }
 
                 if (sinceRecheck >= 0.5f)
@@ -1539,11 +1767,15 @@ namespace GameCore.Actors
                 yield return null;
             }
 
+            EndTravel();
+            if (_jackNav != null) _jackNav.HeldInQueue = false;
             if (_jack == null) yield break;
             _jackNav.SetTaskBusy(false);
             SetJackDrive(false, phase);
+            if (_jackLegQueued) { _jackLegOk = true; yield break; }   // parked in a queue: the caller has the selector walk
             if (!arrived)
-                Debug.LogError($"[OrderSelectionTaskDriver] Pallet jack did not reach '{phase}' ({driveTarget}) after {elapsed:F1}s.");
+                Debug.LogError($"[OrderSelectionTaskDriver] Pallet jack did not reach '{phase}' ({driveTarget}) after {elapsed:F1}s" +
+                               (solidGaveUp ? " - it would have had to drive through something to get there." : "."));
             _jackLegOk = arrived;
         }
 
@@ -1609,8 +1841,9 @@ namespace GameCore.Actors
         // ── Keeping pallet jacks apart (Tad, 2026-10-17: two selectors on one order drove over each other) ──
         private const float JackCentreBack = 1.0f;     // the forks trail behind the body: the jack's middle is ~1 m back
         private const float JackClearAhead = 3.6f;     // centre-to-centre gap along the path that counts as "in the way"
-        private const float JackClearSide = 1.2f;      // ...and side to side
-        private const float JackYieldMaxSeconds = 6f;  // then go anyway, so a head-on meeting can't freeze both forever
+        private const float JackClearSide = 1.2f;      // ...and side to side (further off = the other lane is free: pass)
+        // There is no "wait N seconds then go anyway" any more (it was 6 s): that is what drove jacks through each other. A head-on
+        // meeting is settled by right of way (JackTraffic.cs), a long queue by stepping off and walking.
         private static readonly List<MHEOperatorSlot> s_allJacks = new List<MHEOperatorSlot>();
         private static float s_allJacksAt = -10f;
 
@@ -1640,34 +1873,9 @@ namespace GameCore.Actors
             return park;
         }
 
-        /// <summary>Another pallet jack (working or parked) sits in this jack's path for a move in <paramref name="moveDir"/>.</summary>
-        private bool JackPathBlocked(Vector3 moveDir)
-        {
-            if (_jack == null) return false;
-            moveDir.y = 0f;
-            if (moveDir.sqrMagnitude < 0.0001f) return false;
-            moveDir.Normalize();
-            if (Time.unscaledTime - s_allJacksAt > 1f)
-            {
-                s_allJacksAt = Time.unscaledTime;
-                s_allJacks.Clear();
-                foreach (var s in FindObjectsByType<MHEOperatorSlot>())
-                    if (s != null && s.isActiveAndEnabled && s.IsPalletJack && s.GetComponent<PlacedObject>() != null) s_allJacks.Add(s);
-            }
-            Vector3 me = JackCentre(_jack.transform);
-            foreach (var other in s_allJacks)
-            {
-                if (other == null || other == _jack) continue;
-                // An unmanned jack (parked, charging, or left where a driver gave up) never moves, so holding behind it only burns the
-                // yield budget and the 10s no-progress backstop, which then hands the task back (blocks 37+: jacks idle at (-18, 42)).
-                if (other.CurrentOperator == null) continue;
-                Vector3 rel = JackCentre(other.transform) - me; rel.y = 0f;
-                float ahead = Vector3.Dot(rel, moveDir);
-                if (ahead <= 0f || ahead > JackClearAhead) continue;
-                if ((rel - moveDir * ahead).magnitude < JackClearSide) return true;
-            }
-            return false;
-        }
+        /// <summary>A manned pallet jack sits in this jack's lane of travel and this jack must wait for it (see JackAhead,
+        /// OrderSelectionTaskDriver.JackTraffic.cs - right of way, passing, queueing).</summary>
+        private bool JackPathBlocked(Vector3 moveDir) => JackAhead(moveDir, out _);
 
         /// <summary>Resolves the lane + slot this order stages into. Shared by both paths (same rules as FinishOrder).</summary>
         private bool TryResolveStagingTarget(OrderData order, out string resolvedLane, out LaneNamingService.LaneSlot slot,

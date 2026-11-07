@@ -11828,3 +11828,142 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>
 - day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 restored from save at (25, 82) 6x248905 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>
 - day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(29, 83)  <<HISTORY: d6 06:01 registered at (29, 83) 32x999999 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 restored from save at (29, 83) 30x999999 by InventoryService.RegisterPalletDirect>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 83)  <<HISTORY: d6 06:01 restored from save at (27, 83) 27x897034 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (26, 83) 40x897034 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(29, 83)  <<HISTORY: d6 06:01 restored from save at (29, 83) 30x999999 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (29, 83) 32x999999 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 restored from save at (25, 82) 6x248905 by InventoryService.RegisterPalletDirect>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 restored from save at (25, 82) 6x248905 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(29, 83)  <<HISTORY: d6 06:01 restored from save at (29, 83) 30x999999 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (29, 83) 32x999999 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 restored from save at (25, 82) 6x248905 by InventoryService.RegisterPalletDirect>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 restored from save at (25, 82) 6x248905 by InventoryService.RegisterPalletDirect>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 83)  <<HISTORY: d6 06:01 restored from save at (27, 83) 27x897034 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (26, 83) 40x897034 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 83)  <<HISTORY: d6 06:01 restored from save at (27, 83) 27x897034 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (26, 83) 40x897034 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(29, 83)  <<HISTORY: d6 06:01 restored from save at (29, 83) 30x999999 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (29, 83) 32x999999 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 restored from save at (25, 82) 6x248905 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 restored from save at (25, 82) 6x248905 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **REPEATING** | x25 and counting: : Semantic - USS in 'style' attribute is invalid: Assets/_Project/Scripts/UI_UX/TopHUD/HUD.uxml (line 91): warning: Asset reference to GUID 'b0b25c7081699704f917d02e28f31692' was moved from 'Assets/6. Art/UI Packs/Farm Game UI - Simple 2D UI/Font/LilitaOne-Regular.ttf' to 'Assets/_Project/Fonts/LilitaOne_FarmGameUI/LilitaOne-Regular.ttf'. Update the URL 'project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular' to remove this warning.
+- day 6 06:01 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/TopHUD/HUD.uxml (line 100): warning: Asset reference to GUID 'b0b25c7081699704f917d02e28f31692' was moved from 'Assets/6. Art/UI Packs/Farm Game UI - Simple 2D UI/Font/LilitaOne-Regular.ttf' to 'Assets/_Project/Fonts/LilitaOne_FarmGameUI/LilitaOne-Regular.ttf'. Update the URL 'project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular' to remove this warning.
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 restored from save at (25, 82) 6x248905 by InventoryService.RegisterPalletDirect>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(26, 83)  <<HISTORY: d6 06:01 registered at (26, 83) 40x897034 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 restored from save at (27, 83) 27x897034 by InventoryService.RegisterPalletDirect>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(29, 83)  <<HISTORY: d6 06:01 registered at (29, 83) 32x999999 by InventoryService.RegisterPhysicalPallet>>  <<HISTORY: d6 06:01 restored from save at (29, 83) 30x999999 by InventoryService.RegisterPalletDirect>>
+- day 6 06:01 | **OVERLAP** | OVERLAP A Chep & A Chep @(24, 82)  <<HISTORY: d6 06:01 restored from save at (25, 82) 6x248905 by InventoryService.RegisterPalletDirect>>  <<HISTORY: d6 06:01 registered at (24, 82) 16x248905 by InventoryService.RegisterPhysicalPallet>>
+- day 1 08:57 | **WARN** | [AiNavigation] Employee_Pamela Savage: stuck at (-44.30, 1.10, 41.73) — walking out to (-33.05, 1.08, 35.23) (12.00m to mesh).
+- day 1 09:25 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (9.07, 1.11, 51.00) — walking out to (-2.19, 1.25, 44.50) (12.00m to mesh).
+- day 1 11:35 | **WARN** | [AiNavigation] RT_Full(Clone): task target (-31.19, 1.20, 47.34) only partially reachable — stopped 1.50m short. Treating as arrived.
+- day 1 12:07 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.89, 1.11, 46.28) — walking out to (0.11, 1.25, 46.28) (12.00m to mesh).
+- day 1 13:07 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-27.90, 1.11, 41.89) — walking out to (-14.90, 1.25, 41.89) (12.00m to mesh).
+- day 1 14:15 | **WARN** | [AiNavigation] Employee_Frank Waller: stuck at (-33.20, 1.12, 51.33) — walking out to (-33.20, 1.10, 38.59) (12.00m to mesh).
+- day 1 14:15 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-32.33, 1.11, 50.76) — walking out to (-25.83, 1.19, 39.50) (12.00m to mesh).
+- day 1 14:33 | **WARN** | [AiNavigation] Employee_Eric Rodriguez: stuck at (-39.00, 1.12, 45.21) — walking out to (-27.74, 1.10, 38.71) (12.00m to mesh).
+- day 1 15:51 | **WARN** | [AiNavigation] Employee_Douglas Stout: stuck at (-27.32, 1.12, 45.21) — walking out to (-14.32, 1.20, 44.84) (12.00m to mesh).
+- day 1 20:11 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-14.01, 1.11, 47.61) — walking out to (-20.49, 1.09, 35.71) (12.55m to mesh).
+- day 1 20:19 | **WARN** | [AiNavigation] Employee_Frank Waller: stuck at (-36.32, 1.12, 45.21) — walking out to (-47.58, 1.08, 38.71) (12.00m to mesh).
+- day 1 21:42 | **WARN** | [AiNavigation] Employee_Douglas Stout: stuck at (-14.21, 1.13, 50.76) — walking out to (-2.95, 1.19, 44.26) (12.00m to mesh).
+- day 1 23:08 | **WARN** | [AiNavigation] Employee_Douglas Stout: stuck at (-3.88, 1.18, 48.24) — walking out to (-15.66, 1.16, 41.76) (12.45m to mesh).
+- day 1 23:30 | **WARN** | [AiNavigation] Employee_Sharon Hayes: stuck at (-23.13, 1.11, 40.34) — walking out to (-11.87, 1.20, 46.84) (12.00m to mesh).
+- day 1 23:31 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 0ccb2b33-00dd-437d-b7ce-3e7e02b8b70a but the employee is 27.1m away (max 4.5m) — refusing to start receiving.
+- day 1 23:41 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-3.31, 1.11, 50.98) — walking out to (-14.56, 1.25, 44.09) (12.20m to mesh).
+- day 2 01:11 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' fell below the floor at (13.86, 0.00, 52.29) (cell (60, 89)). Putting it back on its last inside spot (-45.98, 1.11, 42.33). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- day 2 01:23 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-15.82, 1.11, 40.57) — walking out to (-4.56, 1.25, 47.07) (12.00m to mesh).
+- day 2 02:21 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' fell below the floor at (12.54, 0.00, 56.26) (cell (59, 92)). Putting it back on its last inside spot (-45.98, 1.11, 42.33). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- day 2 02:30 | **WARN** | [AiNavigation] Employee_Frank Waller: stuck at (-40.10, 1.15, 45.08) — walking out to (-27.10, 1.12, 45.22) (12.00m to mesh).
+- day 2 02:44 | **WARN** | [AiNavigation] Employee_Sharon Hayes: stuck at (-16.57, 1.14, 40.61) — walking out to (-29.57, 1.18, 40.61) (12.00m to mesh).
+- day 2 03:10 | **WARN** | [AiNavigation] Employee_Pamela Savage: stuck at (-16.57, 1.14, 40.07) — walking out to (-23.07, 1.12, 51.33) (12.04m to mesh).
+- day 2 06:15 | **WARN** | [OrderService] Order OG1876 closed with a STAGED pallet (100 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 07:00 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (1.27, 1.11, 50.97) — walking out to (-9.99, 1.25, 44.47) (12.00m to mesh).
+- day 2 07:40 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-32.22, 1.11, 45.46) — walking out to (-19.22, 1.23, 45.46) (12.00m to mesh).
+- day 2 08:04 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-16.86, 1.11, 39.35) — walking out to (-23.32, 1.16, 51.00) (12.89m to mesh).
+- day 2 08:48 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-22.10, 1.11, 39.23) — walking out to (-33.35, 1.19, 45.98) (12.12m to mesh).
+- day 2 09:14 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-0.41, 1.11, 48.95) — walking out to (-11.67, 1.25, 42.45) (12.00m to mesh).
+- day 2 10:43 | **WARN** | [AiNavigation] Employee_Sharon Hayes: stuck at (-16.69, 1.17, 40.05) — walking out to (-23.19, 1.12, 51.33) (12.06m to mesh).
+- day 2 11:08 | **WARN** | [AiNavigation] Employee_Douglas Stout: stuck at (-16.69, 1.17, 40.07) — walking out to (-23.19, 1.12, 51.33) (12.04m to mesh).
+- day 2 12:40 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-23.01, 1.11, 41.89) — walking out to (-11.76, 1.08, 35.50) (12.13m to mesh).
+- day 2 13:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-29.00, 1.11, 51.00) — walking out to (-22.50, 1.17, 39.74) (12.00m to mesh).
+- day 2 15:00 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (6.17, 1.11, 49.01) — walking out to (-5.09, 1.25, 42.51) (12.00m to mesh).
+- day 2 15:18 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (6.16, 1.11, 49.00) — walking out to (-5.09, 1.25, 42.50) (12.00m to mesh).
+- day 2 16:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.53, 1.11, 51.00) — walking out to (3.73, 1.25, 44.50) (12.00m to mesh).
+- day 2 20:57 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-34.71, 1.11, 45.46) — walking out to (-21.71, 1.23, 45.46) (12.00m to mesh).
+- day 2 23:55 | **WARN** | [AiNavigation] Employee_Frank Waller: stuck at (-43.93, 1.18, 47.81) — walking out to (-37.45, 1.10, 35.96) (12.51m to mesh).
+- day 2 23:56 | **WARN** | [AiNavigation] Employee_Pamela Savage: stuck at (-43.92, 1.18, 48.31) — walking out to (-32.67, 1.12, 41.63) (12.09m to mesh).
+- day 3 02:15 | **ERROR** | [MHEBoundary] 'DS_FULL(Clone)' drove OUT of the building at (-47.77, 1.08, 35.50) (cell (13, 76)). Putting it back on its last inside spot (-48.00, 1.08, 35.99). Forklifts, dock stockers and pallet jacks must stay inside.
+  ```
+  UnityEngine.Debug:LogError (object)
+  MHEBoundary:Update () (at Assets/_Project/Scripts/Actors/MHEBoundary.cs:91)
+  ```
+- day 3 03:42 | **WARN** | [AiNavigation] Employee_Pamela Savage: stuck at (-32.75, 1.12, 50.51) — walking out to (-44.01, 1.14, 44.01) (12.00m to mesh).
+- day 3 07:39 | **WARN** | [AiNavigation] Employee_Eric Rodriguez: stuck at (4.89, 1.14, 49.66) — walking out to (-6.37, 1.19, 43.16) (12.00m to mesh).
+- day 3 07:47 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (7.07, 1.11, 50.64) — walking out to (-4.19, 1.25, 44.14) (12.00m to mesh).
+- day 3 09:13 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-9.05, 1.11, 44.34) — walking out to (-20.30, 1.16, 51.00) (12.22m to mesh).
+- day 3 10:22 | **REPEATING** | x25 and counting: Parameter 'IsWaving' does not exist.
+- day 3 11:42 | **WARN** | [AiNavigation] Employee_Pamela Savage: stuck at (-16.67, 1.15, 45.62) — walking out to (-10.17, 0.04, 34.36) (12.00m to mesh).
+- day 3 12:46 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-5.37, 1.11, 44.34) — walking out to (7.63, 1.25, 44.34) (12.00m to mesh).
+- day 3 15:24 | **WARN** | [AiNavigation] Employee_Pamela Savage: stuck at (-44.43, 1.16, 49.54) — walking out to (-33.23, 1.11, 41.56) (12.76m to mesh).
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- day 1 08:00 | **WARN** | To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 1 08:46 | **WARN** | [AiNavigation] Dockstocker: stuck at (6.31, 1.11, 50.24) — walking out to (12.67, 1.33, 38.63) (12.29m to mesh).
+- day 1 09:41 | **WARN** | [AiNavigation] Employee_Jerry Savage: stuck at (-40.06, 1.12, 42.14) — walking out to (-28.80, 1.08, 35.64) (12.00m to mesh).
+- day 1 16:31 | **WARN** | [AiNavigation] Employee_Robert Sanchez: stuck at (7.66, 1.15, 41.37) — walking out to (-3.60, 1.08, 35.17) (12.00m to mesh).
+- day 1 16:33 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 81965c43-253c-451e-86cd-eea6c4a71794 but the employee is 8.1m away (max 4.5m) — refusing to start receiving.
+- day 1 16:38 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 6b5f45a5-8da8-487b-a9ea-c52e3c81e2e8 but the employee is 15.3m away (max 4.5m) — refusing to start receiving.
+- day 1 17:43 | **WARN** | [AiNavigation] ReachTruck cannot reach task position at (5.91, 1.16, 48.99) (path invalid) — abandoning the walk and handing the task back.
+- day 1 18:17 | **WARN** | [AiNavigation] Dockstocker: stuck at (-8.91, 1.16, 47.25) — walking out to (4.09, 1.16, 47.25) (12.00m to mesh).
+- day 1 19:09 | **WARN** | [AiNavigation] ReachTruck cannot reach task position at (-23.24, 1.16, 40.71) (path invalid) — abandoning the walk and handing the task back.
+- day 1 19:40 | **WARN** | [AiNavigation] PalletJack: stuck at (4.64, 1.11, 52.50) — walking out to (11.14, 1.16, 41.24) (12.00m to mesh).
+- day 1 20:17 | **WARN** | [AiNavigation] Employee_Michelle Ramirez: stuck at (8.83, 1.12, 49.94) — walking out to (-2.43, 1.17, 43.44) (12.00m to mesh).
+- day 1 20:38 | **WARN** | [AiNavigation] PalletJack cannot reach task position at (-23.91, 1.16, 40.91) (path invalid) — abandoning the walk and handing the task back.
+- day 1 20:39 | **WARN** | [AiNavigation] Employee_Jerry Savage: stuck at (-7.35, 1.14, 41.83) — walking out to (3.89, 1.08, 35.17) (12.19m to mesh).
+- day 1 20:56 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 71ddf7fa-4e95-415d-8829-59034312b6b3 but the employee is 22.1m away (max 4.5m) — refusing to start receiving.
+- day 1 21:21 | **ERROR** | [OrderSelectionTaskDriver] Pallet jack did not reach 'bay 01-05' ((-31.86, 1.15, 40.91)) after 34.5s.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<JackNavLeg>d__115:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.PalletJack.cs:1633)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 22:15 | **WARN** | [AiNavigation] PalletJack: stuck at (-2.00, 1.11, 50.31) — walking out to (11.00, 1.16, 49.79) (12.01m to mesh).
+- day 2 00:51 | **WARN** | [AiNavigation] ReachTruck: stuck at (-29.06, 1.11, 40.01) — walking out to (-22.57, 1.16, 51.64) (12.31m to mesh).
+- day 2 03:34 | **ERROR** | [OrderSelectionTaskDriver] Pallet jack did not reach 'bay 02-05' ((-26.54, 1.16, 46.44)) after 17.8s.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<JackNavLeg>d__115:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.PalletJack.cs:1633)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 03:56 | **WARN** | [OrderSelectionTaskDriver] Order 5b481e57-7eb6-4bf0-978d-b7dc93c20e9f (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 229/470 case(s).
+- day 2 04:05 | **WARN** | [AiNavigation] ReachTruck: stuck at (-18.05, 1.11, 42.01) — walking out to (-31.05, 1.16, 41.88) (12.00m to mesh).
+- day 2 04:22 | **ERROR** | [ReachTruckOperator] 'ReachTruck' deliver: → location 02-05-00 anchor: NO NAVMESH PATH. anchor=(-33.84, 1.11, 47.34) → driveTarget=(-33.84, 1.16, 47.34), from=(-37.44, 1.11, 36.15), elapsed=30.0s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=18.6, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x0024a] in C:\Users\tadsa\Documents\GitHub\03-29_REDO-BUILD\Assets\_Project\Scripts\Actors\AiNavigation.cs:992 < ] 37.3s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__128:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2788)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 04:34 | **WARN** | [AiNavigation] Dockstocker: stuck at (-11.09, 1.11, 44.09) — walking out to (-22.33, 1.16, 51.30) (12.35m to mesh).
+- day 2 04:39 | **WARN** | [AiNavigation] Employee_Jerry Savage: stuck at (-31.34, 1.12, 45.21) — walking out to (-31.34, 1.08, 32.50) (12.00m to mesh).
+- day 2 04:55 | **WARN** | [AiNavigation] Employee_Robert Sanchez: stuck at (-25.53, 1.18, 39.89) — walking out to (-19.04, 1.14, 51.38) (12.20m to mesh).

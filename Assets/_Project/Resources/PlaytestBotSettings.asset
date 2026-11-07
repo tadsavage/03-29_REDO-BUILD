@@ -17,7 +17,7 @@ MonoBehaviour:
   pauseAtBlockEnd: 1
   saveAtBlockEnd: 1
   decisionIntervalMinutes: 30
-  layoutName: three doors aisle
+  layoutName: three dors aisle
   startDockStockers: 3
   startReachTruckOps: 2
   startReceivers: 2
@@ -49,14 +49,14 @@ MonoBehaviour:
   healthCheckIntervalMinutes: 30
   stationarySeconds: 300
   reportFolder: Assets/_Project/Docs/Playtest
-  wOnTime: 15
+  wOnTime: 10
   wFill: 10
-  wThroughput: 15
-  wRevenue: 15
+  wThroughput: 10
+  wRevenue: 0
   wProfit: 10
-  wCash: 5
-  wReliability: 25
-  wReputation: 5
+  wCash: 0
+  wReliability: 50
+  wReputation: 10
   targetRevenuePerDay: 8000
   targetProfitPerDay: 1500
   reputationGainPerBlock: 30

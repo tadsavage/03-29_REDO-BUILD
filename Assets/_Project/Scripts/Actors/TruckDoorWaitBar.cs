@@ -145,6 +145,7 @@ public class TruckDoorWaitBar : MonoBehaviour
         labelRect.offsetMin = Vector2.zero; labelRect.offsetMax = Vector2.zero;
 
         BuildFrame(canvasGO.transform);
+        WorldLabelOverlay.Convert(_canvas);   // screen overlay that follows the trailer: never blurred by the depth of field
 
         canvasGO.SetActive(false);
     }
@@ -347,6 +348,7 @@ public class TruckDoorWaitBar : MonoBehaviour
     {
         if (_mainCamera == null) _mainCamera = Camera.main;
         if (_canvas == null || _mainCamera == null) return;
+        if (_canvas.renderMode != RenderMode.WorldSpace) return;   // overlay (WorldLabelOverlay): always faces the screen
 
         // Same "point away from the camera" convention ReceivingFillBar uses — a world-space canvas
         // reads correctly with its local +Z pointing away from the viewer.

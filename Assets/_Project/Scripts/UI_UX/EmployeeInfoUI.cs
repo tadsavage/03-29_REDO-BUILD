@@ -210,9 +210,17 @@ public class EmployeeInfoUI : MonoBehaviour
         Hide();
     }
 
+    /// <summary>True when the cached card is still part of a live UI panel. A UIDocument rebuilds its whole tree (new
+    /// rootVisualElement, new clones of every element) when it is re-enabled or its UXML/USS is live-reloaded mid-Play; the old
+    /// card then still "exists" and Show() sets it visible, but it is drawn nowhere. Tad, 2026-11-07: clicking a worker, a pallet
+    /// or a machine opened nothing - the info card, the pallet cards and the battery cards (all hosted on HudRoot) were going
+    /// into a detached tree.</summary>
+    private bool PanelIsLive => _panel != null && _panel.panel != null;
+
     private void EnsureInitialized()
     {
-        if (_panel != null) return;
+        if (PanelIsLive) return;
+        if (_panel != null) Debug.LogWarning("[EmployeeInfoUI] The HUD document was rebuilt - re-binding the employee info card to the live tree.");
 
         var docs = Object.FindObjectsByType<UIDocument>();
         foreach (var doc in docs)
@@ -387,13 +395,20 @@ public class EmployeeInfoUI : MonoBehaviour
             Show(data);
     }
 
-    public bool IsVisible => _isVisible;
+    public bool IsVisible => _isVisible && PanelIsLive;   // a card in a rebuilt (detached) tree is not on screen
 
     /// <summary>The live employee the open card is showing (null if closed / unresolved).</summary>
     public EmployeeIdentity CurrentIdentity => _isVisible ? _currentIdentity : null;
 
     /// <summary>The HUD document's root (parent of the info card) - EmployeeWorldBanners adds its floating banners here.</summary>
-    public VisualElement HudRoot => _panel != null ? _panel.parent : null;
+    public VisualElement HudRoot
+    {
+        get
+        {
+            EnsureInitialized();   // never hand out the root of a rebuilt (detached) HUD tree
+            return PanelIsLive ? _panel.parent : null;
+        }
+    }
 
     /// <summary>The role icon the card shows in its header (null when the library has none for that role).</summary>
     public Sprite GetRoleIcon(EmployeeRole role) => _roleIconLibrary != null ? _roleIconLibrary.GetIcon(role) : null;

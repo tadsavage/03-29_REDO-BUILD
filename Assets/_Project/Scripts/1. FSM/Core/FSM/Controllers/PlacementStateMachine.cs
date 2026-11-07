@@ -392,6 +392,7 @@ private void HandleIdleHover(bool tickRaycast = true)
             // on one of its shelves or a label mounted on its face. A single-hit raycast would
             // only ever find the rack shell and block anything behind it; this lets a more
             // specific hit (pallet, rack slot/label) further along the same ray win instead.
+            WorldClickPick.SyncPhysicsIfPaused();
             int count = Physics.RaycastNonAlloc(_raycast.CurrentRay, _hoverHitsBuffer, 500f, _raycast.CurrentObjectMask, QueryTriggerInteraction.Collide);
             System.Array.Sort(_hoverHitsBuffer, 0, count, Comparer<RaycastHit>.Create((a, b) => a.distance.CompareTo(b.distance)));
 
@@ -426,6 +427,7 @@ private void HandleIdleHover(bool tickRaycast = true)
                 }
             }
 
+            OutboundPalletBuilder handledOutboundPallet = null;   // a click passes through SEVERAL colliders of one pallet (deck, cases, click box): act once
             for (int i = 0; i < count; i++)
             {
                 var go = _hoverHitsBuffer[i].collider.gameObject;
@@ -433,8 +435,13 @@ private void HandleIdleHover(bool tickRaycast = true)
 
                 // Click an outbound pallet (or a case on it) to open the order-progress card that follows it.
                 var outboundPallet = go.GetComponentInParent<OutboundPalletBuilder>();
-                if (outboundPallet != null && !string.IsNullOrEmpty(outboundPallet.OrderId) && !_raycast.IsPointerOverUI)
+                // A person nearer the camera than this pallet (a rider standing behind it on a jack) gets the click, not the pallet.
+                bool personInFront = false;
+                for (int j = 0; j < i; j++)
+                    if (_hoverHitsBuffer[j].collider != null && _hoverHitsBuffer[j].collider.GetComponentInParent<EmployeeIdentity>() != null) { personInFront = true; break; }
+                if (outboundPallet != null && outboundPallet != handledOutboundPallet && !string.IsNullOrEmpty(outboundPallet.OrderId) && !_raycast.IsPointerOverUI && !personInFront)
                 {
+                    handledOutboundPallet = outboundPallet;
                     if (Mouse.current.leftButton.wasPressedThisFrame) OrderPalletCard.Toggle(outboundPallet);   // pin
                     else if (TooltipSettings.Enabled && _hoverUI.IsEnabled) OrderPalletCard.Hover(outboundPallet);   // F1 tooltips
                 }

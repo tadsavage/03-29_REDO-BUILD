@@ -1288,6 +1288,7 @@ namespace GameCore.Diagnostics
             {
                 r.explain = ExplainRow(r.name);
                 if (!compIndex.TryGetValue(r.name, out int ci)) continue;
+                if (w[ci] <= 0f) { r.pointsNote = "not scored"; continue; }   // weight 0 (Cash health): a plain "not scored" like the other unscored rows
                 r.scored = true;
                 r.maxPoints = 100f * w[ci] / wSum;
                 r.points = 100f * w[ci] * comps[ci] / wSum;
@@ -1415,7 +1416,7 @@ namespace GameCore.Diagnostics
             _lastLogSeen[key] = nowKey;
             _incidents[key] = _incidents.TryGetValue(key, out int n) ? n + 1 : 1;
             WriteBug(category, text, stack);
-            if (category != "WARN") HalPop(category, $"BUG: {category}  {text}");
+            if (category != "WARN") { HalPop(category, $"BUG: {category}  {text}"); BugFocus.Show(category, text, S.pauseOnBug); }
             EvaluateScore("Bug: " + category);
             if (!_firstSeen.ContainsKey(key))
             {
@@ -1448,6 +1449,7 @@ namespace GameCore.Diagnostics
                 _incidents[key] = _incidents.TryGetValue(key, out int n) ? n + 1 : 1;
                 WriteBug(tag, line + hist);
                 HalPop(tag, $"BUG: {line}");
+                BugFocus.Show(tag, line, S.pauseOnBug);
                 if (!_firstSeen.ContainsKey(key))
                 {
                     _firstSeen[key] = $"day {CurrentDay()}";

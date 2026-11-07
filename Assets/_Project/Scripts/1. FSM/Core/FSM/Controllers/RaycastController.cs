@@ -124,6 +124,7 @@ public class RaycastController : MonoBehaviour
         }
 
         Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
+        WorldClickPick.SyncPhysicsIfPaused();   // a paused game never refreshes collider positions (autoSyncTransforms is off)
 
         // DYNAMIC FILTER: Get dynamic layer mask filters based on current wall visibility state
         LayerMask dynamicGroundMask = _groundMask;

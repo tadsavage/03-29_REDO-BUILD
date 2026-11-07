@@ -78,7 +78,7 @@ public class EquipmentBatteryPanels : MonoBehaviour
         // A machine with a driver shows its battery in the driver's world banner instead (EmployeeWorldBanners.RefreshBattery),
         // so the floating card would just be a duplicate.
         if (b.Slot != null && b.Slot.IsOccupied) return;
-        if (_cards.TryGetValue(b, out var c) && c.Clicked) { c.Clicked = false; if (!WantsAutoCard(c)) Remove(b); }
+        if (_cards.TryGetValue(b, out var c) && c.Clicked && c.Root != null && c.Root.panel != null) { c.Clicked = false; if (!WantsAutoCard(c)) Remove(b); }
         else { var card = GetOrCreate(b); if (card != null) card.Clicked = true; }
         AudioManager.Play("UIClick");
     }
@@ -312,7 +312,11 @@ public class EquipmentBatteryPanels : MonoBehaviour
     // ── The card ─────────────────────────────────────────────────────────────────
     private Card GetOrCreate(EquipmentBattery b)
     {
-        if (_cards.TryGetValue(b, out var existing)) return existing;
+        if (_cards.TryGetValue(b, out var existing))
+        {
+            if (existing.Root != null && existing.Root.panel != null) return existing;
+            Remove(b);   // stranded in a rebuilt (detached) HUD tree: drop it and build a new card on the live root
+        }
         var host = HudRoot();
         if (host == null) return null;
         var c = new Card { Battery = b };

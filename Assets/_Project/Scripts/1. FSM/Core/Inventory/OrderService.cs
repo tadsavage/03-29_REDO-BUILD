@@ -498,7 +498,7 @@ namespace GameCore.Inventory
                 int want = SelectableRemaining(order, li);
                 if (want <= 0) continue;
                 if (OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null) remaining += want;
-                else if (_inventoryService != null && GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, li.SkuId, out _))
+                else if (_inventoryService != null && GameCore.Labor.ReplenishmentService.HasStockAnywhere(_workQueue, _inventoryService, li.SkuId))
                     awaiting.Add(li.SkuId);
             }
             if (awaiting.Count > 0) AwaitRestock(order, awaiting);
@@ -641,7 +641,7 @@ namespace GameCore.Inventory
                 int want = SelectableRemaining(order, li);
                 if (want <= 0) continue;
                 bool stock = OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null ||
-                             (_inventoryService != null && GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(_inventoryService, li.SkuId, out _));
+                             (_inventoryService != null && GameCore.Labor.ReplenishmentService.HasStockAnywhere(_workQueue, _inventoryService, li.SkuId));
                 if (stock) continue;
                 deficit += want;
                 var sd = _inventoryService?.GetSkuData(li.SkuId);

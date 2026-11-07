@@ -29,6 +29,35 @@ public class OutboundPalletBuilder : MonoBehaviour
     private const float PositionJitterMeters = 0.015f;
 
     private Transform _loadRoot;
+
+    // ── Click box (Tad, 2026-11-07) ─────────────────────────────────────────────────────────────────────
+    // A pallet was only clickable on its deck and on each case's own collider, so a click between the cases missed and the order-progress
+    // card would not open. One TRIGGER box is the click target now: a full-height pallet (2 m, about 6 ft), 48" x 40" on the floor plus
+    // 0.25 m on every side. Fixed size, built once; the click raycasts already collect triggers.
+    private const float ClickBoxHeight = 2.0f;
+    private const float ClickBoxSidePad = 0.25f;
+    private BoxCollider _clickBox;
+
+    private void LateUpdate()
+    {
+        if (_clickBox != null) return;
+        EnsureClickBox();
+    }
+
+    private void EnsureClickBox()
+    {
+        Transform child = transform.Find("ClickBox");
+        GameObject go = child != null ? child.gameObject : new GameObject("ClickBox");
+        go.transform.SetParent(transform, false);
+        go.transform.localPosition = Vector3.zero; go.transform.localRotation = Quaternion.identity; go.transform.localScale = Vector3.one;
+        go.layer = gameObject.layer;   // the click ray only tests the layers in its mask: match the pallet's own
+        // TryGetComponent, not "GetComponent ?? AddComponent": Unity's fake-null defeats ?? and the collider was never added.
+        if (!go.TryGetComponent(out BoxCollider box)) box = go.AddComponent<BoxCollider>();
+        box.isTrigger = true;
+        box.size = new Vector3(PalletDim.x + ClickBoxSidePad * 2f, ClickBoxHeight, PalletDim.z + ClickBoxSidePad * 2f);
+        box.center = new Vector3(0f, ClickBoxHeight * 0.5f, 0f);
+        _clickBox = box;
+    }
     private string _currentSkuId;
     private List<(Vector3 pos, float rot)> _currentPattern;
     /// <summary>Footprint (pallet-local XZ) and top height of every case placed so far — the height map.</summary>

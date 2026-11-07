@@ -138,6 +138,11 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     /// reasoning as IsSeekingEquipment: it has a real destination outside the normal waypoint patrol.</summary>
     public bool IsSeekingTask => _seekingTask;
 
+    /// <summary>Set by whoever is holding this agent still on purpose (a pallet jack queued behind another one,
+    /// OrderSelectionTaskDriver.JackNavLeg). While true the seek no-progress backstop doesn't count: waiting in a queue is not being
+    /// stuck, and handing the seek back made the driver give up on the jack. The holder clears it when it lets go.</summary>
+    public bool HeldInQueue { get; set; }
+
     /// <summary>True while the agent is playing the Climbing animation at a ledge.</summary>
     public bool IsTraversingLedgeUp   { get; private set; }
     /// <summary>True while the agent is playing the JumpingDown animation at a ledge.</summary>
@@ -705,23 +710,78 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask }))
             finalTarget = overshootHit.position;
 
+        // A machine can't slide through a rack, wall, machine or pallet (MachineClearance, below). If the straight line to the nearest
+        // mesh runs through one, take the nearest way out that is actually clear instead of stopping against it for ever.
+        var escapingMachine = GetComponent<MHEOperatorSlot>();
+        if (escapingMachine != null && !GameCore.Actors.MachineClearance.StraightSlideClear(escapingMachine, finalTarget))
+        {
+            var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
+            bool restricted = MHEBoundary.Restricts(gameObject);
+            bool found = false;
+            Vector3 best = finalTarget;
+            foreach (float r in new[] { 1.5f, 3f, 4.5f, 6f, 8f, 10f, 12f })
+            {
+                float bestD = float.MaxValue;
+                for (int a = 0; a < 16; a++)
+                {
+                    float ang = a * 22.5f * Mathf.Deg2Rad;
+                    Vector3 probe = from + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * r;
+                    if (!NavMesh.SamplePosition(probe, out NavMeshHit h, 1f, filter)) continue;
+                    if (from.y >= MachineMinFloorY && h.position.y < MachineMinFloorY) continue;   // machines never descend
+                    if (restricted && !MHEBoundary.IsInside(h.position)) continue;
+                    Vector3 off = h.position - from; off.y = 0f;
+                    if (off.magnitude >= bestD) continue;
+                    if (!GameCore.Actors.MachineClearance.StraightSlideClear(escapingMachine, h.position)) continue;
+                    bestD = off.magnitude; best = h.position; found = true;
+                }
+                if (found) break;   // the nearest ring that has a clear way out
+            }
+            if (found)
+            {
+                Debug.LogWarning($"[AiNavigation] {name}: the straight way out of {from} runs through something solid - taking a clear way out to {best} instead.");
+                finalTarget = best;
+            }
+        }
+
         Debug.LogWarning($"[AiNavigation] {name}: stuck at {from} — walking out to {finalTarget} ({dist:F2}m to mesh).");
 
         bool agentWas = agent.enabled;
         agent.enabled = false;   // we own the transform for the duration
 
+        // A machine walking out is a straight scripted slide of up to 12 m (an aisle has no MHE NavMesh), so it must not go through
+        // racks, walls, other machines or pallets (Tad, 2026-11-07; GameCore.Actors.MachineClearance). It turns to face the way out
+        // only when that doesn't swing its forks into something; otherwise it slides; otherwise it stops and the walk-out times out.
+        var machine = GetComponent<MHEOperatorSlot>();
+        bool warnedBlocked = false;
         float elapsed = 0f;
         while (Vector3.Distance(transform.position, finalTarget) > 0.1f && elapsed < UnstickTimeout)
         {
             elapsed += Time.deltaTime;
             Vector3 next = Vector3.MoveTowards(transform.position, finalTarget, UnstickWalkSpeed * Time.deltaTime);
+            Vector3 face = finalTarget - next; face.y = 0f;
+            Quaternion turned = face.sqrMagnitude > 0.01f
+                ? Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(face.normalized), 180f * Time.deltaTime)
+                : transform.rotation;
+            if (machine != null)
+            {
+                if (GameCore.Actors.MachineClearance.StepBlocked(machine, next, turned, out string what))
+                {
+                    turned = transform.rotation;
+                    if (GameCore.Actors.MachineClearance.StepBlocked(machine, next, turned, out what))
+                    {
+                        if (!warnedBlocked)
+                        {
+                            warnedBlocked = true;
+                            Debug.LogWarning($"[AiNavigation] {name}: walking out of {from} would drive it into {what ?? "something"} - stopping instead.");
+                        }
+                        yield return null;
+                        continue;
+                    }
+                }
+            }
             transform.position = next;
             if (_rb != null) _rb.MovePosition(next);
-
-            Vector3 face = finalTarget - transform.position; face.y = 0f;
-            if (face.sqrMagnitude > 0.01f)
-                transform.rotation = Quaternion.RotateTowards(transform.rotation,
-                    Quaternion.LookRotation(face.normalized), 180f * Time.deltaTime);
+            transform.rotation = turned;
             yield return null;
         }
 
@@ -980,7 +1040,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 _seekBestRemaining = remaining;
                 _seekNoProgressSeconds = 0f;
             }
-            else
+            else if (!HeldInQueue)   // deliberately held (waiting behind another machine) is not "no progress"
             {
                 _seekNoProgressSeconds += Time.deltaTime;
             }

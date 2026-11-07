@@ -77,7 +77,13 @@ public class EmployeeWorldBanners : MonoBehaviour
     private EmployeeInfoUI _infoUI;
     private Camera _cam;
 
-    public bool IsShown(EmployeeIdentity id) => id != null && _banners.ContainsKey(id);
+    public bool IsShown(EmployeeIdentity id) { DropIfStranded(id); return id != null && _banners.ContainsKey(id); }
+
+    /// <summary>A banner left behind in a rebuilt (detached) HUD tree is drawn nowhere: forget it so the next click builds a live one.</summary>
+    private void DropIfStranded(EmployeeIdentity id)
+    {
+        if (id != null && _banners.TryGetValue(id, out var b) && (b.Root == null || b.Root.panel == null)) Hide(id);
+    }
 
     /// <summary>The instance if one already exists - never creates one (the camera polls this every frame).</summary>
     public static EmployeeWorldBanners Existing => _instance;
@@ -101,12 +107,14 @@ public class EmployeeWorldBanners : MonoBehaviour
     public void Toggle(EmployeeIdentity id)
     {
         if (id == null) return;
+        DropIfStranded(id);
         if (_banners.ContainsKey(id)) Hide(id); else Show(id);
     }
 
     /// <summary>Open the banner if it is not already up (shift-click never closes one).</summary>
     public void Show(EmployeeIdentity id)
     {
+        DropIfStranded(id);
         if (id == null || id.Record == null || _banners.ContainsKey(id)) return;
         var host = HudRoot();
         if (host == null) return;

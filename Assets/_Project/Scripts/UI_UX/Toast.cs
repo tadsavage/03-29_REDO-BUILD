@@ -119,6 +119,7 @@ public class UIToast : MonoBehaviour
 
         _toast.text             = msg;
         _toast.style.opacity    = 1;
+        _toast.style.fontSize   = StyleKeyword.Null;   // back to the stylesheet size; CenterToast shrinks it again only if the text would not fit
 
         // Deliberately NOT scaled by Time.timeScale. A toast reports something that just happened,
         // so it belongs on screen for a fixed REAL duration regardless of simulation speed — and it
@@ -188,6 +189,8 @@ public class UIToast : MonoBehaviour
 
     /// <summary>Gap (panel px) between the toast's bottom edge and the top edge of the bottom bar.</summary>
     private const float ToastBarGap = 6f;
+    /// <summary>Smallest font a long toast shrinks to before it simply grows taller.</summary>
+    private const float MinFontPx = 20f;
 
     private static void CenterToast()
     {
@@ -205,6 +208,17 @@ public class UIToast : MonoBehaviour
 
         float w = _toast.resolvedStyle.width;
         float h = _toast.resolvedStyle.height;
+
+        // Long text: step the font down (never below MinFontPx, so it stays readable) until the toast fits on screen.
+        float panelH = panelBottomCentre.y;
+        float maxH = panelH * 0.6f;
+        float fs = _toast.resolvedStyle.fontSize;
+        if (h > maxH && fs > MinFontPx + 0.5f)
+        {
+            _toast.style.fontSize = Mathf.Max(MinFontPx, fs - 3f);
+            _toast.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            return;
+        }
 
         _toast.style.left = panelBottomCentre.x - w * 0.5f;
         // Sit ToastBarGap px above the TOP EDGE of whichever bottom bar is showing (measured, so it tracks the bar's real

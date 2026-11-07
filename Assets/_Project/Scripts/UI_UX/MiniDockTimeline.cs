@@ -313,7 +313,7 @@ public class MiniDockTimeline
             chip.Add(face);
 
             string state = missed ? "MISSED" : complete ? "done" : "scheduled";
-            string header = $"{(string.IsNullOrEmpty(appt.CustomerName) ? "Trailer" : appt.CustomerName)} - {KindName(appt.Kind)}, " +
+            string header = $"{(string.IsNullOrEmpty(appt.CustomerName) ? "Trailer" : appt.CustomerName)}{OrderNumbersFor(appt)} - {KindName(appt.Kind)}, " +
                 $"Door {appt.DoorNumber}, {appt.TimeLabel} ({state})";
             // Built fresh each hover so the staged counts are live.
             RuntimeTooltip.AttachRich(chip, () => LoadProgressCard.Build(appt, header), LoadProgressCard.Width + 24f);
@@ -330,6 +330,17 @@ public class MiniDockTimeline
         AppointmentKind.Bulk or AppointmentKind.Wholesale => "mini-timeline-face-bulk",
         _ => "mini-timeline-face-recurring"
     };
+
+    /// <summary>" OG2892" (or " OG2892, OG2893") for the trailer's orders, shown right after the vendor name; empty when none are on file.</summary>
+    private static string OrderNumbersFor(DockAppointment appt)
+    {
+        if (appt == null || appt.OrderIds == null || appt.OrderIds.Count == 0) return "";
+        if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return "";
+        var all = orders.ActiveOrders.Concat(orders.OrderHistory).ToList();
+        var nums = appt.OrderIds.Select(id => all.FirstOrDefault(o => o.OrderId == id)?.OrderNumber)
+                                .Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList();
+        return nums.Count == 0 ? "" : " " + string.Join(", ", nums);
+    }
 
     private static string KindName(AppointmentKind kind) => kind switch
     {

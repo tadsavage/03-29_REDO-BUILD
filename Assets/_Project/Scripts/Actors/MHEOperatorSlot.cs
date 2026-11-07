@@ -85,7 +85,16 @@ public class MHEOperatorSlot : MonoBehaviour
         if (_mainCamera == null) return;
 
         Ray ray = _mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (!WorldClickPick.Hits(ray, transform)) return;
+        // Only a click on the RIDER opens their cards (Tad, 2026-11-07: clicking the pallet on the forks, or the jack, brought up the
+        // employee card and banner). The old rule forwarded every click on the vehicle's big collider to the rider. Now the ray has to
+        // hit the operator's own collider, and an order pallet nearer the camera than the rider takes the click for itself.
+        WorldClickPick.SyncPhysicsIfPaused();   // collider.Raycast below also reads stale positions while paused
+        float riderDist = float.MaxValue;
+        foreach (var rc in CurrentOperator.GetComponentsInChildren<Collider>())
+            if (rc != null && rc.enabled && rc.Raycast(ray, out var rh, 500f) && rh.distance < riderDist) riderDist = rh.distance;
+        bool nearestIsPallet = WorldClickPick.Raycast(ray, out var nearest) && WorldClickPick.IsOrderPallet(nearest);
+        if (riderDist == float.MaxValue) return;   // the ray missed the rider
+        if (nearestIsPallet && nearest.distance < riderDist) return;
 
         if (_employeeUI == null) _employeeUI = FindAnyObjectByType<EmployeeInfoUI>();
         if (_employeeUI == null || CurrentOperator.Record == null) return;

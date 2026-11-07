@@ -133,6 +133,7 @@ namespace GameCore.Actors
             // A save is putting jack-carried pallets back on their jacks: don't claim work until they are (or the jack is lost).
             if (OutboundPalletPersistence.RestorePending) return;
             if (Time.time < _planRetryAfter) return;   // handed a planned pallet back (empty pick faces) a moment ago
+            if (TryRescueStrandedJack()) return;      // a loaded jack left unmanned: deliver its pallet before taking new work
             // NO HAND PICKING (Tad, 2026-11-05): with jacks in the building but none free, a selector waits for one instead of
             // claiming a pick and doing it on foot with the pallet on their back. Only a building with no jack at all falls back.
             if (!JackAvailableForNextPick()) return;
@@ -700,6 +701,20 @@ namespace GameCore.Actors
         private void HandPlanTaskBack()
         {
             var task = _currentTask;
+            // Ask for a HOT refill (priority 900) of every SKU on this order that has cases to pick and no stocked pick face. Only the order
+            // service did that, once, at release: a face that emptied afterwards waited at the normal 200 behind every pallet pick, and OG2892's
+            // selectors handed the task back for 2.5 hours while the reach trucks (20 jobs queued) worked through pallet picks (2026-11-07).
+            // Safe to repeat: it files nothing new when a refill already exists, it just raises that one.
+            if (_currentOrder != null && _orderService != null)
+            {
+                foreach (var li in _currentOrder.LineItems)
+                {
+                    int want = _orderService.SelectableRemaining(_currentOrder, li, task != null ? task.TaskId : null);
+                    if (want <= 0) continue;
+                    if (OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null) continue;   // this one has a stocked face
+                    GameCore.Labor.ReplenishmentService.RequestHot(li.SkuId);
+                }
+            }
             Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderNumber} pallet {task.PlanNumber} of {task.PlanTotal}: every pick face is empty - " +
                              "handing the task back until replenishment stocks them.");
             _orderService.ReleasePick(task.TaskId);

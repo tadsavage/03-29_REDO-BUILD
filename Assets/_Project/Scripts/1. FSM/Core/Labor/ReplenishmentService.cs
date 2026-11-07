@@ -174,6 +174,16 @@ namespace GameCore.Labor
             return palletId != null;
         }
 
+        /// <summary>True when any pallet of this SKU exists to source from: racked reserve / pick stock, OR a pallet just received and still
+        /// in a dock lane awaiting putaway. Order sourcing already takes the dock pallet first; the "no stock" tests (load card, restock hold,
+        /// end-of-load cut) only looked at racks, so received freight read as out of stock and the cases were cut (Tad, 2026-11-07, OG2879 / OG2892).</summary>
+        public static bool HasStockAnywhere(WorkQueueSystem workQueue, InventoryService inventory, string skuId)
+        {
+            if (inventory == null || string.IsNullOrEmpty(skuId)) return false;
+            if (TryFindOldestPalletAnywhere(inventory, skuId, out _)) return true;
+            return TryFindStagedPalletAwaitingPutaway(workQueue, inventory, skuId, out _, out _);
+        }
+
         /// <summary>FIFO scan shared by both lookups above, so reserve and pick faces can't end up
         /// rotating stock by different rules.</summary>
         // Pallets a reach truck repeatedly failed to pull out of a rack (the pallet isn't where its slot says, or the forks can't

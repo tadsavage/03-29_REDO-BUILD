@@ -308,6 +308,7 @@ by clicking a rack (`PlacementStateMachine` → `ShowForAisle`).
 **UI Toolkit**
 - A fixed-`height` flex child also needs `flexShrink = 0`. Per-frame-changing text needs a fixed width. `ExecuteLater` reschedules; use `.StartingIn()` for a first delay. Toggle modals via the `display` style, not `SetActive`. UXML roots must declare `xmlns:xsi`.
 - Feedback UI/FX ticks on `Time.unscaledDeltaTime` (particles: `useUnscaledTime`).
+- Floating labels must not be world-space canvases (the tilt-shift DoF blurs them): call `WorldLabelOverlay.Convert(canvas)` after building. A Render Objects pass at `AfterRenderingPostProcessing` breaks the render graph under 4x MSAA (2026-11-07) - don't retry it.
 - New hotkey panel: implement `IUIPanel`, call `RegisterUI`, route the key through `UIKeyBindingManager.ToggleUI` — skipping any step fails silently. Sub-popups register as auxiliaries.
 - A new placeable must be added to **both** `ObjDataRegistry` and the `BuildMenuUI` category list; run `Tools/ObjData/Auto-Assign Unique IDs`.
 
@@ -318,6 +319,8 @@ by clicking a rack (`PlacementStateMachine` → `ShowForAisle`).
 - Money: new distinct GL_Line ⇒ add a case in `FinanceCategory.ForGLLine`; one-time costs go through `MoneyService.Deduct`; restoring a balance is `RestoreCapital`, never `SetMoney` (it books a fake expense).
 - Restore anything on load via the existing paths and call `RebuildFromRegistry()` for grid and economy. Don't read `Time.timeScale`-scaled time for UI.
 - MHE navigation: rack approach anchors are at SHELF height — project to floor before NavMesh use. Machines never descend (yard-level NavMesh layer under the building). Parking an operated machine's nav = `GoIdleKeepOperator`, never `GoIdle`. Only `SetDriveMode` may flip the vehicle agent.
+- **Machines NEVER drive through racks, walls, barriers, other machines or pallets — NavMesh or not (Tad, 2026-11-07).** "No NavMesh there" is never a licence to slide through. Aisles have no MHE NavMesh, so jacks are scripted in them. Any new scripted machine move (turn, slide, walk-out) must step through `MachineClearance.StepBlocked` (`Actors/MachineClearance.cs`). Rack colliders are only click triggers on the beams, so physics can't see racks; the guard uses PlacementGrid solid cells plus each object's renderer outline. Floor shadow decals (`VehicleShadow_*`) are not part of a machine's footprint.
+- **Pallet jack traffic (2026-11-07, `OrderSelectionTaskDriver.JackTraffic.cs`):** behind a manned jack with no room to pass → WAIT, with no time limit (the old 6 s "go anyway" caused the weaving and driving through). Two jacks blocking each other → the one with more room ahead goes. Queued 5 REAL seconds on the way to a bay → the selector steps off and walks to pick, max 10 m walking distance, routed round racks and jacks. A run resumed from a save must `SetJackDrive(false)` (it didn't, and the jack's own agent patrolled off with the selector).
 - Two NavMesh agent types matter: default 0 is "Rat"; workers use "Human", vehicles "MHE" — query with the agent's own type.
 
 **Avatars** (full detail: skill `ModularAvatarSystem`)

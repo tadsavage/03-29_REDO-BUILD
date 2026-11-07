@@ -113,7 +113,56 @@ public static class MheParking
             foreach (var s in StationLocations(who, bay))
                 if (IsClear(who, s.Pos, s.Forward)) { spot = s; return true; }
 
-        return TryFindEmptyLane(who, bay != null ? bay.transform.position : who.transform.position, out spot);
+        // Tad, 2026-11-07: a charged machine nobody is using gets parked on plain floor within 20 m of its charger, NEVER in a staging
+        // lane (or an aisle / doorway) - those are in use. Strict first (clear of racking and doors), then relaxed.
+        Vector3 origin = bay != null ? bay.transform.position : who.transform.position;
+        return TryFindIdleSpotNear(who, origin, ParkRadius, out spot, false) || TryFindIdleSpotNear(who, origin, ParkRadius, out spot, true);
+    }
+
+    /// <summary>How far from its charger a charged, unused machine may be parked.</summary>
+    public const float ParkRadius = 20f;
+
+    /// <summary>Like <see cref="TryFindIdleSpot"/> but only plain floor within <paramref name="radius"/> metres of <paramref name="origin"/>, nearest first.</summary>
+    public static bool TryFindIdleSpotNear(EquipmentBattery who, Vector3 origin, float radius, out Spot spot, bool relaxed)
+    {
+        spot = default;
+        var grid = Object.FindAnyObjectByType<PlacementGrid>();
+        if (grid == null || who == null) return false;
+
+        Vector3[] dirs = { Vector3.forward, Vector3.back, Vector3.left, Vector3.right };
+        Vector2Int centre = grid.WorldToCell(origin);
+        int r = Mathf.CeilToInt(radius / Mathf.Max(0.5f, grid.CellSize));
+        var cands = new System.Collections.Generic.List<(float d, Vector2Int cell)>();
+        for (int dx = -r; dx <= r; dx++)
+            for (int dy = -r; dy <= r; dy++)
+            {
+                var cell = new Vector2Int(centre.x + dx, centre.y + dy);
+                if (!grid.IsInsideGrid(cell)) continue;
+                float d = Flat(grid.GetCellCenter(cell) - origin).magnitude;
+                if (d > radius || d < 2.5f) continue;   // not right on top of the charger row
+                cands.Add((d, cell));
+            }
+        cands.Sort((x, y) => x.d.CompareTo(y.d));
+
+        int tried = 0;
+        foreach (var (d, cell) in cands)
+        {
+            if (!IsPlainFloor(grid, cell)) continue;
+            if (LaneNamingService.TryGetSlot(cell, out _)) continue;
+            if (!relaxed && NearCategory(grid, cell, 3, c => c == "Racking")) continue;
+            if (!relaxed && NearDoor(grid, cell, 5)) continue;
+            if (++tried > 60) break;   // IsClear does physics + a path query: cap the work
+
+            Vector3 pos = grid.GetCellCenter(cell);
+            pos.y = who.transform.position.y;
+            Vector3 fwd = dirs[Random.Range(0, dirs.Length)];
+            if (who.Slot != null && who.Slot.IsPalletJack) pos += fwd * JackBodyCenterOffset;
+            if (!IsClear(who, pos, fwd)) continue;
+
+            spot = new Spot { Pos = pos, Forward = fwd, Name = $"PARK {cell.x},{cell.y}" };
+            return true;
+        }
+        return false;
     }
 
     private static bool TryFindEmptyLane(EquipmentBattery who, Vector3 from, out Spot spot)

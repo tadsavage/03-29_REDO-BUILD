@@ -10,7 +10,8 @@ using UnityEngine.UIElements;
 /// ORDER: total cases to pick, cases remaining, and one filled bar per item so the player can watch the selector's
 /// progress (Tad, 2026-10-18). Same look as the truck card. The card FOLLOWS the pallet - on the floor, on a
 /// jack's forks, in a staging lane - and closes once the pallet is loaded into a trailer (or gone). Click the
-/// pallet again, or the X, to close it. One card at a time.
+/// pallet again, or the X, to close it. Any number of pallets can be pinned at once (Tad, 2026-11-07: watch several at the same time); clicking the
+/// pallet of an open card closes it (a toggle). Clicking a truck opens the cards of its in-progress case-pick pallets (see OrderFreightHighlighter).
 /// </summary>
 public class OrderPalletCard : MonoBehaviour
 {
@@ -21,8 +22,13 @@ public class OrderPalletCard : MonoBehaviour
     private static readonly Color Text = new Color(0.85f, 0.9f, 0.95f, 1f);
     private static readonly Color Done = new Color(0.30f, 0.78f, 0.42f, 1f);
 
-    private static OrderPalletCard _instance;
+    private static OrderPalletCard _instance;   // the single HOVER card (F1 tooltips); pinned cards are separate instances
+    private static readonly Dictionary<OutboundPalletBuilder, OrderPalletCard> _pinnedCards = new();
     private static Font _lilita;
+    private bool _auto;            // opened by clicking a truck (closed again when that truck is deselected)
+    private Vector2 _dragOffset;   // where the player dragged the card to, relative to where it would sit over its pallet (it still follows the pallet)
+    private bool _dragging;
+    private bool IsOpen => _card != null && _card.panel != null && _card.style.display == DisplayStyle.Flex;   // a card left in a rebuilt (detached) HUD tree is not open
 
     private OutboundPalletBuilder _pallet;
     private string _orderId;
@@ -35,17 +41,14 @@ public class OrderPalletCard : MonoBehaviour
     private float _hoverSeenAt;    // last time the cursor was over the pallet (unpinned card closes shortly after)
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void ResetStatics() { _instance = null; _lilita = null; }
+    private static void ResetStatics() { _instance = null; _lilita = null; _pinnedCards.Clear(); }
 
+    /// <summary>The one hover card. (Not FindAnyObjectByType: several pinned cards now exist and one of them could be returned.)</summary>
     private static OrderPalletCard Instance
     {
         get
         {
-            if (_instance == null)
-            {
-                _instance = FindAnyObjectByType<OrderPalletCard>();
-                if (_instance == null) _instance = new GameObject("OrderPalletCard").AddComponent<OrderPalletCard>();
-            }
+            if (_instance == null) _instance = new GameObject("OrderPalletCard").AddComponent<OrderPalletCard>();
             return _instance;
         }
     }
@@ -54,12 +57,15 @@ public class OrderPalletCard : MonoBehaviour
     public static void Hover(OutboundPalletBuilder pallet)
     {
         if (pallet == null || string.IsNullOrEmpty(pallet.OrderId)) return;
+        if (_pinnedCards.TryGetValue(pallet, out var pinned) && pinned != null && pinned.IsOpen) return;   // already pinned: no second card
         Instance.HoverInternal(pallet);
     }
 
     private void HoverInternal(OutboundPalletBuilder pallet)
     {
         if (_pinned) return;
+        // The HUD document rebuilt its tree (re-enabled / live-reloaded): this card is stranded in the old one. Build a new one on the live root.
+        if (_card != null && _card.panel == null) { _card.RemoveFromHierarchy(); _card = null; }
         if (_card == null && !Build()) return;
         _hoverSeenAt = Time.unscaledTime;
         if (_pallet != pallet || _card.style.display != DisplayStyle.Flex)
@@ -73,21 +79,47 @@ public class OrderPalletCard : MonoBehaviour
         }
     }
 
-    /// <summary>Click: pins the card for this pallet's order (it stays and follows the pallet), or unpins/closes it if it already shows this pallet.</summary>
+    /// <summary>Click: pins a card for THIS pallet, or closes it if that pallet's card is already open (click on, click off). Other pallets'
+    /// cards stay up, so several pallets can be watched at once.</summary>
     public static void Toggle(OutboundPalletBuilder pallet)
     {
         if (pallet == null || string.IsNullOrEmpty(pallet.OrderId)) return;
-        Instance.ToggleInternal(pallet);
+        if (_pinnedCards.TryGetValue(pallet, out var open) && open != null && open.IsOpen) { open.Close(); return; }
+        PinNew(pallet, false);
     }
 
-    private void ToggleInternal(OutboundPalletBuilder pallet)
+    /// <summary>Opens (pins) a card for this pallet if none is open for it. Never closes anything.</summary>
+    public static void Pin(OutboundPalletBuilder pallet, bool auto)
     {
-        if (_pinned && _pallet == pallet && _card != null && _card.style.display == DisplayStyle.Flex) { Close(); return; }
-        if (_card == null && !Build()) return;
+        if (pallet == null || string.IsNullOrEmpty(pallet.OrderId)) return;
+        if (_pinnedCards.TryGetValue(pallet, out var open) && open != null && open.IsOpen) return;
+        PinNew(pallet, auto);
+    }
+
+    /// <summary>Closes the cards that were opened by clicking a truck (the truck was deselected).</summary>
+    public static void CloseAutoOpened()
+    {
+        foreach (var c in new List<OrderPalletCard>(_pinnedCards.Values))
+            if (c != null && c._auto) c.Close();
+    }
+
+    private static void PinNew(OutboundPalletBuilder pallet, bool auto)
+    {
+        // A hover card over this same pallet is replaced by the pinned one.
+        if (_instance != null && _instance._pallet == pallet && !_instance._pinned) _instance.Close();
+        var card = new GameObject("OrderPalletCard (pinned)").AddComponent<OrderPalletCard>();
+        card.PinInternal(pallet, auto);
+    }
+
+    private void PinInternal(OutboundPalletBuilder pallet, bool auto)
+    {
+        if (_card == null && !Build()) { Destroy(gameObject); return; }
         _pinned = true;
+        _auto = auto;
         _card.pickingMode = PickingMode.Position;
         _pallet = pallet;
         _orderId = pallet.OrderId;
+        _pinnedCards[pallet] = this;
         _card.style.display = DisplayStyle.Flex;
         _card.BringToFront();
         Refresh();
@@ -96,9 +128,12 @@ public class OrderPalletCard : MonoBehaviour
 
     private void Close()
     {
+        if (_pallet != null && _pinnedCards.TryGetValue(_pallet, out var registered) && registered == this) _pinnedCards.Remove(_pallet);
         _pinned = false;
+        _auto = false;
         _pallet = null;
         if (_card != null) _card.style.display = DisplayStyle.None;
+        if (this != _instance) Destroy(gameObject);   // a pinned card is one-off; only the hover card is reused
     }
 
     private void OnDestroy() { _card?.RemoveFromHierarchy(); if (_instance == this) _instance = null; }
@@ -145,7 +180,32 @@ public class OrderPalletCard : MonoBehaviour
         _card.style.borderTopLeftRadius = _card.style.borderTopRightRadius = _card.style.borderBottomLeftRadius = _card.style.borderBottomRightRadius = 6;
         _card.style.display = DisplayStyle.None;
         // Right-click anywhere on the card closes it (Tad, 2026-10-18).
-        _card.RegisterCallback<PointerDownEvent>(evt => { if (evt.button == 1) { Close(); evt.StopPropagation(); } });
+        _card.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            if (evt.button == 1) { Close(); evt.StopPropagation(); return; }
+            // Left-drag anywhere on the card moves it (Tad, 2026-11-07). The X button keeps its own click.
+            if (evt.button == 0 && !OnButton(evt.target as VisualElement))
+            {
+                _dragging = true;
+                _card.CapturePointer(evt.pointerId);
+                evt.StopPropagation();
+            }
+        });
+        _card.RegisterCallback<PointerMoveEvent>(evt =>
+        {
+            if (!_dragging) return;
+            _dragOffset += new Vector2(evt.deltaPosition.x, evt.deltaPosition.y);
+            Place();
+            evt.StopPropagation();
+        });
+        _card.RegisterCallback<PointerUpEvent>(evt =>
+        {
+            if (evt.button != 0 || !_dragging) return;
+            _dragging = false;
+            if (_card.HasPointerCapture(evt.pointerId)) _card.ReleasePointer(evt.pointerId);
+            evt.StopPropagation();
+        });
+        _card.RegisterCallback<PointerCaptureOutEvent>(_ => _dragging = false);
 
         var top = new VisualElement { pickingMode = PickingMode.Ignore };
         top.style.flexDirection = FlexDirection.Row;
@@ -154,7 +214,7 @@ public class OrderPalletCard : MonoBehaviour
         var titles = new VisualElement { pickingMode = PickingMode.Ignore };
         titles.style.flexGrow = 1; titles.style.flexShrink = 1;
         _title = Lbl("", 20, Color.white, true); titles.Add(_title);
-        _orderLabel = Lbl("", 16, Accent, true); titles.Add(_orderLabel);
+        _orderLabel = Lbl("", 18, new Color(240f / 255f, 126f / 255f, 45f / 255f, 1f), true); titles.Add(_orderLabel);   // 15% bigger and the house orange (Tad, 2026-11-07)
         top.Add(titles);
         var close = new Button(Close) { text = "X" };
         close.style.width = 32; close.style.height = 28; close.style.flexShrink = 0;
@@ -316,13 +376,19 @@ public class OrderPalletCard : MonoBehaviour
         float w = CardWidth;
         float h = _card.resolvedStyle.height; if (float.IsNaN(h) || h < 1f) h = 260f;
         float pw = panel.visualTree.layout.width, ph = panel.visualTree.layout.height;
-        float left = Mathf.Clamp(p.x - w * 0.5f, 4f, Mathf.Max(4f, pw - w - 4f));
-        float topPx = Mathf.Clamp(p.y - h, 4f, Mathf.Max(4f, ph - h - 4f));
+        float left = Mathf.Clamp(p.x - w * 0.5f + _dragOffset.x, 4f, Mathf.Max(4f, pw - w - 4f));
+        float topPx = Mathf.Clamp(p.y - h + _dragOffset.y, 4f, Mathf.Max(4f, ph - h - 4f));
         _card.style.left = left;
         _card.style.top = topPx;
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    private static bool OnButton(VisualElement e)
+    {
+        for (; e != null; e = e.parent) if (e is Button) return true;
+        return false;
+    }
 
     private VisualElement HudRoot()
     {

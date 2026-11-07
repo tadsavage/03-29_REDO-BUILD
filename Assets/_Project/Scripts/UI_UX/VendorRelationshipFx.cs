@@ -96,6 +96,7 @@ public class VendorRelationshipFx : MonoBehaviour
         var outline = labelGO.AddComponent<Outline>();
         outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
         outline.effectDistance = new Vector2(1.5f, -1.5f);
+        WorldLabelOverlay.Convert(_canvas);   // screen overlay that follows the rising point: never blurred by the depth of field
 
         _cam = Camera.main != null ? Camera.main.transform : null;
         FaceCamera();
@@ -105,6 +106,7 @@ public class VendorRelationshipFx : MonoBehaviour
     {
         if (_cam == null && Camera.main != null) _cam = Camera.main.transform;
         if (_canvas == null || _cam == null) return;
+        if (_canvas.renderMode != RenderMode.WorldSpace) return;   // overlay (WorldLabelOverlay): always faces the screen
 
         // Same "point away from the camera" convention TruckDoorWaitBar/ReceivingFillBar use — a
         // world-space canvas reads correctly with its local +Z pointing away from the viewer.

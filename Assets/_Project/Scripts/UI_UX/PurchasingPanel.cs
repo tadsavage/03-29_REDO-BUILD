@@ -1880,8 +1880,20 @@ public class PurchasingPanel : IUIPanel
         // Show()'s FillScreen deferral and CentreOnce already rely on elsewhere in this file for the
         // identical "just rebuilt, geometry not trustworthy yet" situation, so this trick gets the
         // same margin instead of the shorter one that was letting the glitch still show through.
-        _multiVendorPane.schedule.Execute(() => _multiVendorPane.style.visibility = Visibility.Visible)
-            .ExecuteLater(16);
+        // Then a display toggle, the same thing closing and re-opening another panel did by accident (Tad, 2026-11-07: the FIRST sort
+        // left the vendor tiles far too tall and everything misaligned until he closed the panel or opened another one). The first
+        // layout after a rebuild can resolve at a stale width, so the stat boxes wrap; dropping the pane out of layout for one frame
+        // and putting it back makes Yoga measure it again from scratch at the real width.
+        _multiVendorPane.schedule.Execute(() =>
+        {
+            if (_tab != Tab.MultiVendor) { _multiVendorPane.style.visibility = Visibility.Visible; return; }
+            _multiVendorPane.style.display = DisplayStyle.None;
+            _multiVendorPane.schedule.Execute(() =>
+            {
+                if (_tab == Tab.MultiVendor) _multiVendorPane.style.display = DisplayStyle.Flex;
+                _multiVendorPane.style.visibility = Visibility.Visible;
+            }).ExecuteLater(16);
+        }).ExecuteLater(16);
 
         // The Broker's salvage loads live here at the top of Inbound Order Creation — this is the tab
         // that actually builds and dispatches loads, so a one-click way to fill part of a load cheaply

@@ -71,10 +71,14 @@ public class OrderFreightHighlighter : MonoBehaviour
         Refresh();
     }
 
+    private readonly HashSet<OutboundPalletBuilder> _cardsOpened = new();   // pallets whose card this selection already opened
+
     public void Clear()
     {
         _truck = null;
         ClearBoxes();
+        _cardsOpened.Clear();
+        OrderPalletCard.CloseAutoOpened();
     }
 
     private void Update()
@@ -125,6 +129,9 @@ public class OrderFreightHighlighter : MonoBehaviour
                 if (p.Stage == OutboundPalletBuilder.PalletStage.Loaded || p.Stage == OutboundPalletBuilder.PalletStage.Shipped) continue;
                 if (p.GetComponentInParent<TruckController>() != null) continue;
                 wanted[p.transform] = false;
+                // Clicking the trailer also opens the progress card of every case-pick pallet still being built (on a jack or a selector, not
+                // yet set down in a lane): once per pallet per selection, so a card the player closes stays closed (Tad, 2026-11-07).
+                if (p.CaseCountsBySku.Count > 0 && !p.IsOnFloor && _cardsOpened.Add(p)) OrderPalletCard.Pin(p, true);
             }
 
             // Whole pallets reserved for the order but not staged yet: in a reserve slot or on a forklift.

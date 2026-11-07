@@ -14268,7 +14268,7 @@ MonoBehaviour:
   dayAmbient: {r: 0.5578, g: 0.5770516, b: 0.5924529, a: 1}
   nightAmbient: {r: 0.1, g: 0.13, b: 0.22, a: 1}
   controlAmbient: 1
-  globalBrightness: 1.7
+  globalBrightness: 1.9
   lockToMidday: 1
 --- !u!4 &1706856163
 Transform:
@@ -18252,6 +18252,21 @@ MonoBehaviour:
   profileGood: {fileID: 11400000, guid: 75382ae0b0ffc0f4bae13552f0f01e63, type: 2}
   profileToaster: {fileID: 11400000, guid: 693744102bc51624a938cec736f6f4db, type: 2}
   globalVolume: {fileID: 872983592}
+  floorHeight: 1.1
+  focusSmoothing: 0.15
+  minFocus: 1.5
+  maxFocusDistance: 400
+  raycastFocus: 1
+  focusLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  closeFocusDistance: 4
+  closeRampScale: 0.4
+  zoneGoodSharp: 0.43
+  zoneUltra: 0.43
+  zoneRefDistance: 8
+  zoneTolerance: 0.0014
+  closeAperture: 0.85
 --- !u!4 &2145524827
 Transform:
   m_ObjectHideFlags: 0

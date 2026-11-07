@@ -267,6 +267,10 @@ public class EquipmentBattery : MonoBehaviour
                     break;
                 }
             }
+            // A selector's pallet rides on the pallet jack's BODY (a direct child of the jack), not under "Forks", so the scan above read a loaded
+            // jack as empty: once its selector walked off, the idle-park routine drove it, pallet and all, to a charger bay and left it
+            // (OG2892, 2026-11-07: the last pallet of a load sat in a bay with nobody to deliver it). Any outbound pallet on this machine counts.
+            if (!_carryCached && GetComponentInChildren<OutboundPalletBuilder>(true) != null) _carryCached = true;
             if (_carryCached && !_carryWarned)
             {
                 _carryWarned = true;
@@ -416,7 +420,7 @@ public class EquipmentBattery : MonoBehaviour
         else if (!NeedsCharge && _trip == null && _vacate == null && Station != null && IsFull && IdleAndFree && AnotherMachineWaiting())
             StartHelperTask(false);
         // A pallet jack standing unmanned anywhere but a charger (e.g. loaded from a save that way) is taken to one.
-        else if (!WantsStation && _trip == null && _vacate == null && Station == null && !IsMoving && IdleAndFree
+        else if (!WantsStation && _trip == null && _vacate == null && Station == null && !IsMoving && IdleAndFree && !CarryingPallet
                  && Slot != null && Slot.IsPalletJack && PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) != null)
         {
             _wantPark = true;
@@ -993,7 +997,10 @@ public class EquipmentBattery : MonoBehaviour
 
     private bool AnotherMachineWaiting()
     {
-        foreach (var o in s_all) if (o != null && o != this && o.WaitingForCharger) return true;
+        // Also a machine that NEEDS a charge and is still on its way (no bay yet): waiting only counted once it was queued beside a full
+        // row, so a dead dock stocker drove up to a row of 100% jacks and nobody moved them (Tad, 2026-11-07).
+        foreach (var o in s_all)
+            if (o != null && o != this && (o.WaitingForCharger || (o.NeedsCharge && o.Station == null && !o.IsCharging))) return true;
         return false;
     }
 

@@ -125,6 +125,7 @@ public static class LoadProgressCard
         // The headline is case-weighted, not a pallet count: a case-pick pallet that exists but is missing a
         // SKU's cases (stock-out, still being picked) must not read as fully staged.
         int needCasesAll = 0, stagedCasesAll = 0;
+        ServiceLocator.TryGet(out GameCore.Labor.WorkQueueSystem wq);
         foreach (var r in rows.Values)
         {
             needCasesAll += r.NeedCases;
@@ -134,7 +135,7 @@ public static class LoadProgressCard
             int missing = r.NeedCases - stagedCs;
             r.NoStock = missing > 0 && !string.IsNullOrEmpty(r.SkuId)
                         && OrderPickPath.ChooseSlot(r.SkuId, missing, out _) == null
-                        && !(inv != null && GameCore.Labor.ReplenishmentService.TryFindOldestPalletAnywhere(inv, r.SkuId, out _));
+                        && !(inv != null && GameCore.Labor.ReplenishmentService.HasStockAnywhere(wq, inv, r.SkuId));
         }
         float stagedFraction = needCasesAll > 0 ? stagedCasesAll / (float)needCasesAll : (total > 0 ? 1f : 0f);
         // Floor to 0.1 so a card that is short never rounds up to "N out of N".

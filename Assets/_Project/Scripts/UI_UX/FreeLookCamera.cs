@@ -593,7 +593,7 @@ public class FreeLookCamera : MonoBehaviour
     /// all eased together over <paramref name="seconds"/>. Player input is ignored until it lands. Runs
     /// on unscaled time so it still works while the game is paused. Like FocusOn, the target may lie
     /// outside the normal pan bounds; ordinary panning re-engages them afterwards.</summary>
-    public void GlideTo(Vector3 focus, float yaw, float pitch, float distance, float seconds = 0.6f)
+    public void GlideTo(Vector3 focus, float yaw, float pitch, float distance, float seconds = 0.6f, bool allowCloserThanMin = false)
     {
         _followTarget = null;
         _focusBeyondBounds = true;
@@ -606,7 +606,7 @@ public class FreeLookCamera : MonoBehaviour
         _glideToFocus = focus;
         _glideToYaw = _yaw + Mathf.DeltaAngle(_yaw, yaw); // shortest way round
         _glideToPitch = Mathf.Clamp(pitch, pitchMin, pitchMax);
-        _glideToDist = Mathf.Clamp(distance, minDistance, maxDistance);
+        _glideToDist = Mathf.Clamp(distance, allowCloserThanMin ? 0.5f : minDistance, maxDistance);
 
         _glideT = 0f;
         _glideDuration = Mathf.Max(0.01f, seconds);

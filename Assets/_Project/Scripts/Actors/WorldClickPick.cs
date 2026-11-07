@@ -11,10 +11,23 @@ public static class WorldClickPick
 {
     private static readonly RaycastHit[] Buffer = new RaycastHit[48];
     private static int _groundLayer = -2;
+    private static int _syncedFrame = -1;
+
+    /// <summary>Physics.autoSyncTransforms is OFF project-wide (perf), so collider positions only update when a physics step runs. A PAUSED
+    /// game (timeScale 0) runs none: anything that moved since (a pallet put on a jack, a rider, a jack itself) kept its old collider
+    /// position and every click / hover ray flew past it (Tad, 2026-11-07: with the game paused nothing on a jack could be clicked or
+    /// hovered). Syncs once per frame, only while paused. Call before any click or hover raycast.</summary>
+    public static void SyncPhysicsIfPaused()
+    {
+        if (Time.timeScale > 0.0001f || _syncedFrame == Time.frameCount) return;
+        _syncedFrame = Time.frameCount;
+        Physics.SyncTransforms();
+    }
 
     public static bool Raycast(Ray ray, out RaycastHit best)
     {
         if (_groundLayer == -2) _groundLayer = LayerMask.NameToLayer("Ground");
+        SyncPhysicsIfPaused();
         // RaycastNonAlloc does NOT keep the nearest hits when the buffer fills: it drops arbitrary ones, so a ray through
         // a loaded rack (hundreds of case/pallet colliders) lost the employee/machine at random - the "only sometimes
         // opens" bug. If the buffer is full, fall back to RaycastAll, which returns everything.
@@ -72,7 +85,8 @@ public static class WorldClickPick
     private static bool IsClickTarget(Collider c) =>
         c.GetComponentInParent<EmployeeClickHandler>() != null
         || c.GetComponentInParent<MHEOperatorSlot>() != null
-        || c.GetComponentInParent<EquipmentBattery>() != null;
+        || c.GetComponentInParent<EquipmentBattery>() != null
+        || (c.GetComponentInParent<OutboundPalletBuilder>() is OutboundPalletBuilder ob && !string.IsNullOrEmpty(ob.OrderId));   // an order pallet (its click box is a trigger)
 
     /// <summary>True when the nearest real thing under the ray belongs to <paramref name="owner"/> (the collider is on it or a child).</summary>
     public static bool Hits(Ray ray, Transform owner)
