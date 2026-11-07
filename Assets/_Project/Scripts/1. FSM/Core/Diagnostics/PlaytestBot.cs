@@ -26,6 +26,12 @@ namespace GameCore.Diagnostics
         public int ordersShipped, ordersLate, palletsShipped, bugIncidents, errors;
         public int cashStart, cashEnd;
         public int inventoryStart, inventoryEnd;   // stock on hand at cost: a liquid asset, counted as if it were cash in the Profit part (from block 1001's rescore on)
+        public int netProfit;   // Net Profit as scored: cash change minus loan draws, with the initial build left out
+        // Where the money went this block: change in the money ledger per category, biggest first. Empty in older results.
+        public List<string> incomeKeys = new();
+        public List<int> incomeVals = new();
+        public List<string> expenseKeys = new();
+        public List<int> expenseVals = new();
         public List<string> bugKeys = new();
         public List<int> bugCounts = new();
     }
@@ -53,7 +59,20 @@ namespace GameCore.Diagnostics
         public int ActionsTaken => _actions.Count;
         public int ShippedThisBlock => _shipped;
         public int LateThisBlock => _late;
-        int _blockNo, _startDay, _startCash, _startIncome, _startRep, _startInventory, _startBorrowed;
+        int _blockNo, _startDay, _startCash, _startIncome, _startRep, _startInventory, _startBorrowed, _startBuild;
+
+        /// <summary>Initial Build Cost: placement spend up to the end of the build ("You're up boss"), frozen after that. The loan amount
+        /// minus this is the cash the build left over. Kept out of Net Profit; later placements are NOT part of it and do hit Net Profit.</summary>
+        public static int InitialBuildCost => BuildSpendNow();
+
+        /// <summary>Light greenish gray for the information-only rows (Initial Build Cost, Loans): neither good nor bad.</summary>
+        static readonly Color InfoValueColor = new Color(0.50f, 0.63f, 0.54f, 1f);
+
+        // The money ledger as it stood when this block began, so the report can show where the money went (income and expenses by category).
+        Dictionary<string, int> _startIncomeLedger = new(), _startExpenseLedger = new();
+        bool _ledgerPartial;   // a save load zeroed the ledger mid-block: the breakdown then covers only the time since the load
+
+        static int BuildSpendNow() => ServiceLocator.TryGet<MoneyService>(out var m) && m != null ? m.InitialBuildCost : 0;
 
         /// <summary>Total loan draws so far (LoanService.TotalBorrowed), 0 when there is no bank.</summary>
         static int BorrowedNow() => ServiceLocator.TryGet<LoanService>(out var loans) && loans != null ? loans.TotalBorrowed : 0;
@@ -62,10 +81,14 @@ namespace GameCore.Diagnostics
         public static int InventoryValueNow()
         {
             if (!ServiceLocator.TryGet<InventoryService>(out var inv) || inv == null) return 0;
+            ServiceLocator.TryGet<ShipmentService>(out var basis);
             double sum = 0;
             foreach (var rec in inv.AllPallets.Values)
             {
                 if (rec == null || rec.Quantity <= 0) continue;
+                // What we really paid per case (average over our purchase orders); the SKU's list price only when nothing was bought yet.
+                float paid = basis != null ? basis.AverageCostPerCase(rec.SkuId) : 0f;
+                if (paid > 0f) { sum += rec.Quantity * (double)paid; continue; }
                 var sku = inv.GetSkuData(rec.SkuId);
                 if (sku != null) sum += rec.Quantity * (double)sku.BuyValue;
             }
@@ -190,7 +213,8 @@ namespace GameCore.Diagnostics
             // An unfinished block never reaches the scoreboard, so the next run reuses its number. The bug log is appended to, so
             // block 29's log opened with an abandoned run's day-6 lines. A fresh block starts a fresh file (a resumed one does not: ImportState).
             try { string oldLog = Path.Combine(Folder(), $"BugLog_Block_{_blockNo:00}.md"); if (File.Exists(oldLog)) File.Delete(oldLog); } catch { }
-            _startDay = time.Day; _startCash = money.CurrentCapital; _startIncome = money.LifetimeIncome.Values.Sum(); _startInventory = InventoryValueNow(); _startBorrowed = BorrowedNow();
+            _startDay = time.Day; _startCash = money.CurrentCapital; _startIncome = money.LifetimeIncome.Values.Sum(); _startInventory = InventoryValueNow(); _startBorrowed = BorrowedNow(); _startBuild = BuildSpendNow();
+            _startIncomeLedger = new Dictionary<string, int>(money.LifetimeIncome); _startExpenseLedger = new Dictionary<string, int>(money.LifetimeExpenses); _ledgerPartial = false;
             _startRep = ServiceLocator.TryGet<ReputationService>(out var rs0) ? rs0.Score : 0;
             _shipped = _shippedOnTime = _late = _movedFines = _cashDipHours = _cashSamples = _purchases = _rushes = _signed = _booked = _released = _errors = 0;
             _palletsAtStart = PalletsShippedTotal(0, time.Day);
@@ -232,7 +256,7 @@ namespace GameCore.Diagnostics
         [Serializable]
         class BotState
         {
-            public int blockNo, startDay, startCash, startIncome, startRep, startInventory, startBorrowed, shipped, shippedOnTime, late, palletsAtStart, cashDipHours, cashSamples, errors;
+            public int blockNo, startDay, startCash, startIncome, startRep, startInventory, startBorrowed, startBuild, shipped, shippedOnTime, late, palletsAtStart, cashDipHours, cashSamples, errors;
             public long startKey;
             public List<string> incKeys = new(); public List<int> incCounts = new();
             public List<string> seenKeys = new(); public List<string> seenVals = new();
@@ -245,7 +269,7 @@ namespace GameCore.Diagnostics
             if (!Running || !ObserveOnly) return null;
             var st = new BotState
             {
-                blockNo = _blockNo, startDay = _startDay, startCash = _startCash, startIncome = _startIncome, startRep = _startRep, startInventory = _startInventory, startBorrowed = _startBorrowed,
+                blockNo = _blockNo, startDay = _startDay, startCash = _startCash, startIncome = _startIncome, startRep = _startRep, startInventory = _startInventory, startBorrowed = _startBorrowed, startBuild = _startBuild,
                 shipped = _shipped, shippedOnTime = _shippedOnTime, late = _late, palletsAtStart = _palletsAtStart, cashDipHours = _cashDipHours, cashSamples = _cashSamples,
                 errors = _errors, startKey = _startKey,
             };
@@ -264,7 +288,8 @@ namespace GameCore.Diagnostics
             if (st == null) return;
             S = LoadSettings();
             ObserveOnly = true;
-            _blockNo = st.blockNo; _startDay = st.startDay; _startCash = st.startCash; _startIncome = st.startIncome; _startRep = st.startRep; _startInventory = st.startInventory; _startBorrowed = st.startBorrowed;
+            _blockNo = st.blockNo; _startDay = st.startDay; _startCash = st.startCash; _startIncome = st.startIncome; _startRep = st.startRep; _startInventory = st.startInventory; _startBorrowed = st.startBorrowed; _startBuild = st.startBuild;
+            _startIncomeLedger = new(); _startExpenseLedger = new(); _ledgerPartial = true;   // the ledger is not saved: it restarts at 0 after a load
             _shipped = st.shipped; _late = st.late; _shippedOnTime = st.shippedOnTime > 0 || st.shipped == 0 ? st.shippedOnTime : Mathf.Max(0, st.shipped - st.late); _palletsAtStart = st.palletsAtStart; _cashDipHours = st.cashDipHours; _cashSamples = st.cashSamples;
             _errors = st.errors; _startKey = st.startKey;
             _purchases = _rushes = _signed = _booked = _released = 0;
@@ -344,7 +369,7 @@ namespace GameCore.Diagnostics
             c[5] = _cashSamples > 0 ? 1f - (float)_cashDipHours / _cashSamples : 1f;
             c[6] = 1f / (1f + penalty / Mathf.Max(1f, S.reliabilityTolerance));
             c[7] = Mathf.Clamp01(0.5f + 0.5f * (rep - _startRep) / Mathf.Max(1f, S.reputationGainPerBlock * elapsed / Mathf.Max(1, S.daysPerBlock)));
-            float[] w = { S.wOnTime, S.wFill, S.wThroughput, S.wRevenue, S.wProfit, S.wCash, S.wReliability, S.wReputation };
+            float[] w = { S.wOnTime, S.wFill, S.wThroughput, 0f, S.wProfit, S.wCash, S.wReliability, S.wReputation };
             float tot = 0f; for (int i = 0; i < 8; i++) tot += w[i] * c[i];
             return 100f * tot / Mathf.Max(1, S.TotalWeight);
         }
@@ -361,7 +386,7 @@ namespace GameCore.Diagnostics
             {
                 if (string.IsNullOrEmpty(cause))
                 {
-                    float[] w = { S.wOnTime, S.wFill, S.wThroughput, S.wRevenue, S.wProfit, S.wCash, S.wReliability, S.wReputation };
+                    float[] w = { S.wOnTime, S.wFill, S.wThroughput, 0f, S.wProfit, S.wCash, S.wReliability, S.wReputation };
                     int best = 0; float bestMove = 0f;
                     for (int i = 0; i < 8; i++) { float m = Mathf.Abs(w[i] * (c[i] - _lastComps[i])); if (m > bestMove) { bestMove = m; best = i; } }
                     cause = $"{CompNames[best]} {(c[best] >= _lastComps[best] ? "up" : "down")}";
@@ -930,11 +955,13 @@ namespace GameCore.Diagnostics
         public const int StreakGoal = 5;
         public const float OnTimeGoal = 0.80f, FillGoal = 0.90f;
         public enum GoalState { Pending, Met, Missed }
-        public class GoalRow { public string name, goal, actual, why, explain, pointsNote; public GoalState state; public bool exit; public bool scored; public float points, maxPoints; }
+        public class GoalRow { public string name, goal, actual, why, explain, pointsNote; public Color? valueColor; public GoalState state; public bool exit; public bool scored; public float points, maxPoints; }
 
         /// <summary>Net profit this block: cash change since the block started, minus any loan cash drawn in the block (borrowed money is
-        /// cash, not profit). Stock on hand is not counted, so buying stock reads as cash spent. Loan repayments are cash out, so they reduce it.</summary>
-        int NetProfitNow(int cashNow) => cashNow - _startCash - (BorrowedNow() - _startBorrowed);
+        /// cash, not profit), plus any Initial Build Cost added in the block (the original build is not an operating loss; placements after
+        /// "You're up boss" are ordinary spending and are not added back). Stock on hand (at cost) is added back, so buying stock is not a loss: the cost of goods is offset 1:1 by the asset, and only the margin shows when it sells. Loan repayments are cash out, so they reduce it.</summary>
+        int NetProfitNow(int cashNow) => cashNow - _startCash - (BorrowedNow() - _startBorrowed) + (BuildSpendNow() - _startBuild)
+                                         + (InventoryValueNow() - _startInventory);   // stock bought is an asset: offset 1:1, so cost of goods never shows as a loss
 
         string _lastLateWhy, _lastShortWhy, _lastDeadlockWhy, _lastRepeatWhy;
         // Every late order this block with what state it was in when it came due, so the report says WHERE orders are lost (picking,
@@ -1103,7 +1130,7 @@ namespace GameCore.Diagnostics
                 case "Repeating bugs":
                     return "REPEATING BUGS\nCounted when the same warning or error line repeats 25 times in a block, which means something is stuck in a loop. Goal: zero.";
                 case "Net Profit":
-                    return "NET PROFIT\nStarts at $0 every block. It is the cash the business made, minus fines, wages, maintenance, bills, stock purchases and loan repayments. Stock on hand is not counted, so buying stock reads as cash spent. Loan money you borrow is not profit. Goal: above zero.";
+                    return "NET PROFIT\nStarts at $0 every block. It is the money the business made, minus fines, wages, maintenance, bills and loan repayments. The cost of building the warehouse is not included. Stock you buy is an asset you own, so it is offset 1:1 and never shows as a loss; only the margin shows once it sells. Loan money you borrow is not profit. Goal: above zero.";
                 case "Loans":
                     return "LOANS\nWhat you owe the bank, starting with the warehouse mortgage. The balance comes off your cash to give Cash health. It is not a score part; repayments are taken out of Net Profit.";
                 case "Fill rate":
@@ -1114,14 +1141,10 @@ namespace GameCore.Diagnostics
                            "The right-hand number is pallets that have left on outbound trailers this block. One pallet under the goal shows red; at or above it shows green.\n" +
                            "The goal grows by " + (S.targetPalletsPerDay / 24f).ToString("0.##") + " pallets every game hour, so it keeps moving up during the day.\n\n" +
                            "For the first 6 hours of a block the row stays gray, because there is not enough time passed to judge.";
-                case "Revenue":
-                    return "REVENUE\nThe goal is a daily rate ($" + S.targetRevenuePerDay.ToString("N0") + " per day, set in the HAL settings) multiplied by the days that have passed in this block.\n\n" +
-                           "Example: at the start of day 3, two days have passed, so the goal reads $" + S.targetRevenuePerDay.ToString("N0") + " x 2 days = $" + (S.targetRevenuePerDay * 2f).ToString("N0") + ".\n" +
-                           "The right-hand number is income earned this block (goods plus handling fees). Under the goal shows red; at or above it shows green.\n" +
-                           "The goal grows continuously through the day.\n\n" +
-                           "For the first 6 hours of a block the row stays gray, because there is not enough time passed to judge.";
+                case "Initial Build Cost":
+                    return "INITIAL BUILD COST\nWhat building the warehouse cost: everything placed, less anything sold back or undone. The $500,000 loan minus this is the cash the build left you. It is kept out of Net Profit and is not a score part.";
                 case "Cash health":
-                    return "CASH HEALTH\nWhat is left of your cash after the bank is paid: total capital minus the loan balance. It starts at $0 with a fully borrowed warehouse. The score checks total capital against the safety floor at each check: it counts against you whenever capital is under the floor.";
+                    return "CASH HEALTH\nThe cash on hand right now. It should stay above zero. If it falls below zero you are offered a loan, or you can keep playing or declare bankruptcy. The score checks it against the safety floor at each check: it counts against you whenever cash is under the floor.";
                 case "Reliability":
                     return "RELIABILITY\nStarts at 100 and drops with every bug incident the bot logs. The same bug repeating costs more each time it comes back.\n" + BiggestOffenderSentence();
                 case "Reputation":
@@ -1206,36 +1229,30 @@ namespace GameCore.Diagnostics
                 why = daysIn < 0.25f ? "Too early in the block to judge." : pallets >= palTarget ? "At or above the goal." : $"{palTarget - pallets} short. Biggest queue: " + (BiggestQueue() ?? "none waiting")
             });
 
-            int revenue = shipTotals.revenue;
-            int revTarget = Mathf.CeilToInt(S.targetRevenuePerDay * daysIn - 0.001f);
-            int open = orders != null ? orders.ActiveOrders.Count : 0;
-            int overdue = orders != null ? orders.ActiveOrders.Count(x => x != null && x.IsOverdue(time.Day)) : 0;
+            // What it cost to build the warehouse when HAL 9000 initiated. Information only: not a score part.
             rows.Add(new GoalRow
             {
-                name = "Revenue", goal = $"${S.targetRevenuePerDay:N0} x {daysText} = ${revTarget:N0}",
-                actual = $"${revenue:N0}",
-                state = daysIn < 0.25f ? GoalState.Pending : revenue >= revTarget ? GoalState.Met : GoalState.Missed,
-                why = daysIn < 0.25f ? "Too early in the block to judge." : revenue >= revTarget ? "At or above the goal." : $"${revTarget - revenue:N0} short. {open} order(s) open, {overdue} overdue."
+                name = "Initial Build Cost", goal = "for reference", actual = $"${InitialBuildCost:N0}",
+                state = GoalState.Pending, pointsNote = "not scored", valueColor = InfoValueColor,
+                why = "Everything placed to build the warehouse, less anything sold back. Not counted in Net Profit."
             });
 
-            // Cash health shows what is left after the bank is paid: capital minus the loan balance. The floor check still runs on
-            // total capital (the bot's liquidity), so the goal names capital.
+            // Cash health is the cash on hand right now. The loan balance is shown on its own Loans line.
             ServiceLocator.TryGet<LoanService>(out var loanSvc);
             int owedNow = loanSvc != null ? loanSvc.TotalDebt : 0;
-            int leftover = money.CurrentCapital - owedNow;
             rows.Add(new GoalRow
             {
-                name = "Cash health", goal = $"capital never under ${S.minCashBalance:N0}", actual = (leftover < 0 ? "-$" : "$") + Mathf.Abs(leftover).ToString("N0"),
+                name = "Cash health", goal = $"never under ${S.minCashBalance:N0}", actual = "$" + money.CurrentCapital.ToString("N0"),
                 state = _cashDipHours == 0 ? GoalState.Met : GoalState.Missed,
-                why = _cashDipHours == 0 ? $"Capital ${money.CurrentCapital:N0} less the ${owedNow:N0} owed to the bank." : $"Capital was under the floor for {_cashDipHours} of {_cashSamples} checks."
+                why = _cashDipHours == 0 ? "Cash has stayed above the floor." : $"Cash was under the floor for {_cashDipHours} of {_cashSamples} checks."
             });
 
             // The loan, as its own line. Not a score part: it shows what is owed and that repayments come out of Net Profit.
             int borrowed = loanSvc != null ? loanSvc.Loans.Sum(l => l.amount) : 0;
             rows.Add(new GoalRow
             {
-                name = "Loans", goal = "repay on schedule", actual = owedNow > 0 ? $"-${owedNow:N0} owed" : "none owed",
-                state = GoalState.Pending, pointsNote = "not scored",
+                name = "Loans", goal = "repay on schedule", actual = owedNow > 0 ? $"${owedNow:N0} owed" : "none owed",
+                state = GoalState.Pending, pointsNote = "not scored", valueColor = InfoValueColor,
                 why = borrowed > 0 ? $"Borrowed ${borrowed:N0}. Weekly payments ${(loanSvc != null ? loanSvc.WeeklyPayments : 0):N0}." : "No loans outstanding."
             });
 
@@ -1256,13 +1273,17 @@ namespace GameCore.Diagnostics
             });
 
             // Where the score comes from: each row that is a part of the 0-100 score earns (weight x how well it is doing) of the total.
-            float[] w = { S.wOnTime, S.wFill, S.wThroughput, S.wRevenue, S.wProfit, S.wCash, S.wReliability, S.wReputation };
+            float[] w = { S.wOnTime, S.wFill, S.wThroughput, 0f, S.wProfit, S.wCash, S.wReliability, S.wReputation };
             float wSum = Mathf.Max(1, S.TotalWeight);
             var compIndex = new Dictionary<string, int>
             {
-                ["On-time orders"] = 0, ["Fill rate"] = 1, ["Pallets shipped"] = 2, ["Revenue"] = 3,
+                ["On-time orders"] = 0, ["Fill rate"] = 1, ["Pallets shipped"] = 2,
                 ["Net Profit"] = 4, ["Cash health"] = 5, ["Reliability"] = 6, ["Reputation"] = 7,
             };
+            // Summary order: the cash block sits directly under Net Profit, above the fill / throughput parts.
+            var order = new[] { "On-time orders", "Door deadlocks", "Repeating bugs", "Net Profit", "Cash health", "Initial Build Cost", "Loans",
+                                "Fill rate", "Pallets shipped", "Reliability", "Reputation" };
+            rows = rows.OrderBy(r => Array.IndexOf(order, r.name)).ToList();
             foreach (var r in rows)
             {
                 r.explain = ExplainRow(r.name);
@@ -1571,7 +1592,7 @@ namespace GameCore.Diagnostics
             float reputation = Mathf.Clamp01(0.5f + 0.5f * (repEnd - _startRep) / Mathf.Max(1f, S.reputationGainPerBlock));
 
             float wSum = Mathf.Max(1, S.TotalWeight);   // normalised, so a total that isn't exactly 100 still gives a 0-100 score
-            float total = 100f * (S.wOnTime * onTime + S.wFill * fill + S.wThroughput * throughput + S.wRevenue * revenue + S.wProfit * profit
+            float total = 100f * (S.wOnTime * onTime + S.wFill * fill + S.wThroughput * throughput + S.wProfit * profit
                                   + S.wCash * cash + S.wReliability * reliability + S.wReputation * reputation) / wSum;
 
             var res = new PlaytestBlockResult
@@ -1590,9 +1611,10 @@ namespace GameCore.Diagnostics
                 backlogPick = HalMetrics.Avg(HalMetrics.BacklogPick), backlogLoad = HalMetrics.Avg(HalMetrics.BacklogLoad),
                 backlogOrders = HalMetrics.Avg(HalMetrics.BacklogOrders), waitingTrucks = HalMetrics.Avg(HalMetrics.WaitingTrucks),
                 ordersShipped = _shipped, ordersLate = _late, palletsShipped = pallets, bugIncidents = _incidents.Values.Sum(), errors = _errors,
-                cashStart = _startCash, cashEnd = cashEnd, inventoryStart = _startInventory, inventoryEnd = inventoryEnd,
+                cashStart = _startCash, cashEnd = cashEnd, inventoryStart = _startInventory, inventoryEnd = inventoryEnd, netProfit = net,
             };
             foreach (var kv in _incidents.OrderByDescending(k => WeightOf(k.Key) * k.Value)) { res.bugKeys.Add(kv.Key); res.bugCounts.Add(kv.Value); }
+            if (money != null) FillLedger(res, money);
 
             if (ObserveOnly)
             {
@@ -1643,6 +1665,49 @@ namespace GameCore.Diagnostics
             else StartBlock();
         }
 
+        /// <summary>Change in each ledger category since the block began, biggest first (reversals can make a delta negative).</summary>
+        static void LedgerDelta(Dictionary<string, int> now, Dictionary<string, int> start, List<string> keys, List<int> vals)
+        {
+            var rows = new List<KeyValuePair<string, int>>();
+            foreach (var kv in now)
+            {
+                start.TryGetValue(kv.Key, out int before);
+                int d = kv.Value - before;
+                if (d != 0) rows.Add(new KeyValuePair<string, int>(kv.Key, d));
+            }
+            foreach (var kv in rows.OrderByDescending(r => Mathf.Abs(r.Value))) { keys.Add(kv.Key); vals.Add(kv.Value); }
+        }
+
+        void FillLedger(PlaytestBlockResult res, MoneyService money)
+        {
+            LedgerDelta(money.LifetimeIncome, _startIncomeLedger, res.incomeKeys, res.incomeVals);
+            LedgerDelta(money.LifetimeExpenses, _startExpenseLedger, res.expenseKeys, res.expenseVals);
+        }
+
+        /// <summary>The "Where the money went" section: income and expenses by category for the block.</summary>
+        void AppendLedger(StringBuilder sb, PlaytestBlockResult r)
+        {
+            if (r.incomeKeys.Count == 0 && r.expenseKeys.Count == 0) return;
+            int income = r.incomeVals.Sum(), principal = 0, expenses = 0;
+            for (int i = 0; i < r.expenseKeys.Count; i++)
+            {
+                if (r.expenseKeys[i] == "Loan Principal") principal = r.expenseVals[i]; else expenses += r.expenseVals[i];
+            }
+            sb.AppendLine();
+            sb.AppendLine("## Where the money went");
+            if (_ledgerPartial) sb.AppendLine("*A save load zeroed the money ledger during this block, so this covers only the time since the load.*");
+            sb.AppendLine();
+            sb.AppendLine($"Income **${income:N0}**. Expenses **${expenses:N0}** (stock bought shows as Inventory). Loan principal repaid **${principal:N0}** (debt, not an expense).");
+            sb.AppendLine();
+            sb.AppendLine("| Income | $ |");
+            sb.AppendLine("|---|---|");
+            for (int i = 0; i < r.incomeKeys.Count; i++) sb.AppendLine($"| {r.incomeKeys[i]} | {r.incomeVals[i]:N0} |");
+            sb.AppendLine();
+            sb.AppendLine("| Expense | $ |");
+            sb.AppendLine("|---|---|");
+            for (int i = 0; i < r.expenseKeys.Count; i++) sb.AppendLine($"| {r.expenseKeys[i]} | {r.expenseVals[i]:N0} |");
+        }
+
         static float WeightOf(string key)
         {
             string cat = key.Split('|')[0];
@@ -1662,14 +1727,15 @@ namespace GameCore.Diagnostics
             sb.AppendLine($"| On-time delivery ({r.ordersShipped} shipped, {r.ordersLate} late) | {S.wOnTime}% | {D(r.onTime, prev?.onTime)} |");
             sb.AppendLine($"| Fill rate | {S.wFill}% | {D(r.fill, prev?.fill)} |");
             sb.AppendLine($"| Throughput ({r.palletsShipped} plt vs target {S.targetPalletsPerDay * Mathf.Max(1, r.endDay - r.startDay):F0}) | {S.wThroughput}% | {D(r.throughput, prev?.throughput)} |");
-            sb.AppendLine($"| Revenue (${r.revenueTotal:N0}) | {S.wRevenue}% | {D(r.revenue, prev?.revenue)} |");
-            sb.AppendLine($"| Net Profit ({(r.cashEnd - r.cashStart):+#,0;-#,0;0}) | {S.wProfit}% | {D(r.profit, prev?.profit)} |");
+            sb.AppendLine($"| Revenue (${r.revenueTotal:N0}) | not scored | {D(r.revenue, prev?.revenue)} |");
+            sb.AppendLine($"| Net Profit ({r.netProfit:+#,0;-#,0;0}) | {S.wProfit}% | {D(r.profit, prev?.profit)} |");
             sb.AppendLine($"| Cash health (floor ${S.minCashBalance:N0}) | {S.wCash}% | {D(r.cash, prev?.cash)} |");
             sb.AppendLine($"| Reliability (bugs) | {S.wReliability}% | {D(r.reliability, prev?.reliability)} |");
             sb.AppendLine($"| Reputation ({r.repStart} to {r.repEnd}) | {S.wReputation}% | {D(r.reputation, prev?.reputation)} |");
             sb.AppendLine();
-            sb.AppendLine($"Orders shipped **{r.ordersShipped}**, late/fined **{r.ordersLate}**, pallets shipped **{r.palletsShipped}**. Cash ${r.cashStart:N0} → ${r.cashEnd:N0} ({r.cashEnd - r.cashStart:+#,0;-#,0;0}). Stock at cost ${r.inventoryStart:N0} → ${r.inventoryEnd:N0} (not part of profit).");
+            sb.AppendLine($"Orders shipped **{r.ordersShipped}**, late/fined **{r.ordersLate}**, pallets shipped **{r.palletsShipped}**. Cash ${r.cashStart:N0} → ${r.cashEnd:N0} ({r.cashEnd - r.cashStart:+#,0;-#,0;0}). Stock at cost ${r.inventoryStart:N0} → ${r.inventoryEnd:N0} (offsets stock bought in Net Profit).");
             sb.AppendLine($"Bot did: {_signed} contracts signed, {_booked} dock bookings, {_released} orders released, {_purchases} POs, {_rushes} rush POs.");
+            AppendLedger(sb, r);
             if (_lateLog.Count > 0)
             {
                 sb.AppendLine();

@@ -1658,6 +1658,9 @@ namespace GameCore.Actors
             foreach (var other in s_allJacks)
             {
                 if (other == null || other == _jack) continue;
+                // An unmanned jack (parked, charging, or left where a driver gave up) never moves, so holding behind it only burns the
+                // yield budget and the 10s no-progress backstop, which then hands the task back (blocks 37+: jacks idle at (-18, 42)).
+                if (other.CurrentOperator == null) continue;
                 Vector3 rel = JackCentre(other.transform) - me; rel.y = 0f;
                 float ahead = Vector3.Dot(rel, moveDir);
                 if (ahead <= 0f || ahead > JackClearAhead) continue;

@@ -362,7 +362,10 @@ public class PlacementSystem : MonoBehaviour
         save.locationStatuses = LocationStatusRegistry.Export();
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipmentService))
+        {
             save.shipments = shipmentService.Export();
+            save.costBasis = shipmentService.ExportCostBasis();
+        }
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderService))
             save.orders = orderService.Export();
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderArrivalService orderArrivalService))
@@ -386,6 +389,12 @@ public class PlacementSystem : MonoBehaviour
             save.broker = brokerService.Export();
         if (ServiceLocator.TryGet(out GameCore.Economy.LoanService loanService))
             save.loans = loanService.Export();
+        if (moneyService != null)
+        {
+            save.buildSpend = moneyService.BuildSpend;
+            save.initialBuildCost = moneyService.InitialBuildCost;
+            save.buildPhaseOver = moneyService.BuildPhaseOver;
+        }
 
         if (ToolsWindowController.Instance != null)
         {
@@ -698,6 +707,8 @@ public class PlacementSystem : MonoBehaviour
         // burn on every financial panel.
         moneyService.RestoreCapital(save.money);
         moneyService.SetSpentToday(save.spentToday);
+        // An older save has no build record (buildSpend 0): treat its build as already over, so new placements count as spending.
+        moneyService.RestoreBuildSpend(save.buildSpend, save.initialBuildCost, save.buildPhaseOver || save.buildSpend == 0);
 
         // Every vehicle is about to be destroyed and respawned, so lane locks and staging reservations taken before this load are void.
         if (ServiceLocator.TryGet(out GameCore.Inventory.InventoryService lockInv)) lockInv.ClearAllLaneLocks();
@@ -900,7 +911,10 @@ public class PlacementSystem : MonoBehaviour
         }
 
         if (ServiceLocator.TryGet(out GameCore.Inventory.ShipmentService shipmentService))
+        {
             shipmentService.Import(save.shipments);
+            shipmentService.ImportCostBasis(save.costBasis);
+        }
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderService orderService))
             orderService.Import(save.orders);
         if (ServiceLocator.TryGet(out GameCore.Inventory.OrderArrivalService orderArrivalRestore))

@@ -71,6 +71,13 @@ public class SaveData
 
     /// <summary>Bank loans incl. the warehouse mortgage (LoanService). Empty in saves written before 2026-11-05.</summary>
     public GameCore.Economy.LoanSnapshot loans = new();
+    /// <summary>Net spend on placing the warehouse (MoneyService.BuildSpend). 0 in older saves.</summary>
+    public int buildSpend;
+    /// <summary>Initial Build Cost frozen when the build ended, and whether it has. A save with no build spend at all (older saves) loads as "build over".</summary>
+    public int initialBuildCost;
+    /// <summary>Average price paid per case, per SKU (ShipmentService cost basis). Empty in older saves: stock then falls back to list price.</summary>
+    public GameCore.Inventory.ShipmentService.CostBasisSnapshot costBasis = new();
+    public bool buildPhaseOver;
     /// <summary>The player's running observe-mode block (HAL scoring), so a reload resumes it. Empty when none.</summary>
     public string playtestState;
 

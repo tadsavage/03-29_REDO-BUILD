@@ -37,7 +37,7 @@ public class GameContext : MonoBehaviour
         int difficulty = 0; // Clerk (easy): 500k starting capital, 100% sell-back rate, 4x faster hiring replenishment
         int startingCapital = difficulty switch
         {
-            0 => 500000, // Clerk — easiest, more money
+            0 => LoanService.StartingLoanAmount, // Clerk — easiest: the $500k warehouse loan
             1 => 100000, // Supervisor — normal
             2 => 80000,  // Manager — hardest, tight budget
             _ => 100000
@@ -234,7 +234,7 @@ public class GameContext : MonoBehaviour
             PlayerPrefs.Save();
 
             // The starting capital is the bank's money: it becomes the mortgage on the warehouse (Tad, 2026-11-05).
-            ServiceLocator.Get<LoanService>()?.CreateStartingMortgage(MoneyService.CurrentCapital);
+            ServiceLocator.Get<LoanService>()?.CreateStartingMortgage(LoanService.StartingLoanAmount);
 
             string playerName = PlayerPrefs.GetString("PlayerName", "Boss");
             var welcomeOverlay = FindAnyObjectByType<WelcomeOverlayManager>(FindObjectsInactive.Include);

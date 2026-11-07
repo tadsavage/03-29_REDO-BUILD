@@ -116,7 +116,7 @@ namespace GameCore.Diagnostics
             yield return Hire(s);
 
             int spent = cashAtStart - _money.CurrentCapital;
-            SystemsLogWindow.LogHal($"HAL 9000: build complete. {_placed} objects placed ({_failed} refused). Spent ${spent:N0}, ${_money.CurrentCapital:N0} left. Handing over to the operations bot.");
+            _money.EndBuildPhase();   // Initial Build Cost is final; anything placed from here on is an addition            SystemsLogWindow.LogHal($"HAL 9000: build complete. {_placed} objects placed ({_failed} refused). Spent ${spent:N0}, ${_money.CurrentCapital:N0} left. Handing over to the operations bot.");
             Status = "built";
             if (s.buildOnly)
             {

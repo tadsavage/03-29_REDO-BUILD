@@ -86,6 +86,8 @@ namespace GameCore.Economy
     /// </summary>
     public class LoanService : IService
     {
+        /// <summary>The warehouse mortgage and the Clerk starting cash: always $500,000 (Tad, 2026-11-06).</summary>
+        public const int StartingLoanAmount = 500000;
         public const int MortgageWeeks = 104;
         public const float MissedPaymentFeePercent = 0.05f;
         public const int MissedPaymentReputation = 10;

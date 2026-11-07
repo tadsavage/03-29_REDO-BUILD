@@ -15,6 +15,44 @@ namespace GameCore.Inventory
     {
         private readonly List<ShipmentData> _pendingShipments = new();
 
+        // Cost basis (Tad, 2026-11-06): the average price per case we have really paid for each SKU, weighted by cases over every player
+        // purchase order. Stock on hand is valued at this, so selling a case books what it earned minus what it cost us, not minus the
+        // SKU's list price. Saved with the game (SaveData.costBasis).
+        private readonly Dictionary<string, (long cost, long cases)> _costBasis = new();
+
+        public void RecordPurchaseCost(string skuId, int cases, int unitCost)
+        {
+            if (string.IsNullOrEmpty(skuId) || cases <= 0 || unitCost <= 0) return;
+            _costBasis.TryGetValue(skuId, out var b);
+            _costBasis[skuId] = (b.cost + (long)cases * unitCost, b.cases + cases);
+        }
+
+        /// <summary>Average price paid per case for this SKU, or 0 when nothing has been bought yet.</summary>
+        public float AverageCostPerCase(string skuId) =>
+            !string.IsNullOrEmpty(skuId) && _costBasis.TryGetValue(skuId, out var b) && b.cases > 0 ? (float)b.cost / b.cases : 0f;
+
+        [System.Serializable]
+        public class CostBasisSnapshot
+        {
+            public List<string> skus = new();
+            public List<long> cost = new();
+            public List<long> cases = new();
+        }
+
+        public CostBasisSnapshot ExportCostBasis()
+        {
+            var s = new CostBasisSnapshot();
+            foreach (var kv in _costBasis) { s.skus.Add(kv.Key); s.cost.Add(kv.Value.cost); s.cases.Add(kv.Value.cases); }
+            return s;
+        }
+
+        public void ImportCostBasis(CostBasisSnapshot s)
+        {
+            _costBasis.Clear();
+            if (s == null) return;
+            for (int i = 0; i < s.skus.Count && i < s.cost.Count && i < s.cases.Count; i++) _costBasis[s.skus[i]] = (s.cost[i], s.cases[i]);
+        }
+
         /// <summary>Finished POs, newest first. Bounded by COUNT rather than age, same reasoning as
         /// OrderService's order history: a ShipmentData records no closed-on day, and save size tracks
         /// record count anyway.</summary>
@@ -224,6 +262,7 @@ namespace GameCore.Inventory
             };
             shipment.LineItems.AddRange(items);
             _pendingShipments.Add(shipment);
+            foreach (var li in items) RecordPurchaseCost(li.SkuId, li.Quantity, li.UnitCost);
 
             int cost = shipment.TotalCost;
             // Deduct(), not RemoveCapital(): this is a one-time purchase, and Deduct is what routes it

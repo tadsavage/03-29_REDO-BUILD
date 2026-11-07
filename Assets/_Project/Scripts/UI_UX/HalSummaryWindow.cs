@@ -433,7 +433,7 @@ public static class HalSummaryWindow
         // actual
         var right = Cell(3.4f);
         right.style.borderLeftWidth = 1; right.style.borderLeftColor = Grid;
-        var act = L(16, state, TextAnchor.MiddleCenter); act.text = r.actual; act.style.whiteSpace = WhiteSpace.Normal;
+        var act = L(16, r.valueColor ?? state, TextAnchor.MiddleCenter); act.text = r.actual; act.style.whiteSpace = WhiteSpace.Normal;
         right.Add(act);
         row.Add(right);
 

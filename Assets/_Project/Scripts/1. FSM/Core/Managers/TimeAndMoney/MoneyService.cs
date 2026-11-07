@@ -56,6 +56,35 @@ namespace GameCore.Economy
         // "purchases from the build menu." Reset daily.
         private System.Collections.Generic.Dictionary<string, int> _spentTodayByObjectCategory = new();
 
+        // Net placement spend: everything placed minus everything sold back or undone. Excludes stock (Inventory) and freight. The HAL
+        // summary shows it as Initial Build Cost and keeps it out of Net Profit. Saved with the game (SaveData.buildSpend).
+        private int _buildSpend;
+        private int _initialBuildCost;
+        private bool _buildPhaseOver;
+        public int BuildSpend => _buildSpend;
+        public bool BuildPhaseOver => _buildPhaseOver;
+
+        /// <summary>Initial Build Cost (Tad, 2026-11-06): what placing the warehouse cost, counted only until the build ends ("You're up
+        /// boss", HalBuilder). It follows BuildSpend while the build is going on, then freezes. Placements after that are ordinary spending:
+        /// they hit cash and Net Profit like any other bill.</summary>
+        public int InitialBuildCost => _buildPhaseOver ? _initialBuildCost : Mathf.Max(0, _buildSpend);
+
+        /// <summary>The build is over: freeze Initial Build Cost as the starting loan minus the cash left, so EVERY dollar the build used
+        /// is in it (the clock runs while HAL builds, so a few dollars of upkeep leak out beside the placements; counting placements alone
+        /// left Net Profit starting at -$7). Never less than the placement spend. Safe to call twice.</summary>
+        public void EndBuildPhase()
+        {
+            if (_buildPhaseOver) return;
+            _initialBuildCost = Mathf.Max(0, Mathf.Max(_buildSpend, _startingCapital - _currentCapital));
+            _buildPhaseOver = true;
+        }
+
+        public void RestoreBuildSpend(int spend, int initialBuildCost, bool buildPhaseOver)
+        {
+            _buildSpend = spend; _initialBuildCost = initialBuildCost; _buildPhaseOver = buildPhaseOver;
+        }
+        private static bool IsBuildCategory(string c) => c != "Inventory" && c != FinanceCategory.Transportation;
+
         // Today's RECURRING hourly-cost spending split into two categories:
         // - _spentTodayUpkeep: object maintenance costs only (from EconomyService)
         // - _spentTodayWages: wage costs only (from PayrollService)
@@ -452,6 +481,7 @@ namespace GameCore.Economy
         public void Refund(int amount, string reason = "Refund")
         {
             AddCapital(amount, reason);
+            if (amount > 0 && IsBuildCategory(reason)) _buildSpend -= amount;
         }
 
         /// <summary>LEGACY: Add hourly cost (tracked per category).</summary>
@@ -474,6 +504,7 @@ namespace GameCore.Economy
         {
             RemoveCapital(amount, category);
             RecordSpentTodayByObjectCategory(category, amount);
+            if (amount > 0 && IsBuildCategory(category)) _buildSpend += amount;
         }
 
         /// <summary>Reverses a one-time purchase deduction previously made via <see cref="Deduct"/> —

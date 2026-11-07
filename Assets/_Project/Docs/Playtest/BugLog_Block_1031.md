@@ -638,3 +638,13 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
 - day 1 12:28 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
 - day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 08:00 | **WARN** | To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 1 08:00 | **WARN** | To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object
+- day 1 12:28 | **GHOST-SLOT** | RECORD d77417f4 105672 x80 cell=(-1, -1) lane= - no object

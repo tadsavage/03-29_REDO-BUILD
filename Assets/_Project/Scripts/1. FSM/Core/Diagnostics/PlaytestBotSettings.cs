@@ -97,7 +97,9 @@ namespace GameCore.Diagnostics
 #endif
         }
 
-        public int TotalWeight => wOnTime + wFill + wThroughput + wRevenue + wProfit + wCash + wReliability + wReputation;
+        // Revenue is no longer a scored part (its HAL summary row is now Initial Build Cost), so it carries no weight. wRevenue is kept
+        // only so older saved settings still load; it is ignored by the score.
+        public int TotalWeight => wOnTime + wFill + wThroughput + wProfit + wCash + wReliability + wReputation;
 
         public void ResetWeightsToBaseline()
         {

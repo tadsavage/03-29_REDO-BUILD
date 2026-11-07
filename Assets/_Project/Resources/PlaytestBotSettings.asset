@@ -25,7 +25,7 @@ MonoBehaviour:
   buildReserveCash: 15000
   buildOnly: 1
   maxRecurringAccounts: 3
-  bulkOffersPerDay: 2
+  bulkOffersPerDay: 3
   bulkCashMultiple: 2
   minPalletsBeforeBulk: 12
   targetPalletsPerDay: 12
@@ -43,11 +43,11 @@ MonoBehaviour:
   bulkUpCashMultiple: 4
   maxPendingPOs: 3
   coverRushOrders: 0
-  maxDailySpendFraction: 0.3
+  maxDailySpendFraction: 1
   maxRushPerDay: 1
   bailoutCash: 0
-  healthCheckIntervalMinutes: 15
-  stationarySeconds: 240
+  healthCheckIntervalMinutes: 30
+  stationarySeconds: 300
   reportFolder: Assets/_Project/Docs/Playtest
   wOnTime: 15
   wFill: 10
