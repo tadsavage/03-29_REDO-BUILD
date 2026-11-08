@@ -1880,6 +1880,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             return null;
         }
 
+        arrivals.AnnounceOffer(contract);   // same path as the daily roll: log fanfare + the OPEN ORDERS widget's fly-in
         Debug.Log($"[DevConsole] New offer: {customer.CompanyName} ({contract.Title}).");
         return customer.CompanyName;
     }

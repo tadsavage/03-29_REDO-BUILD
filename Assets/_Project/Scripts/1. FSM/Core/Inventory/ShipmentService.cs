@@ -224,6 +224,7 @@ namespace GameCore.Inventory
             _pendingShipments.Add(shipment);
 
             Debug.Log($"[ShipmentService] Created PO {shipment.PONumber} for {supplierName} with {items.Count} items.");
+            OnPurchaseOrderCreated?.Invoke(shipment);
 
             // For now, spawn immediately if possible
             TrySpawnTruck(shipment);
@@ -297,6 +298,7 @@ namespace GameCore.Inventory
             // Deliberately NOT dispatched here, even for a same-day PO. The truck goes when the
             // player has given it a slot — see DispatchDueShipments. Spawning immediately would make
             // the pool box a lie: the freight would already be in the yard before it was scheduled.
+            OnPurchaseOrderCreated?.Invoke(shipment);
             return shipment;
         }
 
@@ -500,6 +502,11 @@ namespace GameCore.Inventory
         /// <summary>Raised when a PO is short-shipped: (shipment, pallets dropped, dollars credited).
         /// The panel and the toast listen; nothing here assumes a UI exists.</summary>
         public static event System.Action<ShipmentData, int, int> OnShipmentShorted;
+
+        /// <summary>Raised when a purchase order is raised (the player's, or the dev tool's). Never on a save
+        /// restore. The HUD's OrderFlowWidget listens: it flies a tile down to the dock schedule widget.
+        /// Nothing here assumes a UI exists.</summary>
+        public static event System.Action<ShipmentData> OnPurchaseOrderCreated;
 
         /// <summary>
         /// Rolls what the supplier ACTUALLY put on the truck, once, at dispatch.

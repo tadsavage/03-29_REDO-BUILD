@@ -262,6 +262,10 @@ public class BuildMenuUI : MonoBehaviour
     /// everything that used to dock into "the visible bar" docks here without changes.</summary>
     public VisualElement WidgetTray => _tray;
 
+    /// <summary>The mini dock schedule widget's root (wherever it currently sits: docked or floating), or null
+    /// before it exists. OrderFlowWidget flies new purchase-order tiles into it.</summary>
+    public VisualElement MiniTimelineRoot => _miniTimeline != null ? _miniTimeline.Root : null;
+
     /// <summary>One of the tray's three dock zones: <see cref="DockableHudCard.ZoneLeft"/> (packed left),
     /// <see cref="DockableHudCard.ZoneCenter"/> (centred) or <see cref="DockableHudCard.ZoneRight"/>
     /// (packed right). Widgets dock into these, never into the tray directly.</summary>

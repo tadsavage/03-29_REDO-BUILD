@@ -498,7 +498,17 @@ namespace GameCore.Inventory
 
             string customerName = offer.Customer != null ? offer.Customer.CompanyName : "A new customer";
             SystemsLogWindow.Celebrate($"{LogLinks.Contract(offer.ContractId, customerName)} just posted a {offer.Title}!", "NewCustomer");
+            OnOfferPosted?.Invoke(offer);
         }
+
+        /// <summary>Lets a caller that adds an offer by hand (the dev TEST CUSTOMER button) post it through the same path the daily
+        /// roll uses: Systems Log fanfare plus <see cref="OnOfferPosted"/>. Safe to call twice; a posted id is announced once.</summary>
+        public void AnnounceOffer(ContractData offer) => AnnounceNewOffer(offer);
+
+        /// <summary>Raised once per freshly posted offer (a rolled Bulk offer, or a Recurring contract newly unlocked by
+        /// reputation) - never on a save restore. The HUD's OrderFlowWidget flies a tile down into the bottom bar for it.
+        /// Nothing here assumes a UI exists.</summary>
+        public static event System.Action<ContractData> OnOfferPosted;
 
         /// <summary>Reputation crossing a contract's threshold is the only "arrival" moment a Recurring
         /// contract ever gets — diffs AvailableOffers against what's already been announced rather than
