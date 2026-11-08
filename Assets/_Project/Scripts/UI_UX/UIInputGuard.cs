@@ -36,6 +36,11 @@ public static class UIInputGuard
 
     private static bool IsPointerOverUIToolkitImpl()
     {
+        // The pause menu / settings / save-load are world-blocking modals: the whole screen counts as UI while one is up (and briefly after it
+        // closes), whatever panel.Pick happens to return. Everything that asks this question (hover, clicks, the camera, employee and machine
+        // clicks) therefore stands down without each having to know about menus.
+        if (UIModalGuard.IsBlockingWorld) { LastBlocker = "UIModalGuard (world-blocking modal)"; return true; }
+
         if (Mouse.current == null) return false;
         RefreshDocs();
         var screenPos = Mouse.current.position.ReadValue();
@@ -53,6 +58,17 @@ public static class UIInputGuard
             return true;
         }
         return false;
+    }
+
+    /// <summary>Raises <paramref name="e"/> above everything in its document: BringToFront at every level up the tree, because z-order inside one
+    /// UIDocument is sibling order and a card added later (the order-pallet cards, hover popups) otherwise draws over it.</summary>
+    public static void RaiseToFront(VisualElement e)
+    {
+        while (e != null && e.parent != null)
+        {
+            e.BringToFront();
+            e = e.parent;
+        }
     }
 
     /// <summary>

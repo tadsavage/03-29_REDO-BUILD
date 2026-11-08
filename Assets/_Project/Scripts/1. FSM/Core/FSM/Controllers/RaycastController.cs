@@ -238,6 +238,9 @@ public class RaycastController : MonoBehaviour
 
     private bool CheckIfPointerOverUI()
     {
+        // A world-blocking modal (pause menu, its settings, Save/Load) owns the whole screen: nothing in the world is hoverable or clickable.
+        if (UIModalGuard.IsBlockingWorld) return true;
+
         // Most reliable: the build menu tracks PointerEnter/Leave on the bar element itself.
         if (_buildMenuUI != null && _buildMenuUI.IsPointerOverBuildMenu) return true;
 

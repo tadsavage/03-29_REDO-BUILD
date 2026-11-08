@@ -382,6 +382,13 @@ private void HandleIdleHover(bool tickRaycast = true)
             return;
         }
 
+        // Same for the pause menu, its settings and Save/Load (world-blocking modals): no world tooltip or order-pallet card while one is up.
+        if (UIModalGuard.IsBlockingWorld)
+        {
+            _hoverUI.HideImmediate();
+            return;
+        }
+
         if (tickRaycast) _raycast.Tick();
 
         if (_raycast.HitObject != null)

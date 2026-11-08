@@ -352,6 +352,11 @@ public class TopBarUI : MonoBehaviour
         _menuOpen = true;
         _menuOverlay.style.display = DisplayStyle.Flex;
         _menuOverlay.pickingMode   = PickingMode.Position;
+        // The pause menu blocks EVERYTHING behind it (Tad, 2026-11-08): no world hover or clicks, no order-pallet cards popping up over it
+        // (they used to appear when the cursor crossed pallets behind the buttons), no hotkeys, no camera. And it is drawn above every other
+        // element of the HUD document, including cards that were pinned before it opened.
+        UIModalGuard.PushBlocking(this, () => _menuOpen);
+        UIInputGuard.RaiseToFront(_menuOverlay);
     }
 
     private void CloseMenuPopup()
@@ -360,6 +365,7 @@ public class TopBarUI : MonoBehaviour
         _menuOpen = false;
         _menuOverlay.style.display = DisplayStyle.None;
         _menuOverlay.pickingMode   = PickingMode.Ignore;
+        UIModalGuard.Pop(this);   // the world stays blocked for UIModalGuard.WorldGraceSeconds more, so the click that closed the menu cannot also land behind it
     }
 
     private void OnMenuDirectToMainMenu()

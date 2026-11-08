@@ -237,7 +237,8 @@ namespace SaveLoadSystem
             // Claim keyboard input for the dialog, the same way RackSetupUI/LaneSetupUI already do.
             // This window never registered, so typing a save name made up of bound keys ("322", or
             // anything with W/A/S/D) also fired the panel hotkeys and drove the camera behind it.
-            UIModalGuard.Push(this);
+            // PushBlocking: the Save/Load window also blocks the 3D world behind it (hover, clicks, order-pallet cards), not just hotkeys.
+            UIModalGuard.PushBlocking(this);
 
             overlay.style.display = DisplayStyle.Flex;
             SetConfirmVisible(false);

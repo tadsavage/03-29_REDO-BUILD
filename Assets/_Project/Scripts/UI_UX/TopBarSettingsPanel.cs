@@ -94,11 +94,14 @@ public class TopBarSettingsPanel : MonoBehaviour
         {
             _igSettingsOverlay.style.display = DisplayStyle.Flex;
             _igSettingsOverlay.pickingMode   = PickingMode.Position;
+            UIModalGuard.PushBlocking(this, () => _igSettingsOverlay != null && _igSettingsOverlay.style.display == DisplayStyle.Flex);
+            UIInputGuard.RaiseToFront(_igSettingsOverlay);
         }
     }
 
     public void Close()
     {
+        UIModalGuard.Pop(this);
         if (_igSettingsOverlay != null)
         {
             _igSettingsOverlay.style.display = DisplayStyle.None;
