@@ -708,3 +708,4 @@ Every incident as it happened. Format: day hour:minute | category | what.
   UnityEngine.UIElements.UIElementsRuntimeUtilityNative:RepaintPanels (bool)
   ```
 - day 2 10:58 | **REPEATING** | x25 and counting: Assertion failed
+- day 1 08:00 | **WARN** | To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
