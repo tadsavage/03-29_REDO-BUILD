@@ -709,3 +709,84 @@ Every incident as it happened. Format: day hour:minute | category | what.
   ```
 - day 2 10:58 | **REPEATING** | x25 and counting: Assertion failed
 - day 1 08:00 | **WARN** | To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 1 08:00 | **WARN** | To Debug, run app with -diag-job-temp-memory-leak-validation cmd line argument. This will output the callstacks of the leaked allocations.
+- day 1 10:18 | **WARN** | [AiNavigation] Employee_Benjamin Anderson: stuck at (-11.35, 1.12, 53.91) — walking out to (-4.85, 1.15, 42.65) (12.00m to mesh).
+- day 1 10:54 | **WARN** | [AiNavigation] Employee_Nicholas Davis: stuck at (-12.53, 1.19, 47.00) — walking out to (-23.78, 1.12, 53.67) (12.08m to mesh).
+- day 1 08:39 | **WARN** | [AiNavigation] Dockstocker: stuck at (-9.37, 1.11, 50.96) — walking out to (-9.94, 1.16, 52.35) (12.00m to mesh).
+- day 1 08:39 | **WARN** | [AiNavigation] Dockstocker: stuck at (-9.37, 1.11, 50.96) — walking out to (-9.94, 1.16, 52.35) (12.00m to mesh).
+- day 1 10:46 | **WARN** | [AiNavigation] Employee_Patricia Moore: stuck at (-10.36, 1.13, 52.95) — walking out to (-23.36, 1.12, 53.18) (12.00m to mesh).
+- day 1 10:46 | **WARN** | [AiNavigation] Employee_Patricia Moore: stuck at (-10.36, 1.13, 52.95) — walking out to (-23.36, 1.12, 53.18) (12.00m to mesh).
+- day 1 16:22 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] Order OG3909 pallet 1 of 1: every pick face is empty - handing the task back until replenishment stocks them.
+- day 1 16:22 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] Order OG3909 pallet 1 of 1: every pick face is empty - handing the task back until replenishment stocks them.
+- day 2 00:29 | **WARN** | [AiNavigation] ReachTruck: stuck at (-26.53, 1.11, 43.21) — walking out to (-27.91, 1.16, 43.21) (12.00m to mesh).
+- day 2 00:29 | **WARN** | [AiNavigation] ReachTruck: stuck at (-26.53, 1.11, 43.21) — walking out to (-27.91, 1.16, 43.21) (12.00m to mesh).
+- day 2 01:52 | **WARN** | [AiNavigation] Employee_Robert Stout: stuck at (-7.95, 1.12, 54.43) — walking out to (5.05, 1.12, 54.50) (12.00m to mesh).
+- day 2 01:52 | **WARN** | [AiNavigation] Employee_Robert Stout: stuck at (-7.95, 1.12, 54.43) — walking out to (5.05, 1.12, 54.50) (12.00m to mesh).
+- day 2 01:53 | **WARN** | [AiNavigation] Dockstocker: stuck at (-9.36, 1.11, 56.80) — walking out to (-22.36, 1.16, 56.29) (12.01m to mesh).
+- day 2 01:53 | **WARN** | [AiNavigation] Dockstocker: stuck at (-9.36, 1.11, 56.80) — walking out to (-22.36, 1.16, 56.29) (12.01m to mesh).
+- day 2 02:00 | **WARN** | [AiNavigation] ReachTruck: stuck at (-23.24, 1.11, 39.06) — walking out to (-22.66, 1.16, 40.44) (12.95m to mesh).
+- day 2 02:00 | **WARN** | [AiNavigation] ReachTruck: stuck at (-23.24, 1.11, 39.06) — walking out to (-22.66, 1.16, 40.44) (12.95m to mesh).
+- day 2 05:56 | **WARN** | [OrderService] Order OG3909 closed with a IN TRANSIT pallet (6 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 05:56 | **WARN** | [OrderService] Order OG3909 closed with a IN TRANSIT pallet (6 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 05:56 | **WARN** | [AiNavigation] ReachTruck: stuck at (-16.98, 1.11, 45.23) — walking out to (-18.05, 1.16, 45.23) (12.10m to mesh).
+- day 2 05:56 | **WARN** | [AiNavigation] ReachTruck: stuck at (-16.98, 1.11, 45.23) — walking out to (-18.05, 1.16, 45.23) (12.10m to mesh).
+- day 2 07:39 | **WARN** | [AiNavigation] ReachTruck: stuck at (-1.00, 1.16, 47.27) — walking out to (-0.83, 1.16, 48.65) (12.00m to mesh).
+- day 2 07:39 | **WARN** | [AiNavigation] ReachTruck: stuck at (-1.00, 1.16, 47.27) — walking out to (-0.83, 1.16, 48.65) (12.00m to mesh).
+- day 2 08:35 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Patricia Moore: stranded on an isolated NavMesh island at (-20.21, 1.12, 54.02) (no waypoint reachable for 8s) — warping to (-10.15, 1.12, 53.34) to rejoin patrol.
+- day 2 08:35 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Patricia Moore: stranded on an isolated NavMesh island at (-20.21, 1.12, 54.02) (no waypoint reachable for 8s) — warping to (-10.15, 1.12, 53.34) to rejoin patrol.
+- day 2 09:47 | **WARN** | [AiNavigation] Employee_Larry Dixon: stuck at (-10.18, 1.12, 53.36) — walking out to (-10.18, 1.13, 39.86) (12.50m to mesh).
+- day 2 09:47 | **WARN** | [AiNavigation] Employee_Larry Dixon: stuck at (-10.18, 1.12, 53.36) — walking out to (-10.18, 1.13, 39.86) (12.50m to mesh).
+- day 2 10:26 | **WARN** | [AiNavigation] ReachTruck: stuck at (3.17, 1.11, 54.23) — walking out to (3.17, 1.16, 52.84) (12.00m to mesh).
+- day 2 10:26 | **WARN** | [AiNavigation] ReachTruck: stuck at (3.17, 1.11, 54.23) — walking out to (3.17, 1.16, 52.84) (12.00m to mesh).
+- day 2 11:48 | **WARN** | [AiNavigation] Dockstocker: stuck at (3.89, 1.11, 59.00) — walking out to (5.27, 1.16, 59.00) (12.00m to mesh).
+- day 2 11:48 | **WARN** | [AiNavigation] Dockstocker: stuck at (3.89, 1.11, 59.00) — walking out to (5.27, 1.16, 59.00) (12.00m to mesh).
+- day 2 12:46 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Larry Dixon: stranded on an isolated NavMesh island at (-20.07, 1.12, 53.67) (no waypoint reachable for 8s) — warping to (-10.15, 1.12, 53.34) to rejoin patrol.
+- day 2 12:46 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Larry Dixon: stranded on an isolated NavMesh island at (-20.07, 1.12, 53.67) (no waypoint reachable for 8s) — warping to (-10.15, 1.12, 53.34) to rejoin patrol.
+- day 2 13:25 | **WARN** | [AiNavigation] Dockstocker: stuck at (-8.94, 1.11, 54.33) — walking out to (-8.36, 1.16, 55.72) (12.18m to mesh).
+- day 2 13:25 | **WARN** | [AiNavigation] Dockstocker: stuck at (-8.94, 1.11, 54.33) — walking out to (-8.36, 1.16, 55.72) (12.18m to mesh).
+- day 2 13:55 | **WARN** | [AiNavigation] Employee_Janice Barnes: stuck at (-44.77, 1.12, 54.82) — walking out to (-38.31, 1.12, 42.58) (12.84m to mesh).
+- day 2 13:55 | **WARN** | [AiNavigation] Employee_Janice Barnes: stuck at (-44.77, 1.12, 54.82) — walking out to (-38.31, 1.12, 42.58) (12.84m to mesh).
+- day 2 14:15 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Janice Barnes: stranded on an isolated NavMesh island at (-35.27, 1.12, 54.18) (no waypoint reachable for 8s) — warping to (-44.74, 1.12, 54.76) to rejoin patrol.
+- day 2 14:15 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Janice Barnes: stranded on an isolated NavMesh island at (-35.27, 1.12, 54.18) (no waypoint reachable for 8s) — warping to (-44.74, 1.12, 54.76) to rejoin patrol.
+- day 2 15:42 | **WARN** | [AiNavigation] Dockstocker: stuck at (10.66, 1.11, 55.86) — walking out to (4.16, 1.16, 44.60) (12.00m to mesh).
+- day 2 15:42 | **WARN** | [AiNavigation] Dockstocker: stuck at (10.66, 1.11, 55.86) — walking out to (4.16, 1.16, 44.60) (12.00m to mesh).
+- day 2 17:13 | **WARN** | [AiNavigation] ReachTruck: stuck at (-2.64, 1.11, 53.51) — walking out to (10.36, 1.16, 53.51) (12.00m to mesh).
+- day 2 17:13 | **WARN** | [AiNavigation] ReachTruck: stuck at (-2.64, 1.11, 53.51) — walking out to (10.36, 1.16, 53.51) (12.00m to mesh).
+- day 2 17:14 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Frank Miller: stranded on an isolated NavMesh island at (-19.57, 1.12, 53.60) (no waypoint reachable for 8s) — warping to (-10.15, 1.12, 53.34) to rejoin patrol.
+- day 2 17:14 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Frank Miller: stranded on an isolated NavMesh island at (-19.57, 1.12, 53.60) (no waypoint reachable for 8s) — warping to (-10.15, 1.12, 53.34) to rejoin patrol.
+- day 2 17:29 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Robert Stout: stranded on an isolated NavMesh island at (-20.19, 1.12, 53.68) (no waypoint reachable for 8s) — warping to (-10.15, 1.12, 53.34) to rejoin patrol.
+- day 2 17:29 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Robert Stout: stranded on an isolated NavMesh island at (-20.19, 1.12, 53.68) (no waypoint reachable for 8s) — warping to (-10.15, 1.12, 53.34) to rejoin patrol.
+- day 2 19:58 | **WARN** | [AiNavigation] Employee_Robert Stout: stuck at (-10.50, 1.14, 53.25) — walking out to (0.76, 1.20, 46.75) (12.00m to mesh).
+- day 2 19:58 | **WARN** | [AiNavigation] Employee_Robert Stout: stuck at (-10.50, 1.14, 53.25) — walking out to (0.76, 1.20, 46.75) (12.00m to mesh).
+- day 2 21:58 | **NO-TASK** | NO-TASK lane pallet 1A-4 sku=520894 load=6176051895  <<HISTORY: d2 21:55 Putaway task created (STG1A-4->) by ReceiverReceivingWorkflow.CreatePutawayTask | d2 21:55 Receive task Assigned->Cancelled by WorkQueueSystem.CancelTasksForPallet | d2 21:55 Putaway task Available->Cancelled by WorkQueueSystem.CancelTasksForPallet | d2 21:55 PalletPick task Open->Available by OrderService.TryAssignInboundPalletToPendingPick | d2 21:55 Receive task Cancelled->Complete by WorkQueueSystem.CompleteTask | d2 21:56 PalletPick task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask>>
+- day 2 21:58 | **NO-TASK** | NO-TASK lane pallet 1A-4 sku=520894 load=6176051895  <<HISTORY: d2 21:55 Putaway task created (STG1A-4->) by ReceiverReceivingWorkflow.CreatePutawayTask | d2 21:55 Receive task Assigned->Cancelled by WorkQueueSystem.CancelTasksForPallet | d2 21:55 Putaway task Available->Cancelled by WorkQueueSystem.CancelTasksForPallet | d2 21:55 PalletPick task Open->Available by OrderService.TryAssignInboundPalletToPendingPick | d2 21:55 Receive task Cancelled->Complete by WorkQueueSystem.CompleteTask | d2 21:56 PalletPick task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask>>
+- day 2 23:58 | **WARN** | [OrderService] Order OG2913 closed with a LOADING pallet (80 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 23:58 | **WARN** | [OrderService] Order OG2913 closed with a LOADING pallet (80 cs) that never made the trailer - not billed, returning it to stock.
+- day 3 02:42 | **WARN** | [AiNavigation] Employee_Janice Barnes: stuck at (-28.48, 1.13, 43.24) — walking out to (-40.99, 1.09, 37.31) (13.05m to mesh).
+- day 3 02:42 | **WARN** | [AiNavigation] Employee_Janice Barnes: stuck at (-28.48, 1.13, 43.24) — walking out to (-40.99, 1.09, 37.31) (13.05m to mesh).
+- day 3 06:38 | **WARN** | [OrderSelectionTaskDriver] Order b89420bc-ad3d-4e36-9987-ba474f7f9ad5 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 15/16.
+- day 3 06:38 | **WARN** | [OrderSelectionTaskDriver] Order b89420bc-ad3d-4e36-9987-ba474f7f9ad5 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 15/16.
+- day 3 07:13 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (2.44, 1.11, 59.00) — walking out to (3.83, 1.16, 59.00) (12.00m to mesh).
+- day 3 07:13 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (2.44, 1.11, 59.00) — walking out to (3.83, 1.16, 59.00) (12.00m to mesh).
+- day 3 08:05 | **WARN** | [AiNavigation] Employee_Janice Barnes: stuck at (-11.11, 1.14, 54.30) — walking out to (-11.11, 1.23, 41.30) (12.00m to mesh).
+- day 3 08:05 | **WARN** | [AiNavigation] Employee_Janice Barnes: stuck at (-11.11, 1.14, 54.30) — walking out to (-11.11, 1.23, 41.30) (12.00m to mesh).
+- day 3 08:47 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (2.62, 1.11, 57.58) — walking out to (2.62, 1.16, 59.00) (12.00m to mesh).
+- day 3 08:47 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (2.62, 1.11, 57.58) — walking out to (2.62, 1.16, 59.00) (12.00m to mesh).
+- day 3 10:51 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (9.01, 1.11, 46.99) — walking out to (9.58, 1.24, 48.38) (12.19m to mesh).
+- day 3 10:51 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (9.01, 1.11, 46.99) — walking out to (9.58, 1.24, 48.38) (12.19m to mesh).
+- day 3 15:41 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-5.31, 1.11, 44.09) — walking out to (7.69, 1.25, 44.09) (12.00m to mesh).
+- day 3 15:41 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-5.31, 1.11, 44.09) — walking out to (7.69, 1.25, 44.09) (12.00m to mesh).
+- day 3 22:06 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet d2a40a0a-678b-43fb-a204-968c82d69a0a but the employee is 5.4m away (max 4.5m) — refusing to start receiving.
+- day 3 22:06 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet d2a40a0a-678b-43fb-a204-968c82d69a0a but the employee is 5.4m away (max 4.5m) — refusing to start receiving.
+- day 4 00:31 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-21.26, 1.23, 42.24) (path invalid) — abandoning the walk and handing the task back.
+- day 4 00:31 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-21.26, 1.23, 42.24) (path invalid) — abandoning the walk and handing the task back.
+- day 4 05:58 | **NO-TASK** | NO-TASK lane pallet 1D-1 sku=178439 load=7856086754  <<HISTORY: d4 03:38 Receive task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d4 03:49 Putaway task created (STG1D-1->) by ReceiverReceivingWorkflow.CreatePutawayTask | d4 03:49 Receive task Assigned->Cancelled by WorkQueueSystem.CancelTasksForPallet | d4 03:49 Putaway task Available->Cancelled by WorkQueueSystem.CancelTasksForPallet | d4 03:49 Receive task Cancelled->Complete by WorkQueueSystem.CompleteTask | d4 05:57 PalletPick task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask>>
+- day 4 05:58 | **NO-TASK** | NO-TASK lane pallet 1D-1 sku=178439 load=7856086754  <<HISTORY: d4 03:38 Receive task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d4 03:49 Putaway task created (STG1D-1->) by ReceiverReceivingWorkflow.CreatePutawayTask | d4 03:49 Receive task Assigned->Cancelled by WorkQueueSystem.CancelTasksForPallet | d4 03:49 Putaway task Available->Cancelled by WorkQueueSystem.CancelTasksForPallet | d4 03:49 Receive task Cancelled->Complete by WorkQueueSystem.CompleteTask | d4 05:57 PalletPick task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask>>
+- day 4 07:25 | **WARN** | [OrderSelectionTaskDriver] Order 419341d8-c18f-4206-a362-b499b0010285 (The Big Cheese Inc.) has no reachable pick location for its remaining line item(s) — staging short at 541/550.
+- day 4 07:25 | **WARN** | [OrderSelectionTaskDriver] Order 419341d8-c18f-4206-a362-b499b0010285 (The Big Cheese Inc.) has no reachable pick location for its remaining line item(s) — staging short at 541/550.
+- day 4 08:10 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-9.04, 1.11, 48.98) — walking out to (-8.47, 1.23, 50.37) (12.00m to mesh).
+- day 4 08:10 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-9.04, 1.11, 48.98) — walking out to (-8.47, 1.23, 50.37) (12.00m to mesh).
+- day 4 12:38 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-2.76, 1.11, 57.68) — walking out to (-2.76, 1.16, 59.00) (12.00m to mesh).
+- day 4 12:38 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-2.76, 1.11, 57.68) — walking out to (-2.76, 1.16, 59.00) (12.00m to mesh).
+- day 4 14:34 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-13.22, 1.11, 59.00) — walking out to (-14.60, 1.16, 59.00) (12.00m to mesh).
+- day 4 14:34 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-13.22, 1.11, 59.00) — walking out to (-14.60, 1.16, 59.00) (12.00m to mesh).
