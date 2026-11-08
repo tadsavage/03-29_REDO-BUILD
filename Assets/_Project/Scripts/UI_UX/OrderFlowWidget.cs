@@ -41,6 +41,8 @@ public class OrderFlowWidget : MonoBehaviour
     private const float StaggerSeconds = 0.45f;
     private const float PollSeconds = 0.75f;
     private const int MaxQueued = 40;
+    private const float IntroStaggerSeconds = 0.35f;   // faster than a live drop: several tiles arrive at once
+    private const int IntroMaxPos = 6;                 // pending POs flown in at the start (the rest are on the Scheduler anyway)
     private const string PrefKey = "HudCard_NewOrders";
 
     private static readonly Color RecurringColor = new Color(0.36f, 0.62f, 0.90f, 1f);
@@ -98,6 +100,11 @@ public class OrderFlowWidget : MonoBehaviour
     private float _nextOfferAt, _nextPoAt, _nextTry, _nextPoll;
     private bool _synced;
 
+    // Start-of-session intro (Tad, 2026-11-08): on a new game or a load, once the loading screen is gone, every open offer (the visible
+    // ones) and pending inbound PO flies in the way a freshly posted one does, instead of the row simply being there.
+    private bool _introRequested, _introActive;
+    private float _introRequestedAt = -100f, _lastIntroAt = -100f;
+
     private UIDocument _doc, _fxDoc;
     private GameObject _fxGo;
     private VisualElement _docRoot, _fxRoot, _card, _row, _fxLayer;
@@ -128,12 +135,15 @@ public class OrderFlowWidget : MonoBehaviour
         OrderArrivalService.OnOfferPosted += HandleOffer;
         ShipmentService.OnPurchaseOrderCreated -= HandlePo;
         ShipmentService.OnPurchaseOrderCreated += HandlePo;
+        GameContext.OnWorldReady -= RequestIntro;
+        GameContext.OnWorldReady += RequestIntro;
     }
 
     private void OnDisable()
     {
         OrderArrivalService.OnOfferPosted -= HandleOffer;
         ShipmentService.OnPurchaseOrderCreated -= HandlePo;
+        GameContext.OnWorldReady -= RequestIntro;
     }
 
     private void OnDestroy()
@@ -155,18 +165,86 @@ public class OrderFlowWidget : MonoBehaviour
         }
 
         float now = Time.unscaledTime;
+
+        // The intro waits for the loading screen to be gone (so it plays on the screen the player actually sees) and for the row to be
+        // laid out (the flights aim at its real position).
+        if (_introRequested && LoadingScreenManager.Instance == null && now >= _introRequestedAt + 0.6f && _row != null && _row.worldBound.width > 1f)
+        {
+            _introRequested = false;
+            StartIntro();
+        }
+
         if (now >= _nextPoll) { _nextPoll = now + PollSeconds; Refresh(); }
 
+        float stagger = _introActive ? IntroStaggerSeconds : StaggerSeconds;
         if (_offerFlyQueue.Count > 0 && now >= _nextOfferAt)
         {
             SpawnOfferFlight(_offerFlyQueue.Dequeue());
-            _nextOfferAt = now + StaggerSeconds;
+            _nextOfferAt = now + stagger;
         }
         if (_poQueue.Count > 0 && now >= _nextPoAt)
         {
             SpawnInbound(_poQueue.Dequeue());
-            _nextPoAt = now + StaggerSeconds;
+            _nextPoAt = now + stagger;
         }
+
+        // The last intro tile has landed: let the normal sync take over (adds any offers beyond the visible ones, the "+N" chip, the count).
+        if (_introActive && !_introRequested && _offerFlyQueue.Count == 0 && _flying.Count == 0)
+        {
+            _introActive = false;
+            Refresh();
+        }
+    }
+
+    // ── Start-of-session intro ───────────────────────────────────────
+
+    /// <summary>GameContext.OnWorldReady: a new game was set up or a save restored. Debounced (a boot-load raises it twice).</summary>
+    private void RequestIntro()
+    {
+        if (Time.unscaledTime - _lastIntroAt < 2f) return;
+        _introRequested = true;
+        _introRequestedAt = Time.unscaledTime;
+        _introActive = true;   // from now until the flights are done Refresh() leaves the row alone, so no tile shows before it has flown in
+        ClearRowForIntro();
+    }
+
+    /// <summary>Empties the row (tiles left over from before a load describe a world that is gone) and hides the empty-text and "+N"
+    /// chip, so the row stays blank behind the loading screen until the first tile flies in.</summary>
+    private void ClearRowForIntro()
+    {
+        foreach (var s in _slots.Values) s.root.RemoveFromHierarchy();
+        _slots.Clear(); _order.Clear(); _flying.Clear();
+        _offerFlyQueue.Clear(); _poQueue.Clear();
+        if (_emptyLabel != null) _emptyLabel.style.display = DisplayStyle.None;
+        if (_moreChip != null) _moreChip.style.display = DisplayStyle.None;
+        if (_countLabel != null) _countLabel.text = "";
+    }
+
+    private void StartIntro()
+    {
+        _lastIntroAt = Time.unscaledTime;
+        ClearRowForIntro();
+
+        var offers = ServiceLocator.TryGet(out OrderArrivalService arrivals) && arrivals != null
+            ? arrivals.AvailableOffers.Where(o => o != null).ToList()
+            : new List<ContractData>();
+
+        // Each flight lands at the FRONT of the row, so the oldest visible offer flies first and the newest lands last, front and centre.
+        foreach (var id in offers.Take(MaxTiles).Select(o => o.ContractId).Reverse()) _offerFlyQueue.Enqueue(id);
+
+        // Inbound POs still on their way (in transit or delayed) fly into the dock schedule widget, soonest arrival first.
+        if (ServiceLocator.TryGet(out ShipmentService shipments) && shipments != null)
+        {
+            foreach (var s in shipments.PendingShipments
+                         .Where(x => x != null && (x.Status == ShipmentData.ShipmentStatus.InTransit || x.Status == ShipmentData.ShipmentStatus.Delayed))
+                         .OrderBy(x => x.ArrivalDayNumber).Take(IntroMaxPos))
+                _poQueue.Enqueue(PoModel(s));
+        }
+
+        _countLabel.text = $"{offers.Count} available";
+        _emptyLabel.style.display = offers.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+        _nextOfferAt = _nextPoAt = Time.unscaledTime;
+        _introActive = true;   // Refresh() stays out of the way until the last tile lands
     }
 
     // ── Events ───────────────────────────────────────────────────────
@@ -181,9 +259,16 @@ public class OrderFlowWidget : MonoBehaviour
     private void HandlePo(ShipmentData s)
     {
         if (s == null) return;
+        _poQueue.Enqueue(PoModel(s));
+        while (_poQueue.Count > MaxQueued) _poQueue.Dequeue();
+    }
+
+    /// <summary>The flyer for one purchase order (a new PO, or a pending one replayed by the start-of-session intro).</summary>
+    private static TileModel PoModel(ShipmentData s)
+    {
         Sprite icon = null;
         if (!string.IsNullOrEmpty(s.SupplierId)) icon = VendorRegistry.Load()?.GetById(s.SupplierId)?.Icon;
-        _poQueue.Enqueue(new TileModel
+        return new TileModel
         {
             title = string.IsNullOrEmpty(s.SupplierName) ? "Vendor" : s.SupplierName,
             tag = "INBOUND PO",
@@ -191,8 +276,7 @@ public class OrderFlowWidget : MonoBehaviour
             line1 = $"{s.TotalUnits:N0} cases", line1Color = InboundColor,
             sub = $"PO {s.PONumber} · Day {s.ArrivalDayNumber}", subColor = DimColor,
             icon = icon,
-        });
-        while (_poQueue.Count > MaxQueued) _poQueue.Dequeue();
+        };
     }
 
     // ── Build ────────────────────────────────────────────────────────
@@ -249,6 +333,46 @@ public class OrderFlowWidget : MonoBehaviour
 
     private void FollowActiveBar(VisualElement bar) => _dock?.EnsureInTray();
 
+    private float _lastPressAt = -10f;
+    private Vector2 _lastPressPos;
+    private const float DoubleClickSeconds = 0.45f, DoubleClickSlop = 14f;
+
+    private void OnCardPointerDown(PointerDownEvent e)
+    {
+        if (e.button != 0) return;
+
+        // Own timing rather than trusting PointerDownEvent.clickCount alone: through the Input System UI module it was not reliably 2
+        // for a quick double press (found 2026-11-08), so two presses close in time and place count too.
+        float now = Time.unscaledTime;
+        Vector2 pos = e.position;
+        bool dbl = e.clickCount >= 2 || (now - _lastPressAt <= DoubleClickSeconds && (pos - _lastPressPos).sqrMagnitude <= DoubleClickSlop * DoubleClickSlop);
+        _lastPressAt = dbl ? -10f : now;
+        _lastPressPos = pos;
+        if (!dbl) return;
+
+        string offerId = null;
+        if (e.target is VisualElement hit)
+        {
+            foreach (var kv in _slots)
+            {
+                var tile = kv.Value.tile;
+                if (tile != null && (tile == hit || tile.Contains(hit))) { offerId = kv.Key; break; }
+            }
+        }
+        OpenOutboundOrders(offerId);
+    }
+
+    /// <summary>Opens the Outbound Orders screen (the Contracts panel, key 8): on the New Contracts board with that offer outlined when a
+    /// tile was double-clicked, otherwise just open. Same route a Systems Log contract link takes.</summary>
+    private static void OpenOutboundOrders(string offerId)
+    {
+        var topBar = FindAnyObjectByType<TopBarUI>();
+        var panel = topBar != null ? topBar.ContractsPanel : null;
+        if (panel == null) { UIToast.Show("Couldn't open Outbound Orders — it isn't loaded."); return; }
+        UIKeyBindingManager.Instance?.CloseAll();
+        if (!string.IsNullOrEmpty(offerId)) panel.ShowOffer(offerId); else panel.Show();
+    }
+
     private void BuildUI()
     {
         _card = new VisualElement { name = "OrderFlowWidget" };
@@ -294,6 +418,10 @@ public class OrderFlowWidget : MonoBehaviour
         _row.Add(_moreChip);
         _card.Add(_row);
 
+        // Double-click (the card or a tile) opens the Outbound Orders screen (Tad, 2026-11-08); on a tile it opens on that offer.
+        // Trickle-down so it still sees the press when the dock's drag handling captures the pointer.
+        _card.RegisterCallback<PointerDownEvent>(OnCardPointerDown, TrickleDown.TrickleDown);
+
         // Fly layer: the whole panel, click-through, in the fly document (above every window).
         _fxLayer = new VisualElement { name = "OrderFlowFx", pickingMode = PickingMode.Ignore };
         _fxLayer.style.position = Position.Absolute;
@@ -324,7 +452,7 @@ public class OrderFlowWidget : MonoBehaviour
     /// place. Tiles are only added/removed when the set changes, so a tooltip is never torn down under the pointer.</summary>
     private void Refresh()
     {
-        if (!_built || _row == null) return;
+        if (!_built || _row == null || _introActive) return;   // during the intro the flights build the row; Update() calls this again when they are done
         if (!ServiceLocator.TryGet(out OrderArrivalService arrivals) || arrivals == null) return;
 
         var available = arrivals.AvailableOffers.Where(o => o != null).ToList();

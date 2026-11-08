@@ -307,5 +307,12 @@ public class GameContext : MonoBehaviour
             NavMeshManager.Instance.BakeImmediate();
         //else
             //Debug.LogWarning("[GameContext] NavMeshManager not found — agents may not navigate.");
+
+        OnWorldReady?.Invoke();
     }
+
+    /// <summary>Raised at the end of <see cref="SyncAndBake"/>: a new game has just been set up or a save has just been restored
+    /// (it can fire twice for one boot-load; listeners should debounce). HUD pieces use it to play their "here is what is waiting for
+    /// you" intro, e.g. OrderFlowWidget's fly-in of the open offers and pending POs. A static event: unsubscribe in OnDisable.</summary>
+    public static event System.Action OnWorldReady;
 }
