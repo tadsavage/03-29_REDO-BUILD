@@ -86,9 +86,8 @@ public class SystemsLogWindow : MonoBehaviour
     private const float FontScaleStep = 0.1f, FontScaleMin = 0.6f, FontScaleMax = 2.0f;
     private const float BodyAlpha = 0.1f; // log body is nearly see-through (Tad, 2026-10-17); the header stays opaque
     private ScrollView _scroll;
-    private DraggableWindow _dragger;
+    private DockableHudCard _card;
     private ResizableWindow _resizeWindow;
-    private VisualElement _dockGhost;
     private bool _docked;
     private bool _built;
 
@@ -218,9 +217,14 @@ public class SystemsLogWindow : MonoBehaviour
         BuildMenuUI.OnActiveBarChanged -= FollowActiveBar;
         BuildMenuUI.OnActiveBarChanged += FollowActiveBar;
 
-        // Always starts floating at its fixed home rect (see SnapToHome) rather than docked in the bar.
+        // Starts DOCKED in the bottom widget tray (2026-11-08, Tad: "move the message log there"); drag it
+        // up off the tray to float it. Falls back to floating at its home rect if the HUD isn't up.
         _docked = false;
         BuildUI(_docRoot);
+        bool placed = _card.Restore();   // CENTER zone of the tray by default
+        if (!placed)
+            _docRoot.schedule.Execute(() => { if (!placed) placed = _card.Restore(); })
+                    .Every(250).Until(() => placed);
 
         _built = true;
 
@@ -235,10 +239,7 @@ public class SystemsLogWindow : MonoBehaviour
     /// No-op while the window has been dragged out into a floating state on purpose.</summary>
     private void FollowActiveBar(VisualElement bar)
     {
-        if (!_docked || bar == null || _panel == null || _panel.parent == bar) return;
-        _panel.RemoveFromHierarchy();
-        bar.Add(_panel);
-        ApplyDockedLayout();
+        _card?.EnsureInTray();
     }
 
     private void BuildUI(VisualElement root)
@@ -417,19 +418,26 @@ public class SystemsLogWindow : MonoBehaviour
         _fontUpButton = fontUp;
         _scroll = scroll;
 
-        _dragger = new DraggableWindow(_panel, titleBar, close, clear, fontDown, fontUp);
-        _dragger.OnDragStart += OnDragStart;
-        _dragger.OnDragMove += OnDragMove;
-        _dragger.OnDragEnd += OnDragEnd;
-
         // Left + Bottom only — Top/Right are already spoken for (title bar drag, close button, and the
         // panel's own fixed right/width when docked). Only meaningful while floating; disabled while
         // docked (see ApplyDockedLayout) since the docked card's size is owned by the bar's layout.
         _resizeWindow = new ResizableWindow(_panel, minW: 420f, minH: 150f, grip: 10f, titleInset: 48f,
             edges: ResizableWindow.Edges.Left | ResizableWindow.Edges.Bottom);
 
-        if (_docked) ApplyDockedLayout();
-        else { ApplyFloatingLayout(); SnapToHome(); }
+        // Docked: no title bar, and a press ANYWHERE on the card drags it (Tad, 2026-11-08). Floating: the
+        // body stays click-through for camera orbit (see the class doc), so only the title bar drags it.
+        _card = new DockableHudCard(_panel, _panel, () => _docRoot, "HudCard_Log",
+            DockableHudCard.ZoneCenter, defaultDocked: true, defaultFloatPos: new Vector2(FloatingLeft, FloatingTop),
+            applyLayout: docked =>
+            {
+                _docked = docked;
+                if (docked) ApplyDockedLayout();
+                else ApplyFloatingLayout();
+            },
+            pickableWhenFloating: false, close, clear, fontDown, fontUp);
+        _card.Dragger.IgnorePress = target => !_docked && !IsInside(target, _titleBar);
+        ApplyFloatingLayout();
+        SnapToHome();
 
         BuildReopenTab();
         SyncReopenTabVisibility();
@@ -506,6 +514,8 @@ public class SystemsLogWindow : MonoBehaviour
             _titleBar.style.borderTopRightRadius = 6;
             _titleBar.style.flexShrink = 0;
         }
+        if (_titleBar != null) _titleBar.style.display = DisplayStyle.Flex;
+        if (_headerDivider != null) _headerDivider.style.display = DisplayStyle.Flex;
         if (_titleLabel != null) _titleLabel.style.fontSize = 22;
         if (_titleSubLabel != null) _titleSubLabel.style.display = DisplayStyle.Flex;
         if (_closeButton != null)
@@ -559,6 +569,9 @@ public class SystemsLogWindow : MonoBehaviour
             _titleBar.style.paddingRight = 4;
             _titleBar.style.flexShrink = 0;
         }
+        // No title bar while docked (Tad, 2026-11-08): the whole card is the drag handle; F7 hides it.
+        if (_titleBar != null) _titleBar.style.display = DisplayStyle.None;
+        if (_headerDivider != null) _headerDivider.style.display = DisplayStyle.None;
         if (_titleLabel != null) _titleLabel.style.fontSize = 18;
         if (_titleSubLabel != null) _titleSubLabel.style.display = DisplayStyle.None;
         if (_closeButton != null)
@@ -640,8 +653,10 @@ public class SystemsLogWindow : MonoBehaviour
             msgLabel.style.fontSize = fontSize * HalFontMultiplier;
             msgLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
             if (HalFont != null) msgLabel.style.unityFontDefinition = FontDefinition.FromFont(HalFont);
-            msgLabel.style.unityTextOutlineWidth = 0.3f;                                   // thick yellow outline so HAL's purple text stands out
-            msgLabel.style.unityTextOutlineColor = new StyleColor(new Color(1f, 0.92f, 0.1f, 1f));
+            // Black text, thick red outline (Tad, 2026-11-07; was purple on yellow). HalColor itself stays purple: it is the key that marks a HAL line.
+            msgLabel.style.color = Color.black;
+            msgLabel.style.unityTextOutlineWidth = 0.3f;
+            msgLabel.style.unityTextOutlineColor = new StyleColor(new Color(0.9f, 0.08f, 0.08f, 1f));
         }
         msgLabel.style.whiteSpace = WhiteSpace.Normal;
         msgLabel.style.flexShrink = 1;
@@ -715,137 +730,11 @@ public class SystemsLogWindow : MonoBehaviour
         _scroll.scrollOffset = new Vector2(_scroll.scrollOffset.x, newY);
     }
 
-    // ── Drag-to-dock / drag-to-undock (mirrors DevHudWindow) ────────────
-
-    private void OnDragStart()
+    private static bool IsInside(VisualElement e, VisualElement ancestor)
     {
-        if (_docked) _dragger.PositionMode = Position.Relative;
+        for (; e != null; e = e.parent) if (e == ancestor) return true;
+        return false;
     }
-
-    private void DetachFromDock()
-    {
-        if (_panel == null || _docRoot == null) return;
-
-        Vector2 worldPos = _panel.worldBound.position;
-        _panel.RemoveFromHierarchy();
-        _docRoot.Add(_panel);
-        _docked = false;
-        ApplyFloatingLayout();
-
-        Vector2 parentOrigin = _docRoot.worldBound.position;
-        float left = worldPos.x - parentOrigin.x;
-        float top = worldPos.y - parentOrigin.y;
-
-        // The floating window is much taller than the docked card it just left, which sits flush
-        // against the bottom of the screen — anchoring from the docked card's unchanged top-left corner
-        // would grow the extra height straight off the bottom edge. Clamp against the document's own
-        // bounds so it always lands fully on-screen regardless of which edge of the bar it was docked
-        // near.
-        float rootW = _docRoot.resolvedStyle.width;
-        float rootH = _docRoot.resolvedStyle.height;
-        if (rootW > 0f) left = Mathf.Clamp(left, 0f, Mathf.Max(0f, rootW - FloatingWidth));
-        if (rootH > 0f) top = Mathf.Clamp(top, 0f, Mathf.Max(0f, rootH - FloatingHeight));
-
-        _panel.style.position = Position.Absolute;
-        _panel.style.left = left;
-        _panel.style.top = top;
-        _panel.style.right = StyleKeyword.Auto;
-        _panel.style.bottom = StyleKeyword.Auto;
-
-        // This detach happens WHILE the pointer is captured on this panel (mid-drag) — capture
-        // suspends normal hover tracking on the bar for its duration, so the bar never fires its own
-        // PointerLeaveEvent as the drag carries the cursor away from it. Left alone, that leaves
-        // BuildMenuUI.IsPointerOverBuildMenu stuck true forever, which blocks camera orbit/pan/zoom
-        // everywhere, no matter where the cursor actually is. Force a geometric reconciliation.
-        if (Mouse.current != null && BuildMenuUI.Instance != null)
-            BuildMenuUI.Instance.SyncPointerOverBuildMenu(Mouse.current.position.ReadValue());
-    }
-
-    private void OnDragMove()
-    {
-        if (_docked)
-        {
-            var dockedBar = _panel.parent;
-            if (dockedBar != null && _panel.worldBound.yMax <= dockedBar.worldBound.yMin)
-                _dragger.RebaseDuringDrag(DetachFromDock, Position.Absolute);
-            return;
-        }
-
-        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
-        if (bar == null || _panel == null || !bar.worldBound.Overlaps(_panel.worldBound))
-        {
-            RemoveGhost();
-            return;
-        }
-        ShowGhostAt(bar, ComputeInsertIndex(bar));
-    }
-
-    private void OnDragEnd()
-    {
-        if (_docked)
-        {
-            var dockedBar = _panel.parent;
-            bool clearedTheBar = dockedBar == null || !dockedBar.worldBound.Overlaps(_panel.worldBound);
-            if (clearedTheBar) DetachFromDock();
-            else ApplyDockedLayout();
-            return;
-        }
-
-        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
-        bool dropOnBar = bar != null && _dockGhost != null && _dockGhost.parent == bar;
-        int index = dropOnBar ? bar.IndexOf(_dockGhost) : -1;
-        RemoveGhost();
-
-        if (dropOnBar)
-        {
-            _panel.RemoveFromHierarchy();
-            bar.Insert(Mathf.Clamp(index, 0, bar.childCount), _panel);
-            _docked = true;
-            ApplyDockedLayout();
-        }
-    }
-
-    private int ComputeInsertIndex(VisualElement bar)
-    {
-        float panelCenterX = _panel.worldBound.center.x;
-        int index = 0;
-        foreach (var child in bar.Children())
-        {
-            if (child == _dockGhost) continue;
-            if (panelCenterX > child.worldBound.center.x) index++;
-            else break;
-        }
-        return index;
-    }
-
-    private void ShowGhostAt(VisualElement bar, int index)
-    {
-        if (_dockGhost == null)
-        {
-            _dockGhost = new VisualElement();
-            _dockGhost.style.width = DockedCardWidth;
-            _dockGhost.style.height = DockedCardHeight;
-            _dockGhost.style.marginLeft = 12;
-            _dockGhost.style.marginRight = 12;
-            _dockGhost.style.backgroundColor = new Color(0.35f, 0.55f, 0.85f, 0.18f);
-            SetBorder(_dockGhost, new Color(0.45f, 0.65f, 0.95f, 0.9f), 2f);
-            SetRadius(_dockGhost, 8f);
-            _dockGhost.pickingMode = PickingMode.Ignore;
-        }
-
-        int clamped = Mathf.Clamp(index, 0, bar.childCount);
-        if (_dockGhost.parent == bar && bar.IndexOf(_dockGhost) == clamped) return;
-        _dockGhost.RemoveFromHierarchy();
-        bar.Insert(Mathf.Clamp(clamped, 0, bar.childCount), _dockGhost);
-    }
-
-    private void RemoveGhost()
-    {
-        if (_dockGhost != null && _dockGhost.parent != null)
-            _dockGhost.RemoveFromHierarchy();
-    }
-
-    // ── Visibility ────────────────────────────────────────────────────
 
     private void Hide()
     {

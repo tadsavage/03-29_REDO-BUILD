@@ -74,6 +74,7 @@ Only the 80" rack prefab (`Rack-FullOrange80`) authors a `Location` child with a
 - Selector trips stage via `StagingLaneAssignmentService.TryFindTripLane` (own door, lanes already used, then nearest other door).
 
 ## MHE batteries and charging stations (2026-10-17)
+**SWITCHED OFF (Tad, 2026-11-07): `EquipmentBattery.BatteriesEnabled = false`.** Every machine is pinned at 100%, `NeedsCharge` is cleared (also on load, so old "batt=0.0001;need" saves come back full), so no drain, no flat-battery ejection, no charge trips, no charger queues. Chargers/bolt/battery card remain as ornaments; unmanned jacks still park in bays (`_wantPark`, not battery logic). Set it true to restore everything below unchanged. While off, the flat-jack watchdog (`CheckDeadJackRider`) and all `NeedsCharge` checks are inert.
 `Actors/EquipmentBattery.cs` on every RT/DS/pallet jack (attached by `MHEOperatorSlot.Start`): 8 game h of use (drains only while moving), 2 h to charge on an `MHE_Station` (`PalletJackParkingSpot` = the bay; every bay is a charger). Saved in `PlacedObject.customData` ("batt=0.73" / "batt=0.43;need"). Flat battery: operator ejected (`MHEOperatorSlot.EjectRider`, never `VacateOperator` - that parks the vehicle nav), the machine finishes the job on its forks at 2x (`SpeedMultiplier`; RT/DS/jack move code multiplies by it), then `ChargeTrip` drives it to the nearest free station (queue at the open end if none; full idle machines `YieldBay`). `AcceptsOperator` blocks boarding until full. Right-click a free machine = "Charge Battery" (`EquipmentBatteryPanels`). Station letters `MHEStationLetter`, lamps `MHEStationLights`. Any new MHE controller must: check `EquipmentBattery.NeedsCharge` before taking more work, multiply its drive speeds by `SpeedMultiplierFor`, and report busy so the battery waits for it (add it to `EquipmentBattery.IsBusy`).
 
 **Pallet-jack travel constraint:** `OrderSelectionTaskDriver.PalletJack.cs` scripted movement (`JackMoveStraight`) translates in world space, so `DriveJackTo` must rotate toward the actual travel vector before its precise approach movement, then restore the intended route heading. The staging sequence is intentional: line up facing away from the lane, reverse into it, then drive forward back out. Do not replace those straight segments with lateral/diagonal translation.
@@ -83,3 +84,22 @@ Only the 80" rack prefab (`Rack-FullOrange80`) authors a `Location` child with a
 - Ghost slots: `ReplenishmentService.TryFindOldest` and `ReachTruckOperator` (Replenish + PalletPick) now require the pallet to be physically in its slot (0.9 m); otherwise the slot is released instead of re-occupied.
 - RETURNS tasks name a return id, not an inventory record: `WorkQueueSystem` restore must not cancel them for a "missing pallet".
 - The Editor nearly stops updating without keyboard focus; soak tests need Unity focused. NEVER edit scripts during Play: focusing Unity recompiles mid-session and nulls GameContext/SaveManager wiring.
+
+## FLOATING / OVERLAP: mostly a detector bug (solved 2026-11-07, block 1089)
+StackEvidence.log showed 17 of 18 flags were correct stacks (Tier0 mesh top 2.28, Tier1 bottom 2.29) read wrong because the detector's
+all-renderer bounds included the staged-order highlight `LineRenderer 'Glow'` under `__OrderFreightBox` (~0.13 m above the top case).
+`QAHealthCheck.Run` now measures MeshRenderer/SkinnedMeshRenderer only, like the stacker. ONE real case remained: lane 3A-2 (day 4
+~02:00), Pancake Mix (Tier0) and Ketchup (Tier1) BOTH on the floor at y 1.15 - a drop into an occupied cell at floor height, shortly
+after a "stranded in STG3A-2 with no task - filed a Putaway" sweep. Cause not found; the evidence logger stays on to catch the next one.
+Any new visual on a pallet (glow, outline, label) must not be a Mesh/Skinned renderer or it will skew both measurements.
+
+### Original notes (block 1088)
+Block 1088 logged ~80 FLOATING/OVERLAP incidents, mostly inbound pallets two-high in receiving lanes (1C, 1D, 2A...). A typical case:
+the Tier0 pallet sits at about 2.06 on the Tier1 pallet, and both are flagged two minutes after the drop, before any receiver touches them.
+Reading the code found no cause: the dock stocker measures the stack at drop time, and the end-of-block save had no overlapping lane
+stacks. The detector (`QAHealthCheck.Run`) measures ALL renderers; the stacker (`TrailerOffloadController.MeasureTopY`) measures mesh
+renderers plus the product's expected height. `QAHealthCheck.Explain` now writes one line per flagged pallet to
+`Logs/StackEvidence.log`: position, parent, mesh-renderer Y range, all-renderer top and which renderer sets it, and the stacker's figure.
+Read that after the next block before fixing anything. (Not a console warning: 80 of them would trip PlaytestBot's REPEATING rule.)
+Also seen: every bug-log line written up to 3x at the same game minute. More than one PlaytestBot is writing; the scored incident count
+is per bot and is not tripled.

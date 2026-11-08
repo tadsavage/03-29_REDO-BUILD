@@ -6,8 +6,8 @@ using SaveLoadSystem;
 /// <summary>
 /// Tiny draggable play-testing readout: current FPS on top, active graphics preset
 /// (Ultra / Good / Toaster) below. Built entirely in code (no UXML/USS), on its own
-/// UIDocument sharing the HUD's PanelSettings. Drag it anywhere by the title bar; the
-/// red X hides it; F8 toggles it back. Playtest-only — not meant for production.
+/// UIDocument sharing the HUD's PanelSettings. Click anywhere on the card to drag it (no title strip since 2026-11-08).
+/// F8 hides it and toggles it back. Playtest-only — not meant for production.
 ///
 /// Position is saved to PlayerPrefs every time the game saves OR quicksaves, AND also
 /// immediately when you finish dragging so you never lose a drag you did without saving.
@@ -27,7 +27,7 @@ public class DevHudWindow : MonoBehaviour
     private Label _modeLabel;
     private Label _modeCaptionLabel;
     private VisualElement _modeButton;
-    private DraggableWindow _dragger;
+    private DockableHudCard _card;
     private VisualElement _titleBar;
     private Label _titleLabel;
     private VisualElement _headerDivider;
@@ -49,7 +49,6 @@ public class DevHudWindow : MonoBehaviour
     /// <summary>Live insertion-preview element shown in the bar while dragging hovers over it — a
     /// same-size placeholder so the bar's real buttons visibly reflow around where the card would
     /// land, without moving the real card until the drop is actually confirmed.</summary>
-    private VisualElement _dockGhost;
 
     private bool _subscribed;
     private const string PrefKeyX = "DevHudWindow_X";
@@ -71,40 +70,19 @@ public class DevHudWindow : MonoBehaviour
         ownRoot.Clear();
         _docRoot = ownRoot;
 
-        // Dock INTO the bar, not merely into its document. Parenting to the document root still left
-        // this absolutely positioned at left:16/top:90 — a floating window that happened to share a
-        // document, which is not what "part of the bottom bar" means. Adding to the bar itself puts it
-        // in the bar's row layout (space-between, so it lands between the category and utility rows)
-        // and it inherits the bar's position, layering and lifetime for free.
-        //
-        // ActiveBar, not BuildBar: an element has one parent, so docking to the build bar meant the
-        // FPS readout and the graphics preset simply disappeared the moment the player switched to
-        // Play. OnActiveBarChanged below moves it across with the mode.
+        // Docking (2026-11-08): the card is built floating in its own document, then DockableHudCard puts
+        // it where the player left it - docked in one of the bottom tray's LEFT/CENTER/RIGHT zones (LEFT
+        // by default) or floating. Retries until BuildMenuUI's tray exists (script order).
         BuildMenuUI.OnActiveBarChanged -= FollowActiveBar;
         BuildMenuUI.OnActiveBarChanged += FollowActiveBar;
 
-        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
-        _docked = bar != null;
-        BuildUI(bar ?? ownRoot);
+        _docked = false;
+        BuildUI(ownRoot);
 
-        // Only a free-floating window has a position worth remembering; a docked one is placed by the
-        // bar's layout and must not be moved by a stale pref.
-        if (!_docked) RestoreWindowPos();
-
-        // If the bar wasn't up yet, retry once — otherwise a script-order accident silently leaves the
-        // dev HUD floating in its own document forever.
-        if (!_docked)
-        {
-            ownRoot.schedule.Execute(() =>
-            {
-                var late = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
-                if (late == null || _panel == null || _panel.parent == late) return;
-                _panel.RemoveFromHierarchy();
-                late.Add(_panel);
-                _docked = true;
-                ApplyDockedLayout();
-            }).ExecuteLater(250);
-        }
+        bool placed = _card.Restore();
+        if (!placed)
+            ownRoot.schedule.Execute(() => { if (!placed) placed = _card.Restore(); })
+                   .Every(250).Until(() => placed);
         TrySubscribeSave();
     }
 
@@ -114,10 +92,7 @@ public class DevHudWindow : MonoBehaviour
     /// false) — a Build/Play mode switch shouldn't yank it back into a bar it was just removed from.</summary>
     private void FollowActiveBar(VisualElement bar)
     {
-        if (!_docked || bar == null || _panel == null || _panel.parent == bar) return;
-        _panel.RemoveFromHierarchy();
-        bar.Add(_panel);
-        ApplyDockedLayout();
+        _card?.EnsureInTray();
     }
 
     private void OnDisable()
@@ -145,9 +120,12 @@ public class DevHudWindow : MonoBehaviour
         // UIInputGuard blocks camera input on ANY pickable UI Toolkit element under the cursor, and
         // without this a floating readout with no interactive purpose beyond its title bar was eating
         // camera control for its entire rectangle.
-        _panel.pickingMode = PickingMode.Ignore;
+        // 2026-11-08: the title strip is gone and the WHOLE card is the drag handle (Tad's ask), so the
+        // card has to be pickable. Children stay Ignore so every press lands on the card itself; the
+        // Mode button is excluded from the drag so clicking it still cycles the preset.
+        _panel.pickingMode = PickingMode.Position;
 
-        // ── Title bar ─────────────────────────────────────────────────
+        // ── Title bar (kept in the DOM, never shown — see ApplyFloatingLayout/ApplyDockedLayout) ─────────────────────────────────────────────────
         var titleBar = new VisualElement();
         titleBar.style.flexDirection = FlexDirection.Row;
         titleBar.style.justifyContent = Justify.SpaceBetween;
@@ -249,13 +227,16 @@ public class DevHudWindow : MonoBehaviour
         // OnDragStart hook) so the same drag then carries it as a floating window — that's what lets
         // the player pull it back OUT of the bar. OnDragMove previews where a drop would dock it;
         // OnDragEnd commits that dock or leaves the card floating wherever it was released.
-        _dragger = new DraggableWindow(_panel, titleBar, close);
-        _dragger.OnDragStart += OnHudDragStart;
-        _dragger.OnDragMove += OnHudDragMove;
-        _dragger.OnDragEnd += OnHudDragEnd;
-
-        if (_docked) ApplyDockedLayout();
-        else ApplyFloatingLayout();
+        _card = new DockableHudCard(_panel, _panel, () => _docRoot, "HudCard_DevHud",
+            DockableHudCard.ZoneLeft, defaultDocked: true, defaultFloatPos: new Vector2(16f, 90f),
+            applyLayout: docked =>
+            {
+                _docked = docked;
+                if (docked) ApplyDockedLayout();
+                else ApplyFloatingLayout();
+            },
+            pickableWhenFloating: true, close, _modeButton);
+        ApplyFloatingLayout();
 
         BuildReopenTab();
         SyncReopenTabVisibility();
@@ -332,7 +313,7 @@ public class DevHudWindow : MonoBehaviour
 
         if (_titleBar != null)
         {
-            _titleBar.style.display = DisplayStyle.Flex;
+            _titleBar.style.display = DisplayStyle.None; // no title strip (2026-11-08)
             _titleBar.style.backgroundColor = new Color(0.12f, 0.16f, 0.24f, 1f);
             _titleBar.style.borderTopLeftRadius = 6;
             _titleBar.style.borderTopRightRadius = 6;
@@ -430,173 +411,6 @@ public class DevHudWindow : MonoBehaviour
         if (_headerDivider != null) _headerDivider.style.display = DisplayStyle.None;
     }
 
-    // ── Drag-to-dock / drag-to-undock ────────────────────────────────
-
-    /// <summary>Fires at the very start of every drag. Deliberately does NOT detach a docked card
-    /// immediately — see the class-level note on <see cref="DraggableWindow.PositionMode"/>. Reparenting
-    /// on pointer-down (the old behavior) yanked the card out of the bar's flex flow before the user had
-    /// dragged anywhere, so the neighboring category buttons visibly reflowed the instant you clicked
-    /// it, not when you actually dragged it out. Instead: stay parented in the bar, and switch to
-    /// Position.Relative so the card keeps reserving its normal slot (nothing around it moves) while
-    /// still sliding freely under the pointer. OnHudDragEnd below decides, once the drag is over, whether
-    /// it was actually carried clear of the bar — only then does the real detach (and the resulting
-    /// reflow) happen.</summary>
-    private void OnHudDragStart()
-    {
-        if (_docked) _dragger.PositionMode = Position.Relative;
-    }
-
-    /// <summary>Removes the card from whatever bar row it's parented to and re-floats it at its current
-    /// on-screen spot (which — since this is called AFTER a relative-offset drag — already reflects
-    /// wherever the drag left it, not the original docked position), so the transition from "sliding
-    /// in-flow inside the bar" to "floating window" is visually seamless. Called two ways: directly at
-    /// drag-end (pointer already released, no capture concerns), or via <see cref="DraggableWindow.
-    /// RebaseDuringDrag"/> mid-drag from <see cref="OnHudDragMove"/> — that wrapper handles keeping the
-    /// pointer capture alive and re-baselining the drag's tracking around whatever this method does, so
-    /// this method itself doesn't need to know or care which case it's in.</summary>
-    private void DetachFromDock()
-    {
-        if (_panel == null || _docRoot == null) return;
-
-        Vector2 worldPos = _panel.worldBound.position;
-        _panel.RemoveFromHierarchy();
-        _docRoot.Add(_panel);
-        _docked = false;
-        ApplyFloatingLayout();
-
-        Vector2 parentOrigin = _docRoot.worldBound.position;
-        _panel.style.position = Position.Absolute;
-        _panel.style.left = worldPos.x - parentOrigin.x;
-        _panel.style.top = worldPos.y - parentOrigin.y;
-        _panel.style.right = StyleKeyword.Auto;
-        _panel.style.bottom = StyleKeyword.Auto;
-
-        // This detach happens WHILE the pointer is captured on this panel (mid-drag) — capture
-        // suspends normal hover tracking on the bar for its duration, so the bar never fires its own
-        // PointerLeaveEvent as the drag carries the cursor away from it. Left alone, that leaves
-        // BuildMenuUI.IsPointerOverBuildMenu stuck true forever, which blocks camera orbit/pan/zoom
-        // everywhere, no matter where the cursor actually is. Force a geometric reconciliation.
-        if (Mouse.current != null && BuildMenuUI.Instance != null)
-            BuildMenuUI.Instance.SyncPointerOverBuildMenu(Mouse.current.position.ReadValue());
-    }
-
-    /// <summary>Every pointer move during a drag.
-    /// <para>Still docked: rather than waiting for the drop (the previous behavior), detach the moment
-    /// the card is dragged clear of the bar — Tad's ask, so the category buttons reflow live while
-    /// dragging instead of only on release. "Clear" is defined the way he described it: the card's
-    /// BOTTOM edge has risen above the bar's TOP edge (a pure vertical check — it doesn't matter whether
-    /// it's still horizontally over the bar). <see cref="DraggableWindow.RebaseDuringDrag"/> does the
-    /// actual mid-drag reparent without ending the gesture (see its own doc comment for why a plain
-    /// reparent can't be used directly — it silently drops pointer capture).</para>
-    /// <para>Once genuinely floating (whether that just happened above, or the card was already
-    /// floating from an earlier drag): restores the original ghost-preview behavior — hovering the
-    /// active bar shows a same-sized placeholder at the nearest insertion point so the bar's real
-    /// buttons visibly slide out of the way, previewing where a drop would dock it.</para></summary>
-    private void OnHudDragMove()
-    {
-        if (_docked)
-        {
-            var dockedBar = _panel.parent;
-            if (dockedBar != null && _panel.worldBound.yMax <= dockedBar.worldBound.yMin)
-                _dragger.RebaseDuringDrag(DetachFromDock, Position.Absolute);
-            return;
-        }
-
-        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
-        if (bar == null || _panel == null || !bar.worldBound.Overlaps(_panel.worldBound))
-        {
-            RemoveGhost();
-            return;
-        }
-        ShowGhostAt(bar, ComputeInsertIndex(bar));
-    }
-
-    /// <summary>Pointer-up: commits the drop.
-    /// <list type="bullet">
-    /// <item>Still docked — meaning <see cref="OnHudDragMove"/>'s clear-the-bar check never fired during
-    /// this drag (a click, or a jiggle that never actually cleared the bar's top edge): if by some other
-    /// measure the pointer nonetheless ended up clear of the bar's bounds, detach as a backstop; otherwise
-    /// just clear the temporary relative offset and re-apply the plain docked look — no DOM change, no
-    /// reflow, nothing to undo. The NORMAL detach path is no longer here — see OnHudDragMove — this is
-    /// only reached when that path didn't already run.</item>
-    /// <item>Already floating (the common case now, since detach usually already happened mid-drag):
-    /// unchanged from before — docks at the ghost's index if one is showing, otherwise stays floating
-    /// wherever it was released.</item>
-    /// </list>
-    /// </summary>
-    private void OnHudDragEnd()
-    {
-        if (_docked)
-        {
-            var dockedBar = _panel.parent;
-            bool clearedTheBar = dockedBar == null || !dockedBar.worldBound.Overlaps(_panel.worldBound);
-            if (clearedTheBar) DetachFromDock();
-            else ApplyDockedLayout(); // snap back — resets the relative left/top offset to Auto
-            return;
-        }
-
-        var bar = BuildMenuUI.Instance != null ? BuildMenuUI.Instance.ActiveBar : null;
-        bool dropOnBar = bar != null && _dockGhost != null && _dockGhost.parent == bar;
-        int index = dropOnBar ? bar.IndexOf(_dockGhost) : -1;
-        RemoveGhost();
-
-        if (dropOnBar)
-        {
-            _panel.RemoveFromHierarchy();
-            bar.Insert(Mathf.Clamp(index, 0, bar.childCount), _panel);
-            _docked = true;
-            ApplyDockedLayout();
-        }
-        else
-        {
-            SaveWindowPos();
-        }
-    }
-
-    /// <summary>Nearest insertion index among the bar's current children, by comparing the dragged
-    /// card's horizontal center against each sibling's — the same rule any sortable-list drag uses, so
-    /// it naturally produces "before everything" / "in a gap" / "after everything" without hardcoding
-    /// zones, and still works if the bar ever gains more top-level groups later.</summary>
-    private int ComputeInsertIndex(VisualElement bar)
-    {
-        float panelCenterX = _panel.worldBound.center.x;
-        int index = 0;
-        foreach (var child in bar.Children())
-        {
-            if (child == _dockGhost) continue;
-            if (panelCenterX > child.worldBound.center.x) index++;
-            else break;
-        }
-        return index;
-    }
-
-    private void ShowGhostAt(VisualElement bar, int index)
-    {
-        if (_dockGhost == null)
-        {
-            _dockGhost = new VisualElement();
-            _dockGhost.style.width = DockedCardWidth;
-            _dockGhost.style.height = DockedCardHeight;
-            _dockGhost.style.marginLeft = 12;
-            _dockGhost.style.marginRight = 12;
-            _dockGhost.style.backgroundColor = new Color(0.35f, 0.55f, 0.85f, 0.18f);
-            SetBorder(_dockGhost, new Color(0.45f, 0.65f, 0.95f, 0.9f), 2f);
-            SetRadius(_dockGhost, 8f);
-            _dockGhost.pickingMode = PickingMode.Ignore;
-        }
-
-        int clamped = Mathf.Clamp(index, 0, bar.childCount);
-        if (_dockGhost.parent == bar && bar.IndexOf(_dockGhost) == clamped) return; // already there
-        _dockGhost.RemoveFromHierarchy();
-        bar.Insert(Mathf.Clamp(clamped, 0, bar.childCount), _dockGhost);
-    }
-
-    private void RemoveGhost()
-    {
-        if (_dockGhost != null && _dockGhost.parent != null)
-            _dockGhost.RemoveFromHierarchy();
-    }
-
     /// <summary>
     /// Turns the floating window into a bar-resident widget. The bar (.buildmenu-bottom-bar) is a
     /// FIXED 120px tall, single-line, align-items:center row — the earlier vertical-stack layout (title
@@ -644,7 +458,7 @@ public class DevHudWindow : MonoBehaviour
         // (this whole strip IS the drag handle — see OnHudDragStart).
         if (_titleBar != null)
         {
-            _titleBar.style.display = DisplayStyle.Flex;
+            _titleBar.style.display = DisplayStyle.None; // no title strip (2026-11-08)
             _titleBar.style.backgroundColor = new Color(0.12f, 0.16f, 0.24f, 1f);
             _titleBar.style.borderTopLeftRadius = 8;
             _titleBar.style.borderTopRightRadius = 8;
@@ -666,7 +480,7 @@ public class DevHudWindow : MonoBehaviour
             _closeButton.style.height = 20;
             _closeButton.style.fontSize = 12;
         }
-        if (_headerDivider != null) _headerDivider.style.display = DisplayStyle.Flex;
+        if (_headerDivider != null) _headerDivider.style.display = DisplayStyle.None;
 
         // Body runs as ONE horizontal row: a left-aligned Cell/FPS stack, then the Mode button
         // claiming the rest of the width — filling whatever height is left under the title bar within

@@ -296,7 +296,14 @@ namespace GameCore.Actors
                 foreach (var own in FindObjectsByType<MHEOperatorSlot>())
                     if (own != null && own.isActiveAndEnabled && own.IsPalletJack && own.CurrentOperator == self
                         && !(s_jackClaims.TryGetValue(own, out var holder) && holder != null && holder != this))
+                    {
+                        // A flat jack is never claimed for a new pick, not even the one they are sitting on (2026-11-07, Jose King): it goes
+                        // to a charger first (EquipmentBattery drives it there with them aboard). Picking anything else while still riding
+                        // it would walk them off with the jack attached, so: no jack for now.
+                        var ownBatt = own.GetComponent<EquipmentBattery>();
+                        if (ownBatt != null && (ownBatt.IsDead || ownBatt.NeedsCharge)) return null;
                         return own;
+                    }
 
             MHEOperatorSlot best = null;
             float bestD = float.MaxValue;
@@ -612,6 +619,7 @@ namespace GameCore.Actors
         private void ComputeBayPark(Vector3 bayFlat, Vector3 toAisle, LocationData location, int palletIndex, out Vector3 park, out Vector3 parkHeading)
         {
             Vector3 heading = PickHeading(toAisle, location);
+            _aisleHeading = heading;   // straight down the aisle: what a queue stop squares up to (SquareUpInAisle)
             park = bayFlat + toAisle * ParkOffset - heading * ForkPalletZ[palletIndex];
 
             // End of the aisle: the jack would be left nose-first into the wall. Turn it ~45 degrees out toward the open
@@ -986,6 +994,54 @@ namespace GameCore.Actors
             _strandedSeconds = 0f;
 
             Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' was stranded on a pallet jack with no run driving it - dismounting and recovering the task.");
+            RecoverRiderFromJack(slot);
+        }
+
+        // ── Dead-jack rider watchdog (2026-11-07, Jose King on OG4466) ──
+        // A flat jack is meant to be driven to staging / a charger and stepped off within minutes (_flatBatteryStop). Jose sat aboard a
+        // dead jack for hours "picking" OG4466 with an empty pallet while the jack wandered its patrol route, the loaded trailer was held
+        // for that pallet and the order was fined. Aboard a flat jack that isn't charging for this long = the run is stuck: log why, stop
+        // the jack, dismount, stage what was picked or hand the task back. The battery then sends someone to take the jack to a charger.
+        private const float DeadJackRiderGameMinutes = 60f;
+        private float _deadJackRiderSeconds;
+
+        private void CheckDeadJackRider()
+        {
+            var identity = GetComponent<EmployeeIdentity>();
+            var slot = GetComponentInParent<MHEOperatorSlot>();
+            var batt = slot != null ? slot.GetComponent<EquipmentBattery>() : null;
+            if (identity == null || slot == null || !slot.IsPalletJack || slot.CurrentOperator != identity || batt == null
+                || !batt.NeedsCharge || batt.IsCharging)
+            { _deadJackRiderSeconds = 0f; return; }
+
+            _deadJackRiderSeconds += Time.deltaTime;   // game minutes
+            if (_deadJackRiderSeconds < DeadJackRiderGameMinutes) return;
+            _deadJackRiderSeconds = 0f;
+
+            var nav = slot.GetComponent<AiNavigation>();
+            bool claimed = s_jackClaims.TryGetValue(slot, out var holder) && holder != null;
+            Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' sat on a flat pallet jack for {DeadJackRiderGameMinutes:0} game min " +
+                             $"(order {_currentOrder?.OrderNumber ?? "none"}, taskInProgress={_taskInProgress}, ownsJack={_jack == slot}, claimed={claimed}" +
+                             $"{(claimed && holder != this ? " by " + holder.name : "")}, flatStop={_flatBatteryStop}, jackNav={(nav != null && nav.enabled ? (nav.IsSeekingTask ? "seeking" : "WANDERING") : "off")}, " +
+                             $"chargeTrip={batt.OnChargeTrip}, charge={batt.Charge01:P0}) - stopping the jack and stepping off.");
+
+            if (_jack == slot)
+            {
+                // Our own run is stuck somewhere on this jack: end it the same way the no-progress watchdog does.
+                SetJackDrive(false, "dead-jack watchdog");
+                if (_currentOrder != null && _currentTask != null) { RecoverFromNoProgress(); return; }
+                ReleaseJack();
+                _taskInProgress = false; _nav.SetTaskBusy(false); _nav.Patrol();
+                return;
+            }
+            if (claimed && holder != this) return;   // another selector's run holds it: that run's own watchdogs own it
+            RecoverRiderFromJack(slot);
+        }
+
+        /// <summary>Gets this selector off <paramref name="slot"/> when no run of theirs is driving it, then stages what was picked
+        /// (on foot) or hands the task back.</summary>
+        private void RecoverRiderFromJack(MHEOperatorSlot slot)
+        {
             slot.VacateOperator();
             s_jackClaims.Remove(slot);
             _footScripted = false;
@@ -1051,6 +1107,13 @@ namespace GameCore.Actors
             Vector3 pos = _jack != null ? _jack.transform.position : transform.position;
             Vector3 body = transform.position;
             int picked = _currentOrder.TotalUnitsPicked;
+            // A jack wandering its own patrol route is NOT progress (2026-11-07, Jose King on OG4466): its AiNavigation was left on with
+            // no task, it ambled between waypoints with him aboard, and every metre reset this watchdog, so the order was never freed.
+            // Movement only counts while the run itself drives the jack (nav off = scripted, or seeking the run's target).
+            var rideSlot = _jack != null ? _jack : GetComponentInParent<MHEOperatorSlot>();
+            var rideNav = _jack != null ? _jackNav : (rideSlot != null ? rideSlot.GetComponent<AiNavigation>() : null);
+            bool wandering = rideSlot != null && rideNav != null && rideNav.enabled && !rideNav.IsSeekingTask;
+            if (wandering) { pos = _progressAnchor; body = _progressBodyAnchor; }
             if (_progressTask != _currentTask || picked != _progressPicked || PlanarDist(pos, _progressAnchor) > 1f || PlanarDist(body, _progressBodyAnchor) > 1f)
             {
                 _progressTask = _currentTask; _progressPicked = picked; _progressAnchor = pos; _progressBodyAnchor = body; _noProgressSeconds = 0f;
@@ -1459,14 +1522,14 @@ namespace GameCore.Actors
                 // the jack translate diagonally relative to its local Z axis.
                 yield return JackFace(toT);
                 yield return JackMoveStraight(target, JackDriveSpeed);
-                if (_jackLegQueued) { _jackLegOk = _jack != null; yield break; }   // stopped in a queue: no squaring up, the selector walks
+                if (_jackLegQueued) { yield return SquareUpInAisle(headF); _jackLegOk = _jack != null; yield break; }   // stopped in a queue: line up, the selector walks
                 yield return JackFace(headF);
                 _jackLegOk = _jack != null;
                 yield break;
             }
 
             yield return JackNavLeg(target, phase);
-            if (_jackLegQueued) yield break;   // _jackLegOk already true: parked in a queue
+            if (_jackLegQueued) { yield return SquareUpInAisle(finalForward); yield break; }   // _jackLegOk already true: parked in a queue
             if (!_jackLegOk || _jack == null) yield break;
 
             // TRUST BUT VERIFY (2026-10-23): the nav leg reports "arrived" from AiNavigation's callbacks, which also fire for a
@@ -1477,7 +1540,7 @@ namespace GameCore.Actors
             {
                 Debug.LogWarning($"[OrderSelectionTaskDriver] Pallet jack stopped {PlanarDist(jt.position, target):0.0}m short of '{phase}' - re-issuing the drive ({retry + 1}/{NavLegRetries}).");
                 yield return JackNavLeg(target, phase);
-                if (_jackLegQueued) yield break;
+                if (_jackLegQueued) { yield return SquareUpInAisle(finalForward); yield break; }
                 if (!_jackLegOk || _jack == null) yield break;
             }
             if (_jack != null && PlanarDist(jt.position, target) > NavLegArriveTolerance)
@@ -1493,10 +1556,30 @@ namespace GameCore.Actors
             {
                 yield return JackFace(to);
                 yield return JackMoveStraight(target, JackDriveSpeed);
-                if (_jackLegQueued) { _jackLegOk = _jack != null; yield break; }
+                if (_jackLegQueued) { yield return SquareUpInAisle(finalForward); _jackLegOk = _jack != null; yield break; }
             }
             yield return JackFace(finalForward);
             _jackLegOk = _jack != null;
+        }
+
+        /// <summary>The aisle direction of the bay stop being driven to (ComputeBayPark), before any end-of-aisle angle.</summary>
+        private Vector3 _aisleHeading;
+
+        /// <summary>QUEUE STOPS PARK STRAIGHT (Tad, 2026-11-07: "pallet jacks parking at an angle in the aisles cause blockages"). A leg
+        /// held behind another jack used to end wherever the jack stood - often mid-turn, diagonal across the aisle mouth - and the selector
+        /// walked off leaving it there, blocking the jacks behind. Turn in place to the aisle line first (whichever end is nearer, so never
+        /// more than 90 degrees). JackFace checks every step of the swing and keeps the heading if the forks would hit anything.</summary>
+        private IEnumerator SquareUpInAisle(Vector3 fallback)
+        {
+            if (_jack == null) yield break;
+            Vector3 axis = _aisleHeading.sqrMagnitude > 0.0001f ? _aisleHeading : fallback;
+            axis.y = 0f;
+            if (axis.sqrMagnitude < 0.0001f) yield break;
+            axis.Normalize();
+            Vector3 fwd = _jack.transform.forward; fwd.y = 0f;
+            if (Vector3.Dot(fwd, axis) < 0f) axis = -axis;
+            if (Vector3.Angle(fwd, axis) < 3f) yield break;
+            yield return JackFace(axis);
         }
 
         /// <summary>Turns the jack in place. Turning swings 2.5 m of forks round the operator, so every step is checked: a turn that
@@ -1735,7 +1818,11 @@ namespace GameCore.Actors
                     }
                     bool hold = jackHold || solidHold;
                     NoteHeld(hold, blocker, what);
-                    _jackNav.HeldInQueue = jackHold;   // queued: AiNavigation's 10 s no-progress backstop must not end the leg
+                    // Held (behind a jack OR by a solid): AiNavigation's 10 s no-progress backstop must not end the leg. It counts GAME seconds
+                    // (2 real s at 5x), so a jack held by an UNMANNED jack parked in the aisle was handed back long before the 5-real-s
+                    // step-off-and-walk could fire; after 6 re-issues the selector abandoned this jack beside it too (Tad, 2026-11-07:
+                    // two empty jacks side by side at the end of aisle 02). Solid holds are bounded by the walk / creeps / SolidGiveUpReal.
+                    _jackNav.HeldInQueue = hold;
                     if (_jackAgent.isStopped != hold) _jackAgent.isStopped = hold;
                     if (hold) _jackAgent.velocity = Vector3.zero;
 

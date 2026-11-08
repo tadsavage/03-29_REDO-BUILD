@@ -33,7 +33,7 @@
 
             <ui:Button name="PlayBtn5" class="buildmenu-category-button playbar-button">
                 <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-newitem"/>
-                <ui:Label text="New&#10;Item" class="buildmenu-category-label playbar-label playbar-label-two-line"/>
+                <ui:Label text="New Item" class="buildmenu-category-label playbar-label playbar-label-two-line"/>
                 <ui:Label text="5" class="playbar-key"/>
             </ui:Button>
 
@@ -135,20 +135,21 @@
         <ui:VisualElement name="ReportsCategoryRow" picking-mode="Position" class="buildmenu-category-row">
 
             <ui:Button name="ReportsBtnFinancial" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-report-financial"/>
                 <ui:Label text="Financial" class="buildmenu-category-label reports-category-label"/>
             </ui:Button>
 
             <ui:Button name="ReportsBtnOperational" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-report-operations"/>
                 <ui:Label text="Operational" class="buildmenu-category-label reports-category-label"/>
             </ui:Button>
 
             <ui:Button name="ReportsBtnInventory" class="buildmenu-category-button playbar-button">
-                <ui:Label text="Warehouse Capacity" class="buildmenu-category-label reports-category-label"/>
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-report-capacity"/>
+                <ui:Label text="Warehouse Capacity" class="buildmenu-category-label reports-category-label playbar-label-two-line"/>
             </ui:Button>
 
-            <ui:Button name="ReportsBtnItemListing" class="buildmenu-category-button playbar-button">
-                <ui:Label text="Item Listing" class="buildmenu-category-label reports-category-label"/>
-            </ui:Button>
+            <!-- Item Listing lives on the ORDERS tab only (2026-11-08). -->
 
         </ui:VisualElement>
     </ui:VisualElement>

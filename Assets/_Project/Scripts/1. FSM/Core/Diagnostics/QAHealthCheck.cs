@@ -86,6 +86,47 @@ namespace GameCore.Diagnostics
             g.GetComponentInParent<MHEOperatorSlot>() != null || g.GetComponentInParent<TruckController>() != null ||
             g.GetComponentInParent<GameCore.Actors.OrderSelectionTaskDriver>() != null || g.GetComponentInParent<EmployeeIdentity>() != null;
 
+        // ── FLOATING / OVERLAP evidence (2026-11-07, block 1088: ~80 incidents, cause not found by reading) ──
+        // The stacker (TrailerOffloadController.StagingDropBaseY / MeasureTopY) measures MESH renderers plus the product's expected
+        // height; this check measures EVERY renderer. Once per flagged pallet, log both figures and the renderer that sets the top, so
+        // a block tells us whether these are real collisions or the two measurements disagreeing. Not a bug line (no WatchWarnings
+        // match), so it does not change the score.
+        private static readonly HashSet<(GameObject, GameObject, string)> s_explained = new();
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetExplained() => s_explained.Clear();
+
+        private static void Explain(string kind, string where, GameObject a, GameObject b)
+        {
+            if (a == null || !s_explained.Add((a, b, kind))) return;
+            // Its own file (Logs/StackEvidence.log): as a console warning, 80 of these would trip PlaytestBot's REPEATING rule.
+            string day = ServiceLocator.TryGet<SimulationTimeService>(out var t) && t != null ? $"day {t.Day} {t.Hour:00}:{t.Minute:00}" : "?";
+            try
+            {
+                System.IO.File.AppendAllText(System.IO.Path.Combine(Application.dataPath, "..", "Logs", "StackEvidence.log"),
+                    $"{System.DateTime.Now:HH:mm:ss} {day} {kind} @{where}: {Describe(a)}" + (b != null ? $" || {Describe(b)}" : "") + System.Environment.NewLine);
+            }
+            catch { }
+        }
+
+        private static string Describe(GameObject g)
+        {
+            float meshMin = float.MaxValue, meshMax = float.MinValue, allMax = float.MinValue;
+            string topName = "?";
+            int cases = 0;
+            foreach (var r in g.GetComponentsInChildren<Renderer>())
+            {
+                var bnd = r.bounds;
+                bool mesh = r is MeshRenderer || r is SkinnedMeshRenderer;
+                if (mesh) { meshMin = Mathf.Min(meshMin, bnd.min.y); meshMax = Mathf.Max(meshMax, bnd.max.y); cases++; }
+                if (bnd.max.y > allMax) { allMax = bnd.max.y; topName = $"{r.GetType().Name} '{r.name}' under '{(r.transform.parent != null ? r.transform.parent.name : "-")}'"; }
+            }
+            float measured = TrailerOffloadController.MeasureTopY(g);
+            var p = g.transform.position;
+            return $"{g.name} pos=({p.x:F2},{p.y:F2},{p.z:F2}) parent='{(g.transform.parent != null ? g.transform.parent.name : "-")}' " +
+                   $"meshY={meshMin:F2}..{meshMax:F2} allTop={allMax:F2} by {topName} stackerTop={measured:F2} meshRenderers={cases}" +
+                   $"{(g.GetComponent<OutboundPalletBuilder>() != null ? " outbound" : "")}";
+        }
+
         /// <summary>Deterministic, line-per-fact summary of the persistent game state. Take one before a save and one after
         /// the load and diff them: any line that differs is something save/load lost or changed (2026-10-22).</summary>
         public static string Snapshot()
@@ -238,9 +279,16 @@ namespace GameCore.Diagnostics
             var bb = new Bounds[pals.Count]; var hasB = new bool[pals.Count];
             for (int i = 0; i < pals.Count; i++)
             {
-                var rs = pals[i].GetComponentsInChildren<Renderer>();
-                if (rs.Length == 0) continue;
-                var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+                // Solid geometry only (MeshRenderer / SkinnedMeshRenderer), the same thing the stacker measures. ALL renderers counted the
+                // staged-order highlight (LineRenderer 'Glow' under '__OrderFreightBox', ~0.13 m above the top case), so every correctly
+                // stacked outbound pair read as overlapping + floating (block 1089: 17 of 18 flags; Logs/StackEvidence.log).
+                bool any = false; var b = default(Bounds);
+                foreach (var r in pals[i].GetComponentsInChildren<Renderer>())
+                {
+                    if (!(r is MeshRenderer) && !(r is SkinnedMeshRenderer)) continue;
+                    if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds);
+                }
+                if (!any) continue;
                 bb[i] = b; hasB[i] = true;
             }
             var locs = Object.FindObjectsByType<LocationData>();
@@ -280,12 +328,12 @@ namespace GameCore.Diagnostics
                         var lp = l.transform.position;
                         if (Vector2.Distance(new Vector2(lp.x, lp.z), new Vector2(g.transform.position.x, g.transform.position.z)) < 0.9f && Mathf.Abs(lp.y - bottom) < 0.3f) { supported = true; break; }
                     }
-                if (!supported) { sb.Append($"FLOATING {g.name} @{where} bottom={bottom:F2}{Hist(g)}\n"); issues++; }
+                if (!supported) { sb.Append($"FLOATING {g.name} @{where} bottom={bottom:F2}{Hist(g)}\n"); issues++; Explain("FLOATING", where, g, null); }
                 for (int j = i + 1; j < pals.Count; j++)
                 {
                     if (!hasB[j]) continue;
                     float vo = Mathf.Min(bb[j].max.y, bb[i].max.y) - Mathf.Max(bb[j].min.y, bb[i].min.y);
-                    if (PD(bb[i], bb[j]) < 0.45f && vo > 0.15f) { sb.Append($"OVERLAP {g.name} & {pals[j].name} @{where}{Hist(g)}{Hist(pals[j])}\n"); issues++; }
+                    if (PD(bb[i], bb[j]) < 0.45f && vo > 0.15f) { sb.Append($"OVERLAP {g.name} & {pals[j].name} @{where}{Hist(g)}{Hist(pals[j])}\n"); issues++; Explain("OVERLAP", where, g, pals[j]); }
                 }
             }
             foreach (var r in inv.GetAllPallets())

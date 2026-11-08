@@ -452,3 +452,12 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 7 23:11 | **DOOR-DEADLOCK** | OG4440 is Staged but door 2's truck has waited 90 min with no one loading it. | lane 2A: [1: own/Staged/y1.6, own/Staged/y1.2] [2: own/Staged/y1.2] 
 - day 7 23:38 | **WARN** | [OrderService] Order OG7450 closed with a IN TRANSIT pallet (8 cs) that never made the trailer - not billed, returning it to stock.
 - day 7 23:49 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-30.18, 1.11, 41.89) — walking out to (-18.93, 1.23, 48.39) (12.00m to mesh).
+- day 7 00:11 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 7 00:11 | **ERROR** | "Resume" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:set_isStopped (bool)
+  GameCore.Labor.TrailerLoadController:RestoreAgentToWorkingSurface (UnityEngine.Transform,UnityEngine.AI.NavMeshAgent,UnityEngine.Vector3) (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:1103)
+  GameCore.Labor.TrailerLoadController/<LoadRoutine>d__93:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:589)
+  UnityEngine.MonoBehaviour:StartCoroutine (System.Collections.IEnumerator)
+  GameCore.Labor.TrailerLoadController:Update () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:183)
+  ```

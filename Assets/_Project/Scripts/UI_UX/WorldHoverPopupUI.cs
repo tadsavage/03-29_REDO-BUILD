@@ -1486,7 +1486,19 @@ private void ShowLocation(LocationData location)
         ui.ItemsList = itemsList;
         itemsList.pickingMode = PickingMode.Ignore;
         itemsList.style.flexDirection = FlexDirection.Column;
-        popup.Add(itemsList);
+        // Long manifests ran off the top of the screen (Tad, 2026-11-07): the card is capped at 2/3 of the screen height and only
+        // this list scrolls; everything above it keeps its size (flexShrink 0, set after the card is built below).
+        var itemsScroll = new ScrollView(ScrollViewMode.Vertical);
+        itemsScroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+        itemsScroll.verticalScrollerVisibility = ScrollerVisibility.Auto;
+        itemsScroll.style.flexGrow = 0;
+        itemsScroll.style.flexShrink = 1;
+        itemsScroll.style.minHeight = 80;
+        itemsScroll.Add(itemsList);
+        // A scrollbar drag must not also drag the pinned card (its PointerDown handler sits on the popup).
+        itemsScroll.verticalScroller.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+        popup.Add(itemsScroll);
+        popup.style.maxHeight = Length.Percent(66.7f);
 
         // Added last so it paints in front of every row above it hangs over — see the comment where
         // it was constructed, near the top of this method.
@@ -1510,6 +1522,10 @@ private void ShowLocation(LocationData location)
         closeBtn.pickingMode = PickingMode.Position;
         closeBtn.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());   // clicking X must not start a drag of the card
         popup.Add(closeBtn);
+
+        // Only the item list gives way when the card hits its max height; the header rows keep their size.
+        foreach (var child in popup.Children())
+            if (child != itemsScroll) child.style.flexShrink = 0;
 
         _root.Add(popup);
         return ui;

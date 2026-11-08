@@ -107,6 +107,7 @@ namespace GameCore.Actors
 
             CheckStrandedOnJack();
             CheckNoProgress();
+            CheckDeadJackRider();
 
             if (_taskInProgress) return;
 

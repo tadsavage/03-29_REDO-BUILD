@@ -563,3 +563,207 @@
 .reports-category-label {
     font-size: 15px;
 }
+
+/* Reports bar icons (2026-11-07): Sprites/Icons/Category Icons. GUID-based URLs like the play bar rules above. */
+.playbar-icon-report-financial {
+    background-image: url("project://database/Assets/_Project/Sprites/Icons/Category%20Icons/FinancialReport.png?fileID=2800000&guid=83ec13804ea185544a5595468fcf912a&type=3#FinancialReport");
+}
+.playbar-icon-report-operations {
+    background-image: url("project://database/Assets/_Project/Sprites/Icons/Category%20Icons/OperationsReport.png?fileID=2800000&guid=1090b9d2a5b45134cb3346a27a53e69a&type=3#OperationsReport");
+}
+.playbar-icon-report-capacity {
+    background-image: url("project://database/Assets/_Project/Sprites/Icons/Category%20Icons/WarehouseCapacityReport.png?fileID=2800000&guid=4426a7ad95f5860488451e441e5f650b&type=3#WarehouseCapacityReport");
+}
+.playbar-icon-report-reportitemlisting {
+    background-image: url("project://database/Assets/_Project/Sprites/Icons/Category%20Icons/ItemListing.png?fileID=2800000&guid=65c7f0662aabf7d47837db6f2f4055c3&type=3#ItemListing");
+}
+
+/* ==========================================================================
+   LEFT RAIL + BOTTOM WIDGET TRAY (2026-11-08)
+   BuildMenuUI.BuildRailAndTray moves the mode tabs and the four tab-group bars
+   (Orders / Build / Staff / Reports) into .hud-rail on the left edge. The rail slides
+   out of view (.hud-rail-hidden) until the mouse reaches the left edge, and hides
+   again shortly after the mouse leaves it. The bottom bar itself is now
+   .hud-widget-tray and only holds widgets (dev HUD, log, mini dock schedule, HAL).
+   ========================================================================== */
+
+.hud-widget-tray {
+    justify-content: flex-start;
+}
+
+.hud-rail {
+    position: absolute;
+    left: 0;
+    top: 110px;
+    flex-direction: row;
+    align-items: flex-start;
+    padding: 6px;
+    background-color: rgba(20, 28, 38, 0.9);
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-left-width: 0;
+    border-color: rgba(92, 155, 196, 0.6);
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+    transition-property: translate, opacity;
+    transition-duration: 0.18s, 0.18s;
+    transition-timing-function: ease-out, ease-out;
+}
+
+.hud-rail-hidden {
+    translate: -100% 0;
+    opacity: 0;
+}
+
+/* Thin tab on the left edge that shows where the rail is while it's hidden. */
+.hud-rail-grip {
+    position: absolute;
+    left: 0;
+    top: 300px;
+    width: 6px;
+    height: 90px;
+    background-color: rgba(92, 155, 196, 0.55);
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+    transition-property: opacity;
+    transition-duration: 0.18s;
+}
+
+.hud-rail-grip-hidden {
+    opacity: 0;
+}
+
+/* Mode tabs: a vertical column instead of tabs perched on the bar. */
+.hud-rail .buildmenu-mode-tabs {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    flex-direction: column;
+    align-items: stretch;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+.hud-rail .buildmenu-mode-tab {
+    height: 36px;
+    min-width: 100px;
+    margin: 0 0 4px 0;
+    padding-left: 12px;
+    padding-right: 12px;
+    border-width: 1px;
+    border-left-width: 3px;
+    border-color: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    -unity-text-align: middle-left;
+}
+
+.hud-rail .buildmenu-mode-tab-active,
+.hud-rail .buildmenu-mode-tab-active:hover {
+    height: 36px;
+    background-color: rgba(92, 155, 196, 0.22);
+    border-width: 1px;
+    border-left-width: 3px;
+    border-color: rgba(92, 155, 196, 0.6);
+    border-left-color: rgb(92, 155, 196);
+    color: rgb(255, 255, 255);
+}
+
+/* The four group bars inside the rail: plain stacked columns, no bar chrome. */
+.hud-rail-flyout {
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.hud-rail .buildmenu-bottom-bar {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    height: auto;
+    padding: 0;
+    background-color: rgba(0, 0, 0, 0);
+    border-top-width: 0;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+}
+
+.hud-rail .buildmenu-category-row {
+    flex-direction: column;
+    align-items: stretch;
+    flex-shrink: 0;
+}
+
+/* Buttons become compact rows: small icon, name, hotkey on the right. */
+.hud-rail .buildmenu-category-button {
+    width: 210px;
+    height: 38px;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    margin: 0 0 3px 0;
+    padding: 2px 8px;
+}
+
+.hud-rail .buildmenu-category-icon {
+    width: 30px;
+    height: 30px;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.hud-rail .buildmenu-category-label {
+    flex-grow: 1;
+    font-size: 16px;
+    margin-top: 0;
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+    -unity-text-wrap: nowrap;
+}
+
+.hud-rail .playbar-key {
+    top: 10px;
+    right: 8px;
+}
+
+.hud-rail .buildmenu-utility-row {
+    width: 210px !important;
+    justify-content: flex-start;
+    margin-top: 6px;
+    translate: 0 0;
+}
+
+/* Tray dock zones (2026-11-08): LEFT packs against the left edge, RIGHT against the right
+   edge, CENTER stays centred because LEFT and RIGHT split the leftover width equally. */
+.hud-widget-tray {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.hud-tray-zone {
+    flex-direction: row;
+    align-items: center;
+    height: 100%;
+    overflow: visible;
+}
+
+.hud-tray-zone-left {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    justify-content: flex-start;
+}
+
+.hud-tray-zone-center {
+    flex-grow: 0;
+    flex-shrink: 0;
+    justify-content: center;
+}
+
+.hud-tray-zone-right {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    justify-content: flex-end;
+}

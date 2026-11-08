@@ -40,6 +40,10 @@ public class EquipmentBattery : MonoBehaviour
     public const float HoursToFull = 1f;     // empty to full on a charger
     public const float LowHours = 2f;          // red bolt + log warning at this many hours left (Tad, 2026-10-18)
     public const float DriverlessSpeedMultiplier = 2f;
+    /// <summary>MASTER SWITCH (Tad, 2026-11-07): batteries are switched OFF while the core loop is polished. Every machine stays at
+    /// 100%, never needs a charge and never goes on a charge trip; a save holding a flat / "need" battery loads as full. The chargers,
+    /// bolt icons and battery card stay in the game as ornaments. Set true to bring the whole mechanic back unchanged.</summary>
+    public static bool BatteriesEnabled = false;
     /// <summary>Tad, 2026-11-05: a machine goes to charge only at this charge or less, and only after the pallet job in hand
     /// is finished. No idle top-ups (they filled the charger row and caused the bumper-to-bumper jam on day 4).</summary>
     public const float ChargeAt01 = 0.20f;
@@ -383,7 +387,13 @@ public class EquipmentBattery : MonoBehaviour
         Station = IsMoving ? null : PalletJackParkingSpot.ChargerAt(BodyCentre);
 
         bool wasDead = IsDead;
-        if (IsMoving)
+        if (!BatteriesEnabled)
+        {
+            Charge01 = 1f;
+            // A charge request left over from a save / from before the switch: drop it (a "Switch Machines" trip still runs).
+            if (NeedsCharge && !_switchTrip && _trip == null && _vacate == null) { NeedsCharge = false; _wantPark = false; }
+        }
+        else if (IsMoving)
             Charge01 = Mathf.Max(0f, Charge01 - minutes / (CapacityHours * 60f));
         else if (Station != null)
             Charge01 = Mathf.Min(1f, Charge01 + minutes / (HoursToFull * 60f));
@@ -1262,6 +1272,7 @@ public class EquipmentBattery : MonoBehaviour
         }
         // A new machine (or one saved before batteries had a size): roll its own.
         if (!haveCap) CapacityHours = Mathf.Round(Random.Range(MinCapacityHours, MaxCapacityHours) * 10f) / 10f;
+        if (!BatteriesEnabled) { Charge01 = 1f; NeedsCharge = false; }   // batteries off: a flat / charging save loads full
         _savedCharge = Charge01;
         _savedNeed = NeedsCharge;
         if (IsDead) NeedsCharge = true;   // saved flat: still needs its trip to a charger

@@ -32,6 +32,20 @@ public static class HalScoreModal
         _shownCount = -1;
     }
 
+    /// <summary>Keep the modal in <paramref name="bar"/> on its own - used while the dock schedule has been dragged out
+    /// to float, so the HAL score doesn't follow it out of the bottom bar.</summary>
+    public static void DockInto(VisualElement bar)
+    {
+        if (bar == null) return;
+        if (_root == null) Build();
+        if (_root.parent != bar)
+        {
+            _root.RemoveFromHierarchy();
+            bar.Add(_root);
+        }
+        _shownCount = -1;
+    }
+
     static Label L(int size, Color col, bool bold = false)
     {
         var l = new Label();

@@ -74,3 +74,26 @@ Files: `Actors/OrderSelectionTaskDriver.JackTraffic.cs` (queue, right of way, st
 - **Step off and walk:** bay legs set `_queueProbe`; held 5 REAL seconds and `TryPlanQueueWalk` finds a route ≤ 10 m (walking NavMesh path from beside the pallet to the pick face, one detour round a jack/pallet in the way) → the leg ends with `_jackLegQueued`, the selector steps off (`BeginQueueStop`) and picks along the route. Next pick: still blocked and within 10 m → keep walking; else step on and re-park (a queue stop sets `_parkedBay = null` so it always re-parks).
 - **Resume from save** must `SetJackDrive(false)`: it used to skip that, and the jack's own agent patrolled off with the selector aboard or walking behind it.
 - Open: a true head-on in one aisle can still deadlock (both wait; the walk-pick and the no-progress watchdog free it); the in-aisle MHE NavMesh is missing, so bay legs end in scripted moves.
+
+## Flat-battery jack riders (2026-11-07, Jose King / OG4466)
+A selector sat for hours on a DEAD jack "picking" OG4466 with an empty pallet while the jack wandered its patrol route; the loaded
+trailer was held for that pallet ("still has a pallet being moved") and the order was fined $2,414. Three guards in
+`OrderSelectionTaskDriver.PalletJack.cs`:
+- `CheckNoProgress`: jack/body movement only counts while the run drives the jack (jack `AiNavigation` off = scripted, or
+  `IsSeekingTask`). A jack whose nav is on with no task is WANDERING, and that is never progress.
+- `CheckDeadJackRider` (60 game min aboard a `NeedsCharge` jack that isn't charging): logs the full state ("sat on a flat pallet jack ...
+  jackNav=WANDERING/seeking/off, claimed=, flatStop=, chargeTrip="), stops the jack, ends the run (`RecoverFromNoProgress`) or
+  dismounts (`RecoverRiderFromJack`, shared with `CheckStrandedOnJack`).
+- `FindFreeJack`: a selector's OWN jack is not returned when it is dead / `NeedsCharge` (returns null = wait; EquipmentBattery drives
+  it to a charger with them aboard).
+The first cause of the wandering was NOT pinned down. If the watchdog line fires, its fields say which path left the jack's nav on.
+
+## Solid holds are queue holds too (2026-11-07, two empty jacks at the end of aisle 02)
+`JackNavLeg` set `AiNavigation.HeldInQueue` only for `jackHold` (a MANNED jack ahead). Unmanned jacks are skipped by `JackAhead` and stop the jack via `MachineClearance` (solidHold) instead, so the AiNavigation 10 s no-progress backstop (GAME seconds = 2 real s at 5x) handed the leg back before the 5-real-s step-off-and-walk; after 6 re-issues "never got within 3m of 'bay 02-02'" and the selector abandoned this jack beside the first. Now `HeldInQueue = jackHold || solidHold`. Signature in logs: `[JackStall]` with `elapsed` ~0.1s despite 3 s still (= held), creeping 0.3 m steps, then `leaving the pallet jack (could not drive the jack to bay ..)`. Still open: how the FIRST unmanned jack ended up in the aisle.
+
+## Queue stops park straight (2026-11-07)
+A jack whose bay leg ends in a queue (`_jackLegQueued`, held 5 real s behind another jack) used to stop wherever it was, often
+mid-turn and diagonal across an aisle mouth, and the selector walked off leaving it there. That blocked the jacks behind
+(Tad: "parking at an angle in the aisles"). `DriveJackTo` now calls `SquareUpInAisle` on every queued exit: it turns in place to
+`_aisleHeading` (set in `ComputeBayPark`, before the end-of-aisle 45-degree tweak), whichever end is nearer. `JackFace` sweep-checks
+each step and keeps the heading if blocked. The end-of-aisle 45-degree park in `ComputeBayPark` (Tad, 2026-10-18) is untouched.

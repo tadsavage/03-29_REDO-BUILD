@@ -39,6 +39,11 @@ public class DraggableWindow
     /// once the drag ends, so it never leaks into the next one.</summary>
     public Position PositionMode = Position.Absolute;
 
+    /// <summary>Optional per-press filter: return true to let a press on this element through without
+    /// starting a drag (e.g. a card that is only draggable by its title bar while floating, but by its
+    /// whole surface while docked). Checked after the close/excluded test.</summary>
+    public System.Func<VisualElement, bool> IgnorePress;
+
     /// <summary>Fired at the very start of a drag, before position is captured — lets a listener
     /// reparent/reposition the panel first (e.g. detaching from a docked layout) so the drag picks up
     /// from the correct post-reparent position instead of jumping.</summary>
@@ -78,6 +83,8 @@ public class DraggableWindow
     private void OnDown(PointerDownEvent e)
     {
         if (IsOverClose(e.target as VisualElement)) return;   // let the X click through
+        if (e.button != 0) return;                             // left button only
+        if (IgnorePress != null && IgnorePress(e.target as VisualElement)) return;
         // FreezeSize BEFORE OnDragStart, not after: it reads resolvedStyle, which only refreshes on
         // Unity's NEXT layout pass — reading it AFTER a listener (e.g. DetachFromDock) has just
         // written a new explicit width would silently read the width from BEFORE that write and

@@ -27,13 +27,18 @@ public static class PlayerScoreHud
     static Label _timeLabel;
     static float _halBest = -1f; static int _halBestBlock; static int _bestForBlockNo = -1;
     static GameObject _driver;
+    // Drag-in/drag-out of the bottom tray (2026-11-08): floats at the top centre by default; drag it onto the
+    // tray to dock it (RIGHT zone by default), drag it off to float it anywhere.
+    static DockableHudCard _card;
+    static bool _cardPlaced;
+    const float DockedWidth = 220f, DockedHeight = 100f;
 
     // ── bootstrap ─────────────────────────────────────────────────────────────
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Boot()
     {
-        _hud = null; _modal = null; _timeLabel = null; _bestForBlockNo = -1;   // statics outlive Play sessions (domain reload is off)
+        _hud = null; _modal = null; _timeLabel = null; _bestForBlockNo = -1; _card = null; _cardPlaced = false;   // statics outlive Play sessions (domain reload is off)
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
         UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
         PlaytestBot.BlockFinished -= OnBlockFinished;
@@ -96,7 +101,7 @@ public static class PlayerScoreHud
     static void OnScoreChange(PlaytestBot.ScoreChange c)
     {
         if (c == null || _hud == null || _hud.panel == null || _hud.style.display == DisplayStyle.None) return;
-        var layer = _hud.parent;
+        var layer = ShippedFanfare.LayerRoot();
         if (layer == null) return;
         if (_lilita == null) _lilita = Resources.Load<Font>("Resource_Fonts/LilitaOne-Regular");
 
@@ -107,8 +112,12 @@ public static class PlayerScoreHud
         const float W = 460f;
         float jitter = UnityEngine.Random.Range(-50f, 50f);
         l.style.width = W;
-        l.style.left = _hud.resolvedStyle.left + HudWidth * 0.5f - W * 0.5f + jitter;
-        float startTop = _hud.resolvedStyle.top + HudHeight - 10f;
+        // World bounds, not left/top: the box may be docked in the bottom tray (another document).
+        var hb = _hud.worldBound; var lb = layer.worldBound;
+        l.style.left = hb.center.x - lb.x - W * 0.5f + jitter;
+        // Docked low on the screen: the text rises out of the box instead of falling off the bottom.
+        bool rise = hb.center.y - lb.y > lb.height * 0.5f;
+        float startTop = rise ? hb.yMin - lb.y - 20f : hb.yMax - lb.y - 10f;
         l.style.top = startTop;
         l.style.unityTextAlign = TextAnchor.MiddleCenter;
         l.style.whiteSpace = WhiteSpace.NoWrap;
@@ -123,7 +132,7 @@ public static class PlayerScoreHud
         const int ms = 3600; const float fall = 170f;
         l.experimental.animation.Start(0f, 1f, ms, (e, t) =>
         {
-            e.style.top = startTop + t * fall;
+            e.style.top = startTop + (rise ? -t : t) * fall;
             e.style.opacity = t < 0.12f ? t / 0.12f : (t < 0.65f ? 1f : 1f - (t - 0.65f) / 0.35f);
         });
         l.schedule.Execute(() => l.RemoveFromHierarchy()).ExecuteLater(ms + 60);
@@ -141,6 +150,8 @@ public static class PlayerScoreHud
         var layer = ShippedFanfare.LayerRoot();
         if (layer == null) return;
         if (_hud == null || _hud.panel == null) BuildHud(layer);
+        if (!_cardPlaced) _cardPlaced = _card.Restore();
+        else _card.EnsureInTray();
 
         if (_bestForBlockNo != bot.BlockNo)
         {
@@ -159,7 +170,8 @@ public static class PlayerScoreHud
         _title.style.color = ahead ? Gold : Dim;
         _sub.text = _halBest >= 0f ? $"HAL's best: {_halBest:0.0}  (block {_halBestBlock})" : "HAL has no recorded block yet";
         _hud.style.borderTopColor = _hud.style.borderBottomColor = _hud.style.borderLeftColor = _hud.style.borderRightColor = ahead ? Gold : Purple;
-        Place(layer);
+        // Follow the Day box only until the player has put the box somewhere themselves.
+        if (!_card.Docked && !_card.HasSavedFloatPosition && !_card.Dragger.IsDragging) Place(layer);
     }
 
     // Centred under the Day box: the box's own bounds drive it, so it follows the top bar if that moves or rescales.
@@ -212,6 +224,31 @@ public static class PlayerScoreHud
         _hud.RegisterCallback<PointerDownEvent>(e => { if (e.button == 0 && e.clickCount == 2) { HalSummaryWindow.Toggle(); e.StopPropagation(); } });
         layer.Add(_hud);
         _hud.BringToFront();
+
+        _card = new DockableHudCard(_hud, _hud, () => ShippedFanfare.LayerRoot(), "HudCard_Score",
+            DockableHudCard.ZoneRight, defaultDocked: false, defaultFloatPos: new Vector2((layer.resolvedStyle.width - HudWidth) * 0.5f, 74f),
+            applyLayout: ApplyLayout, pickableWhenFloating: true);
+        _cardPlaced = false;
+    }
+
+    /// <summary>Docked it has to fit the 120px tray, so it shrinks a little; floating it is the full size.</summary>
+    static void ApplyLayout(bool docked)
+    {
+        if (_hud == null) return;
+        _hud.style.width = docked ? DockedWidth : HudWidth;
+        _hud.style.height = docked ? DockedHeight : HudHeight;
+        _hud.style.flexShrink = 0;
+        _hud.style.alignSelf = Align.Center;
+        _hud.style.marginLeft = docked ? 8 : 0;
+        _hud.style.marginRight = docked ? 8 : 0;
+        if (_score != null)
+        {
+            _score.style.fontSize = docked ? 50 : 62;
+            _score.style.height = docked ? 56 : 70;
+            _score.style.width = (docked ? DockedWidth : HudWidth) - 16;
+        }
+        if (_title != null) _title.style.height = docked ? 18 : 20;
+        if (_sub != null) _sub.style.height = docked ? 16 : 18;
     }
 
     // ── the results ───────────────────────────────────────────────────────────

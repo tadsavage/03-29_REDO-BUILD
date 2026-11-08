@@ -79,6 +79,26 @@ public class BuildMenuUI : MonoBehaviour
     private Button _reportsBtnItemListing;
     private ReportsPanelController _reportsController;
 
+    // Left-side rail (2026-11-08): the four tab groups (Orders/Build/Staff/Reports) moved off the bottom
+    // into a rail that slides out of view until the mouse reaches the left edge, and hides again shortly
+    // after the mouse leaves it. The bottom bar stays as a plain widget tray (FPS/graphics, log, mini
+    // dock schedule, HAL score) - see WidgetTray.
+    private VisualElement _tray;
+    private VisualElement _rail;
+    private VisualElement _railFlyout;
+    private VisualElement _railGrip;
+    private bool _railShown = true;
+    private float _railHideAt = -1f;
+    private DockableHudCard _timelineCard;
+    private bool _timelinePlaced;
+    private const float RailHideDelay = 0.35f;
+    /// <summary>Mouse within this many panel px of the left edge (inside the rail's height) opens the rail.</summary>
+    private const float RailEdgeHotZone = 10f;
+    /// <summary>Never centre the rail higher than this (keeps it clear of the top bar).</summary>
+    private const float RailMinTop = 110f;
+    private const string TimelinePrefKey = "HudCard_Timeline";
+    private readonly VisualElement[] _trayZones = new VisualElement[3];
+
     // Hotkey number -> its play-bar button, for reflecting the open panel back onto the bar.
     private readonly Dictionary<int, Button> _playBarButtons = new();
     private int _lastSyncedOpenMask = int.MinValue;
@@ -97,7 +117,7 @@ public class BuildMenuUI : MonoBehaviour
     private const string BuildTabTooltipText = "Everything you need to build your Empire";
     private const string OrdersTabTooltipText = "Manage all orders, Inbound and Outbound";
     private const string StaffTabTooltipText = "Hiring, roster, employees and shift scheduling";
-    private const string ReportsTabTooltipText = "Financial, Operational, Warehouse Capacity and Item Listing reports";
+    private const string ReportsTabTooltipText = "Financial, Operational and Warehouse Capacity reports";
 
     // ORDERS (Play mode) is the default view on startup — players land in "run the warehouse" mode,
     // with BUILD a deliberate switch away from it.
@@ -161,7 +181,18 @@ public class BuildMenuUI : MonoBehaviour
             ElementContainsScreenPos(_playBar, screenPos) ||
             ElementContainsScreenPos(_staffBar, screenPos) ||
             ElementContainsScreenPos(_reportsBar, screenPos) ||
-            ElementContainsScreenPos(_modeTabs, screenPos);
+            ElementContainsScreenPos(_modeTabs, screenPos) ||
+            ElementContainsScreenPos(_rail, screenPos) ||
+            ElementContainsScreenPos(_tray, screenPos);
+    }
+
+    /// <summary>Screen position (Input System, bottom-left origin) to this document's panel space.</summary>
+    private bool TryScreenToPanel(Vector2 screenPos, out Vector2 panelPos)
+    {
+        panelPos = default;
+        if (_root == null || _root.panel == null) return false;
+        panelPos = RuntimePanelUtils.ScreenToPanel(_root.panel, new Vector2(screenPos.x, Screen.height - screenPos.y));
+        return true;
     }
 
     private static bool ElementContainsScreenPos(VisualElement el, Vector2 screenPos)
@@ -211,13 +242,24 @@ public class BuildMenuUI : MonoBehaviour
     /// <summary>Whichever bar is currently visible. Use this when a widget should follow the mode
     /// switch; use <see cref="BuildBar"/>/<see cref="PlayBar"/>/<see cref="StaffBar"/>/
     /// <see cref="ReportsBar"/> to pin it to one mode.</summary>
-    public VisualElement ActiveBar => _mode switch
+    public VisualElement ActiveBar => _tray ?? (_mode switch
     {
         HudMode.Build => _buildBar,
         HudMode.Staff => _staffBar,
         HudMode.Reports => _reportsBar,
         _ => _playBar,
-    };
+    });
+
+    /// <summary>The bottom widget tray: the always-visible bottom bar that now only holds widgets (dev
+    /// HUD, systems log, mini dock schedule, HAL score). <see cref="ActiveBar"/> returns this too, so
+    /// everything that used to dock into "the visible bar" docks here without changes.</summary>
+    public VisualElement WidgetTray => _tray;
+
+    /// <summary>One of the tray's three dock zones: <see cref="DockableHudCard.ZoneLeft"/> (packed left),
+    /// <see cref="DockableHudCard.ZoneCenter"/> (centred) or <see cref="DockableHudCard.ZoneRight"/>
+    /// (packed right). Widgets dock into these, never into the tray directly.</summary>
+    public VisualElement TrayZone(int zone) =>
+        zone >= 0 && zone < _trayZones.Length ? _trayZones[zone] : null;
 
     /// <summary>Height of the bottom bar in the USS (.buildmenu-bottom-bar) plus its 2px top border.
     /// Anything anchored just above the bar measures from here.</summary>
@@ -322,6 +364,8 @@ public class BuildMenuUI : MonoBehaviour
         _reportsBtnOperational = _root.Q<Button>("ReportsBtnOperational");
         _reportsBtnInventory = _root.Q<Button>("ReportsBtnInventory");
         _reportsBtnItemListing = _root.Q<Button>("ReportsBtnItemListing");
+
+        BuildRailAndTray();
 
         // The bars are Ignore in UXML (legacy reason) — override to Position so
         // any click inside a bar area is caught and doesn't pass through to the
@@ -467,7 +511,168 @@ public class BuildMenuUI : MonoBehaviour
         // sitting right on the bottom bar. Running the bounds check unconditionally, every frame,
         // makes it self-correcting in both directions.
         if (Mouse.current != null)
-            SyncPointerOverBuildMenu(Mouse.current.position.ReadValue());
+        {
+            Vector2 mouse = Mouse.current.position.ReadValue();
+            SyncPointerOverBuildMenu(mouse);
+            UpdateRailAutoHide(mouse);
+        }
+    }
+
+    // ── Left rail + bottom widget tray ───────────────────────────────
+
+    /// <summary>Builds (once per document) the bottom widget tray and the left rail, and moves the mode
+    /// tabs and the four tab-group bars into the rail. Done in code rather than in the UXML so the bars,
+    /// their buttons and every name lookup stay exactly as they were; only their parent and look change
+    /// (see the .hud-rail rules in buildmenuNEW.uss).</summary>
+    private void BuildRailAndTray()
+    {
+        if (_root == null) return;
+
+        _tray = _root.Q<VisualElement>("BottomWidgetTray");
+        if (_tray == null)
+        {
+            _tray = new VisualElement { name = "BottomWidgetTray", pickingMode = PickingMode.Position };
+            _tray.AddToClassList("buildmenu-bottom-bar");
+            _tray.AddToClassList("hud-widget-tray");
+            _root.Insert(0, _tray);
+            RegisterBarPointerGuards(_tray);
+
+            // Left and right zones share the leftover width equally, so the centre zone stays centred
+            // and the outer zones pack against their own edge (see .hud-tray-zone-* in the USS).
+            string[] names = { "TrayZoneLeft", "TrayZoneCenter", "TrayZoneRight" };
+            string[] classes = { "hud-tray-zone-left", "hud-tray-zone-center", "hud-tray-zone-right" };
+            for (int i = 0; i < 3; i++)
+            {
+                var zone = new VisualElement { name = names[i], pickingMode = PickingMode.Ignore };
+                zone.AddToClassList("hud-tray-zone");
+                zone.AddToClassList(classes[i]);
+                _tray.Add(zone);
+            }
+        }
+        _trayZones[0] = _tray.Q<VisualElement>("TrayZoneLeft");
+        _trayZones[1] = _tray.Q<VisualElement>("TrayZoneCenter");
+        _trayZones[2] = _tray.Q<VisualElement>("TrayZoneRight");
+
+        _rail = _root.Q<VisualElement>("HudRail");
+        if (_rail == null)
+        {
+            _rail = new VisualElement { name = "HudRail", pickingMode = PickingMode.Position };
+            _rail.AddToClassList("hud-rail");
+            _railFlyout = new VisualElement { name = "HudRailFlyout", pickingMode = PickingMode.Position };
+            _railFlyout.AddToClassList("hud-rail-flyout");
+            _root.Add(_rail);
+            if (_modeTabs != null) { _modeTabs.RemoveFromHierarchy(); _rail.Add(_modeTabs); }
+            _rail.Add(_railFlyout);
+            foreach (var bar in new[] { _playBar, _buildBar, _staffBar, _reportsBar })
+            {
+                if (bar == null) continue;
+                bar.RemoveFromHierarchy();
+                _railFlyout.Add(bar);
+            }
+
+            _railGrip = new VisualElement { name = "HudRailGrip", pickingMode = PickingMode.Ignore };
+            _railGrip.AddToClassList("hud-rail-grip");
+            _root.Add(_railGrip);
+
+            _rail.RegisterCallback<GeometryChangedEvent>(_ => CenterRail());
+            _root.RegisterCallback<GeometryChangedEvent>(_ => CenterRail());
+            _rail.RegisterCallback<WheelEvent>(e => e.StopPropagation());
+            SetRailShown(false);
+        }
+        else
+        {
+            _railFlyout = _rail.Q<VisualElement>("HudRailFlyout");
+            _railGrip = _root.Q<VisualElement>("HudRailGrip");
+        }
+    }
+
+    /// <summary>Vertically centres the rail in the space between the top bar and the widget tray, and
+    /// keeps the edge grip centred on it. Re-runs on every geometry change (mode switch changes the
+    /// rail's height); writes only when the value actually moves, so it can't loop.</summary>
+    private void CenterRail()
+    {
+        if (_rail == null || _root == null) return;
+        float h = _root.resolvedStyle.height, rh = _rail.resolvedStyle.height;
+        if (float.IsNaN(h) || float.IsNaN(rh) || h < 1f) return;
+        float top = Mathf.Max(RailMinTop, (h - BottomBarHeight - rh) * 0.5f);
+        if (float.IsNaN(_rail.resolvedStyle.top) || Mathf.Abs(_rail.resolvedStyle.top - top) > 0.5f)
+            _rail.style.top = top;
+        if (_railGrip != null)
+        {
+            float gh = _railGrip.resolvedStyle.height;
+            if (float.IsNaN(gh)) gh = 0f;
+            float gripTop = top + rh * 0.5f - gh * 0.5f;
+            if (float.IsNaN(_railGrip.resolvedStyle.top) || Mathf.Abs(_railGrip.resolvedStyle.top - gripTop) > 0.5f)
+                _railGrip.style.top = gripTop;
+        }
+    }
+
+    private void SetRailShown(bool shown)
+    {
+        _railShown = shown;
+        _railHideAt = -1f;
+        _rail?.EnableInClassList("hud-rail-hidden", !shown);
+        _railGrip?.EnableInClassList("hud-rail-grip-hidden", shown);
+        // The build item list hangs off the rail; it must not be left floating on its own.
+        if (!shown && _submenuOpen) CloseSubmenu();
+    }
+
+    /// <summary>Opens the rail while the mouse is on it, on the build item list hanging off it, or in the
+    /// thin hot zone along the left edge; hides it <see cref="RailHideDelay"/> s after the mouse leaves.
+    /// A per-frame bounds test (like SyncPointerOverBuildMenu) rather than Enter/Leave events, which go
+    /// missing under pointer capture and when the rail slides out from under a still cursor.</summary>
+    private void UpdateRailAutoHide(Vector2 screenPos)
+    {
+        if (_rail == null || !TryScreenToPanel(screenPos, out var p)) return;
+
+        Rect rb = _rail.worldBound;
+        bool inEdge = p.x >= 0f && p.x <= RailEdgeHotZone && p.y >= rb.yMin && p.y <= rb.yMax;
+        bool over = inEdge
+                    || rb.Contains(p)
+                    || (_submenuOpen && _submenuContainer != null && _submenuContainer.worldBound.Contains(p));
+
+        if (over)
+        {
+            _railHideAt = -1f;
+            if (!_railShown) SetRailShown(true);
+        }
+        else if (_railShown)
+        {
+            if (_railHideAt < 0f) _railHideAt = Time.unscaledTime + RailHideDelay;
+            else if (Time.unscaledTime >= _railHideAt) SetRailShown(false);
+        }
+    }
+
+    /// <summary>Wraps the mini dock schedule in drag-in/drag-out behaviour (once per element) and puts it
+    /// back where the player left it: docked in one of the tray's zones, or floating.</summary>
+    private void EnsureTimelineCard()
+    {
+        var el = _miniTimeline != null ? _miniTimeline.Root : null;
+        if (el == null || _tray == null) return;
+        if (_timelineCard != null && _timelineCard.Card == el)
+        {
+            // First Restore can run before BuildMenuUI.Instance is set (OnEnable): retry until it lands.
+            if (!_timelinePlaced) _timelinePlaced = _timelineCard.Restore();
+            else _timelineCard.EnsureInTray();
+            return;
+        }
+
+        // Grab it anywhere EXCEPT the timeline grid itself: dragging the grid still scrubs through time
+        // (and double-clicking it still opens the Scheduler). Header, door column and border all drag.
+        var grid = el.Q<VisualElement>("MiniTimelineGrid");
+        _timelineCard = new DockableHudCard(el, el, () => _root, TimelinePrefKey,
+            DockableHudCard.ZoneLeft, defaultDocked: true, defaultFloatPos: new Vector2(320f, 200f),
+            applyLayout: docked =>
+            {
+                // The USS gives it margin-left:auto (it used to push itself to the right of the old bar).
+                el.style.marginLeft = docked ? 8 : 0;
+                el.style.marginRight = docked ? 8 : 0;
+            },
+            pickableWhenFloating: true, grid);
+        _timelinePlaced = _timelineCard.Restore();
+        if (!_timelinePlaced)
+            el.schedule.Execute(() => { if (!_timelinePlaced) _timelinePlaced = _timelineCard.Restore(); })
+              .Every(200).Until(() => _timelinePlaced);
     }
 
     /// <summary>
@@ -613,17 +818,11 @@ public class BuildMenuUI : MonoBehaviour
     private void DockMiniTimeline()
     {
         var el = _miniTimeline != null ? _miniTimeline.Root : null;
-        var bar = ActiveBar;
-        if (el == null || bar == null) return;
+        if (el == null || _tray == null) return;
 
-        if (el.parent != bar)
-        {
-            el.RemoveFromHierarchy();
-            int index = bar.childCount;
-            if (bar.childCount > 0 && bar[bar.childCount - 1].ClassListContains("buildmenu-utility-row")) index = bar.childCount - 1;
-            bar.Insert(index, el);
-        }
-        HalScoreModal.DockBefore(el);   // HAL 9000's running score sits just left of the dock schedule
+        // Lives in the widget tray (or floating, if the player dragged it out) on every tab.
+        EnsureTimelineCard();
+        HalScoreModal.DockInto(TrayZone(DockableHudCard.ZoneRight));   // HAL 9000's running score: right side of the tray
     }
 
     // EnableInClassList rather than Add/RemoveFromClassList: the classes are also set in the UXML, and
@@ -938,9 +1137,24 @@ public class BuildMenuUI : MonoBehaviour
         if (_buildBar == null || _root == null || _submenuContainer == null) return;
 
         Vector2 rootPos = _root.worldBound.position;
-        Vector2 buttonPos = _lastClickedCategoryButton.worldBound.position;
+        Rect buttonRect = _lastClickedCategoryButton.worldBound;
 
-        float localX = buttonPos.x - rootPos.x;
+        // The category buttons are now in the left rail: the item list opens to the RIGHT of the rail,
+        // level with the clicked button, kept above the widget tray.
+        if (_rail != null)
+        {
+            float left = _rail.worldBound.xMax - rootPos.x + 6f;
+            float listH = _submenuContainer.resolvedStyle.height;
+            if (float.IsNaN(listH)) listH = 0f;
+            float maxTop = _root.resolvedStyle.height - BottomBarHeight - listH - 8f;
+            float top = Mathf.Clamp(buttonRect.y - rootPos.y, 8f, Mathf.Max(8f, maxTop));
+            _submenuContainer.style.left = left;
+            _submenuContainer.style.top = top;
+            _submenuContainer.style.bottom = StyleKeyword.Auto;
+            return;
+        }
+
+        float localX = buttonRect.x - rootPos.x;
         _submenuContainer.style.left = localX;
         _submenuContainer.style.bottom = 128f;
         _submenuContainer.style.top = StyleKeyword.Auto;
