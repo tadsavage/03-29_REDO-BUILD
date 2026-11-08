@@ -578,3 +578,133 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 7 20:40 | **WARN** | [AiNavigation] Employee_Brandon Reyes: task target (-3.36, 1.14, 41.69) is not reachable — the partial path ends 9.27m short of it. Handing the task back.
 - day 7 22:44 | **WARN** | [OrderSelectionTaskDriver] Order e86c5f4f-90a2-4df3-b140-f28627292dad (Barnacle Bill's Bait & Bite) has no reachable pick location for its remaining line item(s) — staging short at 395/425.
 - day 7 22:54 | **DOOR-DEADLOCK** | OG6473 is Staged but door 2's truck has waited 90 min with no one loading it. | lane 2A: [1: own/Staged/y1.2, own/Staged/y2.3] [2: own/Staged/y1.2] 
+- day 2 10:58 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 102): warning: Asset reference to GUID '32c13be7f77f7924b948b9f552fd630a' was moved from 'Assets/_Project/Art/Icons/Play Bar Icons/WorkQueueThumb.png' to 'Assets/_Project/Sprites/Icons/Play Bar Icons/WorkQueueThumb.png'. Update the URL 'project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/WorkQueueThumb.png?fileID=2800000&guid=32c13be7f77f7924b948b9f552fd630a&type=3#WorkQueueThumb' to remove this warning.
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 102): warning: Asset reference to GUID '32c13be7f77f7924b948b9f552fd630a' was moved from 'Assets/_Project/Art/Icons/Play Bar Icons/WorkQueueThumb.png' to 'Assets/_Project/Sprites/Icons/Play Bar Icons/WorkQueueThumb.png'. Update the URL 'project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/WorkQueueThumb.png?fileID=2800000&guid=32c13be7f77f7924b948b9f552fd630a&type=3#WorkQueueThumb' to remove this warning.
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 102): warning: Asset reference to GUID '32c13be7f77f7924b948b9f552fd630a' was moved from 'Assets/_Project/Art/Icons/Play Bar Icons/WorkQueueThumb.png' to 'Assets/_Project/Sprites/Icons/Play Bar Icons/WorkQueueThumb.png'. Update the URL 'project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/WorkQueueThumb.png?fileID=2800000&guid=32c13be7f77f7924b948b9f552fd630a&type=3#WorkQueueThumb' to remove this warning.
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 102): warning: Asset reference to GUID '32c13be7f77f7924b948b9f552fd630a' was moved from 'Assets/_Project/Art/Icons/Play Bar Icons/WorkQueueThumb.png' to 'Assets/_Project/Sprites/Icons/Play Bar Icons/WorkQueueThumb.png'. Update the URL 'project://database/Assets/_Project/Art/Icons/Play%20Bar%20Icons/WorkQueueThumb.png?fileID=2800000&guid=32c13be7f77f7924b948b9f552fd630a&type=3#WorkQueueThumb' to remove this warning.
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 433): warning: Unknown property '-unity-text-letter-spacing' (did you mean '-unity-text-auto-size'?)
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 433): warning: Unknown property '-unity-text-letter-spacing' (did you mean '-unity-text-auto-size'?)
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 433): warning: Unknown property '-unity-text-letter-spacing' (did you mean '-unity-text-auto-size'?)
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 433): warning: Unknown property '-unity-text-letter-spacing' (did you mean '-unity-text-auto-size'?)
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 293): warning: Asset reference to GUID 'b0b25c7081699704f917d02e28f31692' was moved from 'Assets/6. Art/UI Packs/Farm Game UI - Simple 2D UI/Font/LilitaOne-Regular.ttf' to 'Assets/_Project/Fonts/LilitaOne_FarmGameUI/LilitaOne-Regular.ttf'. Update the URL 'project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular' to remove this warning.
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 293): warning: Asset reference to GUID 'b0b25c7081699704f917d02e28f31692' was moved from 'Assets/6. Art/UI Packs/Farm Game UI - Simple 2D UI/Font/LilitaOne-Regular.ttf' to 'Assets/_Project/Fonts/LilitaOne_FarmGameUI/LilitaOne-Regular.ttf'. Update the URL 'project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular' to remove this warning.
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 293): warning: Asset reference to GUID 'b0b25c7081699704f917d02e28f31692' was moved from 'Assets/6. Art/UI Packs/Farm Game UI - Simple 2D UI/Font/LilitaOne-Regular.ttf' to 'Assets/_Project/Fonts/LilitaOne_FarmGameUI/LilitaOne-Regular.ttf'. Update the URL 'project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular' to remove this warning.
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 293): warning: Asset reference to GUID 'b0b25c7081699704f917d02e28f31692' was moved from 'Assets/6. Art/UI Packs/Farm Game UI - Simple 2D UI/Font/LilitaOne-Regular.ttf' to 'Assets/_Project/Fonts/LilitaOne_FarmGameUI/LilitaOne-Regular.ttf'. Update the URL 'project://database/Assets/6.%20Art/UI%20Packs/Farm%20Game%20UI%20-%20Simple%202D%20UI/Font/LilitaOne-Regular.ttf?fileID=12800000&guid=b0b25c7081699704f917d02e28f31692&type=3#LilitaOne-Regular' to remove this warning.
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 303): warning: Unknown property '-unity-text-wrap' (did you mean '-unity-text-align'?)
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 303): warning: Unknown property '-unity-text-wrap' (did you mean '-unity-text-align'?)
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 303): warning: Unknown property '-unity-text-wrap' (did you mean '-unity-text-align'?)
+- day 2 10:58 | **REPEATING** | x25 and counting: Assets/_Project/Scripts/UI_UX/BottomHud/buildmenuNEW.uss (line 303): warning: Unknown property '-unity-text-wrap' (did you mean '-unity-text-align'?)
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **EXCEPTION** | NullReferenceException: Object reference not set to an instance of an object
+  ```
+  RotatingBeacon.LateUpdate () (at Assets/_Project/Scripts/Actors/RotatingBeacon.cs:54)
+  UnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)
+  ```
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- ? | **REPEATING** | x25 and counting: NullReferenceException: Object reference not set to an instance of an object
+- day 2 11:13 | **WARN** | [AiNavigation] Employee_Jerry Savage: stuck at (-16.61, 1.15, 40.95) — walking out to (-27.87, 1.09, 34.45) (12.00m to mesh).
+- day 2 10:58 | **ERROR** | Assertion failed
+  ```
+  UnityEngine.UIElements.UIElementsRuntimeUtilityNative:RepaintPanels (bool)
+  ```
+- day 2 10:58 | **REPEATING** | x25 and counting: Assertion failed
+- day 2 10:58 | **ERROR** | Assertion failed
+  ```
+  UnityEngine.UIElements.UIElementsRuntimeUtilityNative:RepaintPanels (bool)
+  ```
+- day 2 10:58 | **REPEATING** | x25 and counting: Assertion failed
