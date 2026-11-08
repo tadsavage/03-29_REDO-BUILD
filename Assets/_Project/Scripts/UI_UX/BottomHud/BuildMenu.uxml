@@ -94,11 +94,7 @@
     <ui:VisualElement name="BottomBarStaffUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
         <ui:VisualElement name="StaffCategoryRow" picking-mode="Position" class="buildmenu-category-row">
 
-            <ui:Button name="PlayBtn1" class="buildmenu-category-button playbar-button">
-                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-devconsole"/>
-                <ui:Label text="Dev Console" class="buildmenu-category-label playbar-label"/>
-                <ui:Label text="1" class="playbar-key"/>
-            </ui:Button>
+            <!-- Dev Console (key 1) moved to the DEV TOOLS bar on 2026-11-08. -->
 
             <ui:Button name="PlayBtn2" class="buildmenu-category-button playbar-button">
                 <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-hiringboard"/>
@@ -154,6 +150,69 @@
         </ui:VisualElement>
     </ui:VisualElement>
 
+    <!-- Utilities bar (2026-11-08): the three authoring tools that used to hang off the top bar / a pallet click. Each button toggles
+         its own window; wired in BuildMenuUI.CacheElements. -->
+    <ui:VisualElement name="BottomBarUtilitiesUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
+        <ui:VisualElement name="UtilitiesCategoryRow" picking-mode="Position" class="buildmenu-category-row">
+
+            <ui:Button name="UtilBtnPalletBuilder" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-outbound"/>
+                <ui:Label text="Pallet Builder" class="buildmenu-category-label reports-category-label"/>
+            </ui:Button>
+
+            <ui:Button name="UtilBtnItemCreator" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-newitem"/>
+                <ui:Label text="Item Creator" class="buildmenu-category-label reports-category-label"/>
+            </ui:Button>
+
+            <ui:Button name="UtilBtnAod" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-employeeroster"/>
+                <ui:Label text="AOD" class="buildmenu-category-label reports-category-label"/>
+            </ui:Button>
+
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- Dev Tools bar (2026-11-08): one button per tool; each opens ONLY that tool in the Tools window (the old tab strip is gone). -->
+    <ui:VisualElement name="BottomBarDevToolsUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
+        <ui:VisualElement name="DevToolsCategoryRow" picking-mode="Position" class="buildmenu-category-row">
+
+            <ui:Button name="DevBtnConsole" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-devconsole"/>
+                <ui:Label text="Dev Console" class="buildmenu-category-label playbar-label"/>
+                <ui:Label text="1" class="playbar-key"/>
+            </ui:Button>
+
+            <ui:Button name="DevBtnSettings" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-shiftmanager"/>
+                <ui:Label text="Dev Settings" class="buildmenu-category-label playbar-label"/>
+            </ui:Button>
+
+            <ui:Button name="DevBtnHal" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-report-operations"/>
+                <ui:Label text="HAL 9000" class="buildmenu-category-label playbar-label"/>
+            </ui:Button>
+
+            <ui:Button name="DevBtnBalance" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-report-financial"/>
+                <ui:Label text="Balance" class="buildmenu-category-label playbar-label"/>
+            </ui:Button>
+
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- UI Control bar (2026-11-08): HUD pieces the player can switch on and off. Just Objectives for now. -->
+    <ui:VisualElement name="BottomBarUiControlUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
+        <ui:VisualElement name="UiControlCategoryRow" picking-mode="Position" class="buildmenu-category-row">
+
+            <ui:Button name="UiBtnObjectives" class="buildmenu-category-button playbar-button">
+                <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-workqueue"/>
+                <ui:Label text="Objectives" class="buildmenu-category-label reports-category-label"/>
+            </ui:Button>
+
+        </ui:VisualElement>
+    </ui:VisualElement>
+
     <!-- Sits directly on top of the bar's 2px border so the active tab reads as part of the bar. -->
     <!-- BUILD / ORDERS tab hover tooltips are wired in BuildMenuUI.AttachModeTabTooltip, not the
          built-in `tooltip` attribute — that property only renders inside the Editor's own UI and
@@ -163,5 +222,8 @@
         <ui:Button name="TabBuild" text="BUILD" class="buildmenu-mode-tab"/>
         <ui:Button name="TabStaff" text="STAFF" class="buildmenu-mode-tab"/>
         <ui:Button name="TabReports" text="REPORTS" class="buildmenu-mode-tab"/>
+        <ui:Button name="TabUtilities" text="UTILITIES" class="buildmenu-mode-tab"/>
+        <ui:Button name="TabDevTools" text="DEV TOOLS" class="buildmenu-mode-tab"/>
+        <ui:Button name="TabUiControl" text="UI CONTROL" class="buildmenu-mode-tab"/>
     </ui:VisualElement>
 </ui:UXML>

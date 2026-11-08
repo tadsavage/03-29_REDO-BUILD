@@ -46,7 +46,7 @@ public static class DailyObjectivesHud
     static readonly Color Orange = new Color(1f, 0.58f, 0.10f), Ink = new Color(0.95f, 0.97f, 1f), Dim = new Color(0.62f, 0.72f, 0.82f),
                           Gold = new Color(1f, 0.82f, 0.25f), Green = new Color(0.40f, 0.92f, 0.50f), Red = new Color(1f, 0.38f, 0.33f),
                           Navy = new Color(0.06f, 0.08f, 0.12f, 0.90f);
-    const string PrefsKey = "DailyObjectives.v1", CollapsedKey = "DailyObjectives.collapsed";
+    const string PrefsKey = "DailyObjectives.v1", CollapsedKey = "DailyObjectives.collapsed", HiddenKey = "DailyObjectives.hidden";
 
     // ── state (statics outlive Play sessions: domain reload is off) ───────────
     static GameObject _driver;
@@ -58,6 +58,7 @@ public static class DailyObjectivesHud
     static readonly List<(VisualElement row, VisualElement box, VisualElement mark, Label label, Label progress)> _rowViews = new();
     static St[] _prev; static int _prevDay;   // last tick's row states: a Pending -> Met change flashes
     static bool _collapsed;
+    static bool _hiddenByPlayer;   // UI CONTROL > Objectives switches the whole checklist off and on (the end-of-day recap is not affected)
     static GameContext _ctx;
     static float _nextCtxFind;
     static Action _pendingRecap;
@@ -67,6 +68,7 @@ public static class DailyObjectivesHud
     {
         _hud = null; _rowsHost = null; _modal = null; _prev = null; _trackedDay = 0; _pendingRecap = null; _ctx = null; _rowViews.Clear();
         try { _collapsed = PlayerPrefs.GetInt(CollapsedKey, 0) == 1; } catch { }
+        try { _hiddenByPlayer = PlayerPrefs.GetInt(HiddenKey, 0) == 1; } catch { }
         LoadSave();
         OrderService.OnOrderFined -= OnFined;
         OrderService.OnOrderFined += OnFined;
@@ -74,6 +76,18 @@ public static class DailyObjectivesHud
         _driver = new GameObject("[DailyObjectivesHud]") { hideFlags = HideFlags.HideInHierarchy };
         _driver.AddComponent<Ticker>();
         UnityEngine.Object.DontDestroyOnLoad(_driver);
+    }
+
+    /// <summary>True while the player has the Objectives checklist switched on (the default).</summary>
+    public static bool IsShown => !_hiddenByPlayer;
+
+    /// <summary>The UI CONTROL > Objectives button: switches the checklist off and on. Applies at once (the once-a-second tick would
+    /// otherwise leave it up for a second), remembered across sessions.</summary>
+    public static void Toggle()
+    {
+        _hiddenByPlayer = !_hiddenByPlayer;
+        try { PlayerPrefs.SetInt(HiddenKey, _hiddenByPlayer ? 1 : 0); } catch { }
+        if (_hud != null) _hud.style.display = _hiddenByPlayer ? DisplayStyle.None : DisplayStyle.Flex;
     }
 
     static void OnFined(OrderData o, int amount) { if (_trackedDay > 0) _fines += Mathf.Max(0, amount); }
@@ -123,7 +137,7 @@ public static class DailyObjectivesHud
         var layer = ShippedFanfare.LayerRoot();
         if (layer == null) return;
         if (_hud == null || _hud.panel == null) BuildHud(layer);
-        _hud.style.display = DisplayStyle.Flex;
+        _hud.style.display = _hiddenByPlayer ? DisplayStyle.None : DisplayStyle.Flex;
         RefreshHud(Rows(Live(day), false), day);
     }
 

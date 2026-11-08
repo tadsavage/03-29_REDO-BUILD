@@ -44,6 +44,18 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     private VisualElement _contentDev, _contentSettings;
     private bool _settingsBuilt;
 
+    // One tool per window (Tad, 2026-11-08): the left rail's DEV TOOLS group has a button for each of "dev" (Dev Console), "settings"
+    // (Dev Settings), "hal" (HAL 9000) and "balance" (Balance), and UTILITIES has "pallet" (Pallet Builder). The old tab strip is hidden;
+    // _tab says which tool the window is showing, _titleLabel carries its name.
+    private string _tab = "dev";
+    private string _pendingTab;
+    private Label _titleLabel;
+    private static readonly Dictionary<string, string> TabTitles = new()
+    {
+        { "dev", "⚙  DEV CONSOLE" }, { "settings", "⚙  DEV SETTINGS" }, { "hal", "HAL 9000" },
+        { "balance", "BALANCE" }, { "pallet", "PALLET BUILDER" },
+    };
+
     // Dev console labels
     private Label _balance, _hourly, _spent;
     private Label _time, _speed;
@@ -181,6 +193,9 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         _contentDev      = root.Q("tab-content-dev");
         _contentSettings = root.Q("tab-content-settings");
         _titlebar        = root.Q("tools-titlebar");
+        _titleLabel      = root.Q<Label>(className: "tools-title");
+        var tabStrip     = root.Q(className: "tools-tabstrip");
+        if (tabStrip != null) tabStrip.style.display = DisplayStyle.None;   // each tool has its own rail button now
 
         if (_titlebar != null)
             _titlebar.RegisterCallback<PointerDownEvent>(OnTitlebarDown);
@@ -283,7 +298,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         }
 
         // Scene object selection / deselection for Dev Settings
-        if (_visible && IsTabActive("settings") && !UIInputGuard.IsPointerOverUIToolkit())
+        if (_visible && (IsTabActive("settings") || IsTabActive("pallet")) && !UIInputGuard.IsPointerOverUIToolkit())
         {
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
@@ -319,18 +334,64 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
 
     /// <summary>
     /// Called by PalletBuilder when a pallet is clicked.
-    /// Opens Dev Settings and scrolls to the Pallet Builder section.
+    /// Opens the Pallet Builder window (just that section) on this pallet.
     /// </summary>
     public void OpenForPallet(PalletBuilder pb)
     {
         _selectedComponents["PalletBuilder"] = pb;
         _pendingScrollTarget = "PalletBuilder";
         RebuildSettings();
-        Show("settings");
+        Show("pallet");
     }
 
-    /// <summary>IUIPanel.Show: opens the dev tools at the dev settings tab.</summary>
-    public void Show() => Show("dev");
+    /// <summary>Which tool the window is showing: "dev", "settings", "hal", "balance" or "pallet".</summary>
+    public string ActiveTab => _tab;
+
+    /// <summary>A rail button for one tool: closes it if it is the tool on screen, switches to it if another tool is up, otherwise
+    /// opens the window on it (through UIKeyBindingManager key 1, so it closes any other exclusive panel like every hotkey panel does).</summary>
+    public void ToggleTab(string tab)
+    {
+        if (_window == null) return;
+        if (_visible && _tab == tab) { Hide(); return; }
+        if (_visible) { SwitchTab(tab); return; }
+
+        _pendingTab = tab;
+        if (UIKeyBindingManager.Instance != null) UIKeyBindingManager.Instance.ToggleUI(1, this);
+        else Show(tab);
+        _pendingTab = null;
+    }
+
+    /// <summary>UTILITIES > Pallet Builder. The builder works on one pallet, so it opens on the pallet last Ctrl+clicked, or else the
+    /// first one in the warehouse; with no pallet at all it says so instead of opening an empty window.</summary>
+    public void TogglePalletBuilder()
+    {
+        if (_visible && _tab == "pallet") { Hide(); return; }
+
+        _selectedComponents.TryGetValue("PalletBuilder", out var current);
+        var pb = current as PalletBuilder;
+        if (pb == null)
+        {
+            // Skip the Item Creator's hidden preview pallet (a builder parked 400 m up in its own rig).
+            foreach (var candidate in FindObjectsByType<PalletBuilder>())
+            {
+                if (candidate == null || candidate.transform.position.y > 300f) continue;
+                pb = candidate;
+                break;
+            }
+        }
+        if (pb == null)
+        {
+            UIToast.Show("No pallet to build on yet. Ctrl+click a pallet in the warehouse.");
+            return;
+        }
+        _selectedComponents["PalletBuilder"] = pb;
+        _pendingScrollTarget = null;
+        RebuildSettings();
+        ToggleTab("pallet");
+    }
+
+    /// <summary>IUIPanel.Show: opens the Tools window on the tool the rail button asked for (the Dev Console by default, e.g. key 1).</summary>
+    public void Show() => Show(_pendingTab ?? "dev");
 
     public void Hide()
     {
@@ -390,16 +451,13 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         PanelTitleChrome.SyncScaleGlyph(_scaleButton, _resizeWindow);
     }
 
-    private bool IsTabActive(string tab)
-    {
-        if (tab == "settings") return _contentSettings?.style.display == DisplayStyle.Flex;
-        return _contentDev?.style.display == DisplayStyle.Flex;
-    }
+    private bool IsTabActive(string tab) => _tab == tab;
 
     private void SwitchTab(string tab)
     {
+        _tab = tab;
         bool isDev      = tab == "dev";
-        bool isSettings = tab == "settings";
+        bool isSettings = tab == "settings" || tab == "pallet";   // the Pallet Builder is the Pallet Builder section of the settings content
 
         if (_contentDev      != null) _contentDev.style.display      = isDev      ? DisplayStyle.Flex : DisplayStyle.None;
         if (_contentSettings != null) _contentSettings.style.display = isSettings ? DisplayStyle.Flex : DisplayStyle.None;
@@ -413,9 +471,12 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         if (_tabDev      != null) SetTabActive(_tabDev,      isDev);
         if (_tabSettings != null) SetTabActive(_tabSettings, isSettings);
 
+        if (_titleLabel != null && TabTitles.TryGetValue(tab, out var title)) _titleLabel.text = title;
+
         if (isSettings)
         {
             if (!_settingsBuilt) BuildDevSettingsUI();
+            ApplySettingsFilter();
             // Scroll to pending target after a layout frame
             if (_pendingScrollTarget != null)
             {
@@ -424,6 +485,17 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
                 _contentSettings?.schedule.Execute(() => ScrollToGroup(target)).ExecuteLater(50);
             }
         }
+    }
+
+    /// <summary>The settings content holds the GLOBAL block plus one group per script. Dev Settings shows everything except the
+    /// Pallet Builder group; the Pallet Builder window shows only that group.</summary>
+    private void ApplySettingsFilter()
+    {
+        if (_contentSettings == null) return;
+        _settingsGroups.TryGetValue("PalletBuilder", out var pallet);
+        bool palletOnly = _tab == "pallet";
+        foreach (var child in _contentSettings.Children())
+            child.style.display = (palletOnly == (child == pallet)) ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
     private static void SetTabActive(Button btn, bool active)
@@ -576,6 +648,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
             }
         }
 
+        ApplySettingsFilter();   // a rebuild while the window is up (a new pallet picked, a load) must keep showing the same tool
         _settingsBuilt = true;
     }
 

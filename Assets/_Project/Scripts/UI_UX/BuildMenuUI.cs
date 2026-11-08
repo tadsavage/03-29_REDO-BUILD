@@ -79,7 +79,15 @@ public class BuildMenuUI : MonoBehaviour
     private Button _reportsBtnItemListing;
     private ReportsPanelController _reportsController;
 
-    // Left-side rail (2026-11-08): the four tab groups (Orders/Build/Staff/Reports) moved off the bottom
+    // Utilities / Dev Tools / UI Control groups (Tad, 2026-11-08). Each tab shows its own bar of buttons; each button toggles its own window.
+    private Button _tabUtilities, _tabDevTools, _tabUiControl;
+    private VisualElement _utilitiesBar, _devToolsBar, _uiControlBar;
+    private Button _utilBtnPalletBuilder, _utilBtnItemCreator, _utilBtnAod;
+    private Button _devBtnConsole, _devBtnSettings, _devBtnHal, _devBtnBalance;
+    private Button _uiBtnObjectives;
+    private int _lastSyncedToolMask = int.MinValue;
+
+    // Left-side rail (2026-11-08): the tab groups (Orders/Build/Staff/Reports/Utilities/Dev Tools/UI Control) moved off the bottom
     // into a rail that slides out of view until the mouse reaches the left edge, and hides again shortly
     // after the mouse leaves it. The bottom bar stays as a plain widget tray (FPS/graphics, log, mini
     // dock schedule, HAL score) - see WidgetTray.
@@ -115,7 +123,7 @@ public class BuildMenuUI : MonoBehaviour
     /// <summary>Which bottom bar is up. Build is the placement HUD; Play is the run-the-warehouse HUD;
     /// Staff is the HR/roster/scheduling HUD; Reports is the read-only Financial/Operational/Inventory
     /// dashboard.</summary>
-    public enum HudMode { Build, Play, Staff, Reports }
+    public enum HudMode { Build, Play, Staff, Reports, Utilities, DevTools, UiControl }
 
     // Mode tab hover copy — pulled out as named constants (rather than left in-place on the
     // RegisterCallback calls) so the tooltip text and the button's own label can be found together.
@@ -123,6 +131,9 @@ public class BuildMenuUI : MonoBehaviour
     private const string OrdersTabTooltipText = "Manage all orders, Inbound and Outbound";
     private const string StaffTabTooltipText = "Hiring, roster, employees and shift scheduling";
     private const string ReportsTabTooltipText = "Financial, Operational and Warehouse Capacity reports";
+    private const string UtilitiesTabTooltipText = "Pallet Builder, Item Creator and the Avatar Object Database";
+    private const string DevToolsTabTooltipText = "Dev Console, Dev Settings, HAL 9000 and Balance";
+    private const string UiControlTabTooltipText = "Switch HUD pieces on and off";
 
     // ORDERS (Play mode) is the default view on startup — players land in "run the warehouse" mode,
     // with BUILD a deliberate switch away from it.
@@ -186,6 +197,9 @@ public class BuildMenuUI : MonoBehaviour
             ElementContainsScreenPos(_playBar, screenPos) ||
             ElementContainsScreenPos(_staffBar, screenPos) ||
             ElementContainsScreenPos(_reportsBar, screenPos) ||
+            ElementContainsScreenPos(_utilitiesBar, screenPos) ||
+            ElementContainsScreenPos(_devToolsBar, screenPos) ||
+            ElementContainsScreenPos(_uiControlBar, screenPos) ||
             ElementContainsScreenPos(_modeTabs, screenPos) ||
             // Only while shown: the hidden rail's rect (x = -W..0) would otherwise make a cursor off the left
             // edge read as "over the build menu" and block camera/world input there.
@@ -254,6 +268,9 @@ public class BuildMenuUI : MonoBehaviour
         HudMode.Build => _buildBar,
         HudMode.Staff => _staffBar,
         HudMode.Reports => _reportsBar,
+        HudMode.Utilities => _utilitiesBar,
+        HudMode.DevTools => _devToolsBar,
+        HudMode.UiControl => _uiControlBar,
         _ => _playBar,
     });
 
@@ -375,6 +392,20 @@ public class BuildMenuUI : MonoBehaviour
         _reportsBtnOperational = _root.Q<Button>("ReportsBtnOperational");
         _reportsBtnInventory = _root.Q<Button>("ReportsBtnInventory");
         _reportsBtnItemListing = _root.Q<Button>("ReportsBtnItemListing");
+        _tabUtilities = _root.Q<Button>("TabUtilities");
+        _tabDevTools = _root.Q<Button>("TabDevTools");
+        _tabUiControl = _root.Q<Button>("TabUiControl");
+        _utilitiesBar = _root.Q<VisualElement>("BottomBarUtilitiesUI");
+        _devToolsBar = _root.Q<VisualElement>("BottomBarDevToolsUI");
+        _uiControlBar = _root.Q<VisualElement>("BottomBarUiControlUI");
+        _utilBtnPalletBuilder = _root.Q<Button>("UtilBtnPalletBuilder");
+        _utilBtnItemCreator = _root.Q<Button>("UtilBtnItemCreator");
+        _utilBtnAod = _root.Q<Button>("UtilBtnAod");
+        _devBtnConsole = _root.Q<Button>("DevBtnConsole");
+        _devBtnSettings = _root.Q<Button>("DevBtnSettings");
+        _devBtnHal = _root.Q<Button>("DevBtnHal");
+        _devBtnBalance = _root.Q<Button>("DevBtnBalance");
+        _uiBtnObjectives = _root.Q<Button>("UiBtnObjectives");
 
         BuildRailAndTray();
 
@@ -386,6 +417,9 @@ public class BuildMenuUI : MonoBehaviour
         if (_playBar != null)               _playBar.pickingMode               = PickingMode.Position;
         if (_staffBar != null)              _staffBar.pickingMode              = PickingMode.Position;
         if (_reportsBar != null)            _reportsBar.pickingMode            = PickingMode.Position;
+        if (_utilitiesBar != null)          _utilitiesBar.pickingMode          = PickingMode.Position;
+        if (_devToolsBar != null)           _devToolsBar.pickingMode           = PickingMode.Position;
+        if (_uiControlBar != null)          _uiControlBar.pickingMode          = PickingMode.Position;
         if (_submenuContainer != null)      _submenuContainer.pickingMode      = PickingMode.Position;
 
         if (!_barCallbacksRegistered)
@@ -394,12 +428,19 @@ public class BuildMenuUI : MonoBehaviour
             RegisterBarPointerGuards(_playBar);
             RegisterBarPointerGuards(_staffBar);
             RegisterBarPointerGuards(_reportsBar);
+            RegisterBarPointerGuards(_utilitiesBar);
+            RegisterBarPointerGuards(_devToolsBar);
+            RegisterBarPointerGuards(_uiControlBar);
             RegisterBarPointerGuards(_modeTabs);
 
             if (_tabBuild != null) _tabBuild.clicked += () => SetHudMode(HudMode.Build);
             if (_tabPlay != null) _tabPlay.clicked += () => SetHudMode(HudMode.Play);
             if (_tabStaff != null) _tabStaff.clicked += () => SetHudMode(HudMode.Staff);
             if (_tabReports != null) _tabReports.clicked += OnTabReportsClicked;
+            if (_tabUtilities != null) _tabUtilities.clicked += () => SetHudMode(HudMode.Utilities);
+            if (_tabDevTools != null) _tabDevTools.clicked += () => SetHudMode(HudMode.DevTools);
+            if (_tabUiControl != null) _tabUiControl.clicked += () => SetHudMode(HudMode.UiControl);
+            WireToolButtons();
             if (_reportsBtnFinancial != null) _reportsBtnFinancial.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Financial);
             if (_reportsBtnOperational != null) _reportsBtnOperational.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Operational);
             if (_reportsBtnInventory != null) _reportsBtnInventory.clicked += () => _reportsController?.Open(ReportsPanelController.Tab.Inventory);
@@ -415,6 +456,9 @@ public class BuildMenuUI : MonoBehaviour
             AttachModeTabTooltip(_tabPlay, OrdersTabTooltipText);
             AttachModeTabTooltip(_tabStaff, StaffTabTooltipText);
             AttachModeTabTooltip(_tabReports, ReportsTabTooltipText);
+            AttachModeTabTooltip(_tabUtilities, UtilitiesTabTooltipText);
+            AttachModeTabTooltip(_tabDevTools, DevToolsTabTooltipText);
+            AttachModeTabTooltip(_tabUiControl, UiControlTabTooltipText);
 
             WirePlayBarButtons();
 
@@ -454,7 +498,8 @@ public class BuildMenuUI : MonoBehaviour
             var button = _root.Q<Button>($"PlayBtn{i}");
             if (button == null)
             {
-                Debug.LogWarning($"[BuildMenuUI] PlayBtn{i} not found in BottomBarPlayUI.");
+                // Key 1 (Dev Console) moved to the DEV TOOLS bar as DevBtnConsole (2026-11-08), so its play-bar button is gone on purpose.
+                if (i != 1) Debug.LogWarning($"[BuildMenuUI] PlayBtn{i} not found in BottomBarPlayUI.");
                 continue;
             }
 
@@ -469,6 +514,74 @@ public class BuildMenuUI : MonoBehaviour
             button.clicked += () => { UIKeyBindingManager.Instance.ToggleUI(key); button.Blur(); };
             _playBarButtons[key] = button;
         }
+    }
+
+    /// <summary>Wires the UTILITIES / DEV TOOLS / UI CONTROL buttons (Tad, 2026-11-08). Every button is a toggle for ONE window:
+    /// Pallet Builder, Item Creator and AOD open their own panels; Dev Console, Dev Settings, HAL 9000 and Balance each open
+    /// the Tools window on only that tool (its tab strip is hidden); Objectives shows or hides the Objectives HUD.</summary>
+    private void WireToolButtons()
+    {
+        void On(Button b, Action act)
+        {
+            if (b == null) return;
+            b.clicked += () => { act(); b.Blur(); };
+        }
+
+        On(_utilBtnPalletBuilder, () => ToolsWindowController.Instance?.TogglePalletBuilder());
+        On(_utilBtnItemCreator, () => FindTopBar()?.ItemCreatorPanel?.Toggle());
+        On(_utilBtnAod, () => FindTopBar()?.AODPanel?.Toggle());
+
+        On(_devBtnConsole, () => ToolsWindowController.Instance?.ToggleTab("dev"));
+        On(_devBtnSettings, () => ToolsWindowController.Instance?.ToggleTab("settings"));
+        On(_devBtnHal, () => ToolsWindowController.Instance?.ToggleTab("hal"));
+        On(_devBtnBalance, () => ToolsWindowController.Instance?.ToggleTab("balance"));
+
+        On(_uiBtnObjectives, DailyObjectivesHud.Toggle);
+    }
+
+    /// <summary>Lights the Utilities / Dev Tools / UI Control buttons whose window is up, like SyncPlayBarSelection does for the
+    /// number-key panels. Polled with a bitmask change guard because these windows also close through Tab, Escape and their own X.</summary>
+    private void SyncToolSelection()
+    {
+        var topBar = (_utilBtnItemCreator != null || _utilBtnAod != null) ? FindTopBar() : null;
+        var tools = ToolsWindowController.Instance;
+        bool toolsOpen = tools != null && tools.IsOpen;
+        string tab = toolsOpen ? tools.ActiveTab : null;
+
+        int mask = 0;
+        if (toolsOpen && tab == "pallet") mask |= 1 << 0;
+        if (topBar != null && topBar.ItemCreatorPanel != null && topBar.ItemCreatorPanel.IsOpen) mask |= 1 << 1;
+        if (topBar != null && topBar.AODPanel != null && topBar.AODPanel.IsOpen) mask |= 1 << 2;
+        if (toolsOpen && tab == "dev") mask |= 1 << 3;
+        if (toolsOpen && tab == "settings") mask |= 1 << 4;
+        if (toolsOpen && tab == "hal") mask |= 1 << 5;
+        if (toolsOpen && tab == "balance") mask |= 1 << 6;
+        if (DailyObjectivesHud.IsShown) mask |= 1 << 7;
+
+        if (mask == _lastSyncedToolMask) return;
+        _lastSyncedToolMask = mask;
+
+        _utilBtnPalletBuilder?.EnableInClassList("selected", (mask & (1 << 0)) != 0);
+        _utilBtnItemCreator?.EnableInClassList("selected", (mask & (1 << 1)) != 0);
+        _utilBtnAod?.EnableInClassList("selected", (mask & (1 << 2)) != 0);
+        _devBtnConsole?.EnableInClassList("selected", (mask & (1 << 3)) != 0);
+        _devBtnSettings?.EnableInClassList("selected", (mask & (1 << 4)) != 0);
+        _devBtnHal?.EnableInClassList("selected", (mask & (1 << 5)) != 0);
+        _devBtnBalance?.EnableInClassList("selected", (mask & (1 << 6)) != 0);
+        _uiBtnObjectives?.EnableInClassList("selected", (mask & (1 << 7)) != 0);
+    }
+
+    // The top bar owns the Item Creator / AOD panels. Looked up lazily and cached, because SyncToolSelection runs every frame.
+    private TopBarUI _topBar;
+    private float _nextTopBarFind;
+    private TopBarUI FindTopBar()
+    {
+        if (_topBar == null && Time.unscaledTime >= _nextTopBarFind)
+        {
+            _topBar = FindAnyObjectByType<TopBarUI>();
+            _nextTopBarFind = Time.unscaledTime + 2f;   // never a per-frame scene search
+        }
+        return _topBar;
     }
 
     /// <summary>
@@ -506,6 +619,7 @@ public class BuildMenuUI : MonoBehaviour
     private void Update()
     {
         SyncPlayBarSelection();
+        SyncToolSelection();
 
         // Self-heal IsPointerOverBuildMenu every frame instead of only at specific chokepoints
         // (UIKeyBindingManager opening/closing a panel, DevHudWindow/SystemsLogWindow detaching mid-
@@ -574,7 +688,7 @@ public class BuildMenuUI : MonoBehaviour
             _root.Add(_rail);
             if (_modeTabs != null) { _modeTabs.RemoveFromHierarchy(); _rail.Add(_modeTabs); }
             _rail.Add(_railFlyout);
-            foreach (var bar in new[] { _playBar, _buildBar, _staffBar, _reportsBar })
+            foreach (var bar in new[] { _playBar, _buildBar, _staffBar, _reportsBar, _utilitiesBar, _devToolsBar, _uiControlBar })
             {
                 if (bar == null) continue;
                 bar.RemoveFromHierarchy();
@@ -825,11 +939,17 @@ public class BuildMenuUI : MonoBehaviour
         bool play = _mode == HudMode.Play;
         bool staff = _mode == HudMode.Staff;
         bool reports = _mode == HudMode.Reports;
+        bool utilities = _mode == HudMode.Utilities;
+        bool devTools = _mode == HudMode.DevTools;
+        bool uiControl = _mode == HudMode.UiControl;
 
         SetHidden(_buildBar, !build);
         SetHidden(_playBar, !play);
         SetHidden(_staffBar, !staff);
         SetHidden(_reportsBar, !reports);
+        SetHidden(_utilitiesBar, !utilities);
+        SetHidden(_devToolsBar, !devTools);
+        SetHidden(_uiControlBar, !uiControl);
 
         DockMiniTimeline();
 
@@ -837,6 +957,9 @@ public class BuildMenuUI : MonoBehaviour
         SetTabActive(_tabPlay, play);
         SetTabActive(_tabStaff, staff);
         SetTabActive(_tabReports, reports);
+        SetTabActive(_tabUtilities, utilities);
+        SetTabActive(_tabDevTools, devTools);
+        SetTabActive(_tabUiControl, uiControl);
 
         // Data can go stale while another mode was up (money/inventory/ops keep changing in the
         // background), so pull a fresh snapshot every time the tab comes back on screen rather than

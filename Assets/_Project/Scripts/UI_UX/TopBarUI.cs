@@ -166,24 +166,8 @@ public class TopBarUI : MonoBehaviour
         if (_loadButton           != null) _loadButton.clicked           += () => _saveLoadController?.Open(SaveLoadMode.Load);
         if (_mainMenuButton       != null) _mainMenuButton.clicked       += ToggleMenuPopup;
 
-        // "Items" button — opens the Item Creator. No number key of its own (0/5-9 all taken by other
-        // panels), so it lives here as a plain button. The TopBar UXML has no SaveButton/LoadButton
-        // element any more (that slot was repurposed for the speed control — see WireSpeedControl
-        // above), so this copies MainMenuButton's classes instead, which is guaranteed to exist.
-        if (topBar != null)
-        {
-            var itemsButton = new Button(() => _itemCreatorPanel?.Toggle()) { text = "ITEMS" };
-            if (_mainMenuButton != null)
-                foreach (var cls in _mainMenuButton.GetClasses()) itemsButton.AddToClassList(cls);
-            int insertIndex = _mainMenuButton != null ? topBar.IndexOf(_mainMenuButton) : topBar.childCount;
-            topBar.Insert(insertIndex, itemsButton);
-
-            // "AOD" button — Avatar Object Database, same no-hotkey reasoning as Items above.
-            var aodButton = new Button(() => _aodPanel?.Toggle()) { text = "AOD" };
-            if (_mainMenuButton != null)
-                foreach (var cls in _mainMenuButton.GetClasses()) aodButton.AddToClassList(cls);
-            topBar.Insert(insertIndex + 1, aodButton);
-        }
+        // The ITEMS (Item Creator) and AOD buttons that used to be inserted here moved to the left rail's UTILITIES group on
+        // 2026-11-08 (BuildMenuUI.WireToolButtons). The panels are still built above and reached through ItemCreatorPanel / AODPanel.
         if (_menuMainMenuButton   != null) _menuMainMenuButton.clicked   += OnMenuDirectToMainMenu;
         if (_menuSettingsButton   != null) _menuSettingsButton.clicked   += OnMenuSettings;
         if (_menuSaveButton       != null) _menuSaveButton.clicked       += OnMenuSave;
