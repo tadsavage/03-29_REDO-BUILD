@@ -597,15 +597,15 @@
     top: 110px;
     flex-direction: row;
     align-items: flex-start;
-    padding: 6px;
-    background-color: rgba(20, 28, 38, 0.9);
+    padding: 10px;
+    background-color: rgba(12, 18, 28, 0.95);
     border-top-width: 2px;
     border-right-width: 2px;
     border-bottom-width: 2px;
     border-left-width: 0;
-    border-color: rgba(92, 155, 196, 0.6);
-    border-top-right-radius: 10px;
-    border-bottom-right-radius: 10px;
+    border-color: rgba(92, 155, 196, 0.7);
+    border-top-right-radius: 14px;
+    border-bottom-right-radius: 14px;
     transition-property: translate, opacity;
     transition-duration: 0.18s, 0.18s;
     transition-timing-function: ease-out, ease-out;
@@ -616,18 +616,41 @@
     opacity: 0;
 }
 
-/* Thin tab on the left edge that shows where the rail is while it's hidden. */
+/* Tab on the left edge that shows where the rail is while it's hidden, and IS the trigger: hovering anywhere on
+   it opens the rail (BuildMenuUI.UpdateRailAutoHide). 34x160 (Tad, 2026-11-08), "Tool Bars" written along it. */
 .hud-rail-grip {
     position: absolute;
     left: 0;
     top: 300px;
-    width: 6px;
-    height: 90px;
-    background-color: rgba(92, 155, 196, 0.55);
-    border-top-right-radius: 4px;
-    border-bottom-right-radius: 4px;
+    width: 34px;
+    height: 160px;
+    background-color: rgb(46, 98, 140);
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-left-width: 0;
+    border-color: rgba(127, 196, 240, 0.85);
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
     transition-property: opacity;
     transition-duration: 0.18s;
+}
+
+/* Rotated 90 degrees, reading bottom to top. Rotation does not change layout, so the label is laid out at the
+   tab's HEIGHT x WIDTH (160x34 inside the 156x32 padding box: centre at 16,78) and then turned upright. */
+.hud-rail-grip-label {
+    position: absolute;
+    left: -64px;
+    top: 61px;
+    width: 160px;
+    height: 34px;
+    rotate: -90deg;
+    -unity-text-align: middle-center;
+    font-size: 17px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: rgb(6, 18, 34);
+    white-space: nowrap;
 }
 
 .hud-rail-grip-hidden {
@@ -641,32 +664,46 @@
     left: auto;
     flex-direction: column;
     align-items: stretch;
-    margin-right: 6px;
+    margin-right: 10px;
     flex-shrink: 0;
 }
 
 .hud-rail .buildmenu-mode-tab {
-    height: 36px;
-    min-width: 100px;
-    margin: 0 0 4px 0;
-    padding-left: 12px;
-    padding-right: 12px;
+    height: 46px;
+    min-width: 120px;
+    margin: 0 0 6px 0;
+    padding-left: 14px;
+    padding-right: 14px;
+    background-color: rgba(30, 42, 58, 0.75);
     border-width: 1px;
-    border-left-width: 3px;
-    border-color: rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
+    border-left-width: 4px;
+    border-color: rgba(255, 255, 255, 0.07);
+    border-left-color: rgba(92, 155, 196, 0.35);
+    border-radius: 8px;
+    color: rgba(190, 220, 240, 0.75);
+    font-size: 15px;
+    letter-spacing: 1px;
     -unity-text-align: middle-left;
+}
+
+.hud-rail .buildmenu-mode-tab:hover {
+    background-color: rgba(52, 82, 112, 0.9);
+    border-color: rgba(92, 155, 196, 0.6);
+    border-left-color: rgb(127, 196, 240);
+    color: rgb(255, 255, 255);
 }
 
 .hud-rail .buildmenu-mode-tab-active,
 .hud-rail .buildmenu-mode-tab-active:hover {
-    height: 36px;
-    background-color: rgba(92, 155, 196, 0.22);
+    height: 46px;
+    /* The HUD renders dark UI colours lifted, so this fill shows as a light cyan in game; white text on it was
+       hard to read, so the active tab uses dark navy text (a "lit" tab). !important so the Button theme can't win. */
+    background-color: rgb(46, 98, 140) !important;
     border-width: 1px;
-    border-left-width: 3px;
-    border-color: rgba(92, 155, 196, 0.6);
-    border-left-color: rgb(92, 155, 196);
-    color: rgb(255, 255, 255);
+    border-left-width: 4px;
+    border-color: rgba(127, 196, 240, 0.8) !important;
+    border-left-color: rgb(127, 196, 240) !important;
+    color: rgb(6, 18, 34) !important;
 }
 
 /* The four group bars inside the rail: plain stacked columns, no bar chrome. */
@@ -697,38 +734,104 @@
 
 /* Buttons become compact rows: small icon, name, hotkey on the right. */
 .hud-rail .buildmenu-category-button {
-    width: 210px;
-    height: 38px;
+    width: 240px;
+    height: 44px;
     flex-direction: row;
     justify-content: flex-start;
     align-items: center;
     margin: 0 0 3px 0;
-    padding: 2px 8px;
+    padding: 2px 10px 2px 8px;
+    background-color: rgba(30, 42, 58, 0.75);
+    border-width: 1px;
+    border-left-width: 4px;
+    border-color: rgba(255, 255, 255, 0.07);
+    border-left-color: rgba(92, 155, 196, 0.35);
+    border-radius: 8px;
+}
+
+.hud-rail .buildmenu-category-button:hover {
+    background-color: rgba(52, 82, 112, 0.9);
+    border-color: rgba(92, 155, 196, 0.6);
+    border-left-color: rgb(127, 196, 240);
+}
+
+/* Selected stays near-neutral dark (Tad's earlier feedback: no blue fill); the bright left bar is what marks it. */
+.hud-rail .buildmenu-category-button.selected {
+    background-color: rgba(24, 30, 38, 0.92);
+    border-color: rgba(150, 190, 220, 0.3);
+    border-left-color: rgb(127, 196, 240);
+}
+
+/* The base sheet force-resets :focus/:active with !important (Unity's runtime theme paints focused buttons
+   opaque blue), so every rail state needs its own !important twin or the restyle would lose on click. */
+.hud-rail .buildmenu-category-button:focus,
+.hud-rail .buildmenu-category-button:active {
+    background-color: rgba(30, 42, 58, 0.75) !important;
+    border-color: rgba(255, 255, 255, 0.07) !important;
+    border-left-color: rgba(92, 155, 196, 0.35) !important;
+}
+
+.hud-rail .buildmenu-category-button:focus:hover,
+.hud-rail .buildmenu-category-button:active:hover {
+    background-color: rgba(52, 82, 112, 0.9) !important;
+    border-color: rgba(92, 155, 196, 0.6) !important;
+    border-left-color: rgb(127, 196, 240) !important;
+}
+
+.hud-rail .buildmenu-category-button.selected:focus,
+.hud-rail .buildmenu-category-button.selected:active,
+.hud-rail .buildmenu-category-button.selected:focus:hover,
+.hud-rail .buildmenu-category-button.selected:active:hover {
+    background-color: rgba(24, 30, 38, 0.92) !important;
+    border-color: rgba(150, 190, 220, 0.3) !important;
+    border-left-color: rgb(127, 196, 240) !important;
 }
 
 .hud-rail .buildmenu-category-icon {
-    width: 30px;
-    height: 30px;
-    margin-right: 10px;
+    width: 32px;
+    height: 32px;
+    margin-right: 12px;
     flex-shrink: 0;
 }
 
 .hud-rail .buildmenu-category-label {
     flex-grow: 1;
-    font-size: 16px;
+    font-size: 18px;
+    color: rgb(191, 224, 245);
     margin-top: 0;
     -unity-text-align: middle-left;
     white-space: nowrap;
     -unity-text-wrap: nowrap;
 }
 
+/* Hover fill renders light in game (the HUD lifts dark colours), so the hovered label goes dark navy for contrast;
+   a selected row stays dark, so its label stays white. */
+.hud-rail .buildmenu-category-button:hover .buildmenu-category-label {
+    color: rgb(6, 18, 34);
+}
+
+.hud-rail .buildmenu-category-button.selected .buildmenu-category-label,
+.hud-rail .buildmenu-category-button.selected:hover .buildmenu-category-label {
+    color: rgb(255, 255, 255);
+}
+
+/* Hotkey: a small keycap badge, centred on the row's right edge instead of floating low-right as bare text. */
 .hud-rail .playbar-key {
-    top: 10px;
-    right: 8px;
+    top: 9px;
+    right: 10px;
+    width: 26px;
+    height: 24px;
+    font-size: 14px;
+    -unity-text-align: middle-center;
+    color: rgb(207, 232, 250);
+    background-color: rgba(92, 155, 196, 0.2);
+    border-width: 1px;
+    border-color: rgba(92, 155, 196, 0.55);
+    border-radius: 6px;
 }
 
 .hud-rail .buildmenu-utility-row {
-    width: 210px !important;
+    width: 240px !important;
     justify-content: flex-start;
     margin-top: 6px;
     translate: 0 0;

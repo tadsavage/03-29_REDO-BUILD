@@ -94,8 +94,13 @@ public class BuildMenuUI : MonoBehaviour
     private const float RailHideDelay = 0.35f;
     /// <summary>Mouse within this many panel px of the left edge (inside the rail's height) opens the rail.</summary>
     private const float RailEdgeHotZone = 10f;
+    /// <summary>While the rail is open, a cursor up to this many panel px PAST the left edge still keeps it open.</summary>
+    private const float RailEdgeOvershoot = 32f;
     /// <summary>Never centre the rail higher than this (keeps it clear of the top bar).</summary>
     private const float RailMinTop = 110f;
+    /// <summary>Panel-px y where every rail group opens (top edge). 154 = where the BUILD group, the tallest, was
+    /// centred, about an inch below the top bar.</summary>
+    private const float RailFixedTop = 154f;
     private const string TimelinePrefKey = "HudCard_Timeline";
     private readonly VisualElement[] _trayZones = new VisualElement[3];
 
@@ -182,7 +187,9 @@ public class BuildMenuUI : MonoBehaviour
             ElementContainsScreenPos(_staffBar, screenPos) ||
             ElementContainsScreenPos(_reportsBar, screenPos) ||
             ElementContainsScreenPos(_modeTabs, screenPos) ||
-            ElementContainsScreenPos(_rail, screenPos) ||
+            // Only while shown: the hidden rail's rect (x = -W..0) would otherwise make a cursor off the left
+            // edge read as "over the build menu" and block camera/world input there.
+            (_railShown && ElementContainsScreenPos(_rail, screenPos)) ||
             ElementContainsScreenPos(_tray, screenPos);
     }
 
@@ -572,6 +579,10 @@ public class BuildMenuUI : MonoBehaviour
 
             _railGrip = new VisualElement { name = "HudRailGrip", pickingMode = PickingMode.Ignore };
             _railGrip.AddToClassList("hud-rail-grip");
+            // Vertical text on the edge tab (Tad, 2026-11-08): the tab is the trigger area, so it says what it opens.
+            var gripLabel = new Label("Tool Bars") { name = "HudRailGripLabel", pickingMode = PickingMode.Ignore };
+            gripLabel.AddToClassList("hud-rail-grip-label");
+            _railGrip.Add(gripLabel);
             _root.Add(_railGrip);
 
             _rail.RegisterCallback<GeometryChangedEvent>(_ => CenterRail());
@@ -586,22 +597,26 @@ public class BuildMenuUI : MonoBehaviour
         }
     }
 
-    /// <summary>Vertically centres the rail in the space between the top bar and the widget tray, and
-    /// keeps the edge grip centred on it. Re-runs on every geometry change (mode switch changes the
+    /// <summary>Pins the rail's top edge to <see cref="RailFixedTop"/> (the same for every group), pushing it up
+    /// only when it is too tall to clear the widget tray, and keeps the edge grip at its top.
+    /// Re-runs on every geometry change (mode switch changes the
     /// rail's height); writes only when the value actually moves, so it can't loop.</summary>
     private void CenterRail()
     {
         if (_rail == null || _root == null) return;
         float h = _root.resolvedStyle.height, rh = _rail.resolvedStyle.height;
         if (float.IsNaN(h) || float.IsNaN(rh) || h < 1f) return;
-        float top = Mathf.Max(RailMinTop, (h - BottomBarHeight - rh) * 0.5f);
+        // Every group (ORDERS/BUILD/STAFF/REPORTS) opens with its TOP at the same height (Tad, 2026-11-08: "about an
+        // inch below the top bar", the way BUILD sits), instead of being centred - centring put the shorter groups
+        // lower. Only a rail too tall to fit above the tray is pushed up, and never past RailMinTop.
+        float top = Mathf.Min(RailFixedTop, Mathf.Max(RailMinTop, h - BottomBarHeight - rh - 8f));
         if (float.IsNaN(_rail.resolvedStyle.top) || Mathf.Abs(_rail.resolvedStyle.top - top) > 0.5f)
             _rail.style.top = top;
         if (_railGrip != null)
         {
-            float gh = _railGrip.resolvedStyle.height;
-            if (float.IsNaN(gh)) gh = 0f;
-            float gripTop = top + rh * 0.5f - gh * 0.5f;
+            // Pinned near the rail's top (not its middle) so it does not wander between groups of different heights,
+            // and always sits inside the rail's height range, which is what the edge hot zone tests.
+            float gripTop = top + 6f;
             if (float.IsNaN(_railGrip.resolvedStyle.top) || Mathf.Abs(_railGrip.resolvedStyle.top - gripTop) > 0.5f)
                 _railGrip.style.top = gripTop;
         }
@@ -625,11 +640,27 @@ public class BuildMenuUI : MonoBehaviour
     {
         if (_rail == null || !TryScreenToPanel(screenPos, out var p)) return;
 
+        // worldBound FOLLOWS the slide transform: hidden, the rail sits one rail-width LEFT of the screen
+        // (x = -W..0). Testing the cursor against that rect meant a cursor pushed off the left edge
+        // (negative x: Editor / second monitor) counted as "over the rail" -> it slid in -> its rect moved to
+        // 0..W and the cursor was no longer over it -> it slid out -> over again... the left-right jerk
+        // Tad saw (2026-11-08). So the rail's own rect is tested at its SHOWN position (0..width) only, and
+        // the two states use different zones: opening needs the cursor on the edge itself (0..hot zone),
+        // staying open tolerates a little overshoot past the edge, so the two never share a boundary.
         Rect rb = _rail.worldBound;
-        bool inEdge = p.x >= 0f && p.x <= RailEdgeHotZone && p.y >= rb.yMin && p.y <= rb.yMax;
-        bool over = inEdge
-                    || rb.Contains(p)
-                    || (_submenuOpen && _submenuContainer != null && _submenuContainer.worldBound.Contains(p));
+        bool inY = p.y >= rb.yMin && p.y <= rb.yMax;
+        bool over;
+        if (_railShown)
+            over = (inY && p.x >= -RailEdgeOvershoot && p.x <= rb.width)
+                   || (_submenuOpen && _submenuContainer != null && _submenuContainer.worldBound.Contains(p));
+        else
+        {
+            // Hidden: the edge tab (HudRailGrip, with its "Tool Bars" text) is the visible trigger, so anywhere on it
+            // opens the rail; the thin full-height edge strip still works too.
+            Rect gb = _railGrip != null ? _railGrip.worldBound : default;
+            over = (inY && p.x >= 0f && p.x <= RailEdgeHotZone)
+                   || (gb.width > 0f && gb.Contains(p));
+        }
 
         if (over)
         {
@@ -1139,15 +1170,16 @@ public class BuildMenuUI : MonoBehaviour
         Vector2 rootPos = _root.worldBound.position;
         Rect buttonRect = _lastClickedCategoryButton.worldBound;
 
-        // The category buttons are now in the left rail: the item list opens to the RIGHT of the rail,
-        // level with the clicked button, kept above the widget tray.
+        // The category buttons are now in the left rail: the item list opens to the RIGHT of the rail with its
+        // TOP level with the rail's top (Tad, 2026-11-08: every list opens at the same height, not level with the
+        // clicked row), kept above the widget tray.
         if (_rail != null)
         {
             float left = _rail.worldBound.xMax - rootPos.x + 6f;
             float listH = _submenuContainer.resolvedStyle.height;
             if (float.IsNaN(listH)) listH = 0f;
             float maxTop = _root.resolvedStyle.height - BottomBarHeight - listH - 8f;
-            float top = Mathf.Clamp(buttonRect.y - rootPos.y, 8f, Mathf.Max(8f, maxTop));
+            float top = Mathf.Clamp(_rail.worldBound.y - rootPos.y, 8f, Mathf.Max(8f, maxTop));
             _submenuContainer.style.left = left;
             _submenuContainer.style.top = top;
             _submenuContainer.style.bottom = StyleKeyword.Auto;

@@ -33,8 +33,12 @@ using UnityEngine.UIElements.Experimental;
 public class SystemsLogWindow : MonoBehaviour
 {
     private const int MaxEntries = 200;
-    private const float DockedCardWidth = 480f;
-    private const float DockedCardHeight = 100f;
+    // Docked card fills the whole CENTER zone of the bottom tray (was 480x100; Tad, 2026-11-08: "take it from the
+    // size of the red box up to the size of the green box"). Tray is 122 tall and the card keeps 4px margins top/bottom.
+    private const float DockedCardWidth = 640f;
+    private const float DockedCardHeight = 112f;
+    // Docked body leaves room on the right for the A-/A+ buttons pinned to the card's top-right corner.
+    private const float DockedBodyPaddingRight = 62f;
     // Fixed home for the log: always opens here at this size (UI reference space, 1920x1080), per Tad.
     private const float FloatingWidth = 420f;
     // 720 puts the bottom edge at y=788 of the 1080 reference: ~2 inches clear of the bottom bar, whose tab row starts near y=930
@@ -529,8 +533,8 @@ public class SystemsLogWindow : MonoBehaviour
             _clearButton.style.height = 30;
             _clearButton.style.fontSize = 10;
         }
-        if (_fontDownButton != null) { _fontDownButton.style.height = 30; _fontDownButton.style.fontSize = 12; }
-        if (_fontUpButton != null) { _fontUpButton.style.height = 30; _fontUpButton.style.fontSize = 12; }
+        PlaceFontButtons(docked: false);
+        if (_scroll != null) _scroll.contentContainer.style.paddingRight = CardPadding;
 
         _resizeWindow?.SetInteractable(true);
 
@@ -585,8 +589,8 @@ public class SystemsLogWindow : MonoBehaviour
             _clearButton.style.height = 22;
             _clearButton.style.fontSize = 8;
         }
-        if (_fontDownButton != null) { _fontDownButton.style.height = 22; _fontDownButton.style.fontSize = 9; }
-        if (_fontUpButton != null) { _fontUpButton.style.height = 22; _fontUpButton.style.fontSize = 9; }
+        PlaceFontButtons(docked: true);
+        if (_scroll != null) _scroll.contentContainer.style.paddingRight = DockedBodyPaddingRight;
 
         // Resizing only makes sense while floating — the docked card's size is owned by ApplyDockedLayout
         // itself (fixed, reasserted on every dock), so dragging an edge here would fight that or tear the
@@ -594,6 +598,45 @@ public class SystemsLogWindow : MonoBehaviour
         _resizeWindow?.SetInteractable(false);
 
         RestyleEntries(fontSize: DockedEntryFontSize);
+    }
+
+    /// <summary>The A-/A+ buttons live in the title bar while floating, but the docked card has no title bar
+    /// (it is display:none), so while docked they are re-parented onto the card itself and pinned to its
+    /// top-right corner. Still descendants of the panel, so DockableHudCard's drag exclusion keeps working.</summary>
+    private void PlaceFontButtons(bool docked)
+    {
+        if (_fontDownButton == null || _fontUpButton == null || _panel == null || _titleBar == null) return;
+
+        var parent = docked ? _panel : _titleBar;
+        if (_fontDownButton.parent != parent) parent.Add(_fontDownButton);
+        if (_fontUpButton.parent != parent) parent.Add(_fontUpButton);
+
+        if (docked)
+        {
+            _fontDownButton.style.left = StyleKeyword.Auto;
+            _fontUpButton.style.left = StyleKeyword.Auto;
+            _fontDownButton.style.right = 30;
+            _fontUpButton.style.right = 4;
+            _fontDownButton.style.top = 4;
+            _fontUpButton.style.top = 4;
+            _fontDownButton.style.height = 24;
+            _fontUpButton.style.height = 24;
+            _fontDownButton.style.fontSize = 12;
+            _fontUpButton.style.fontSize = 12;
+        }
+        else
+        {
+            _fontDownButton.style.right = StyleKeyword.Auto;
+            _fontUpButton.style.right = StyleKeyword.Auto;
+            _fontDownButton.style.left = 56;
+            _fontUpButton.style.left = 84;
+            _fontDownButton.style.top = 5;
+            _fontUpButton.style.top = 5;
+            _fontDownButton.style.height = 30;
+            _fontUpButton.style.height = 30;
+            _fontDownButton.style.fontSize = 12;
+            _fontUpButton.style.fontSize = 12;
+        }
     }
 
     private void NudgeFontScale(float delta)
