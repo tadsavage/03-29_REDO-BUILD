@@ -271,6 +271,37 @@ namespace GameCore.Actors
             return hits;
         }
 
+        /// <summary>How many of the machine's outline points are inside a PALLET JACK (body or fork load) at this pose. Racks, walls,
+        /// pallets and other machine types are ignored.</summary>
+        public static int JackPenetrationAt(MHEOperatorSlot m, Vector3 pos, Quaternion rot, float inflate, out string what)
+        {
+            what = null;
+            if (m == null) return 0;
+            var pts = SamplePointsOf(m);
+            Vector3 scale = m.transform.lossyScale;
+            GatherNear(pos, 3.5f, m);
+            int hits = 0;
+            foreach (var lp in pts)
+            {
+                Vector3 wp = pos + rot * Vector3.Scale(lp, scale);
+                foreach (var o in NearMachines)
+                    if (o.IsPalletJack && InsideFootprint(o.transform, FootprintOf(o), wp, inflate)) { hits++; what ??= o.name; break; }
+            }
+            return hits;
+        }
+
+        /// <summary>REACH TRUCKS (Tad, 2026-11-08): "can drive freely - either way and either side - as long as they don't clip the pallet
+        /// jacks". True when this step would push the machine further into a pallet jack (with a small margin) than it already is.</summary>
+        public static bool JackStepBlocked(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot, out string what)
+        {
+            what = null;
+            if (m == null) return false;
+            const float Margin = 0.15f;
+            int next = JackPenetrationAt(m, nextPos, nextRot, Margin, out what);
+            if (next == 0) return false;
+            return next > JackPenetrationAt(m, m.transform.position, m.transform.rotation, Margin, out _);
+        }
+
         /// <summary>True when moving the machine from where it is to this pose would push it into something it isn't already in.</summary>
         public static bool StepBlocked(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot, out string what)
         {

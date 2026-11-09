@@ -120,14 +120,28 @@ public class OrderPalletCard : MonoBehaviour
         _pallet = pallet;
         _orderId = pallet.OrderId;
         _pinnedCards[pallet] = this;
+        // Clicked by the player (not opened by a truck click, which boxes the faces itself): light the order's pick faces.
+        if (!auto) { OrderFreightHighlighter.Instance.AddOrderFaces(_orderId, pallet.transform); _litFacesFor = _orderId; _litPallet = pallet.transform; }
         _card.style.display = DisplayStyle.Flex;
         _card.BringToFront();
         Refresh();
         Place();
     }
 
+    private string _litFacesFor;   // order whose pick faces this card lit (OrderFreightHighlighter)
+    private Transform _litPallet;  // ...and the pallet itself
+
+    private void UnlightFaces()
+    {
+        if (_litFacesFor == null) return;
+        if (OrderFreightHighlighter.HasInstance) OrderFreightHighlighter.Instance.RemoveOrderFaces(_litFacesFor, _litPallet);
+        _litFacesFor = null;
+        _litPallet = null;
+    }
+
     private void Close()
     {
+        UnlightFaces();
         if (_pallet != null && _pinnedCards.TryGetValue(_pallet, out var registered) && registered == this) _pinnedCards.Remove(_pallet);
         _pinned = false;
         _auto = false;
@@ -136,7 +150,7 @@ public class OrderPalletCard : MonoBehaviour
         if (this != _instance) Destroy(gameObject);   // a pinned card is one-off; only the hover card is reused
     }
 
-    private void OnDestroy() { _card?.RemoveFromHierarchy(); if (_instance == this) _instance = null; }
+    private void OnDestroy() { UnlightFaces(); _card?.RemoveFromHierarchy(); if (_instance == this) _instance = null; }
 
     private void LateUpdate()
     {
@@ -350,6 +364,16 @@ public class OrderPalletCard : MonoBehaviour
 
             row.Add(track);
             row.Add(name);
+
+            // Where it is picked from (Tad, 2026-11-08): the SKU's pick face(s) in walking order, after the item name.
+            var faces = SlotAssignmentService.GetSlotsForSku(l.sku).OrderBy(OrderPickPath.SequenceKey).ToList();
+            if (faces.Count > 0)
+            {
+                var loc = Lbl(faces.Count == 1 ? faces[0] : $"{faces[0]} +{faces.Count - 1}", 14, new Color(1f, 0.85f, 0.25f, 1f), true);
+                loc.style.flexShrink = 0; loc.style.marginLeft = 10;
+                loc.style.whiteSpace = WhiteSpace.NoWrap;
+                row.Add(loc);
+            }
             _list.Add(row);
         }
     }

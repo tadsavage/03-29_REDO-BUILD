@@ -838,7 +838,11 @@
 }
 
 /* Tray dock zones (2026-11-08): LEFT packs against the left edge, RIGHT against the right
-   edge, CENTER stays centred because LEFT and RIGHT split the leftover width equally. */
+   edge, and LEFT and RIGHT split the leftover width, so CENTER sits centred when the two sides
+   hold the same width of cards. Every zone is at least as wide as its own cards (flex-basis auto,
+   flex-shrink 0). The old flex-basis 0 gave each side half the leftover REGARDLESS of its cards,
+   so dropping a card into CENTER squeezed LEFT and its cards slid UNDER the centre card instead
+   of moving aside. Now the centre shifts off-centre to make room instead. */
 .hud-widget-tray {
     padding-left: 8px;
     padding-right: 8px;
@@ -853,8 +857,8 @@
 
 .hud-tray-zone-left {
     flex-grow: 1;
-    flex-shrink: 1;
-    flex-basis: 0;
+    flex-shrink: 0;
+    flex-basis: auto;
     justify-content: flex-start;
 }
 
@@ -866,7 +870,7 @@
 
 .hud-tray-zone-right {
     flex-grow: 1;
-    flex-shrink: 1;
-    flex-basis: 0;
+    flex-shrink: 0;
+    flex-basis: auto;
     justify-content: flex-end;
 }

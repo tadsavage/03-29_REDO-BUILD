@@ -716,8 +716,15 @@ namespace GameCore.Actors
                     GameCore.Labor.ReplenishmentService.RequestHot(li.SkuId);
                 }
             }
-            Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderNumber} pallet {task.PlanNumber} of {task.PlanTotal}: every pick face is empty - " +
-                             "handing the task back until replenishment stocks them.");
+            // Said once per order every 10 minutes, not on every bounce: it repeated 25+ times on OG1522 (player block 1090,
+            // 2026-11-08) and the playtest bot scored it as a REPEATING bug.
+            ThrottledLog.Warn("plan-handback-" + _currentOrder.OrderId,
+                $"[OrderSelectionTaskDriver] Order {_currentOrder.OrderNumber} pallet {task.PlanNumber} of {task.PlanTotal}: every pick face is empty - " +
+                "handing the task back until replenishment stocks them.", 600f);
+            // Nobody claims it again until one of its pick faces has stock (see WaitingForStock). Before this, every free
+            // selector claimed it, walked to the empty faces and handed it back, round and round, for as long as the SKUs were
+            // out of stock - which, with nothing in reserve to refill from, is until the player buys more.
+            if (task != null) s_waitingForStock.Add(task.TaskId);
             _orderService.ReleasePick(task.TaskId);
             task.Status = WorkTaskStatus.Available;
             task.AssignedToEmployeeGuid = null;
@@ -732,6 +739,25 @@ namespace GameCore.Actors
             _taskInProgress = false;
             _nav.SetTaskBusy(false);
             _nav.Patrol();
+        }
+
+        /// <summary>Planned pallets handed back because every pick face was empty (TaskIds). Static: shared by every selector.</summary>
+        private static readonly HashSet<string> s_waitingForStock = new HashSet<string>();
+
+        /// <summary>Claim filter: true (skip it) for a handed-back planned pallet while none of its order's still-needed SKUs
+        /// has a stocked pick face. The moment one does, the task leaves the set and is claimable as normal.</summary>
+        private bool WaitingForStock(WorkTask t)
+        {
+            if (t == null || s_waitingForStock.Count == 0 || !s_waitingForStock.Contains(t.TaskId)) return false;
+            var order = _orderService != null ? _orderService.ActiveOrders.FirstOrDefault(o => o.OrderId == t.OrderId) : null;
+            if (order == null) { s_waitingForStock.Remove(t.TaskId); return false; }
+            foreach (var li in order.LineItems)
+            {
+                int want = _orderService.SelectableRemaining(order, li, t.TaskId);
+                if (want <= 0) continue;
+                if (OrderPickPath.ChooseSlot(li.SkuId, want, out _) != null) { s_waitingForStock.Remove(t.TaskId); return false; }
+            }
+            return true;
         }
 
         private void ReturnOrderToOpen()
@@ -816,13 +842,17 @@ namespace GameCore.Actors
                 if (t == _currentTask || t == _anchorTask || _joinedTrips.Any(j => j.task == t)) continue;
                 var o = _orderService.ActiveOrders.FirstOrDefault(x => x.OrderId == t.OrderId);
                 if (o == null || o.ReturnsMode || o.IsFullyPicked || o.CustomerName != customer) continue;
+                // ONE WAY (Tad, 2026-11-08): the jack never goes back up the aisle for a joined order. Join only if it has a pick
+                // still AHEAD of where this trip is; what lies behind is left for a trip that starts at 01-01.
+                var oo = o; var tt = t;
+                if (!OrderPickPath.ChooseNext(oo, li => _orderService.SelectableRemaining(oo, li, tt.TaskId), out _, out _, out _, _pickFloorKey)) continue;
                 if (!_workQueue.TryClaimSpecificTask(t, guid)) continue;
 
                 if (_anchorOrder == null) { _anchorOrder = _currentOrder; _anchorTask = _currentTask; }
                 _joinedTrips.Add((o, t));
                 _currentOrder = o;
                 _currentTask = t;
-                _pickFloorKey = long.MinValue;
+                // _pickFloorKey is KEPT: resetting it here sent a jack at 01-08 back to 01-02 (block 1090 "aisle entry" stalls).
                 StartNextPallet();
                 Debug.Log($"[OrderSelectionTaskDriver] '{name}': same-customer continuation - joined order {o.OrderNumber} pallet {t.PlanNumber} of {t.PlanTotal} for {customer} ({_pallets.Count} pallet(s) on the jack, staging with {_anchorOrder.OrderNumber}).");
                 return true;
@@ -918,7 +948,7 @@ namespace GameCore.Actors
             string guid = identity?.Record?.employeeGuid;
             if (string.IsNullOrEmpty(guid)) return false;
 
-            if (!_workQueue.TryClaimNextTask(EmployeeRole.OrderSelector, guid, out task))
+            if (!_workQueue.TryClaimNextTask(EmployeeRole.OrderSelector, guid, out task, WaitingForStock))
                 return false;
 
             // Lambdas can't close over an out/ref parameter of the enclosing method — copy to a

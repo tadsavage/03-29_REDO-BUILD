@@ -469,12 +469,13 @@ namespace GameCore.Labor
         /// <summary>Claims the highest-priority available task for a role, ties broken oldest-first
         /// (OrderByDescending is a stable sort, so equal-priority tasks fall back to FIFO -- the whole
         /// queue's original behavior before priority became player-editable). Marks it Assigned.</summary>
-        public bool TryClaimNextTask(EmployeeRole role, string employeeGuid, out WorkTask task)
+        /// <param name="skip">Optional: an Available task this returns true for is passed over (left Available for later).</param>
+        public bool TryClaimNextTask(EmployeeRole role, string employeeGuid, out WorkTask task, Func<WorkTask, bool> skip = null)
         {
             // At equal priority a Return (putting cases back on the shelf) waits behind work that
             // earns money; selectors were walking returns while customer orders went late. The player
             // can still raise a return's priority to send it first.
-            task = _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available)
+            task = _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available && (skip == null || !skip(t)))
                          .OrderByDescending(t => t.Priority)
                          .ThenBy(t => t.IsHot ? 0 : 1)   // a hot list beats even a player-raised 900
                          .ThenBy(t => t.Type == WorkTaskType.Return ? 1 : 0)

@@ -222,6 +222,7 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         // Inbound Simulator
         Wire<Button>("btn-spawn-delivery", root, b => b.clicked += SpawnInboundTruck);
         Wire<Button>("btn-create-test-pallets", root, b => b.clicked += CreateTestPallets);
+        Wire<Button>("btn-fill-racks-orders", root, b => b.clicked += FillRacksAndOrders);
         // btn-create-test-order / btn-spawn-outbound-truck are no longer in this window's UXML —
         // the Contracts panel's Customers tab calls CreateTestOrder()/SpawnOutboundTruckDebug()
         // directly through ToolsWindowController.Instance.
@@ -1678,6 +1679,82 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
     private void CreateTestPallets()
     {
         TestPalletSpawner.SpawnStackedTestPallets(10); // 10 pallets at a time per user request
+    }
+
+    // Debug (Tad, 2026-11-08): stock every SKU in the racks (pick face + reserve, see TestRackStocker), then drop a dozen
+    // case-pick orders of 9-10 SKUs each into the order pool, waiting for RELEASE ORDERS like any other order.
+    private void FillRacksAndOrders()
+    {
+        var r = TestRackStocker.FillRacks(3);
+        var ids = CreateCasePickTestOrders(12, 9, 10);
+
+        // RELEASED straight away (Tad: "not in Work Queue" - the queue only shows released orders; unreleased ones sit on the
+        // Scheduler). Same call as the Scheduler's RELEASE ORDERS button, one order at a time so one failure can't block the rest.
+        int released = 0, waiting = 0;
+        string lastFail = null;
+        if (ServiceLocator.TryGet<OrderService>(out var orderService) && orderService != null)
+            foreach (var id in ids)
+            {
+                if (orderService.ReleaseOrdersToStages(new List<string> { id }, out string why, out bool wait, out _)) { released++; if (wait) waiting++; }
+                else lastFail = why;
+            }
+        if (lastFail != null) Debug.LogWarning($"[DevConsole] {ids.Count - released} test order(s) could not be released: {lastFail}");
+
+        string extra = r.SkusNoFace > 0 ? $" ({r.SkusNoFace} SKU(s) had no free pick slot)" : "";
+        string waitNote = waiting > 0 ? $" ({waiting} waiting for a free lane)" : "";
+        string failNote = lastFail != null ? $" {ids.Count - released} not released: {lastFail}" : "";
+        UIToast.Show($"Racks filled: {r.Pallets} pallet(s) for {r.SkusStocked} SKU(s){extra}. {released} of {ids.Count} case-pick order(s) released{waitNote}.{failNote}");
+    }
+
+    /// <summary>
+    /// <paramref name="count"/> case-pick orders, each from a random customer with <paramref name="minLines"/>-<paramref name="maxLines"/>
+    /// different SKUs of a few cases each (3-8, always under 45% of a pallet so no line becomes a pallet pick). Only SKUs with a stocked
+    /// pick face are used, and the cases already owed by orders on the board are taken off, so every line can be filled.
+    /// </summary>
+    public List<string> CreateCasePickTestOrders(int count, int minLines, int maxLines)
+    {
+        var made = new List<string>();
+        if (_customerRegistry == null) { Debug.LogError("[DevConsole] No CustomerRegistry assigned on ToolsWindowController."); return made; }
+        if (!ServiceLocator.TryGet<InventoryService>(out var inv) || inv == null
+            || !ServiceLocator.TryGet<OrderService>(out var orderService) || orderService == null
+            || !ServiceLocator.TryGet<SimulationTimeService>(out var time) || time == null)
+        { Debug.LogError("[DevConsole] Order/Inventory/Time service not available."); return made; }
+
+        // Cases sitting in each SKU's pick faces, minus what orders already on the board still owe.
+        var avail = new Dictionary<string, int>();
+        foreach (var sku in inv.AllSkus)
+        {
+            if (sku == null || sku.Ti <= 0 || sku.Hi <= 0 || sku.SellValue <= 0f) continue;
+            int faceStock = 0;
+            foreach (var a in SlotAssignmentService.GetSlotsForSku(sku.SkuId))
+                if (LocationRegistry.TryGet(a, out var loc) && loc != null) faceStock += Mathf.Max(0, loc.Quantity);
+            if (faceStock > 0) avail[sku.SkuId] = faceStock;
+        }
+        foreach (var o in orderService.ActiveOrders)
+            foreach (var li in o.LineItems)
+                if (avail.ContainsKey(li.SkuId)) avail[li.SkuId] -= li.QuantityRemaining;
+
+        for (int n = 0; n < count; n++)
+        {
+            var customer = _customerRegistry.GetRandom();
+            if (customer == null) break;
+            var order = new OrderData(customer.CustomerId, customer.CompanyName, $"{customer.CompanyName} Distribution Center",
+                                      time.Day, time.Day + OrderGenerator.DefaultDueDaysOut, time.Minute);
+            int lines = UnityEngine.Random.Range(minLines, maxLines + 1);
+            foreach (var skuId in avail.Where(kv => kv.Value >= 3).Select(kv => kv.Key).OrderBy(_ => UnityEngine.Random.value).Take(lines).ToList())
+            {
+                var sku = inv.GetSkuData(skuId);
+                int cap = Mathf.Max(3, Mathf.FloorToInt(sku.Ti * sku.Hi * 0.45f));
+                int qty = Mathf.Min(UnityEngine.Random.Range(3, 9), cap, avail[skuId]);
+                avail[skuId] -= qty;
+                order.LineItems.Add(new OrderLineItem(skuId, qty, Mathf.RoundToInt(sku.BuyValue), Mathf.RoundToInt(sku.SellValue)));
+            }
+            if (order.LineItems.Count == 0) break;   // nothing left in stock
+            orderService.ReceiveOrder(order);
+            made.Add(order.OrderId);
+        }
+        Debug.LogWarning($"[DevConsole] Created {made.Count} case-pick test order(s) of {minLines}-{maxLines} SKUs.");
+        return made;
     }
 
     // Debug shortcut: wipe every dock pallet + all inventory + pallet work tasks, leaving employees,

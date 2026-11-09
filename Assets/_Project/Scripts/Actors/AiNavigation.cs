@@ -420,10 +420,46 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     /// owned by THIS agent (not a second NavMeshAgent driver) to avoid fighting over the shared
     /// updatePosition=false transform sync — see the comment on that field in Awake().
     /// </summary>
+    /// <summary>Dock stockers have no work in the rack aisles (Tad, 2026-11-08), yet they were seen driving them. Aisle 02 of "three doors"
+    /// is wide enough to be baked for machines, so a route to the far side of the racks runs down it. Say so, with the destination,
+    /// so whatever sent the dock stocker over there can be found. (A reach truck works the aisles: not checked.)</summary>
+    private bool DockStockerRouteUsesAisle(Vector3 dest, out string aisle)
+    {
+        aisle = null;
+        var m = GetComponent<MHEOperatorSlot>();
+        if (m == null || m.IsPalletJack || GetComponent<GameCore.Actors.ReachTruckOperator>() != null) return false;
+        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) return false;
+        // Already in one (a walk-out, or a save from before this rule): let it drive out rather than freeze it in the aisle.
+        if (GameCore.Actors.OrderSelectionTaskDriver.InAnyAisle(transform.position, out _)) return false;
+        Vector3 to = NavSample.OnAgentMesh(agent, new Vector3(dest.x, transform.position.y, dest.z), 4f, out NavMeshHit dh) ? dh.position : dest;
+        var path = new NavMeshPath();
+        if (!agent.CalculatePath(to, path)) return false;
+        var c = path.corners;
+        for (int i = 1; i < c.Length; i++)
+        {
+            int n = Mathf.Max(1, Mathf.CeilToInt(Vector3.Distance(c[i - 1], c[i])));
+            for (int k = 0; k <= n; k++)
+                if (GameCore.Actors.OrderSelectionTaskDriver.InAnyAisle(Vector3.Lerp(c[i - 1], c[i], k / (float)n), out aisle)) return true;
+        }
+        return false;
+    }
+
     public void SeekPosition(Vector3 position, System.Action onArrived)
     {
         if (agent == null || !agent.isActiveAndEnabled) { onArrived?.Invoke(); return; }
         if (_seekingTask) return; // already seeking a task position
+
+        // DOCK STOCKERS STAY OUT OF THE AISLES (Tad, 2026-11-08: "stick to the MHE waypoints or just not move at all and stay out of the
+        // way"). A route that runs down an aisle is refused: no destination is set and the seek never starts, so the caller's leg fails
+        // at once and the job goes back to the queue - the dock stocker stays where it is.
+        if (DockStockerRouteUsesAisle(position, out string viaAisle))
+        {
+            ThrottledLog.Warn("ds-aisle-refuse-" + name + viaAisle,
+                $"[AiNavigation] dock stocker {name}: refused to drive from {transform.position} to {position} - the only route runs down aisle {viaAisle}. " +
+                "Dock stockers stay out of the aisles; whatever is over there needs a lane the dock stockers can reach.", 120f);
+            if (agent.isOnNavMesh) agent.ResetPath();
+            return;
+        }
 
         _taskTargetPosition = position;
         _onTaskArrived = onArrived;
@@ -560,7 +596,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // many rebake cycles in a row — to visibly sink to y=0 mid-animation. An agent that isn't
         // on a mesh yet (freshly spawned/save-loaded, or genuinely knocked off) still gets the full
         // range so it can find ANY nearby surface as a recovery fallback.
-        bool alreadyOnMesh = agent.isOnNavMesh;
+        // An agent standing at floor height never searches below itself either: mid-rebake the floor is briefly missing and
+        // the -1.0 offset lands exactly on the yard-level layer under it (see TryFindNavMeshNear, block 1090).
+        bool alreadyOnMesh = agent.isOnNavMesh || transform.position.y >= MachineMinFloorY;
         float[] yOffsets = alreadyOnMesh
             ? new[] { 1.0f, 0.5f, 0f }
             : new[] { 1.0f, 0.5f, 0f, -0.5f, -1.0f };
@@ -593,13 +631,20 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
         foreach (float r in k_RescueRadii)
         {
-            if (NavMesh.SamplePosition(origin, out NavMeshHit hit, r, filter) &&
-                !(MHEBoundary.Restricts(gameObject) && hit.position.y < MachineMinFloorY && origin.y >= MachineMinFloorY))
+            if (!NavMesh.SamplePosition(origin, out NavMeshHit hit, r, filter)) continue;
+            // NOBODY on the floor is rescued down onto the yard-level layer baked ~1.1 m under it (was machines only).
+            // Mid-rebake the floor's tiles are briefly missing, so the nearest mesh IS that hidden layer: workers dropped
+            // under the floor ("disappeared"), sat stranded 7.5 s, then CheckStrandedOnNavMesh teleported them to a waypoint
+            // (player block 1090, 2026-11-08: five workers at y 0.04 in the same second). Refusing here leaves the agent
+            // off-mesh, and the caller retries every 30 frames until the rebuilt floor is back.
+            if (hit.position.y < MachineMinFloorY && origin.y >= MachineMinFloorY)
             {
-                point = hit.position;
-                distance = Vector3.Distance(origin, hit.position);
-                return true;
+                ThrottledLog.Warn("floor-drop-" + name, $"[AiNavigation] {name}: refused a rescue from the floor at {origin} down to the yard-level NavMesh at {hit.position}; waiting for the floor mesh instead.");
+                return false;
             }
+            point = hit.position;
+            distance = Vector3.Distance(origin, hit.position);
+            return true;
         }
         return false;
     }
@@ -682,10 +727,20 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
         Vector3 from = transform.position;
 
+        // A dock stocker or reach truck stuck INSIDE an aisle walks out along it: forward in the aisle's traffic direction, in the right
+        // lane, toward the far end (Tad, 2026-11-08). The ring search below picked "the nearest clear point", which in an aisle is usually
+        // a little further in - dock stockers wandered up and down the aisles one walk-out at a time.
+        var walkMachine = GetComponent<MHEOperatorSlot>();
+        Vector3 aisleOut = from;
+        string aisleName = null;
+        bool aisleWalk = walkMachine != null && !walkMachine.IsPalletJack &&
+                         GameCore.Actors.OrderSelectionTaskDriver.TryAisleWalkOut(from, UnstickWalkSpeed * UnstickTimeout * 0.9f, out aisleOut, out aisleName);
+
         // Prefer a point genuinely OUTSIDE the pocket (handles the walled-in case, where the agent is
         // standing on navmesh that happens to be an isolated island). Fall back to the plain
         // nearest-navmesh snap, which is the right answer when we're simply off-mesh.
-        bool haveTarget = TryFindEscapePoint(from, out Vector3 target);
+        Vector3 target = aisleOut;
+        bool haveTarget = aisleWalk || TryFindEscapePoint(from, out target);
         if (!haveTarget)
             haveTarget = TryFindNavMeshNear(from, out target, out _);
         // A boundary-restricted vehicle with no inside escape stays where it is. Walking it out would only fight MHEBoundary.
@@ -703,17 +758,19 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
         // Step a little past the recovered point so we clear the pocket rather than stopping on its lip.
         Vector3 dir = target - from; dir.y = 0f;
-        Vector3 finalTarget = dir.sqrMagnitude > 0.01f
+        Vector3 finalTarget = dir.sqrMagnitude > 0.01f && !aisleWalk
             ? target + dir.normalized * UnstickOvershoot
             : target;
-        if (NavMesh.SamplePosition(finalTarget, out NavMeshHit overshootHit, 2f,
+        if (!aisleWalk && NavMesh.SamplePosition(finalTarget, out NavMeshHit overshootHit, 2f,
                 new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask }))
             finalTarget = overshootHit.position;
+        if (aisleWalk) Debug.LogWarning($"[AiNavigation] {name}: stuck in aisle {aisleName} - walking out forward along the right lane to {finalTarget}.");
 
         // A machine can't slide through a rack, wall, machine or pallet (MachineClearance, below). If the straight line to the nearest
         // mesh runs through one, take the nearest way out that is actually clear instead of stopping against it for ever.
+        // (Not in an aisle: there the lane IS the way out, and a sideways "clear" point only leads further in. A blocked lane waits below.)
         var escapingMachine = GetComponent<MHEOperatorSlot>();
-        if (escapingMachine != null && !GameCore.Actors.MachineClearance.StraightSlideClear(escapingMachine, finalTarget))
+        if (!aisleWalk && escapingMachine != null && !GameCore.Actors.MachineClearance.StraightSlideClear(escapingMachine, finalTarget))
         {
             var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
             bool restricted = MHEBoundary.Restricts(gameObject);
@@ -1382,6 +1439,14 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         if (_isMachine == null) _isMachine = GetComponent<MHEOperatorSlot>() != null;
         if (_isMachine.Value) return;
 
+        // Walking along a path is not stranded (Tad, 2026-11-08: workers walked toward a waypoint, "vanished" at the end of a rack
+        // row and reappeared at the waypoint - this check warped them mid-walk, Anna Martin / Stephanie Lopez / Virginia Waller every 8 s).
+        if (agent.hasPath && !agent.isStopped && agent.velocity.sqrMagnitude > 0.04f)
+        {
+            _strandedSeconds = 0f;
+            return;
+        }
+
         _strandedCheckTimer += Time.deltaTime;
         if (_strandedCheckTimer < StrandedCheckPeriod) return;
         _strandedCheckTimer = 0f;
@@ -1392,7 +1457,10 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         {
             var wp = waypoints[i];
             if (wp == null) continue;
-            if (agent.CalculatePath(wp.position, _strandedPath) &&
+            // Path to the waypoint's point ON this agent's mesh: a marker sitting off the walkable surface (under the floor, on a
+            // ledge) made CalculatePath fail for every waypoint, so a healthy worker read as stranded.
+            Vector3 target = NavSample.OnAgentMesh(agent, wp.position, 4f, out NavMeshHit wpHit) ? wpHit.position : wp.position;
+            if (agent.CalculatePath(target, _strandedPath) &&
                 _strandedPath.status == NavMeshPathStatus.PathComplete)
             {
                 _strandedSeconds = 0f; // at least one waypoint is reachable — healthy

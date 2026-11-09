@@ -2556,7 +2556,9 @@ namespace GameCore.Actors
             yield return RotateTo(t, to);
             while (PlanarDist(t.position, target) > threshold)
             {
-                t.position = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
+                Vector3 next = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
+                if (WaitForJack(t, next, t.rotation)) { yield return null; continue; }
+                t.position = next;
                 yield return null;
             }
             t.position = flat;
@@ -2737,10 +2739,26 @@ namespace GameCore.Actors
             const float RecheckInterval = 0.5f;
             const int MaxReissues = 10;
 
+            Vector3 lastHeading = transform.forward;
             while (!arrived && _vehicleNav.IsSeekingTask && elapsed < MaxSeekTime)
             {
-                elapsed += Time.deltaTime;
                 sinceRecheck += Time.deltaTime;
+
+                // Don't clip a pallet jack (Tad, 2026-11-08): look a few frames along where the agent wants to go; hold still while that
+                // would run into a jack. The 30 s budget only runs while actually driving, and the no-progress backstop is told it's held.
+                bool jackHold = false;
+                if (_vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh)
+                {
+                    Vector3 dv = _vehicleAgent.desiredVelocity; dv.y = 0f;
+                    if (dv.sqrMagnitude > 0.01f) lastHeading = dv.normalized;
+                    float look = Mathf.Max(_vehicleAgent.speed * Time.deltaTime * 3f, 0.3f);
+                    Quaternion rot = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(lastHeading), _vehicleAgent.angularSpeed * Time.deltaTime * 3f);
+                    jackHold = WaitForJack(transform, transform.position + lastHeading * look, rot);
+                    if (_vehicleAgent.isStopped != jackHold) _vehicleAgent.isStopped = jackHold;
+                    if (jackHold) _vehicleAgent.velocity = Vector3.zero;
+                    _vehicleNav.HeldInQueue = jackHold;
+                }
+                if (!jackHold) elapsed += Time.deltaTime;
 
                 if (sinceRecheck >= RecheckInterval)
                 {
@@ -2780,6 +2798,8 @@ namespace GameCore.Actors
                            $"batteryNeedsCharge={(GetComponent<EquipmentBattery>() != null && GetComponent<EquipmentBattery>().NeedsCharge)}, " +
                            $"lastSeekCancelledBy=[{_vehicleNav.LastCancelCaller}] {(Time.time - _vehicleNav.LastCancelTime):F1}s ago";
             }
+            _vehicleNav.HeldInQueue = false;
+            if (_vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh) _vehicleAgent.isStopped = false;
             _vehicleNav.SetTaskBusy(false);
             SetDriveMode(DriveMode.Manual, arrived ? $"arrived → {phase}" : $"leg FAILED → {phase}");
 
@@ -2863,7 +2883,9 @@ namespace GameCore.Actors
             Quaternion want = Quaternion.LookRotation(worldDir.normalized);
             while (Quaternion.Angle(t.rotation, want) > FaceThreshold)
             {
-                t.rotation = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * Time.deltaTime);
+                Quaternion next = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * Time.deltaTime);
+                if (WaitForJack(t, t.position, next)) { yield return null; continue; }
+                t.rotation = next;
                 yield return null;
             }
             t.rotation = want;
@@ -2874,10 +2896,41 @@ namespace GameCore.Actors
             Vector3 flat = new Vector3(target.x, t.position.y, target.z);
             while (PlanarDist(t.position, target) > ArriveThreshold)
             {
-                t.position = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
+                Vector3 next = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
+                if (WaitForJack(t, next, t.rotation)) { yield return null; continue; }
+                t.position = next;
                 yield return null;
             }
             t.position = flat;
+        }
+
+        // ── Pallet jacks (Tad, 2026-11-08): reach trucks drive freely, either way and either side of an aisle, "as long as they don't clip
+        // the pallet jacks". Every scripted step and the NavMesh leg check the jacks only (MachineClearance.JackStepBlocked); racks, lanes
+        // and pallets are the truck's own business. A wait that never clears (a jack parked for good) gives up after JackWaitGiveUpReal
+        // REAL seconds with a warning rather than hanging the truck's task for ever.
+        private const float JackWaitGiveUpReal = 30f;
+        private float _jackWaitReal;
+        private bool _jackWaitLogged;
+
+        /// <summary>True when this step of the vehicle (<paramref name="t"/> must be the truck itself) would clip a pallet jack: wait a frame.</summary>
+        private bool WaitForJack(Transform t, Vector3 nextPos, Quaternion nextRot)
+        {
+            if (t != transform || _operatorSlot == null) return false;
+            if (!GameCore.Actors.MachineClearance.JackStepBlocked(_operatorSlot, nextPos, nextRot, out string jack))
+            {
+                _jackWaitReal = 0f;
+                _jackWaitLogged = false;
+                return false;
+            }
+            if (Time.timeScale > 0f) _jackWaitReal += Time.unscaledDeltaTime;
+            if (!_jackWaitLogged)
+            {
+                _jackWaitLogged = true;
+                ThrottledLog.Warn("rt-jack-wait-" + name, $"[ReachTruckOperator] '{name}' waiting at {transform.position} - the next move would clip pallet jack {jack}.", 30f);
+            }
+            if (_jackWaitReal < JackWaitGiveUpReal) return true;
+            ThrottledLog.Warn("rt-jack-giveup-" + name, $"[ReachTruckOperator] '{name}' waited {JackWaitGiveUpReal:0}s for pallet jack {jack} to move - carrying on.", 60f);
+            return false;
         }
 
         private IEnumerator DriveToGrab(Transform pallet)

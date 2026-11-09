@@ -35,7 +35,8 @@ public class SystemsLogWindow : MonoBehaviour
     private const int MaxEntries = 200;
     // Docked card fills the whole CENTER zone of the bottom tray (was 480x100; Tad, 2026-11-08: "take it from the
     // size of the red box up to the size of the green box"). Tray is 122 tall and the card keeps 4px margins top/bottom.
-    private const float DockedCardWidth = 640f;
+    // 544 = 640 less 15% (Tad, 2026-11-08: "make the message log 15% narrower while docked").
+    private const float DockedCardWidth = 544f;
     private const float DockedCardHeight = 112f;
     // Docked body leaves room on the right for the A-/A+ buttons pinned to the card's top-right corner.
     private const float DockedBodyPaddingRight = 62f;

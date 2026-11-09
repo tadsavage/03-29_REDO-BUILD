@@ -67,7 +67,7 @@ public class OrderFreightHighlighter : MonoBehaviour
         Clear();
         if (truck == null) return;
         _truck = truck;
-        _color = TruckOrderColors.GetColor(truck);
+        _color = truck.IsOutbound ? OutboundBoxColor : TruckOrderColors.GetColor(truck);
         Refresh();
     }
 
@@ -79,11 +79,38 @@ public class OrderFreightHighlighter : MonoBehaviour
         ClearBoxes();
         _cardsOpened.Clear();
         OrderPalletCard.CloseAutoOpened();
+        if (_cardOrders.Count > 0) Refresh();   // pallet cards still pinned keep their pick faces lit
+    }
+
+    // ── Pick faces of an order whose pallet card the player pinned (Tad, 2026-11-08: click the pallet on a jack and its pick faces
+    // light up, like clicking the truck). Ref-counted per order: two pinned cards of one order, one closes, the faces stay lit.
+    private readonly Dictionary<string, int> _cardOrders = new();
+    private readonly HashSet<Transform> _cardPallets = new();   // the clicked pallets themselves get the same box (Tad, 2026-11-08)
+
+    /// <summary>Freight boxes must be easy to see on the floor and in the racks (Tad, 2026-11-08: "white, yellow, red, orange - not blue,
+    /// gray or purple"). Outbound freight is bright yellow; inbound keeps the truck's orange.</summary>
+    public static readonly Color OutboundBoxColor = new Color(1f, 0.9f, 0.1f, 1f);
+
+    public void AddOrderFaces(string orderId, Transform pallet = null)
+    {
+        if (string.IsNullOrEmpty(orderId)) return;
+        _cardOrders.TryGetValue(orderId, out int n);
+        _cardOrders[orderId] = n + 1;
+        if (pallet != null) _cardPallets.Add(pallet);
+        Refresh();
+    }
+
+    public void RemoveOrderFaces(string orderId, Transform pallet = null)
+    {
+        if (pallet != null) _cardPallets.Remove(pallet);
+        if (string.IsNullOrEmpty(orderId) || !_cardOrders.TryGetValue(orderId, out int n)) { Refresh(); return; }
+        if (n <= 1) _cardOrders.Remove(orderId); else _cardOrders[orderId] = n - 1;
+        Refresh();
     }
 
     private void Update()
     {
-        if (_truck == null)
+        if (_truck == null && _cardOrders.Count == 0)
         {
             if (_boxes.Count > 0) ClearBoxes();   // the truck drove off and was destroyed
             return;
@@ -98,6 +125,22 @@ public class OrderFreightHighlighter : MonoBehaviour
     private void Refresh()
     {
         var wanted = new Dictionary<Transform, bool>();   // target -> isPickSlot
+
+        // Pinned pallet cards: their orders' pick faces. Without a truck pinned, the box colour is the order's type (green bulk, blue recurring).
+        if (_cardOrders.Count > 0 && ServiceLocator.TryGet<OrderService>(out var cardOrders) && cardOrders != null)
+        {
+            foreach (var order in cardOrders.ActiveOrders)
+            {
+                if (order == null || !_cardOrders.ContainsKey(order.OrderId) || order.IsFullyPicked) continue;
+                foreach (var address in OrderPickPath.Project(order))
+                    if (LocationRegistry.TryGet(address, out var slot) && slot != null)
+                        wanted[slot.transform] = true;
+            }
+            _cardPallets.RemoveWhere(p => p == null);
+            foreach (var p in _cardPallets) wanted[p] = false;   // the pallet on the jack, boxed like its pick faces
+            if (_truck == null) _color = OutboundBoxColor;
+        }
+        if (_truck == null) { ApplyWanted(wanted); return; }
 
         if (!_truck.IsOutbound)
         {
@@ -156,6 +199,11 @@ public class OrderFreightHighlighter : MonoBehaviour
             }
         }
 
+        ApplyWanted(wanted);
+    }
+
+    private void ApplyWanted(Dictionary<Transform, bool> wanted)
+    {
         // Drop boxes that are no longer wanted; add the new ones.
         foreach (var gone in _boxes.Keys.Where(k => k == null || !wanted.ContainsKey(k)).ToList())
         {
