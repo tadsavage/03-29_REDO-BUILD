@@ -1012,6 +1012,63 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // the current path here, which would cause visible path flicker every recovery tick.
     }
 
+    // ── Equipment traffic for dock stockers (EquipmentTraffic.cs) ─────────────────────────────────
+    // Jacks and reach trucks report their own holds; a dock stocker is driven purely by this agent, so it is watched here: path in hand,
+    // not moving, still some way off, with a manned machine in its lane = held. Held long enough = genuinely blocked (honk + red lines).
+    // Dock stockers still never route through aisles (DockStockerRouteUsesAisle) - this only observes and, when yielding to a reach truck,
+    // backs up a little; it never changes the route.
+    private const float StockerHeldSpeed = 0.1f;
+    private const float StockerReverseAfterReal = 1.5f;
+    private float _stockerHeldReal;
+    private bool _stockerYieldTried, _stockerManeuvering;
+    private GameCore.Actors.EquipmentTrafficAgent _stockerTraffic;
+
+    private void TrackStockerTraffic(NavMeshAgent a)
+    {
+        if (HeldInQueue || _stockerManeuvering) return;   // jacks / reach trucks report themselves
+        var slot = GetComponent<MHEOperatorSlot>();
+        if (slot == null || !slot.IsOccupied || GameCore.Actors.EquipmentTraffic.RoleOf(slot) != GameCore.Actors.EquipmentRole.DockStocker) return;
+        if (_stockerTraffic == null) _stockerTraffic = GameCore.Actors.EquipmentTrafficAgent.Ensure(gameObject);
+
+        float dt = Time.timeScale > 0f ? Time.unscaledDeltaTime : 0f;
+        bool stalled = a.hasPath && !a.pathPending && a.velocity.sqrMagnitude < StockerHeldSpeed * StockerHeldSpeed
+                       && a.remainingDistance > 1.5f && a.desiredVelocity.sqrMagnitude > 0.01f;
+        MHEOperatorSlot blocker = null;
+        if (stalled) GameCore.Actors.EquipmentTraffic.FindInLane(slot, a.desiredVelocity, GameCore.Actors.EquipmentTraffic.LaneAhead, GameCore.Actors.EquipmentTraffic.LaneSide, false, out blocker);
+        if (blocker == null)
+        {
+            _stockerHeldReal = 0f; _stockerYieldTried = false;
+            _stockerTraffic.NoteClear(false);
+            return;
+        }
+        _stockerHeldReal += dt;
+        _stockerTraffic.NoteHeld(blocker, null);
+        if (!_stockerYieldTried && _stockerHeldReal >= StockerReverseAfterReal && GameCore.Actors.EquipmentTraffic.Yields(slot, blocker))
+        {
+            var ba = blocker.GetComponent<GameCore.Actors.EquipmentTrafficAgent>();
+            if (ba != null && ba.IsMoving) return;
+            if (!GameCore.Actors.EquipmentTraffic.TryBeginManeuver(slot)) return;
+            _stockerYieldTried = true;
+            StartCoroutine(StockerYieldReverse(slot, -a.desiredVelocity.normalized, blocker));
+        }
+    }
+
+    private IEnumerator StockerYieldReverse(MHEOperatorSlot slot, Vector3 back, MHEOperatorSlot to)
+    {
+        _stockerManeuvering = true;
+        var a = agent;
+        float d = GameCore.Actors.EquipmentTraffic.PickSafeReverse(slot, back, GameCore.Actors.EquipmentTraffic.SelectorReverse);
+        if (d > 0f)
+        {
+            if (a != null && a.isActiveAndEnabled && a.isOnNavMesh) { a.isStopped = true; a.velocity = Vector3.zero; }
+            yield return GameCore.Actors.EquipmentTraffic.ReverseStraight(slot, back, d, 0.9f, a);
+            if (a != null && a.isActiveAndEnabled && a.isOnNavMesh) a.isStopped = false;
+        }
+        else GameCore.Actors.EquipmentTraffic.ReportBlockage(slot, $"no safe reverse while yielding to {to.name}");
+        GameCore.Actors.EquipmentTraffic.EndManeuver(slot);
+        _stockerManeuvering = false;
+    }
+
     private void Update()
     {
         // ── Parked forklift: no driver, no movement ──────────────────────────────
@@ -1169,6 +1226,8 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             {
                 _partialSeekSeconds = 0f;
             }
+
+            TrackStockerTraffic(agent);
 
             // BACKSTOP — none of the branches above resolved the seek and the agent has stopped
             // getting any closer. This is the case that stranded an Order Selector in a staging lane

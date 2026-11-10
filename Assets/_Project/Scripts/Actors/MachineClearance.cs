@@ -276,8 +276,8 @@ namespace GameCore.Actors
             return hits;
         }
 
-        /// <summary>How many of the machine's outline points are inside a PALLET JACK (body or fork load) at this pose. Racks, walls,
-        /// pallets and other machine types are ignored.</summary>
+        /// <summary>How many of the machine's outline points are inside another VEHICLE at this pose: any pallet jack (body or fork load) or any
+        /// manned machine (reach truck, dock stocker). Racks, walls, pallets and parked, unmanned non-jack machines are ignored.</summary>
         public static int JackPenetrationAt(MHEOperatorSlot m, Vector3 pos, Quaternion rot, float inflate, out string what)
         {
             what = null;
@@ -291,7 +291,7 @@ namespace GameCore.Actors
             {
                 Vector3 wp = pos + rot * Vector3.Scale(lp, scale);
                 foreach (var o in NearMachines)
-                    if (o.IsPalletJack && InsideFootprint(o.transform, FootprintOf(o), wp, inflate)) { hits++; what ??= o.name; LastMachineHit ??= o; break; }
+                    if ((o.IsPalletJack || o.IsOccupied) && InsideFootprint(o.transform, FootprintOf(o), wp, inflate)) { hits++; what ??= o.name; LastMachineHit ??= o; break; }
             }
             return hits;
         }

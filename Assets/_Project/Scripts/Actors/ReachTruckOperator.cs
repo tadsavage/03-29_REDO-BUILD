@@ -2557,7 +2557,8 @@ namespace GameCore.Actors
             while (PlanarDist(t.position, target) > threshold)
             {
                 Vector3 next = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
-                if (WaitForJack(t, next, t.rotation)) { yield return null; continue; }
+                if (WaitForJack(t, next, t.rotation)) { yield return ReachJamRecovery(next - t.position); yield return null; continue; }
+                yield return ReachAisleExitGate(next - t.position);
                 t.position = next;
                 yield return null;
             }
@@ -2908,7 +2909,8 @@ namespace GameCore.Actors
             while (PlanarDist(t.position, target) > ArriveThreshold)
             {
                 Vector3 next = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
-                if (WaitForJack(t, next, t.rotation)) { yield return null; continue; }
+                if (WaitForJack(t, next, t.rotation)) { yield return ReachJamRecovery(next - t.position); yield return null; continue; }
+                yield return ReachAisleExitGate(next - t.position);
                 t.position = next;
                 yield return null;
             }
@@ -2953,7 +2955,7 @@ namespace GameCore.Actors
                 ThrottledLog.Warn("rt-jack-wait-" + name, $"[ReachTruckOperator] '{name}' waiting at {transform.position} - the next move would clip pallet jack {jack}.", 30f);
             }
             if (_jackWaitReal >= JackWaitGiveUpReal)
-                EquipmentTraffic.ReportBlockage(_operatorSlot, $"blocked by pallet jack {jack} for {JackWaitGiveUpReal:0}s with no safe way round");
+                EquipmentTraffic.ReportBlockage(_operatorSlot, $"blocked by {jack} for {JackWaitGiveUpReal:0}s with no safe way round");
             return true;
         }
 
