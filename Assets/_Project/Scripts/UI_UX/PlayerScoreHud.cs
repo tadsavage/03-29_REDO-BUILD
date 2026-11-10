@@ -243,12 +243,12 @@ public static class PlayerScoreHud
         _hud.style.marginRight = docked ? 8 : 0;
         if (_score != null)
         {
-            _score.style.fontSize = docked ? 50 : 62;
-            _score.style.height = docked ? 56 : 70;
+            _score.style.fontSize =             docked ? 44 : 62;
+                        _score.style.height = docked ? 50 : 70;
             _score.style.width = (docked ? DockedWidth : HudWidth) - 16;
         }
-        if (_title != null) _title.style.height = docked ? 18 : 20;
-        if (_sub != null) _sub.style.height = docked ? 16 : 18;
+        if (_title != null) { _title.style.height = docked ? 16 : 20; _title.style.fontSize = docked ? 10 : 13; }
+        if (_sub != null) { _sub.style.height = docked ? 14 : 18; _sub.style.fontSize = docked ? 10 : 12; }
     }
 
     // ── the results ───────────────────────────────────────────────────────────

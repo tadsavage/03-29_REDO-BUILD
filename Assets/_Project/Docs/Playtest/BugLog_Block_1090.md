@@ -218,3 +218,4 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 4 04:46 | **GHOST-SLOT** | RECORD 3832201f 105672 x80 cell=(49, 84) lane=2D - no object
 - day 4 04:46 | **GHOST-SLOT** | RECORD b3cbf35f 105672 x80 cell=(-1, -1) lane= - no object
 - day 4 04:46 | **WARN** | [AiNavigation] Employee_Scott Rivers cannot reach task position at (-0.29, 1.20, 41.69) (path invalid) — abandoning the walk and handing the task back.
+- day 4 20:12 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
