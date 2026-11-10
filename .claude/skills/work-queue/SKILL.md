@@ -97,3 +97,15 @@ mid-turn and diagonal across an aisle mouth, and the selector walked off leaving
 (Tad: "parking at an angle in the aisles"). `DriveJackTo` now calls `SquareUpInAisle` on every queued exit: it turns in place to
 `_aisleHeading` (set in `ComputeBayPark`, before the end-of-aisle 45-degree tweak), whichever end is nearer. `JackFace` sweep-checks
 each step and keeps the heading if blocked. The end-of-aisle 45-degree park in `ComputeBayPark` (Tad, 2026-10-18) is untouched.
+
+## Aisle traffic rules v2 (Tad, 2026-11-09)
+Files: `Actors/AisleTraffic.cs` (shared: exit check, motion sampling, reach-truck pass planner), `OrderSelectionTaskDriver.PalletJack.cs`
+(`DecideHeldInAisle`, `LaneDriveTo`/`LaneDriveCore`, `AisleExitStop`, `TryPlanPass`/`DrivePass`, `RightInAisle`), `ReachTruckOperator.cs`
+(`TryPassJack`/`PassLeg`, `AisleExitStop`, both inside `SeekViaNavMesh`), `MachineClearance.ReachTruckBufferBlocked`, `AiNavigation.GoToRandomWaypoint`.
+1. **Reach trucks have right of way.** Jacks hold any step that brings them within 1 m (`AisleTraffic.ReachTruckBuffer`) of a MANNED reach truck (moving away is always allowed). Log: "giving way to reach truck".
+2. **Dock stockers stay out of aisles** except a player waypoint placed IN an aisle: patrol skips waypoints whose route runs through an aisle; task seeks still refuse aisle routes.
+3. **Stop and look before leaving an aisle.** Jacks stop with the pivot 0.5 m past the last bay, reach trucks when 2.5 m ahead leaves the aisle; pause 1 game s; wait while another manned machine is MOVING within 5 m of the zone in front (machines in your own aisle and ones that started waiting after you don't count); cap 20 real s. Log: "stopped at the end of aisle".
+4. **Jacks follow at 1 m** (`JackClearAhead` 3.6 -> 4.1 centre-to-centre). In an aisle a jack never faces more than 30 deg off the traffic direction (`InAisleMaxYaw`; wider requests are clamped, >100 deg faces traffic) and `RightInAisle` turns it back before every bay leg / exit. Held 0.4 real s behind a STOPPED jack: next pick > 4 m beyond its front -> pass; otherwise (or no clean pass) walk at once (no 5 s wait). The early 14 m look-ahead pass is gone. Pass = 25 deg out, left lane, up to 4 bays or until the pull-in ends at the stop (never before the tail clears), 25 deg back in. From 1 m a 25 deg pull-out clips the pallet ahead (needs ~2.3 m), so the jack reverses straight up to 2.5 m first.
+5. **Reach trucks pass jacks** after 1 real s held, on the roomier side, unless another manned jack is within 2 bays (2 x 2.65 m) of that jack -> wait. Scripted pass checks solids AND jacks each step; stopped >2 s = abort, NavMesh leg re-issued.
+Geometry (three doors, measured live): bay pitch 2.65 m, aisles 18.55 m = 7 bays, half-width 3.31 m, right-lane offset 0.9 m. "4-5 bays" of passing = most of an aisle, so the pass is capped at the stop.
+Still open: the reach truck's 30 s "carrying on" after waiting on a jack still drives into it (pre-existing).

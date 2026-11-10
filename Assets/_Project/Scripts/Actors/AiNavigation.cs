@@ -1931,6 +1931,23 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             currentIndex = Random.Range(0, waypoints.Length);
         }
 
+        // DOCK STOCKERS STAY OUT OF THE AISLES unless the player put a waypoint there (Tad, 2026-11-09). A patrol waypoint whose only
+        // route runs down an aisle is skipped (another is tried); a waypoint placed IN an aisle is the player's say-so and is driven to.
+        if (waypoints[currentIndex] != null && DockStockerRouteUsesAisle(waypoints[currentIndex].position, out _) &&
+            !GameCore.Actors.OrderSelectionTaskDriver.InAnyAisle(waypoints[currentIndex].position, out _))
+        {
+            int pick = -1;
+            for (int k = 0; k < waypoints.Length; k++)
+            {
+                int i = (currentIndex + 1 + k) % waypoints.Length;
+                var w = waypoints[i];
+                if (w == null) continue;
+                if (!DockStockerRouteUsesAisle(w.position, out _) || GameCore.Actors.OrderSelectionTaskDriver.InAnyAisle(w.position, out _)) { pick = i; break; }
+            }
+            if (pick < 0) return;   // every waypoint is through an aisle: stay put, out of the way
+            currentIndex = pick;
+        }
+
         if (agent != null && agent.enabled && agent.isOnNavMesh && waypoints[currentIndex] != null)
             SetDestinationSnapped(waypoints[currentIndex].position);
     }

@@ -293,13 +293,60 @@ namespace GameCore.Actors
         /// <summary>REACH TRUCKS (Tad, 2026-11-08): "can drive freely - either way and either side - as long as they don't clip the pallet
         /// jacks". True when this step would push the machine further into a pallet jack (with a small margin) than it already is.</summary>
         public static bool JackStepBlocked(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot, out string what)
+            => JackStepBlocked(m, nextPos, nextRot, out what, out _);
+
+        /// <summary>As above, also naming the jack in the way.</summary>
+        public static bool JackStepBlocked(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot, out string what, out MHEOperatorSlot jack)
         {
-            what = null;
+            what = null; jack = null;
             if (m == null) return false;
             const float Margin = 0.15f;
-            int next = JackPenetrationAt(m, nextPos, nextRot, Margin, out what);
+            int next = PenetrationOfKind(m, nextPos, nextRot, Margin, o => o.IsPalletJack, out what, out jack);
             if (next == 0) return false;
-            return next > JackPenetrationAt(m, m.transform.position, m.transform.rotation, Margin, out _);
+            return next > PenetrationOfKind(m, m.transform.position, m.transform.rotation, Margin, o => o.IsPalletJack, out _, out _);
+        }
+
+        /// <summary>REACH TRUCKS HAVE RIGHT OF WAY (Tad, 2026-11-09): "pallet jacks maintain at least a 1 meter distance from making
+        /// contact". True when this step would bring the jack <paramref name="m"/> closer than <paramref name="buffer"/> to a MANNED reach
+        /// truck than it already is (an unmanned one never moves; the ordinary clearance test keeps the jack off it). Moving away is
+        /// always allowed, so a jack that ends up inside the buffer can still back off.</summary>
+        public static bool ReachTruckBufferBlocked(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot, float buffer, out MHEOperatorSlot truck)
+        {
+            truck = null;
+            if (m == null) return false;
+            System.Func<MHEOperatorSlot, bool> isRt = o => o.IsOccupied && o.GetComponent<ReachTruckOperator>() != null;
+            int next = PenetrationOfKind(m, nextPos, nextRot, buffer, isRt, out _, out truck);
+            if (next == 0) return false;
+            return next > PenetrationOfKind(m, m.transform.position, m.transform.rotation, buffer, isRt, out _, out _);
+        }
+
+        /// <summary>How many of the machine's outline points are inside an inflated outline of a nearby machine matching <paramref name="kind"/>.</summary>
+        private static int PenetrationOfKind(MHEOperatorSlot m, Vector3 pos, Quaternion rot, float inflate, System.Func<MHEOperatorSlot, bool> kind,
+                                             out string what, out MHEOperatorSlot first)
+        {
+            what = null; first = null;
+            var pts = SamplePointsOf(m);
+            Vector3 scale = m.transform.lossyScale;
+            GatherNear(pos, 3.5f + inflate, m);
+            int hits = 0;
+            foreach (var lp in pts)
+            {
+                Vector3 wp = pos + rot * Vector3.Scale(lp, scale);
+                foreach (var o in NearMachines)
+                    if (kind(o) && InsideFootprint(o.transform, FootprintOf(o), wp, inflate)) { hits++; what ??= o.name; first ??= o; break; }
+            }
+            return hits;
+        }
+
+        /// <summary>A machine's outline corners on the floor, in world space (for lane / aisle span tests).</summary>
+        public static void WorldCorners(MHEOperatorSlot m, Vector3[] four)
+        {
+            var f = FootprintOf(m);
+            Transform t = m.transform;
+            four[0] = t.TransformPoint(new Vector3(f.MinX, 0f, f.MinZ));
+            four[1] = t.TransformPoint(new Vector3(f.MaxX, 0f, f.MinZ));
+            four[2] = t.TransformPoint(new Vector3(f.MinX, 0f, f.MaxZ));
+            four[3] = t.TransformPoint(new Vector3(f.MaxX, 0f, f.MaxZ));
         }
 
         /// <summary>True when moving the machine from where it is to this pose would push it into something it isn't already in.</summary>

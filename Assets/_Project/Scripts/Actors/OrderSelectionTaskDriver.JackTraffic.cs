@@ -76,7 +76,7 @@ namespace GameCore.Actors
 
         private void ClearHeld()
         {
-            _heldBehindJack = null; _heldBySolid = null;
+            _heldBehindJack = null; _heldBySolid = null; _yieldingTo = null;
             _heldRealSeconds = 0f; _heldGameMinutes = 0f; _notHeldReal = 0f;
         }
 
@@ -175,6 +175,16 @@ namespace GameCore.Actors
         /// <summary>True when moving the jack from where it is to this pose would push it into something it isn't already in.</summary>
         private bool StepBlocked(Vector3 nextPos, Quaternion nextRot, out string what)
             => MachineClearance.StepBlocked(_jack, nextPos, nextRot, out what);
+
+        private MHEOperatorSlot _yieldingTo;
+
+        /// <summary>One log line each time this jack starts giving way to a reach truck (rule 1: reach trucks have right of way, 1 m buffer).</summary>
+        private void WarnYield(MHEOperatorSlot truck)
+        {
+            if (truck == null || truck == _yieldingTo) return;
+            _yieldingTo = truck;
+            Debug.Log($"[OrderSelectionTaskDriver] '{name}': giving way to reach truck {truck.name} (right of way, keeping {AisleTraffic.ReachTruckBuffer:0}m clear).");
+        }
 
         private void WarnSolid(string phase, string what)
         {

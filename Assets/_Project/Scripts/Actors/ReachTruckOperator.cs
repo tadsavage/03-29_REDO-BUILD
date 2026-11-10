@@ -2740,6 +2740,8 @@ namespace GameCore.Actors
             const int MaxReissues = 10;
 
             Vector3 lastHeading = transform.forward;
+            bool exitDone = false;
+            float exitProbe = 0f;
             while (!arrived && _vehicleNav.IsSeekingTask && elapsed < MaxSeekTime)
             {
                 sinceRecheck += Time.deltaTime;
@@ -2758,6 +2760,46 @@ namespace GameCore.Actors
                     if (jackHold) _vehicleAgent.velocity = Vector3.zero;
                     _vehicleNav.HeldInQueue = jackHold;
                 }
+
+                // RULE 5 (Tad, 2026-11-09): reach trucks have right of way - held behind a jack in an aisle, pass it (unless another jack is
+                // within 2 bays of it). The pass is scripted; afterwards the NavMesh leg is re-issued from wherever the truck stopped.
+                if (jackHold && _jackWaitReal >= RtPassAfterReal && Time.unscaledTime >= _nextPassTryReal)
+                {
+                    _nextPassTryReal = Time.unscaledTime + 2f;
+                    yield return TryPassJack(driveTarget, null);
+                    if (_mode == DriveMode.Manual)
+                    {
+                        SetDriveMode(DriveMode.Ai, $"AI leg → {phase} (after passing a jack)");
+                        for (float rw = 0f; !_vehicleAgent.isOnNavMesh && rw < 1f; rw += Time.deltaTime) { _vehicleAgent.Warp(transform.position); yield return null; }
+                        _vehicleNav.SetTaskBusy(true);
+                        _vehicleNav.CancelSeekPosition();
+                        _vehicleNav.SeekPosition(driveTarget, () => arrived = true);
+                        _jackWaitReal = 0f;
+                        yield return null;
+                        continue;
+                    }
+                }
+
+                // RULE 3 (Tad, 2026-11-09): about to drive out of an aisle - stop at the end, pause, look for cross traffic, then go.
+                exitProbe -= Time.unscaledDeltaTime;
+                if (!exitDone && !jackHold && exitProbe <= 0f && _vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh)
+                {
+                    exitProbe = 0.25f;
+                    if (OrderSelectionTaskDriver.InAnyAisle(transform.position, out string aisleNow) &&
+                        !OrderSelectionTaskDriver.InAnyAisle(transform.position + lastHeading * 2.5f, out _))
+                    {
+                        exitDone = true;
+                        _vehicleAgent.isStopped = true;
+                        _vehicleAgent.velocity = Vector3.zero;
+                        _vehicleNav.HeldInQueue = true;
+                        yield return AisleExitStop(transform.position + lastHeading * 4f, aisleNow);
+                        _vehicleNav.HeldInQueue = false;
+                        if (_vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh) _vehicleAgent.isStopped = false;
+                        yield return null;
+                        continue;
+                    }
+                }
+
                 if (!jackHold) elapsed += Time.deltaTime;
 
                 if (sinceRecheck >= RecheckInterval)
@@ -2911,12 +2953,125 @@ namespace GameCore.Actors
         private const float JackWaitGiveUpReal = 30f;
         private float _jackWaitReal;
         private bool _jackWaitLogged;
+        private MHEOperatorSlot _blockingJack;     // the jack the last WaitForJack hold was for
+
+        // ── Aisle rules (Tad, 2026-11-09; shared logic in AisleTraffic.cs) ─────────────────────────────────────
+        private const float RtPassAfterReal = 1.0f;   // held behind a jack in an aisle this long before trying to pass it
+        private float _nextPassTryReal;
+        private string _lastPassRefusal;
+
+        /// <summary>RULE 5: held behind a pallet jack in an aisle, a reach truck passes it - unless another jack is within 2 bays of it (wait).
+        /// Drives the pass itself in manual mode; every step is checked against racks, machines, pallets and the jacks. Returns false when no
+        /// pass was attempted or it had to stop short (the caller resumes the NavMesh leg either way).</summary>
+        private IEnumerator TryPassJack(Vector3 dest, System.Action<bool> done)
+        {
+            bool ok = false;
+            var jack = _blockingJack;
+            string why = null;
+            List<Vector3> route = null;
+            if (jack != null && GameCore.Actors.AisleTraffic.TryPlanReachPass(_operatorSlot, jack, dest, out route, out why))
+            {
+                // The far end must be on the truck's NavMesh, or handing back to the agent would snap it somewhere else.
+                Vector3 end = route[route.Count - 1];
+                if (_vehicleAgent != null && NavSample.OnAgentMesh(_vehicleAgent, end, 0.6f, out _))
+                {
+                    Debug.Log($"[ReachTruckOperator] '{name}' passing pallet jack {jack.name} in the aisle (right of way).");
+                    _lastPassRefusal = null;
+                    SetDriveMode(DriveMode.Manual, "passing a pallet jack");
+                    ok = true;
+                    foreach (var w in route)
+                    {
+                        bool reached = false;
+                        yield return PassLeg(w, r => reached = r);
+                        if (!reached) { ok = false; break; }
+                    }
+                    if (!ok) Debug.Log($"[ReachTruckOperator] '{name}' stopped its pass round {jack.name} short - something in the way.");
+                }
+            }
+            else if (why != null && why != _lastPassRefusal)
+            {
+                _lastPassRefusal = why;
+                Debug.Log($"[ReachTruckOperator] '{name}' held behind pallet jack {(jack != null ? jack.name : "?")}: {why}.");
+            }
+            done?.Invoke(ok);
+        }
+
+        /// <summary>One straight leg of a pass: face it (backing straight when it lies behind), then drive, never into anything.</summary>
+        private IEnumerator PassLeg(Vector3 target, System.Action<bool> done)
+        {
+            Transform t = transform;
+            Vector3 flat = new Vector3(target.x, t.position.y, target.z);
+            Vector3 to = flat - t.position; to.y = 0f;
+            bool reverse = to.sqrMagnitude > 0.0001f && Vector3.Dot(t.forward, to) < 0f && Vector3.Angle(-t.forward, to) < 30f;
+            float blocked = 0f;
+            if (!reverse && to.sqrMagnitude > 0.0001f)
+            {
+                Quaternion want = Quaternion.LookRotation(to.normalized);
+                while (Quaternion.Angle(t.rotation, want) > FaceThreshold)
+                {
+                    Quaternion next = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * Time.deltaTime);
+                    if (GameCore.Actors.MachineClearance.StepBlocked(_operatorSlot, t.position, next, out _) ||
+                        GameCore.Actors.MachineClearance.JackStepBlocked(_operatorSlot, t.position, next, out _))
+                    {
+                        blocked += Time.unscaledDeltaTime;
+                        if (blocked > 2f) { done?.Invoke(false); yield break; }
+                        yield return null; continue;
+                    }
+                    blocked = 0f;
+                    t.rotation = next;
+                    yield return null;
+                }
+            }
+            while (PlanarDist(t.position, flat) > 0.05f)
+            {
+                Vector3 next = Vector3.MoveTowards(t.position, flat, (reverse ? DriveSpeed * 0.5f : DriveSpeed) * Time.deltaTime);
+                if (GameCore.Actors.MachineClearance.StepBlocked(_operatorSlot, next, t.rotation, out _) ||
+                    GameCore.Actors.MachineClearance.JackStepBlocked(_operatorSlot, next, t.rotation, out _))
+                {
+                    blocked += Time.unscaledDeltaTime;
+                    if (blocked > 2f) { done?.Invoke(false); yield break; }
+                    yield return null; continue;
+                }
+                blocked = 0f;
+                t.position = next;
+                yield return null;
+            }
+            t.position = flat;
+            done?.Invoke(true);
+        }
+
+        /// <summary>RULE 3: about to drive out of an aisle - stop, pause, and wait while another machine moves through the cross-aisle in front.</summary>
+        private IEnumerator AisleExitStop(Vector3 zone, string aisle)
+        {
+            GameCore.Actors.AisleTraffic.BeginExitWait(_operatorSlot);
+            float paused = 0f, waited = 0f;
+            bool logged = false;
+            string prefix = aisle != null ? aisle + "-" : null;
+            while (true)
+            {
+                paused += Time.deltaTime;
+                bool blocked = GameCore.Actors.AisleTraffic.ExitBlocked(_operatorSlot, zone, prefix, out string who);
+                if (!blocked && paused >= GameCore.Actors.AisleTraffic.ExitPauseGame) break;
+                if (blocked)
+                {
+                    waited += Time.timeScale > 0f ? Time.unscaledDeltaTime : 0f;
+                    if (!logged) { logged = true; Debug.Log($"[ReachTruckOperator] '{name}' stopped at the end of aisle {aisle} - waiting for {who} to clear the cross-aisle."); }
+                    if (waited >= GameCore.Actors.AisleTraffic.ExitWaitMaxReal)
+                    {
+                        ThrottledLog.Warn("rt-exitwait-" + name, $"[ReachTruckOperator] '{name}' waited {GameCore.Actors.AisleTraffic.ExitWaitMaxReal:0}s at the end of aisle {aisle} for {who} - pulling out.", 60f);
+                        break;
+                    }
+                }
+                yield return null;
+            }
+            GameCore.Actors.AisleTraffic.EndExitWait(_operatorSlot);
+        }
 
         /// <summary>True when this step of the vehicle (<paramref name="t"/> must be the truck itself) would clip a pallet jack: wait a frame.</summary>
         private bool WaitForJack(Transform t, Vector3 nextPos, Quaternion nextRot)
         {
             if (t != transform || _operatorSlot == null) return false;
-            if (!GameCore.Actors.MachineClearance.JackStepBlocked(_operatorSlot, nextPos, nextRot, out string jack))
+            if (!GameCore.Actors.MachineClearance.JackStepBlocked(_operatorSlot, nextPos, nextRot, out string jack, out _blockingJack))
             {
                 _jackWaitReal = 0f;
                 _jackWaitLogged = false;
