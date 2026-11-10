@@ -248,10 +248,15 @@ namespace GameCore.Actors
 
         // ── The test ────────────────────────────────────────────────────────────────────────────────
 
+        /// <summary>The machine the most recent <see cref="PenetrationAt"/> / <see cref="JackPenetrationAt"/> hit (null if it hit something else).
+        /// Lets the traffic code say WHO is in the way.</summary>
+        public static MHEOperatorSlot LastMachineHit { get; private set; }
+
         /// <summary>How many of the machine's outline points are inside something solid with the machine at this pose.</summary>
         public static int PenetrationAt(MHEOperatorSlot m, Vector3 pos, Quaternion rot, out string what)
         {
             what = null;
+            LastMachineHit = null;
             if (m == null) return 0;
             var pts = SamplePointsOf(m);
             Vector3 scale = m.transform.lossyScale;
@@ -263,7 +268,7 @@ namespace GameCore.Actors
                 if (SolidAt(wp, out string w)) { hits++; what ??= w; continue; }
                 bool hit = false;
                 foreach (var o in NearMachines)
-                    if (InsideFootprint(o.transform, FootprintOf(o), wp, 0f)) { hits++; what ??= o.name; hit = true; break; }
+                    if (InsideFootprint(o.transform, FootprintOf(o), wp, 0f)) { hits++; what ??= o.name; LastMachineHit ??= o; hit = true; break; }
                 if (hit) continue;
                 foreach (var p in NearPallets)
                     if (InsidePallet(p, wp, 0f)) { hits++; what ??= "a pallet (" + p.name + ")"; break; }
@@ -276,6 +281,7 @@ namespace GameCore.Actors
         public static int JackPenetrationAt(MHEOperatorSlot m, Vector3 pos, Quaternion rot, float inflate, out string what)
         {
             what = null;
+            LastMachineHit = null;
             if (m == null) return 0;
             var pts = SamplePointsOf(m);
             Vector3 scale = m.transform.lossyScale;
@@ -285,7 +291,7 @@ namespace GameCore.Actors
             {
                 Vector3 wp = pos + rot * Vector3.Scale(lp, scale);
                 foreach (var o in NearMachines)
-                    if (o.IsPalletJack && InsideFootprint(o.transform, FootprintOf(o), wp, inflate)) { hits++; what ??= o.name; break; }
+                    if (o.IsPalletJack && InsideFootprint(o.transform, FootprintOf(o), wp, inflate)) { hits++; what ??= o.name; LastMachineHit ??= o; break; }
             }
             return hits;
         }
@@ -299,7 +305,10 @@ namespace GameCore.Actors
             const float Margin = 0.15f;
             int next = JackPenetrationAt(m, nextPos, nextRot, Margin, out what);
             if (next == 0) return false;
-            return next > JackPenetrationAt(m, m.transform.position, m.transform.rotation, Margin, out _);
+            var hitMachine = LastMachineHit;
+            bool worse = next > JackPenetrationAt(m, m.transform.position, m.transform.rotation, Margin, out _);
+            LastMachineHit = hitMachine;
+            return worse;
         }
 
         /// <summary>True when moving the machine from where it is to this pose would push it into something it isn't already in.</summary>
@@ -309,7 +318,9 @@ namespace GameCore.Actors
             if (m == null) return false;
             int next = PenetrationAt(m, nextPos, nextRot, out what);
             if (next == 0) return false;
+            var hitMachine = LastMachineHit;
             int now = PenetrationAt(m, m.transform.position, m.transform.rotation, out _);
+            LastMachineHit = hitMachine;
             return next > now;
         }
 

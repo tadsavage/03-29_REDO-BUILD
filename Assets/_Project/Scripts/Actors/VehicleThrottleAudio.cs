@@ -28,6 +28,10 @@ public class VehicleThrottleAudio : MonoBehaviour
     [SerializeField] private AudioClip backupAlarmClip;
     [SerializeField] private float backupAlarmVolume = 0.6f;
 
+    /// <summary>First horn clip any vehicle in the scene is configured with: machines without their own (jacks) borrow it for frustration honks.</summary>
+    public static AudioClip SharedHonkClip { get; private set; }
+    public AudioClip HonkClip => honkClip;
+
     private AudioSource _engineSource;
     private AudioSource _honkSource;
     private AudioSource _backupAlarmSource;
@@ -37,6 +41,7 @@ public class VehicleThrottleAudio : MonoBehaviour
     private void Awake()
     {
         _agent = GetComponent<NavMeshAgent>();
+        if (honkClip != null && SharedHonkClip == null) SharedHonkClip = honkClip;
 
         // Create Engine Source
         _engineSource = gameObject.AddComponent<AudioSource>();

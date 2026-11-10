@@ -1731,9 +1731,18 @@ namespace GameCore.Actors
                 bool jackHold = JackAhead(move, out var blocker);
                 string what = null;
                 bool solidHold = !jackHold && StepBlocked(next, jt.rotation, out what);
-                if (jackHold || solidHold)
+                bool yieldHold = false;
+                if (!jackHold) TrafficBlocker(move.normalized, solidHold, ref blocker, out yieldHold);
+                if (AisleExitDue(move, out var exitPrefix, out var exitPoint))
+                {
+                    yield return JackAisleExitCheck(exitPrefix, exitPoint, move);
+                    continue;
+                }
+                if (jackHold || solidHold || yieldHold)
                 {
                     NoteHeld(true, blocker, what);
+                    if (blocker != null && !jackHold) yield return JackYieldReverse(move, blocker);
+                    if (yieldHold) { yield return null; continue; }
                     if (jackHold && ShouldOvertake(blocker, flat)) { _overtakeBlocker = blocker; break; }   // pass it in the other lane (LaneDriveTo)
                     // Stopped by the solid guard on a jack poking into the lane (parked at an angle, or with nobody aboard): pass that too.
                     if (solidHold && _laneValid && FindParkedJackAhead(_lane, flat, out var stuckIn) && ShouldOvertake(stuckIn, flat)) { _overtakeBlocker = stuckIn; break; }
@@ -1910,8 +1919,23 @@ namespace GameCore.Actors
                         Quaternion predRot = Quaternion.RotateTowards(jt.rotation, Quaternion.LookRotation(dv.normalized), _jackAgent.angularSpeed * Time.deltaTime * 2f);
                         solidHold = StepBlocked(predPos, predRot, out what);
                     }
-                    bool hold = jackHold || solidHold;
+                    bool yieldHold = false;
+                    if (!jackHold) TrafficBlocker(heading.normalized, solidHold, ref blocker, out yieldHold);
+                    if (AisleExitDue(heading, out var exitPrefix, out var exitPoint))
+                    {
+                        _jackAgent.isStopped = true; _jackAgent.velocity = Vector3.zero;
+                        yield return JackAisleExitCheck(exitPrefix, exitPoint, heading);
+                        if (_jack == null) yield break;
+                        _jackAgent.isStopped = false;
+                    }
+                    bool hold = jackHold || solidHold || yieldHold;
                     NoteHeld(hold, blocker, what);
+                    if (hold && blocker != null && !jackHold)
+                    {
+                        _jackAgent.isStopped = true; _jackAgent.velocity = Vector3.zero;
+                        yield return JackYieldReverse(heading, blocker);
+                        if (_jack == null) yield break;
+                    }
                     // Held (behind a jack OR by a solid): AiNavigation's 10 s no-progress backstop must not end the leg. It counts GAME seconds
                     // (2 real s at 5x), so a jack held by an UNMANNED jack parked in the aisle was handed back long before the 5-real-s
                     // step-off-and-walk could fire; after 6 re-issues the selector abandoned this jack beside it too (Tad, 2026-11-07:

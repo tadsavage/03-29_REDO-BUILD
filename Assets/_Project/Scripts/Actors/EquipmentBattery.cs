@@ -199,7 +199,11 @@ public class EquipmentBattery : MonoBehaviour
         _liftLast = new Vector3[_lift.Length];
         for (int i = 0; i < _lift.Length; i++) _liftLast[i] = _lift[i].localPosition;
         EquipmentBatteryPanels.Ensure();
-        if (_po != null) MheAvoidanceObstacle.Ensure(gameObject);   // placed machines only (not build-menu ghosts)
+        if (_po != null)   // placed machines only (not build-menu ghosts)
+        {
+            MheAvoidanceObstacle.Ensure(gameObject);
+            GameCore.Actors.EquipmentTrafficAgent.Ensure(gameObject);
+        }
     }
 
     private Transform[] _lift;
