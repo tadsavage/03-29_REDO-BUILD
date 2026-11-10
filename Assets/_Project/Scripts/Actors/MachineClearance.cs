@@ -16,6 +16,8 @@ namespace GameCore.Actors
     ///     outline inside their cell (rack colliders are only click triggers on the beams, so physics can't see racks);
     ///   - every other machine (RT / DS / pallet jack, manned or not);
     ///   - every pallet standing on a floor.
+    /// Moving machines also keep a one-metre footprint gap from every other vehicle; an existing close gap can only be reduced by
+    /// moving away from the other vehicle.
     /// A move is refused only if it pushes the outline into something it isn't already in, so a machine that was restored
     /// overlapping something, or that just set its own pallets down, can always back away.
     /// </summary>
@@ -24,6 +26,7 @@ namespace GameCore.Actors
         public struct Footprint { public float MinX, MaxX, MinZ, MaxZ; }
 
         public const float Skin = 0.10f;               // the outline is shrunk by this so grazing a neighbour lane's pallet doesn't count
+        public const float VehicleSpacingMeters = 1f;
         // A pallet jack's fork load: both pallet positions (OrderSelectionTaskDriver.ForkPalletZ -2.00 / -0.95, +/- half a 40"
         // pallet), 48" across. Always part of the outline - the forks are there whether or not they carry anything.
         private const float ForkLoadMinZ = -2.51f, ForkLoadMaxZ = -0.44f, ForkLoadHalfX = 0.61f;
@@ -188,7 +191,7 @@ namespace GameCore.Actors
         private static void RefreshMachines()
         {
             float age = Time.unscaledTime - s_allMachinesAt;
-            if (age >= 0f && age <= 1f) return;
+            if (age >= 0f && age <= 0.1f) return;
             s_allMachinesAt = Time.unscaledTime;
             s_allMachines.Clear();
             foreach (var s in Object.FindObjectsByType<MHEOperatorSlot>())
@@ -296,33 +299,141 @@ namespace GameCore.Actors
             return hits;
         }
 
-        /// <summary>REACH TRUCKS (Tad, 2026-11-08): "can drive freely - either way and either side - as long as they don't clip the pallet
-        /// jacks". True when this step would push the machine further into a pallet jack (with a small margin) than it already is.</summary>
+        /// <summary>Reach-truck clearance: blocks clipping other vehicles, and enforces the shared one-metre vehicle buffer.</summary>
         public static bool JackStepBlocked(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot, out string what)
         {
             what = null;
             if (m == null) return false;
             const float Margin = 0.15f;
             int next = JackPenetrationAt(m, nextPos, nextRot, Margin, out what);
-            if (next == 0) return false;
             var hitMachine = LastMachineHit;
             bool worse = next > JackPenetrationAt(m, m.transform.position, m.transform.rotation, Margin, out _);
             LastMachineHit = hitMachine;
-            return worse;
+            if (worse) return true;
+            return VehicleSpacingBlocked(m, nextPos, nextRot, VehicleSpacingMeters, out hitMachine)
+                   && SetMachineBlocker(hitMachine, out what);
         }
 
-        /// <summary>True when moving the machine from where it is to this pose would push it into something it isn't already in.</summary>
+        /// <summary>True when moving the machine from where it is to this pose would push it into something it isn't already in,
+        /// or within <see cref="VehicleSpacingMeters"/> of another vehicle without moving away.</summary>
         public static bool StepBlocked(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot, out string what)
         {
             what = null;
             if (m == null) return false;
             int next = PenetrationAt(m, nextPos, nextRot, out what);
-            if (next == 0) return false;
             var hitMachine = LastMachineHit;
             int now = PenetrationAt(m, m.transform.position, m.transform.rotation, out _);
             LastMachineHit = hitMachine;
-            return next > now;
+            if (next > now) return true;
+            return VehicleSpacingBlocked(m, nextPos, nextRot, VehicleSpacingMeters, out hitMachine)
+                   && SetMachineBlocker(hitMachine, out what);
         }
+
+        /// <summary>True when a proposed vehicle pose would reduce its footprint gap below <paramref name="clearance"/> without
+        /// increasing that gap. This lets a vehicle already inside the buffer back away, but prevents it approaching or tracking
+        /// alongside another vehicle closer than the required safe distance.</summary>
+        public static bool VehicleSpacingBlocked(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot, float clearance, out MHEOperatorSlot blocker)
+        {
+            blocker = null;
+            if (m == null || clearance <= 0f) return false;
+            RefreshMachines();
+            Footprint selfFootprint = FootprintOf(m);
+            Vector3 scale = m.transform.lossyScale;
+            float selfRadius = FootprintRadius(selfFootprint, scale);
+            foreach (var other in s_allMachines)
+            {
+                if (other == null || other == m) continue;
+                Footprint otherFootprint = FootprintOf(other);
+                float otherRadius = FootprintRadius(otherFootprint, other.transform.lossyScale);
+                Vector3 centerDelta = other.transform.position - nextPos;
+                centerDelta.y = 0f;
+                if (centerDelta.sqrMagnitude > Mathf.Pow(selfRadius + otherRadius + clearance, 2f)) continue;
+
+                float nextGap = FootprintGap(m, nextPos, nextRot, selfFootprint, other, otherFootprint);
+                if (nextGap >= clearance) continue;
+                float currentGap = FootprintGap(m, m.transform.position, m.transform.rotation, selfFootprint, other, otherFootprint);
+                if (nextGap <= currentGap + 0.01f)
+                {
+                    blocker = other;
+                    LastMachineHit = other;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool SetMachineBlocker(MHEOperatorSlot machine, out string what)
+        {
+            what = machine != null ? machine.name : "another vehicle";
+            if (machine == null) return false;
+            LastMachineHit = machine;
+            return true;
+        }
+
+        private static float FootprintRadius(Footprint f, Vector3 scale)
+        {
+            float x = Mathf.Max(Mathf.Abs(f.MinX), Mathf.Abs(f.MaxX)) * Mathf.Abs(scale.x);
+            float z = Mathf.Max(Mathf.Abs(f.MinZ), Mathf.Abs(f.MaxZ)) * Mathf.Abs(scale.z);
+            return Mathf.Sqrt(x * x + z * z);
+        }
+
+        private static float FootprintGap(MHEOperatorSlot a, Vector3 aPos, Quaternion aRot, Footprint aFootprint,
+            MHEOperatorSlot b, Footprint bFootprint)
+        {
+            float best = float.MaxValue;
+            for (int i = 0; i < 4; i++)
+            {
+                Vector3 a0 = CandidateCorner(a, aPos, aRot, aFootprint, i);
+                Vector3 a1 = CandidateCorner(a, aPos, aRot, aFootprint, (i + 1) & 3);
+                for (int j = 0; j < 4; j++)
+                {
+                    Vector3 b0 = CurrentCorner(b, bFootprint, j);
+                    Vector3 b1 = CurrentCorner(b, bFootprint, (j + 1) & 3);
+                    if (SegmentsIntersect(a0, a1, b0, b1)) return 0f;
+                    best = Mathf.Min(best, PointSegmentDistance(a0, b0, b1));
+                    best = Mathf.Min(best, PointSegmentDistance(a1, b0, b1));
+                    best = Mathf.Min(best, PointSegmentDistance(b0, a0, a1));
+                    best = Mathf.Min(best, PointSegmentDistance(b1, a0, a1));
+                }
+            }
+            return best;
+        }
+
+        private static Vector3 CandidateCorner(MHEOperatorSlot m, Vector3 pos, Quaternion rot, Footprint f, int index)
+        {
+            float x = index == 1 || index == 2 ? f.MaxX : f.MinX;
+            float z = index >= 2 ? f.MaxZ : f.MinZ;
+            Vector3 point = pos + rot * Vector3.Scale(new Vector3(x, 0f, z), m.transform.lossyScale);
+            point.y = 0f;
+            return point;
+        }
+
+        private static Vector3 CurrentCorner(MHEOperatorSlot m, Footprint f, int index)
+        {
+            float x = index == 1 || index == 2 ? f.MaxX : f.MinX;
+            float z = index >= 2 ? f.MaxZ : f.MinZ;
+            Vector3 point = m.transform.TransformPoint(new Vector3(x, 0f, z));
+            point.y = 0f;
+            return point;
+        }
+
+        private static float PointSegmentDistance(Vector3 point, Vector3 a, Vector3 b)
+        {
+            Vector3 ab = b - a;
+            float t = ab.sqrMagnitude > 0.000001f ? Mathf.Clamp01(Vector3.Dot(point - a, ab) / ab.sqrMagnitude) : 0f;
+            return Vector3.Distance(point, a + ab * t);
+        }
+
+        private static bool SegmentsIntersect(Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+        {
+            float abC = Cross(b - a, c - a), abD = Cross(b - a, d - a);
+            float cdA = Cross(d - c, a - c), cdB = Cross(d - c, b - c);
+            return abC * abD <= 0f && cdA * cdB <= 0f
+                   && Mathf.Max(Mathf.Min(a.x, b.x), Mathf.Min(c.x, d.x)) <= Mathf.Min(Mathf.Max(a.x, b.x), Mathf.Max(c.x, d.x)) + 0.0001f
+                   && Mathf.Max(Mathf.Min(a.z, b.z), Mathf.Min(c.z, d.z)) <= Mathf.Min(Mathf.Max(a.z, b.z), Mathf.Max(c.z, d.z)) + 0.0001f;
+        }
+
+        private static float Cross(Vector3 a, Vector3 b) => a.x * b.z - a.z * b.x;
 
         /// <summary>True when sliding the machine in a straight line (no turning) from where it stands to <paramref name="to"/> never
         /// pushes it further into anything - the same per-step rule the moves themselves use.</summary>

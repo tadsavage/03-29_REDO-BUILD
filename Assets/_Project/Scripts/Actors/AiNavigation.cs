@@ -1021,20 +1021,87 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     private const float StockerReverseAfterReal = 1.5f;
     private float _stockerHeldReal;
     private bool _stockerYieldTried, _stockerManeuvering;
+    private bool _stockerSpacingHeld;
+    private MHEOperatorSlot _stockerSpacingBlocker;
+    private Vector3 _stockerSpacingHeading;
     private GameCore.Actors.EquipmentTrafficAgent _stockerTraffic;
+
+    private void GuardStockerVehicleSpacing(NavMeshAgent a)
+    {
+        var slot = GetComponent<MHEOperatorSlot>();
+        if (slot == null || !slot.IsOccupied || GameCore.Actors.EquipmentTraffic.RoleOf(slot) != GameCore.Actors.EquipmentRole.DockStocker)
+        {
+            ClearStockerSpacingHold(a);
+            return;
+        }
+        if (_stockerManeuvering) return;
+
+        if (!a.hasPath)
+        {
+            ClearStockerSpacingHold(a);
+            return;
+        }
+
+        Vector3 heading = a.desiredVelocity;
+        heading.y = 0f;
+        if (heading.sqrMagnitude < 0.01f)
+        {
+            heading = a.steeringTarget - slot.transform.position;
+            heading.y = 0f;
+        }
+        if (heading.sqrMagnitude < 0.01f)
+        {
+            heading = a.destination - slot.transform.position;
+            heading.y = 0f;
+        }
+        if (heading.sqrMagnitude < 0.0001f) return;
+
+        heading.Normalize();
+        float look = Mathf.Max(a.speed * Time.deltaTime * 2f, 0.15f);
+        Vector3 next = slot.transform.position + heading * look;
+        Quaternion nextRot = Quaternion.RotateTowards(slot.transform.rotation, Quaternion.LookRotation(heading),
+            a.angularSpeed * Time.deltaTime * 2f);
+        if (!GameCore.Actors.MachineClearance.VehicleSpacingBlocked(slot, next, nextRot,
+                GameCore.Actors.MachineClearance.VehicleSpacingMeters, out var blocker))
+        {
+            ClearStockerSpacingHold(a);
+            return;
+        }
+
+        _stockerSpacingHeld = true;
+        _stockerSpacingBlocker = blocker;
+        _stockerSpacingHeading = heading;
+        HeldInQueue = true;
+        if (a.isActiveAndEnabled && a.isOnNavMesh)
+        {
+            a.isStopped = true;
+            a.velocity = Vector3.zero;
+        }
+    }
+
+    private void ClearStockerSpacingHold(NavMeshAgent a)
+    {
+        if (!_stockerSpacingHeld) return;
+        _stockerSpacingHeld = false;
+        _stockerSpacingBlocker = null;
+        _stockerSpacingHeading = Vector3.zero;
+        HeldInQueue = false;
+        if (a != null && a.isActiveAndEnabled && a.isOnNavMesh) a.isStopped = false;
+    }
 
     private void TrackStockerTraffic(NavMeshAgent a)
     {
-        if (HeldInQueue || _stockerManeuvering) return;   // jacks / reach trucks report themselves
+        if ((HeldInQueue && !_stockerSpacingHeld) || _stockerManeuvering) return;   // jacks / reach trucks report themselves
         var slot = GetComponent<MHEOperatorSlot>();
         if (slot == null || !slot.IsOccupied || GameCore.Actors.EquipmentTraffic.RoleOf(slot) != GameCore.Actors.EquipmentRole.DockStocker) return;
         if (_stockerTraffic == null) _stockerTraffic = GameCore.Actors.EquipmentTrafficAgent.Ensure(gameObject);
 
         float dt = Time.timeScale > 0f ? Time.unscaledDeltaTime : 0f;
-        bool stalled = a.hasPath && !a.pathPending && a.velocity.sqrMagnitude < StockerHeldSpeed * StockerHeldSpeed
-                       && a.remainingDistance > 1.5f && a.desiredVelocity.sqrMagnitude > 0.01f;
-        MHEOperatorSlot blocker = null;
-        if (stalled) GameCore.Actors.EquipmentTraffic.FindInLane(slot, a.desiredVelocity, GameCore.Actors.EquipmentTraffic.LaneAhead, GameCore.Actors.EquipmentTraffic.LaneSide, false, out blocker);
+        bool stalled = _stockerSpacingHeld || (a.hasPath && !a.pathPending && a.velocity.sqrMagnitude < StockerHeldSpeed * StockerHeldSpeed
+                       && a.remainingDistance > 1.5f && a.desiredVelocity.sqrMagnitude > 0.01f);
+        MHEOperatorSlot blocker = _stockerSpacingBlocker;
+        if (stalled && blocker == null)
+            GameCore.Actors.EquipmentTraffic.FindInLane(slot, a.desiredVelocity, GameCore.Actors.EquipmentTraffic.LaneAhead, GameCore.Actors.EquipmentTraffic.LaneSide, false, out blocker);
         if (blocker == null)
         {
             _stockerHeldReal = 0f; _stockerYieldTried = false;
@@ -1049,7 +1116,8 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             if (ba != null && ba.IsMoving) return;
             if (!GameCore.Actors.EquipmentTraffic.TryBeginManeuver(slot)) return;
             _stockerYieldTried = true;
-            StartCoroutine(StockerYieldReverse(slot, -a.desiredVelocity.normalized, blocker));
+            Vector3 travel = _stockerSpacingHeld ? _stockerSpacingHeading : a.desiredVelocity.normalized;
+            StartCoroutine(StockerYieldReverse(slot, -travel, blocker));
         }
     }
 
@@ -1088,6 +1156,11 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // the Console's Error Pause on, that one error froze the whole game on its first frames. The
         // off-mesh recovery further down re-seats the agent; the seeks simply wait until it has.
         bool onMesh = agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh;
+        if (onMesh)
+        {
+            GuardStockerVehicleSpacing(agent);
+            TrackStockerTraffic(agent);
+        }
 
         // ── Equipment seeking (operator walks toward placed equipment) ──────────────
         if (_seekingEquipment && _targetEquipment != null && onMesh)
@@ -1226,8 +1299,6 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             {
                 _partialSeekSeconds = 0f;
             }
-
-            TrackStockerTraffic(agent);
 
             // BACKSTOP — none of the branches above resolved the seek and the agent has stopped
             // getting any closer. This is the case that stranded an Order Selector in a staging lane

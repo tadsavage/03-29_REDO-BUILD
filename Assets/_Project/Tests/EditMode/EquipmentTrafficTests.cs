@@ -138,4 +138,44 @@ public class EquipmentTrafficTests
     {
         foreach (float d in EquipmentTraffic.SelectorReverse) Assert.That(d, Is.InRange(0.5f, 1.0f));
     }
+
+    [Test]
+    public void VehicleSpacingStopsAtOneMetreAndAllowsBackingAway()
+    {
+        var first = CreateVehicle("FirstVehicle", Vector3.zero);
+        var second = CreateVehicle("SecondVehicle", new Vector3(0f, 0f, 3.1f));
+        try
+        {
+            var firstSlot = first.GetComponent<MHEOperatorSlot>();
+            var secondSlot = second.GetComponent<MHEOperatorSlot>();
+            Assert.IsTrue(MachineClearance.StepBlocked(firstSlot, new Vector3(0f, 0f, 0.2f),
+                first.transform.rotation, out string what));
+            var blocker = MachineClearance.LastMachineHit;
+            Assert.AreSame(secondSlot, blocker);
+            Assert.AreEqual(second.name, what);
+            Assert.IsTrue(MachineClearance.JackStepBlocked(firstSlot, new Vector3(0f, 0f, 0.2f),
+                first.transform.rotation, out _), "reach-truck clearance must apply the same spacing buffer");
+
+            first.transform.position = new Vector3(0f, 0f, 0.3f);
+            Assert.IsFalse(MachineClearance.StepBlocked(firstSlot, new Vector3(0f, 0f, 0.1f),
+                first.transform.rotation, out _),
+                "a vehicle already inside the buffer must be able to increase its gap");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(first);
+            UnityEngine.Object.DestroyImmediate(second);
+        }
+    }
+
+    private static GameObject CreateVehicle(string name, Vector3 position)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = name;
+        go.transform.position = position;
+        go.transform.localScale = new Vector3(1f, 1f, 2f);
+        go.AddComponent<MHEOperatorSlot>();
+        go.AddComponent<PlacedObject>();
+        return go;
+    }
 }

@@ -2745,8 +2745,8 @@ namespace GameCore.Actors
             {
                 sinceRecheck += Time.deltaTime;
 
-                // Don't clip a pallet jack (Tad, 2026-11-08): look a few frames along where the agent wants to go; hold still while that
-                // would run into a jack. The 30 s budget only runs while actually driving, and the no-progress backstop is told it's held.
+                // Keep the 1 m vehicle buffer (Tad, 2026-11-09): look a few frames along where the agent wants to go; hold still while
+                // that would clip another vehicle or reduce the footprint gap below the safe distance.
                 bool jackHold = false;
                 if (_vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh)
                 {
@@ -2932,7 +2932,7 @@ namespace GameCore.Actors
 
         private EquipmentTrafficAgent TrafficAgent() => _operatorSlot != null ? _operatorSlot.GetComponent<EquipmentTrafficAgent>() : null;
 
-        /// <summary>True when this step of the vehicle (<paramref name="t"/> must be the truck itself) would clip a pallet jack: wait a frame.
+        /// <summary>True when this step would clip another vehicle or breach the 1 m vehicle-spacing buffer: wait a frame.
         /// Never "carries on" into it: if the jam outlasts recovery it is reported and the truck keeps holding.</summary>
         private bool WaitForJack(Transform t, Vector3 nextPos, Quaternion nextRot)
         {
@@ -2952,7 +2952,7 @@ namespace GameCore.Actors
             if (!_jackWaitLogged)
             {
                 _jackWaitLogged = true;
-                ThrottledLog.Warn("rt-jack-wait-" + name, $"[ReachTruckOperator] '{name}' waiting at {transform.position} - the next move would clip pallet jack {jack}.", 30f);
+                ThrottledLog.Warn("rt-jack-wait-" + name, $"[ReachTruckOperator] '{name}' waiting at {transform.position} - the next move would violate the 1 m vehicle clearance from {jack}.", 30f);
             }
             if (_jackWaitReal >= JackWaitGiveUpReal)
                 EquipmentTraffic.ReportBlockage(_operatorSlot, $"blocked by {jack} for {JackWaitGiveUpReal:0}s with no safe way round");
