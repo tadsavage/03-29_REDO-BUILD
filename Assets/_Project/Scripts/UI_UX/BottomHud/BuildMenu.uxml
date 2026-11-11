@@ -201,13 +201,17 @@
         </ui:VisualElement>
     </ui:VisualElement>
 
-    <!-- UI Control bar (2026-11-08): HUD pieces the player can switch on and off. Just Objectives for now. -->
+    <!-- UI Control bar: HUD and world-view switches. -->
     <ui:VisualElement name="BottomBarUiControlUI" picking-mode="Ignore" class="buildmenu-bottom-bar buildmenu-bar-hidden">
         <ui:VisualElement name="UiControlCategoryRow" picking-mode="Position" class="buildmenu-category-row">
 
             <ui:Button name="UiBtnObjectives" class="buildmenu-category-button playbar-button">
                 <ui:VisualElement class="buildmenu-category-icon playbar-icon playbar-icon-workqueue"/>
                 <ui:Label text="Objectives" class="buildmenu-category-label reports-category-label"/>
+            </ui:Button>
+
+            <ui:Button name="UiBtnStationaryMaterial" class="buildmenu-category-button playbar-button">
+                <ui:Label text="Warehouse&#10;Material" class="buildmenu-category-label reports-category-label"/>
             </ui:Button>
 
         </ui:VisualElement>

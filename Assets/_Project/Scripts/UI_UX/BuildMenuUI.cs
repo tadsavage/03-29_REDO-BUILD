@@ -22,6 +22,7 @@ public class BuildMenuUI : MonoBehaviour
     [SerializeField] private VisualTreeAsset utilityButtonUxml;
     [Header("Styles")]
     [SerializeField] private StyleSheet buildMenuStyle;
+    [SerializeField] private Material stationaryViewMaterial;
 
     [Header("Save / Load")]
     [SerializeField] private PlacementSystem placementSystem;
@@ -84,7 +85,8 @@ public class BuildMenuUI : MonoBehaviour
     private VisualElement _utilitiesBar, _devToolsBar, _uiControlBar;
     private Button _utilBtnPalletBuilder, _utilBtnItemCreator, _utilBtnAod;
     private Button _devBtnConsole, _devBtnSettings, _devBtnHal, _devBtnBalance;
-    private Button _uiBtnObjectives;
+    private Button _uiBtnObjectives, _uiBtnStationaryMaterial;
+    private StationaryMaterialView _stationaryMaterialView;
     private int _lastSyncedToolMask = int.MinValue;
 
     // Left-side rail (2026-11-08): the tab groups (Orders/Build/Staff/Reports/Utilities/Dev Tools/UI Control) moved off the bottom
@@ -321,6 +323,12 @@ public class BuildMenuUI : MonoBehaviour
         if (_uiDoc != null) _uiDoc.sortingOrder = 120;
 
         Instance = this;
+        _stationaryMaterialView = new StationaryMaterialView(stationaryViewMaterial);
+    }
+
+    private void OnDestroy()
+    {
+        _stationaryMaterialView?.Dispose();
     }
 
     private void OnEnable()
@@ -406,6 +414,7 @@ public class BuildMenuUI : MonoBehaviour
         _devBtnHal = _root.Q<Button>("DevBtnHal");
         _devBtnBalance = _root.Q<Button>("DevBtnBalance");
         _uiBtnObjectives = _root.Q<Button>("UiBtnObjectives");
+        _uiBtnStationaryMaterial = _root.Q<Button>("UiBtnStationaryMaterial");
 
         BuildRailAndTray();
 
@@ -537,6 +546,7 @@ public class BuildMenuUI : MonoBehaviour
         On(_devBtnBalance, () => ToolsWindowController.Instance?.ToggleTab("balance"));
 
         On(_uiBtnObjectives, DailyObjectivesHud.Toggle);
+        On(_uiBtnStationaryMaterial, () => _stationaryMaterialView.Toggle());
     }
 
     /// <summary>Lights the Utilities / Dev Tools / UI Control buttons whose window is up, like SyncPlayBarSelection does for the
@@ -557,6 +567,7 @@ public class BuildMenuUI : MonoBehaviour
         if (toolsOpen && tab == "hal") mask |= 1 << 5;
         if (toolsOpen && tab == "balance") mask |= 1 << 6;
         if (DailyObjectivesHud.IsShown) mask |= 1 << 7;
+        if (_stationaryMaterialView != null && _stationaryMaterialView.IsEnabled) mask |= 1 << 8;
 
         if (mask == _lastSyncedToolMask) return;
         _lastSyncedToolMask = mask;
@@ -569,6 +580,7 @@ public class BuildMenuUI : MonoBehaviour
         _devBtnHal?.EnableInClassList("selected", (mask & (1 << 5)) != 0);
         _devBtnBalance?.EnableInClassList("selected", (mask & (1 << 6)) != 0);
         _uiBtnObjectives?.EnableInClassList("selected", (mask & (1 << 7)) != 0);
+        _uiBtnStationaryMaterial?.EnableInClassList("selected", (mask & (1 << 8)) != 0);
     }
 
     // The top bar owns the Item Creator / AOD panels. Looked up lazily and cached, because SyncToolSelection runs every frame.
@@ -618,6 +630,7 @@ public class BuildMenuUI : MonoBehaviour
 
     private void Update()
     {
+        _stationaryMaterialView?.Update();
         SyncPlayBarSelection();
         SyncToolSelection();
 

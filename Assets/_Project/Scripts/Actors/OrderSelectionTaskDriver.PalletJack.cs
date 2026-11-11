@@ -1041,28 +1041,48 @@ namespace GameCore.Actors
             }
         }
 
-        /// <summary>Drives the (empty) jack to the nearest free Pallet Jack Parking bay. With no bay placed it stays
-        /// at the lane's line-up spot and the player is told once.</summary>
+        /// <summary>Drives the empty jack to a free MHE station. If a bay cannot be reached, try the other free bays.</summary>
         private IEnumerator ParkJack()
         {
             if (_jack == null) yield break;
-            var spot = PalletJackParkingSpot.FindNearestFree(_jack.transform.position, _jack);
-            if (spot == null)
+            var attempted = new HashSet<PalletJackParkingSpot>();
+            while (_jack != null)
             {
-                if (!s_warnedNoParking)
+                var spot = PalletJackParkingSpot.FindNearestFree(_jack.transform.position, _jack, attempted);
+                if (spot == null)
                 {
-                    s_warnedNoParking = true;
-                    UIToast.Show("Pallet jacks have nowhere to park - place Pallet Jack Parking (Vehicles) so they stop blocking the lanes.");
+                    if (attempted.Count == 0 && !s_warnedNoParking)
+                    {
+                        s_warnedNoParking = true;
+                        UIToast.Show(PalletJackParkingSpot.FindNearest(_jack.transform.position) == null
+                            ? "Pallet jacks have nowhere to park - place an MHE Station (Vehicles)."
+                            : "All MHE Stations are occupied - add a station to park more pallet jacks.");
+                    }
+                    else if (attempted.Count > 0)
+                        Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' couldn't reach any free MHE station; the idle jack can be retrieved when a station is reachable.");
+                    yield break;
                 }
-                yield break;
-            }
-            spot.Reserve(_jack);
-            spot.ParkPose(_jack.transform.forward, out Vector3 origin, out Vector3 forward);
-            yield return DriveJackTo(origin, forward, "pallet jack parking");
-            if (!_jackLegOk)
-            {
+                attempted.Add(spot);
+                spot.Reserve(_jack);
+                spot.ParkPose(_jack.transform.forward, out Vector3 origin, out Vector3 forward);
+                yield return DriveJackTo(origin, forward, "pallet jack parking", allowReverse: true);
+                if (_jack != null && _jackLegOk && !_jackLegQueued &&
+                    PlanarDist(_jack.transform.position, origin) <= NavLegArriveTolerance)
+                {
+                    Vector3 to = origin - _jack.transform.position; to.y = 0f;
+                    if (to.magnitude > 0.05f)
+                    {
+                        yield return JackFace(to);
+                        yield return JackMoveStraight(origin, JackDriveSpeed);
+                    }
+                    if (_jack != null && PlanarDist(_jack.transform.position, origin) <= 0.2f)
+                    {
+                        yield return JackFace(forward);
+                        yield break;
+                    }
+                }
                 if (_jack != null) spot.Release(_jack);
-                Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' couldn't drive the pallet jack to its parking bay — leaving it where it is.");
+                Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' couldn't reach a pallet jack parking station.");
             }
         }
 

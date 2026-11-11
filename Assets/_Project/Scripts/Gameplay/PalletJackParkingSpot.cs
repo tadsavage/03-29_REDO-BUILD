@@ -2,12 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// A 3x1-cell painted bay (build menu: Vehicles → Pallet Jack Parking) where order selectors leave their pallet
-/// jack when an order is staged, instead of abandoning it in the lane mouth where it blocks everyone (Tad,
-/// 2026-10-16). Later a battery charger can live here and charge the parked jack (see FUTURE_IDEAS.md).
-///
-/// The bay's long axis is the prefab's local X (its footprint is (-1,0)(0,0)(1,0) around the root cell). A
-/// selector reserves a free bay before driving to it; the reservation becomes "parked" on arrival and is
+/// An MHE station where selectors leave idle pallet jacks instead of blocking lanes. Stations also charge equipment
+/// when batteries are enabled. A selector reserves a free bay before driving to it; the reservation becomes "parked" on arrival and is
 /// dropped the moment any selector claims that jack again. A bay also reads as taken while any pallet jack is
 /// physically standing in it (covers save/load and jacks placed straight onto it).
 /// </summary>
@@ -121,13 +117,13 @@ public class PalletJackParkingSpot : MonoBehaviour
         foreach (var s in s_all) if (s != null) s.Release(jack);
     }
 
-    public static PalletJackParkingSpot FindNearestFree(Vector3 from, MHEOperatorSlot jack)
+    public static PalletJackParkingSpot FindNearestFree(Vector3 from, MHEOperatorSlot jack, ISet<PalletJackParkingSpot> excluded = null)
     {
         PalletJackParkingSpot best = null;
         float bestD = float.MaxValue;
         foreach (var s in s_all)
         {
-            if (s == null || !s.IsFreeFor(jack)) continue;
+            if (s == null || (excluded != null && excluded.Contains(s)) || !s.IsFreeFor(jack)) continue;
             float d = Flat(s.Center - from).magnitude;
             if (d < bestD) { bestD = d; best = s; }
         }

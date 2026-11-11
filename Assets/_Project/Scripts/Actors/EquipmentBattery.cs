@@ -603,10 +603,10 @@ public class EquipmentBattery : MonoBehaviour
     {
         if (Slot == null) return;
         if (_switchTrip) { DismountOperator(); return; }
-        // A reach truck / dock stocker operator stays aboard while it charges - including one sent to fetch an empty machine.
-        // Only someone who isn't that machine's kind of operator (a fetcher from another role) steps off.
+        // A helper parking a jack steps off so it is available for the next pick. Truck operators stay aboard.
         var rider = Slot.CurrentOperator;
-        if (_helperTrip && rider != null && rider.Record != null && rider.Record.role != HelperRole) DismountOperator();
+        if (_helperTrip && (Slot.IsPalletJack || (rider != null && rider.Record != null && rider.Record.role != HelperRole)))
+            DismountOperator();
     }
 
     public static bool IsHelper(EmployeeIdentity e) => e != null && s_helpers.Contains(e);
@@ -769,7 +769,8 @@ public class EquipmentBattery : MonoBehaviour
             }
             _slideRefusals = 0;
             Debug.Log($"[EquipmentBattery] {name}#{LinkId} ChargeTrip: reached the bay at {transform.position}");
-            DismountIfNotStaying();   // parked: a driver on a battery change STAYS aboard; helpers / Switch Machines step off
+            // A jack's helper must remain aboard while queued outside the station.
+            if (!beside || !_helperTrip || Slot == null || !Slot.IsPalletJack) DismountIfNotStaying();
 
             if (beside)
             {
