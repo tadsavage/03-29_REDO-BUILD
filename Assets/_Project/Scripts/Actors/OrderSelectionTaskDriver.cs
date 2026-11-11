@@ -67,8 +67,14 @@ namespace GameCore.Actors
         private float _stagingRetryTimer;
         private OrderData.OrderStatus _pendingCompletionStatus;
 
+        // Every selector, mounted or not (StartTooCloseToOtherJack: a selector still walking to its jack has already chosen its first stop).
+        private static readonly HashSet<OrderSelectionTaskDriver> s_allDrivers = new();
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetDriverList() => s_allDrivers.Clear();
+
         private void Awake()
         {
+            s_allDrivers.Add(this);
             _nav = GetComponent<AiNavigation>();
             ServiceLocator.TryGet(out _workQueue);
             ServiceLocator.TryGet(out _orderService);
@@ -989,12 +995,59 @@ namespace GameCore.Actors
             string taskId = _currentTask != null ? _currentTask.TaskId : null;
             bool found = OrderPickPath.ChooseNext(order, li => _orderService.SelectableRemaining(order, li, taskId),
                                                   out location, out lineItem, out takeQty, _pickFloorKey);
+
+            // SPREAD THE START (Tad, 2026-11-10, fix A of JackTraffic_2026-11-10.md): a trip's FIRST stop never lands right on top of
+            // another jack working the same aisle - that made a convoy at the aisle door (three selectors on one order, two of them
+            // held behind the third for up to half the morning). Start past it instead; whatever is skipped is behind this trip and is
+            // left for the next one. Planned pallets are spread when they are dealt out (WorkQueueSystem.TryClaimNextTask), and
+            // skipping would strand a plan's own lines, so this is for unplanned trips only. Nothing beyond = keep the original stop.
+            // "Start" = nothing on this trip's pallets yet (not _pickFloorKey == MinValue: a trip resumed from a save already has a floor,
+            // and those were exactly the selectors that piled into bay 01-01 together).
+            if (SpreadTripStarts && found && _pallets.Sum(p => p != null ? p.TotalCases : 0) == 0 && !(_currentTask != null && _currentTask.HasPlan))
+            {
+                string firstAddress = location.Address;
+                for (int i = 0; i < 4; i++)
+                {
+                    if (!StartTooCloseToOtherJack(OrderPickPath.SequenceKey(location.Address), out long beyond, out string who)) break;
+                    if (!OrderPickPath.ChooseNext(order, li => _orderService.SelectableRemaining(order, li, taskId),
+                                                  out var l2, out var li2, out int q2, beyond))
+                        break;
+                    location = l2; lineItem = li2; takeQty = q2;
+                    if (i == 0 && _pickFloorKey < beyond) Debug.Log($"[OrderSelectionTaskDriver] '{name}': {who} is working near {firstAddress} - starting this trip further on instead.");
+                }
+            }
             // ASCENDING ONLY (Tad, 2026-10-18): this trip never goes back up the sequence. Anything behind is left for the
             // next trip (a SCRATCHES list if nothing else picks it).
             if (found) _pickFloorKey = OrderPickPath.SequenceKey(location.Address);
             _orderService.ReservePick(taskId, order != null ? order.OrderId : null,
                                       found ? lineItem.SkuId : null, found ? takeQty : 0);
             return found;
+        }
+
+        /// <summary>Fix A switch (dev / A-B testing with JackTrafficRecorder). On by default.</summary>
+        public static bool SpreadTripStarts = true;
+        private const int SpreadBehindBays = 2;   // a first stop this many bays behind another jack's stop...
+        private const int SpreadAheadBays = 3;    // ...up to this many ahead of it (same aisle) is too close: start past it
+
+        /// <summary>Another selector's jack is working the same aisle within SpreadBehindBays..SpreadAheadBays of this sequence key.
+        /// <paramref name="beyond"/> = the first key past that zone.</summary>
+        private bool StartTooCloseToOtherJack(long key, out long beyond, out string who)
+        {
+            beyond = key; who = null;
+            long aisle = key / 1_000_000, bay = (key / 1000) % 1000;
+            s_allDrivers.RemoveWhere(x => x == null);
+            foreach (var d in s_allDrivers)
+            {
+                if (d == this || !d.isActiveAndEnabled || d._currentTask == null || d._pickFloorKey == long.MinValue) continue;
+                long k = d._pickFloorKey;
+                if (k / 1_000_000 != aisle) continue;
+                long kb = (k / 1000) % 1000;
+                if (bay < kb - SpreadBehindBays || bay > kb + SpreadAheadBays) continue;
+                beyond = (aisle * 1000 + kb + SpreadAheadBays + 1) * 1000;
+                who = d.name.Replace("Employee_", "");
+                return true;
+            }
+            return false;
         }
 
         /// <summary>This trip has nothing on its pallets and another selector is still working the order: it

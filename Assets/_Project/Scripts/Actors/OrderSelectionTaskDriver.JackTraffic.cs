@@ -65,7 +65,7 @@ namespace GameCore.Actors
             {
                 _notHeldReal = 0f;
                 _heldRealSeconds += RealDt;
-                _heldGameMinutes += Time.deltaTime;
+                _heldGameMinutes += GameClock.DeltaMinutes;
                 _heldBehindJack = behind;
                 _heldBySolid = behind == null ? (solid ?? "something") : null;
                 return;
@@ -84,6 +84,7 @@ namespace GameCore.Actors
         private void EndTravel()
         {
             _travelDir = Vector3.zero;
+            _legTarget = Vector3.zero;
             ClearHeld();
         }
 
@@ -177,6 +178,91 @@ namespace GameCore.Actors
             => MachineClearance.StepBlocked(_jack, nextPos, nextRot, out what);
 
         private MHEOperatorSlot _yieldingTo;
+
+        public const float JackBuffer = 1.0f;       // jacks keep this far (outline to outline) from each other, except while passing
+        private MHEOperatorSlot _bufferYieldTo;     // the jack this one is currently keeping its distance from
+
+        /// <summary>True when this step would bring the jack inside <see cref="JackBuffer"/> of another manned jack (any angle, open floor
+        /// or aisle). Not while passing (the pass goes 1.5 m out on purpose). Two jacks holding each other: the lower hash goes, so they
+        /// never both freeze.</summary>
+        // ── Deadlock breaker (Tad, 2026-11-10): two jacks stuck on each other near the same place (an aisle mouth) ──
+        private const float YieldAfterReal   = 1.5f;   // held this long (REAL s) before the loser backs up
+        private const float YieldBackUp      = 1.5f;   // the loser backs straight up this far...
+        private const float YieldWaitReal    = 4f;     // ...and waits this long (REAL s) or until the other jack is out of its way
+        private const float YieldNearRadius  = 5f;     // only jacks this close (centre to centre) count as "stuck on each other"
+        private const float YieldClearRadius = 6f;     // "out of my way" = its centre this far from mine
+        private Vector3 _legTarget;                    // where this jack is driving to right now (zero = not driving)
+        private float _nextYieldReal;
+
+        /// <summary>Held up by a nearby manned jack that is itself driving or held: the one FURTHER from where it is going (or with the more
+        /// room behind it) is the loser and backs up. False for the winner, or when there is no room behind to back into.</summary>
+        private bool ShouldBackUpFor(out MHEOperatorSlot other)
+        {
+            other = null;
+            if (_jack == null || _passing || _heldRealSeconds < YieldAfterReal || Time.unscaledTime < _nextYieldReal) return false;
+            Vector3 me = JackCentre(_jack.transform);
+            float bestD = YieldNearRadius;
+            foreach (var kv in s_jackClaims)
+            {
+                var o = kv.Key; var od = kv.Value;
+                if (o == null || o == _jack || od == null || od == this || !o.IsOccupied) continue;
+                if (od._travelDir.sqrMagnitude < 0.0001f && od._heldRealSeconds <= 0f) continue;   // parked / picking: passing or walking handles it
+                float d = PlanarDist(JackCentre(o.transform), me);
+                if (d < bestD) { bestD = d; other = o; }
+            }
+            if (other == null) return false;
+            var odr = s_jackClaims[other];
+            float myTo = PlanarDist(_jack.transform.position, _legTarget);
+            float itsTo = odr._legTarget.sqrMagnitude > 0.0001f ? PlanarDist(other.transform.position, odr._legTarget) : 0f;
+            bool loser = myTo > itsTo + 0.5f || (Mathf.Abs(myTo - itsTo) <= 0.5f && _jack.GetHashCode() > other.GetHashCode());
+            if (!loser) return false;
+            Vector3 back = _jack.transform.position - Flat(_jack.transform.forward, 0f).normalized * YieldBackUp;
+            if (!MachineClearance.StraightSlideClear(_jack, back)) return false;   // nowhere to back into: the other one must give
+            return true;
+        }
+
+        /// <summary>Back straight up YieldBackUp, then wait YieldWaitReal real seconds or until <paramref name="other"/> is out of the way.</summary>
+        private IEnumerator BackUpAndWait(MHEOperatorSlot other)
+        {
+            if (_jack == null) yield break;
+            Transform jt = _jack.transform;
+            Debug.Log($"[OrderSelectionTaskDriver] '{name}': stuck with {(other != null ? other.name : "another jack")} - backing up {YieldBackUp:0.0}m to let it through, then waiting up to {YieldWaitReal:0}s.");
+            _nextYieldReal = Time.unscaledTime + 8f;
+            Vector3 fwd = Flat(jt.forward, 0f).normalized;
+            float moved = 0f;
+            while (_jack != null && moved < YieldBackUp)
+            {
+                float step = Mathf.Min(JackReverseSpeed * Time.deltaTime, YieldBackUp - moved);
+                if (step <= 0f) { yield return null; continue; }
+                Vector3 next = jt.position - fwd * step;
+                if (StepBlocked(next, jt.rotation, out _)) break;
+                jt.position = next;
+                if (_jackAgent != null && _jackAgent.isActiveAndEnabled && _jackAgent.isOnNavMesh) _jackAgent.nextPosition = next;
+                moved += step;
+                yield return null;
+            }
+            float waited = 0f;
+            while (_jack != null && other != null && waited < YieldWaitReal && other.IsOccupied
+                   && PlanarDist(JackCentre(other.transform), JackCentre(jt)) < YieldClearRadius)
+            {
+                waited += RealDt;
+                yield return null;
+            }
+            ClearHeld();
+            _bufferYieldTo = null;
+        }
+
+        private bool JackBufferHold(Vector3 nextPos, Quaternion nextRot, out MHEOperatorSlot other)
+        {
+            other = null;
+            if (_jack == null || _passing) { _bufferYieldTo = null; return false; }
+            if (!MachineClearance.JackBufferBlocked(_jack, nextPos, nextRot, JackBuffer, out other)) { _bufferYieldTo = null; return false; }
+            if (s_jackClaims.TryGetValue(other, out var od) && od != null && od != this && od._bufferYieldTo == _jack
+                && _jack.GetHashCode() < other.GetHashCode())
+            { _bufferYieldTo = null; return false; }   // it is waiting for me and I win the tie: go
+            _bufferYieldTo = other;
+            return true;
+        }
 
         /// <summary>One log line each time this jack starts giving way to a reach truck (rule 1: reach trucks have right of way, 1 m buffer).</summary>
         private void WarnYield(MHEOperatorSlot truck)
@@ -333,6 +419,18 @@ namespace GameCore.Actors
                 if (len < bestLen) { bestLen = len; route = cand; }
             }
             return route != null;
+        }
+
+        /// <summary>Forward along <paramref name="route"/> (pallet side .. pick face), starting at the first point that is not behind the
+        /// walker: a point is skipped when the walker is already closer to the next one than that point is.</summary>
+        private IEnumerator WalkRouteFromHere(List<Vector3> route)
+        {
+            if (route == null || route.Count == 0) yield break;
+            int start = 0;
+            while (start < route.Count - 1 &&
+                   PlanarDist(transform.position, route[start + 1]) <= PlanarDist(route[start], route[start + 1]))
+                start++;
+            for (int i = start; i < route.Count; i++) yield return WalkTo(route[i]);
         }
 
         private IEnumerator WalkRoute(List<Vector3> route, bool reverse)

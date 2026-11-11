@@ -320,6 +320,19 @@ namespace GameCore.Actors
             return next > PenetrationOfKind(m, m.transform.position, m.transform.rotation, buffer, isRt, out _, out _);
         }
 
+        /// <summary>PALLET JACKS KEEP THEIR DISTANCE (Tad, 2026-11-10: they "stick to each other like glue"). True when this step would bring
+        /// the machine <paramref name="m"/> closer than <paramref name="buffer"/> to a MANNED pallet jack than it already is. Outline to
+        /// outline (forks included), so it works at any angle on open floor. Moving away is always allowed.</summary>
+        public static bool JackBufferBlocked(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot, float buffer, out MHEOperatorSlot jack)
+        {
+            jack = null;
+            if (m == null) return false;
+            System.Func<MHEOperatorSlot, bool> manned = o => o.IsPalletJack && o.IsOccupied;
+            int next = PenetrationOfKind(m, nextPos, nextRot, buffer, manned, out _, out jack);
+            if (next == 0) return false;
+            return next > PenetrationOfKind(m, m.transform.position, m.transform.rotation, buffer, manned, out _, out _);
+        }
+
         /// <summary>How many of the machine's outline points are inside an inflated outline of a nearby machine matching <paramref name="kind"/>.</summary>
         private static int PenetrationOfKind(MHEOperatorSlot m, Vector3 pos, Quaternion rot, float inflate, System.Func<MHEOperatorSlot, bool> kind,
                                              out string what, out MHEOperatorSlot first)

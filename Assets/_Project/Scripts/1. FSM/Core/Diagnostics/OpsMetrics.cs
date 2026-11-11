@@ -70,7 +70,7 @@ public static class OpsMetrics
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void Reset() { foreach (var d in _data.Values) d.Clear(); _loaded = false; _sinceSave = 0; }
 
-    /// <summary>Game-minute clock.</summary>
+    /// <summary>Scaled real seconds (Time.time). Differences of it go to <see cref="Record"/>, which converts them to game minutes.</summary>
     public static float Now => Time.time;
 
     /// <summary>The source new samples are filed under right now: Bot while HAL is actually playing, otherwise Player.</summary>
@@ -86,12 +86,14 @@ public static class OpsMetrics
     /// <param name="role">The employee role (EmployeeRole) doing the job, or -1 when it is not a worker's job.</param>
     public static void Record(Kind kind, float minutes, int units = 1, int role = -1)
     {
+        // Callers pass differences of Time.time / OpsMetrics.Now = scaled REAL seconds; samples are GAME minutes (20 game s per real s now).
+        minutes = GameClock.ToMinutes(minutes);
         if (minutes <= 0.01f || minutes > 60f * 24f) return;
         Load();
         var map = _data[CurrentSource];
         if (!map.TryGetValue(kind, out var list)) map[kind] = list = new List<Sample>();
         list.Add(new Sample { k = (int)kind, min = minutes, units = Mathf.Max(1, units), t = DateTime.UtcNow.Ticks, d = PlayerPrefs.GetInt("Difficulty", 0),
-                              r = role + 1, g = Now });
+                              r = role + 1, g = GameClock.ToMinutes(Now) });
         if (list.Count > MaxPerKind) list.RemoveAt(0);
         Version++;
         if (++_sinceSave >= 10) Save();

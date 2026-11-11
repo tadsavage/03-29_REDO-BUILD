@@ -228,7 +228,7 @@ public class EquipmentBattery : MonoBehaviour
         while (this != null && t < duration && !IsBusy && !WantsStation && Slot != null && Slot.IsOccupied)
         {
             if (_time == null) ServiceLocator.TryGet(out _time);
-            t += Time.deltaTime * (_time != null ? _time.TimeScale : 1f);
+            t += GameClock.DeltaMinutes * (_time != null ? _time.TimeScale : 1f);
             yield return null;
         }
         IsDoingLap = false;
@@ -380,9 +380,9 @@ public class EquipmentBattery : MonoBehaviour
         if (Time.deltaTime > 0f && (d.magnitude > MoveEpsilon || turned > TurnEpsilon || liftMoved)) _movedAt = Time.time;
         IsMoving = Time.time - _movedAt < MovingHoldSeconds;
 
-        // Game minutes that passed this frame (1 real second = 1 game minute at 1x; Time.deltaTime already carries the speed).
+        // Game minutes that passed this frame (GameClock: 20 game seconds per real second at 1x; Time.deltaTime already carries the speed).
         if (_time == null) ServiceLocator.TryGet(out _time);
-        float minutes = Time.deltaTime * (_time != null ? _time.TimeScale : 1f);
+        float minutes = GameClock.DeltaMinutes * (_time != null ? _time.TimeScale : 1f);
 
         Station = IsMoving ? null : PalletJackParkingSpot.ChargerAt(BodyCentre);
 
@@ -780,7 +780,7 @@ public class EquipmentBattery : MonoBehaviour
                 while (WantsStation && PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) == null)
                 {
                     yield return new WaitForSeconds(2f);
-                    waitedGameMin += 2f * (_time != null ? _time.TimeScale : 1f);
+                    waitedGameMin += GameClock.ToMinutes(2f) * (_time != null ? _time.TimeScale : 1f);   // WaitForSeconds(2) = 2 scaled seconds
                     // A stale flag (it charged somewhere / was already full) or a long wait with charge left: stop queueing and go
                     // back to work. Day 4 of block 1083: every machine sat bumper to bumper on the charger row, some at 100%.
                     if (Charge01 >= 0.95f ||

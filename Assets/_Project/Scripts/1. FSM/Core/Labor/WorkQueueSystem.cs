@@ -481,6 +481,30 @@ namespace GameCore.Labor
                          .ThenBy(t => t.Type == WorkTaskType.Return ? 1 : 0)
                          .FirstOrDefault();
             if (task == null) return false;
+
+            // DEAL PLANNED PALLETS FAR APART (Tad, 2026-11-10, fix A of JackTraffic_2026-11-10.md): an order's planned pallets are
+            // consecutive stretches of ONE pick path, so selectors taking pallets 1, 2, 3 all started at the front of the same aisle
+            // and drove it nose to tail. While some of the order's pallets are being picked, hand out the one furthest (by plan number,
+            // i.e. along the path) from them - 1, 9, 5 rather than 1, 2, 3. Same order, priority and hotness only: never reorders
+            // anything else.
+            if (task.Type == WorkTaskType.OrderSelect && task.HasPlan && !string.IsNullOrEmpty(task.OrderId))
+            {
+                var first = task;
+                var busy = _tasks.Where(t => t.OrderId == first.OrderId && t.Type == WorkTaskType.OrderSelect && t.HasPlan
+                                          && t.Status == WorkTaskStatus.Assigned)
+                                 .Select(t => t.PlanNumber).ToList();
+                if (busy.Count > 0)
+                {
+                    var spread = _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available && t.OrderId == first.OrderId
+                                                && t.Type == WorkTaskType.OrderSelect && t.HasPlan && t.Priority == first.Priority
+                                                && t.IsHot == first.IsHot && (skip == null || !skip(t)))
+                                       .OrderByDescending(t => busy.Min(b => Math.Abs(t.PlanNumber - b)))
+                                       .ThenBy(t => t.PlanNumber)
+                                       .FirstOrDefault();
+                    if (spread != null) task = spread;
+                }
+            }
+
             task.Status = WorkTaskStatus.Assigned;
             task.AssignedToEmployeeGuid = employeeGuid;
             task.AssignedAtRealtime = Time.realtimeSinceStartup;

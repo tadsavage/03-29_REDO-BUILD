@@ -320,6 +320,7 @@ by clicking a rack (`PlacementStateMachine` → `ShowForAisle`).
 - A new placeable must be added to **both** `ObjDataRegistry` and the `BuildMenuUI` category list; run `Tools/ObjData/Auto-Assign Unique IDs`.
 
 **Simulation / data**
+- **Game clock rate (2026-11-10): 20 game seconds per real second at 1x** (Skyrim; was 60 = 1 real second per game minute). It is `SimulationTimeService.GameSecondsPerRealSecond` - one constant. The HUD speed buttons are `Time.timeScale` only (the clock's own `TimeSpeed` stays 1; setting both compounds). Anything that means "game minutes" but counts `Time.deltaTime` / `Time.time` must go through `GameClock` (`DeltaMinutes`, `ToMinutes`): done for `EquipmentBattery`, the jack watchdogs (`NoProgressGameMinutes`, held, dead-jack rider) and `OpsMetrics.Record` (callers still pass Time.time differences). Movement, animation and "real seconds" rules stay on `Time.deltaTime`. The clock-driven systems (wages, hourly costs, dock appointments, deadlines, truck dwell) read the sim clock and need nothing. Play starts paused (`ProjectSettings/TimeManager.asset` m_TimeScale 0).
 - `transform.parent != null` does NOT mean "carried" (restored pallets sit under PlacedObjectsContainer). Use `OutboundPalletBuilder.IsOnFloor`.
 - Any "within X metres" test on something moving by `speed*deltaTime` must cap the step or sweep the test (frame-rate dependence broke every reach-truck grab).
 - A coroutine's `finally` does NOT run on `StopCoroutine`/destroy. Release locks/reservations explicitly (`ReleaseLaneLock`, `ReleaseStagingReservation`).

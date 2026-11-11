@@ -120,6 +120,11 @@ namespace GameCore.Economy
         /// <summary>
         /// Advance time by deltaTime seconds. Must be called from game loop (e.g., GameContext or TimeDriver).
         /// </summary>
+        /// <summary>Game seconds that pass per REAL second at 1x (the HUD's 2x / 5x multiply it). 20 = Skyrim's timescale: a game hour is 3 real
+        /// minutes. NOTE: code that counts <c>Time.deltaTime</c> as "game minutes" (watchdogs, battery drain, a few timers) still counts real
+        /// time x speed, i.e. it assumed 60.</summary>
+        public const float GameSecondsPerRealSecond = 20f;
+
         public void Tick(float deltaTime)
         {
             if (_eventManager == null)
@@ -128,7 +133,8 @@ namespace GameCore.Economy
             }
 
             float scaledDeltaSeconds = deltaTime * _timeScale;
-            float deltaMinutes = scaledDeltaSeconds;
+            // 20 game seconds per real second at 1x ("like Skyrim", Tad 2026-11-10; was 60 = 1 real second per game minute).
+            float deltaMinutes = scaledDeltaSeconds * (GameSecondsPerRealSecond / 60f);
             _fractionalMinutes += deltaMinutes;
 
             if (_fractionalMinutes >= 1.0f)
