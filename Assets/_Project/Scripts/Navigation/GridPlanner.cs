@@ -42,6 +42,12 @@ namespace GameCore.Navigation
         /// segments. Never cuts through a cost cell (the rack-clearance ring), a one-way cell, a reverse leg, or the final approach
         /// when an arrival heading was asked for, and every straight segment is swept with the machine's real outline at its real angle.</summary>
         public readonly List<Vector3> Smoothed = new List<Vector3>();
+        /// <summary>For each entry of <see cref="Smoothed"/>, the index into <see cref="Steps"/> it came from. The heading the machine
+        /// holds on the leg that LEAVES smoothed point i is <c>Steps[SmoothedStep[i]].Heading</c> (use <see cref="LegHeading"/>), which is how
+        /// a follower tells a reverse leg (travel opposite the heading) from a forward one.</summary>
+        public readonly List<int> SmoothedStep = new List<int>();
+        /// <summary>Heading the machine holds while driving smoothed leg <paramref name="i"/> (from point i-1 to point i).</summary>
+        public int LegHeading(int i) => Steps[SmoothedStep[i - 1]].Heading;
         public float Cost;
         public int Expanded;
         public int GridVersion;
@@ -204,8 +210,44 @@ namespace GameCore.Navigation
             res.Status = PlanStatus.Ok;
             BuildWaypoints(res, startWorld.y);
             if (SmoothOpenFloor) Smooth(res, profile, goalHeading >= 0);
-            else res.Smoothed.AddRange(res.Waypoints);
+            else { res.Smoothed.AddRange(res.Waypoints); res.SmoothedStep.AddRange(res.WaypointStep); }
             return res;
+        }
+
+        /// <summary>As <see cref="Plan"/>, but when the goal itself is unusable (a bay park a few cm inside a rack's cell, a cell the outline
+        /// does not fit in) it plans to the nearest cell centre within <paramref name="radiusCells"/> that the machine does fit in, and says
+        /// how far it moved the goal. This is the NavMesh's silent "snap the goal to the mesh", done openly and bounded: the caller sees
+        /// <paramref name="movedMetres"/> and decides whether the final approach is a scripted move.</summary>
+        public PlanResult PlanNearest(MachineProfile profile, Vector3 startWorld, int startHeading, Vector3 goalWorld, int goalHeading,
+                                      int radiusCells, out float movedMetres)
+        {
+            movedMetres = 0f;
+            var first = Plan(profile, startWorld, startHeading, goalWorld, goalHeading);
+            if (first.Status != PlanStatus.GoalBlocked || radiusCells <= 0) return first;
+
+            Vector2Int gc = _grid.WorldToCell(goalWorld);
+            var cands = new List<KeyValuePair<float, Vector3>>();
+            for (int dx = -radiusCells; dx <= radiusCells; dx++)
+            {
+                for (int dz = -radiusCells; dz <= radiusCells; dz++)
+                {
+                    if (_grid.IsBlocked(gc.x + dx, gc.y + dz)) continue;
+                    Vector3 c = _grid.CellCenter(gc.x + dx, gc.y + dz, goalWorld.y);
+                    float ddx = c.x - goalWorld.x, ddz = c.z - goalWorld.z;
+                    cands.Add(new KeyValuePair<float, Vector3>(Mathf.Sqrt(ddx * ddx + ddz * ddz), c));
+                }
+            }
+            cands.Sort((a, b) => a.Key.CompareTo(b.Key));
+            PlanResult last = first;
+            foreach (var c in cands)
+            {
+                last = Plan(profile, startWorld, startHeading, c.Value, goalHeading);
+                // A blocked goal is rejected before any search, so walking the list is cheap. The first goal that is searched is the one used.
+                if (last.Status == PlanStatus.GoalBlocked) continue;
+                movedMetres = c.Key;
+                return last;
+            }
+            return first;
         }
 
         // ── Open-floor smoothing ────────────────────────────────────────────────────────────────────
@@ -225,9 +267,10 @@ namespace GameCore.Navigation
         {
             var pts = res.Waypoints;
             int n = pts.Count;
-            if (n < 3) { res.Smoothed.AddRange(pts); return; }
+            if (n < 3) { res.Smoothed.AddRange(pts); res.SmoothedStep.AddRange(res.WaypointStep); return; }
             int anchor = 0;
             res.Smoothed.Add(pts[0]);
+            res.SmoothedStep.Add(res.WaypointStep[0]);
             int limit = pinFinalApproach ? n - 2 : n - 1;
             while (anchor < n - 1)
             {
@@ -235,6 +278,7 @@ namespace GameCore.Navigation
                 for (int j = limit; j >= anchor + 2; j--)
                     if (CanShortcut(res, p, anchor, j)) { next = j; break; }
                 res.Smoothed.Add(pts[next]);
+                res.SmoothedStep.Add(res.WaypointStep[next]);
                 anchor = next;
             }
         }

@@ -44,6 +44,21 @@ namespace GameCore.Navigation
             Debug.LogWarning($"[NavGrid] built {g.Width}x{g.Height} @ {g.CellSize:0.###} m, {blocked} blocked cells, {(Time.realtimeSinceStartup - t0) * 1000f:0.0} ms.");
         }
 
+        [ContextMenu("Refresh Dynamic Layer")]
+        public void RefreshDynamic()
+        {
+            if (NavGridService.Grid == null) { RebuildGrid(); if (NavGridService.Grid == null) return; }
+            int n = NavDynamicLayer.Refresh(NavGridService.Grid, null);
+            Debug.LogWarning($"[NavGrid] dynamic layer: {n} cells blocked by parked machines and floor pallets (cyan in the overlay).");
+        }
+
+        [ContextMenu("Toggle Grid Nav For Jacks")]
+        public void ToggleGridNavForJacks()
+        {
+            NavGridService.UseForJacks = !NavGridService.UseForJacks;
+            Debug.LogWarning($"[NavGrid] pallet jacks now use the {(NavGridService.UseForJacks ? "GRID planner" : "NavMeshAgent")} for open-floor legs.");
+        }
+
         [ContextMenu("Plan Route")]
         public void PlanRoute()
         {
@@ -51,6 +66,7 @@ namespace GameCore.Navigation
             if (NavGridService.Planner == null || from == null || to == null) { Debug.LogWarning("[NavGrid] need a built grid plus 'from' and 'to'."); return; }
             var planner = NavGridService.Planner;
             planner.TurnCost = turnCost;
+            RefreshDynamic();
             var profile = new MachineProfile { Name = "debug", Front = front, Back = back, HalfWidth = halfWidth, CanReverse = canReverse, FollowAisleTraffic = followAisleTraffic };
             int h = NavGrid.HeadingOf(from.forward);
             var t0 = Time.realtimeSinceStartup;

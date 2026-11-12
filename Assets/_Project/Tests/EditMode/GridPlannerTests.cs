@@ -157,6 +157,50 @@ namespace GameCore.Tests
         }
 
         [Test]
+        public void PlanNearest_MovesAnUnusableGoalToTheNearestFittingCell_AndSaysHowFar()
+        {
+            var g = G(30, 20);
+            for (int x = 14; x <= 16; x++) for (int z = 8; z <= 12; z++) g.SetStaticBlocked(x, z, true);   // a rack block
+            var p = new GridPlanner(g);
+            Vector3 inRack = C(g, 15, 10);
+            Assert.AreEqual(PlanStatus.GoalBlocked, p.Plan(Small, C(g, 2, 10), NavGrid.East, inRack).Status);
+            var r = p.PlanNearest(Small, C(g, 2, 10), NavGrid.East, inRack, -1, 3, out float moved);
+            Assert.IsTrue(r.Ok);
+            Assert.Greater(moved, 0f);
+            Assert.LessOrEqual(moved, 3f * g.CellSize * 1.5f);
+            var end = r.Steps[r.Steps.Count - 1];
+            Assert.IsFalse(g.IsBlocked(end.X, end.Z));
+            // Nothing within reach: still refused, not silently planned somewhere far away.
+            var none = p.PlanNearest(Small, C(g, 2, 10), NavGrid.East, inRack, -1, 0, out float m0);
+            Assert.AreEqual(PlanStatus.GoalBlocked, none.Status);
+            Assert.AreEqual(0f, m0);
+        }
+
+        [Test]
+        public void BlockOutline_BlocksOnlyTheCellsTheRectangleTouches_AndRoutesGoRoundIt()
+        {
+            var g = G(40, 30);
+            Vector3 c = g.CellCenter(20, 15);
+            int n = g.BlockOutline(c.x, c.z, 0f, 1f, 1.9f, 0.6f);   // a jack-sized outline pointing north
+            Assert.GreaterOrEqual(n, 3);
+            Assert.IsTrue(g.IsDynamicBlocked(20, 15) && g.IsDynamicBlocked(20, 16) && g.IsDynamicBlocked(20, 14));
+            Assert.IsFalse(g.IsDynamicBlocked(20, 20));
+            Assert.IsFalse(g.IsDynamicBlocked(24, 15));
+
+            var p = new GridPlanner(g);
+            var r = p.Plan(Small, C(g, 5, 15), NavGrid.East, C(g, 35, 15));
+            Assert.IsTrue(r.Ok);
+            Assert.IsFalse(r.Steps.Exists(s => g.IsDynamicBlocked(s.X, s.Z)));
+            Assert.Greater(r.Cost, 30f);
+
+            // Pointing east it blocks along x instead.
+            var e = G(40, 30);
+            e.BlockOutline(c.x, c.z, 1f, 0f, 1.9f, 0.6f);
+            Assert.IsTrue(e.IsDynamicBlocked(19, 15) && e.IsDynamicBlocked(21, 15));
+            Assert.IsFalse(e.IsDynamicBlocked(20, 18));
+        }
+
+        [Test]
         public void StartInsideABlockedCell_StillPlansOut()
         {
             var g = G(20, 20);

@@ -198,6 +198,15 @@ namespace GameCore.Actors
                 if (s != null && s.isActiveAndEnabled && s.GetComponent<PlacedObject>() != null) s_allMachines.Add(s);
         }
 
+        /// <summary>Every active placed machine (RT, DS, pallet jack), manned or not. Cached for ~0.1 s. Read only.</summary>
+        public static List<MHEOperatorSlot> AllMachines() { RefreshMachines(); return s_allMachines; }
+
+        /// <summary>Every pallet standing on a floor (not riding a machine or person, not in a rack). Cached for ~1 s. Read only.</summary>
+        public static List<Transform> AllFloorPallets() { RefreshFloorPallets(); return s_floorPallets; }
+
+        /// <summary>Half the side of a floor pallet's square footprint, metres.</summary>
+        public static float PalletHalfSize => PalletHalf;
+
         /// <summary>Pallets standing on a floor (lanes, dock, aisles). Pallets riding a machine or a person are part of that machine;
         /// pallets in a rack are inside a solid already.</summary>
         private static void RefreshFloorPallets()

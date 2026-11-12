@@ -178,15 +178,43 @@ namespace GameCore.Navigation
         public static NavGrid Grid { get; private set; }
         public static GridPlanner Planner { get; private set; }
 
+        private static PlacementGrid s_placement;
+        private static int s_builtCount = -1;
+        private static float s_builtAt = -1000f;
+        private const string JackPrefKey = "NavGrid.Jacks";
+        /// <summary>The grid is rebuilt when the placed-object count changes or it is this old (real seconds). A rebuild takes ~2 ms.</summary>
+        public const float MaxAgeSeconds = 30f;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { Grid = null; Planner = null; }
+        private static void ResetStatics() { Grid = null; Planner = null; s_placement = null; s_builtCount = -1; s_builtAt = -1000f; }
+
+        /// <summary>FLAG (default off): drive the pallet jack's open-floor legs on the grid planner instead of the jack's NavMeshAgent.
+        /// Persisted in PlayerPrefs so it survives Play sessions; flip it with the NavGridDebug context menu or from code.</summary>
+        public static bool UseForJacks
+        {
+            get { try { return PlayerPrefs.GetInt(JackPrefKey, 0) == 1; } catch { return false; } }
+            set { try { PlayerPrefs.SetInt(JackPrefKey, value ? 1 : 0); } catch { } }
+        }
 
         public static NavGrid Rebuild(PlacementGrid placement, NavGridBuilder.Options? options = null)
         {
             if (placement == null) return null;
             Grid = NavGridBuilder.Build(placement, options);
             Planner = new GridPlanner(Grid);
+            s_placement = placement;
+            s_builtCount = PlacedObjectRegistry.Count;
+            s_builtAt = Time.unscaledTime;
             return Grid;
+        }
+
+        /// <summary>A planner on an up-to-date grid, or null when there is no PlacementGrid in the scene.</summary>
+        public static GridPlanner EnsurePlanner()
+        {
+            if (s_placement == null) s_placement = Object.FindAnyObjectByType<PlacementGrid>();
+            if (s_placement == null) return null;
+            if (Grid == null || PlacedObjectRegistry.Count != s_builtCount || Time.unscaledTime - s_builtAt > MaxAgeSeconds)
+                Rebuild(s_placement);
+            return Planner;
         }
     }
 }

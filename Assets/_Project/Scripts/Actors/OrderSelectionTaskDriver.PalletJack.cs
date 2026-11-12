@@ -1731,7 +1731,7 @@ namespace GameCore.Actors
             yield return ExitAisleTowards(target, phase);
             if (_jack == null) yield break;
 
-            yield return JackNavLeg(target, phase);
+            yield return JackLeg(target, phase);   // NavMeshAgent leg, or the grid planner when NavGridService.UseForJacks is on
             if (_jackLegQueued) { yield return SquareUpInAisle(finalForward); yield break; }   // _jackLegOk already true: parked in a queue
             if (!_jackLegOk || _jack == null) yield break;
 
@@ -1742,7 +1742,7 @@ namespace GameCore.Actors
             for (int retry = 0; retry < NavLegRetries && _jack != null && PlanarDist(jt.position, target) > NavLegArriveTolerance; retry++)
             {
                 Debug.LogWarning($"[OrderSelectionTaskDriver] Pallet jack stopped {PlanarDist(jt.position, target):0.0}m short of '{phase}' - re-issuing the drive ({retry + 1}/{NavLegRetries}).");
-                yield return JackNavLeg(target, phase);
+                yield return JackLeg(target, phase);
                 if (_jackLegQueued) { yield return SquareUpInAisle(finalForward); yield break; }
                 if (!_jackLegOk || _jack == null) yield break;
             }

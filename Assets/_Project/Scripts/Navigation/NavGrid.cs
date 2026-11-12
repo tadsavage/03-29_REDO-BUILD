@@ -111,6 +111,36 @@ namespace GameCore.Navigation
             Version++;
         }
 
+        /// <summary>Block (dynamically) every cell an oriented rectangle touches: a parked machine, a pallet on the floor. The rectangle is
+        /// centred at (cx, cz), points along (fx, fz), and is <paramref name="halfLength"/> long and <paramref name="halfWidth"/> wide from the
+        /// centre, grown by <paramref name="inflate"/> on every side. Returns how many cells it blocked. Cell resolution is coarse
+        /// (1.325 m): any cell the rectangle overlaps at all is blocked.</summary>
+        public int BlockOutline(float cx, float cz, float fx, float fz, float halfLength, float halfWidth, float inflate = 0f)
+        {
+            float len = Mathf.Sqrt(fx * fx + fz * fz);
+            if (len < 1e-5f) { fx = 0f; fz = 1f; } else { fx /= len; fz /= len; }
+            float rx = fz, rz = -fx;
+            float hl = halfLength + inflate, hw = halfWidth + inflate;
+            float ex = Mathf.Abs(fx) * hl + Mathf.Abs(rx) * hw, ez = Mathf.Abs(fz) * hl + Mathf.Abs(rz) * hw;
+            int x0 = Mathf.FloorToInt((cx - ex - Origin.x) / CellSize), x1 = Mathf.FloorToInt((cx + ex - Origin.x) / CellSize);
+            int z0 = Mathf.FloorToInt((cz - ez - Origin.z) / CellSize), z1 = Mathf.FloorToInt((cz + ez - Origin.z) / CellSize);
+            float h = CellSize * 0.5f;
+            float cellOnF = h * (Mathf.Abs(fx) + Mathf.Abs(fz)), cellOnR = h * (Mathf.Abs(rx) + Mathf.Abs(rz));
+            int n = 0;
+            for (int x = x0; x <= x1; x++)
+            {
+                for (int z = z0; z <= z1; z++)
+                {
+                    if (!InBounds(x, z)) continue;
+                    float ccx = Origin.x + (x + 0.5f) * CellSize - cx, ccz = Origin.z + (z + 0.5f) * CellSize - cz;
+                    float dF = Mathf.Abs(ccx * fx + ccz * fz), dR = Mathf.Abs(ccx * rx + ccz * rz);
+                    if (dF > hl + cellOnF || dR > hw + cellOnR) continue;   // separating axis: not touching this cell
+                    if (!IsDynamicBlocked(x, z)) { SetDynamicBlocked(x, z, true); n++; }
+                }
+            }
+            return n;
+        }
+
         public void ClearDynamic()
         {
             bool any = false;
