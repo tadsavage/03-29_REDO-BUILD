@@ -123,7 +123,7 @@ namespace GameCore.Actors
 
         /// <summary>Placed objects a vehicle can never drive through: racks, walls (not doors), barriers, fences, furniture.
         /// Floors, grounds, lane tiles, doors, parking bays, vehicles, staff and waypoints are not solid.</summary>
-        private static bool IsSolidData(ObjDataSO d)
+        public static bool IsSolidData(ObjDataSO d)
         {
             if (d == null || d.isFloor || d.pathfindingClear || d.ignorePlacementRules || d.ClearsGridAfterPlacement || d.wallMounted) return false;
             switch (d.category)
