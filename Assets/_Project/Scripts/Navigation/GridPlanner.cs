@@ -12,6 +12,14 @@ namespace GameCore.Navigation
         public float Front, Back, HalfWidth;
         /// <summary>May the planner back the machine up (jacks reversing out of a lane)? Reversing costs more.</summary>
         public bool CanReverse;
+        /// <summary>Pallet jacks: inside an aisle the machine must face the aisle's travel direction (toward higher bay numbers) at every
+        /// state, so it can never enter against the traffic, turn round or sit sideways in the aisle. Reach trucks leave this off:
+        /// they may go either way. Judged on every aisle cell the OUTLINE touches, not just the pivot, so a jack cannot swing its tail
+        /// into an aisle mouth sideways.</summary>
+        public bool FollowAisleTraffic;
+        /// <summary>With <see cref="FollowAisleTraffic"/>: may the machine BACK UP inside an aisle (against the traffic, still facing it)? Off by
+        /// default, so a route never reverses up an aisle to reach a stop behind it; the jack driver sets it only for its short back-out.</summary>
+        public bool AllowAisleReverse;
     }
 
     public enum PlanStatus { Ok, GoalBlocked, NoPath, OutOfBudget }
@@ -28,6 +36,12 @@ namespace GameCore.Navigation
         public readonly List<PlanStep> Steps = new List<PlanStep>();
         /// <summary>Only the points where the route turns, plus start and goal (world space, y = start y).</summary>
         public readonly List<Vector3> Waypoints = new List<Vector3>();
+        /// <summary>For each entry of <see cref="Waypoints"/>, the index into <see cref="Steps"/> it came from.</summary>
+        public readonly List<int> WaypointStep = new List<int>();
+        /// <summary>The route a machine should actually drive: <see cref="Waypoints"/> with open-floor staircases cut into straight
+        /// segments. Never cuts through a cost cell (the rack-clearance ring), a one-way cell, a reverse leg, or the final approach
+        /// when an arrival heading was asked for, and every straight segment is swept with the machine's real outline at its real angle.</summary>
+        public readonly List<Vector3> Smoothed = new List<Vector3>();
         public float Cost;
         public int Expanded;
         public int GridVersion;
@@ -94,11 +108,21 @@ namespace GameCore.Navigation
             return list;
         }
 
+        private bool _follow, _aisleReverse;   // set per Plan from the profile
+
         private bool Fits(List<Vector2Int>[] fp, int x, int z, int h)
         {
             var offs = fp[h];
             for (int i = 0; i < offs.Count; i++)
-                if (_grid.IsBlocked(x + offs[i].x, z + offs[i].y)) return false;
+            {
+                int cx = x + offs[i].x, cz = z + offs[i].y;
+                if (_grid.IsBlocked(cx, cz)) return false;
+                if (_follow)
+                {
+                    int t = _grid.GetAisleTravel(cx, cz);
+                    if (t >= 0 && t != h) return false;   // in an aisle, face the traffic or stay out
+                }
+            }
             return true;
         }
 
@@ -115,6 +139,8 @@ namespace GameCore.Navigation
             Vector2Int sc = _grid.WorldToCell(startWorld);
             Vector2Int gc = _grid.WorldToCell(goalWorld);
             startHeading &= 3;
+            _follow = profile.FollowAisleTraffic;
+            _aisleReverse = profile.AllowAisleReverse;
 
             // The goal must be reachable in at least one acceptable heading, or there is no point searching.
             bool goalOk = false;
@@ -177,7 +203,93 @@ namespace GameCore.Navigation
             res.Cost = _g[goalState];
             res.Status = PlanStatus.Ok;
             BuildWaypoints(res, startWorld.y);
+            if (SmoothOpenFloor) Smooth(res, profile, goalHeading >= 0);
+            else res.Smoothed.AddRange(res.Waypoints);
             return res;
+        }
+
+        // ── Open-floor smoothing ────────────────────────────────────────────────────────────────────
+
+        /// <summary>Cut Manhattan staircases into straight segments where it is provably safe (see <see cref="PlanResult.Smoothed"/>).
+        /// Aisles keep the lattice because they carry the direction rules (cost ring, one-way exits); smoothing only ever happens
+        /// across plain open cells.</summary>
+        public bool SmoothOpenFloor = true;
+        /// <summary>Samples along a candidate straight segment are this fraction of a cell apart.</summary>
+        public float SmoothSampleStep = 0.25f;
+        /// <summary>A smoothed segment keeps the machine's outline at least this far (metres) from every blocked cell (Tad, 2026-11-05:
+        /// "a fifth to a quarter of a meter"). It is measured to the cell edge, and a rack's real outline is thinner than its cell, so
+        /// the true gap is larger. It may cross the rack-clearance cost ring; it may never enter an aisle or its mouth.</summary>
+        public float ClearanceMargin = 0.25f;
+
+        private void Smooth(PlanResult res, MachineProfile p, bool pinFinalApproach)
+        {
+            var pts = res.Waypoints;
+            int n = pts.Count;
+            if (n < 3) { res.Smoothed.AddRange(pts); return; }
+            int anchor = 0;
+            res.Smoothed.Add(pts[0]);
+            int limit = pinFinalApproach ? n - 2 : n - 1;
+            while (anchor < n - 1)
+            {
+                int next = anchor + 1;
+                for (int j = limit; j >= anchor + 2; j--)
+                    if (CanShortcut(res, p, anchor, j)) { next = j; break; }
+                res.Smoothed.Add(pts[next]);
+                anchor = next;
+            }
+        }
+
+        private bool CanShortcut(PlanResult res, MachineProfile p, int i, int j)
+        {
+            // A leg that was driven in reverse stays as planned: the straight line would face the other way.
+            for (int k = res.WaypointStep[i] + 1; k <= res.WaypointStep[j]; k++)
+            {
+                var a = res.Steps[k - 1]; var b = res.Steps[k];
+                int dx = b.X - a.X, dz = b.Z - a.Z;
+                if ((dx != 0 || dz != 0) && (dx != NavGrid.DX[b.Heading] || dz != NavGrid.DZ[b.Heading])) return false;
+            }
+            Vector3 P = res.Waypoints[i], Q = res.Waypoints[j];
+            float fx = Q.x - P.x, fz = Q.z - P.z;
+            float len = Mathf.Sqrt(fx * fx + fz * fz);
+            if (len < 1e-4f) return true;
+            fx /= len; fz /= len;
+            float step = Mathf.Max(0.05f, _grid.CellSize * SmoothSampleStep);
+            for (float t = 0f; ; t += step)
+            {
+                float tt = t > len ? len : t;
+                if (!OpenAt(p, P.x + fx * tt, P.z + fz * tt, fx, fz)) return false;
+                if (tt >= len) break;
+            }
+            return true;
+        }
+
+        // The oriented outline at (cx, cz) facing (fx, fz), grown by ClearanceMargin, must touch no blocked cell, no restricted-exit cell
+        // and no aisle / aisle-mouth cell. Cost cells (the rack-clearance ring) are fine: the margin is what enforces the distance.
+        private bool OpenAt(MachineProfile p, float cx, float cz, float fx, float fz)
+        {
+            float rx = fz, rz = -fx;                       // right-hand vector
+            float halfL = (p.Front + p.Back) * 0.5f + ClearanceMargin, halfW = p.HalfWidth + ClearanceMargin;
+            float off = (p.Front - p.Back) * 0.5f;
+            float ox = cx + fx * off, oz = cz + fz * off;  // outline centre
+            float ex = Mathf.Abs(fx) * halfL + Mathf.Abs(rx) * halfW;
+            float ez = Mathf.Abs(fz) * halfL + Mathf.Abs(rz) * halfW;
+            float cs = _grid.CellSize;
+            int x0 = Mathf.FloorToInt((ox - ex - _grid.Origin.x) / cs), x1 = Mathf.FloorToInt((ox + ex - _grid.Origin.x) / cs);
+            int z0 = Mathf.FloorToInt((oz - ez - _grid.Origin.z) / cs), z1 = Mathf.FloorToInt((oz + ez - _grid.Origin.z) / cs);
+            for (int x = x0; x <= x1; x++)
+            {
+                for (int z = z0; z <= z1; z++)
+                {
+                    // Separating-axis test of the rotated outline against this cell (the world axes are covered by the AABB loop).
+                    float ccx = _grid.Origin.x + (x + 0.5f) * cs - ox, ccz = _grid.Origin.z + (z + 0.5f) * cs - oz;
+                    float h = cs * 0.5f;
+                    float dF = Mathf.Abs(ccx * fx + ccz * fz), dR = Mathf.Abs(ccx * rx + ccz * rz);
+                    float cellOnF = h * (Mathf.Abs(fx) + Mathf.Abs(fz)), cellOnR = h * (Mathf.Abs(rx) + Mathf.Abs(rz));
+                    if (dF > halfL + cellOnF || dR > halfW + cellOnR) continue;   // not touching this cell
+                    if (_grid.IsBlocked(x, z) || _grid.IsNoSmooth(x, z) || _grid.GetExits(x, z) != NavGrid.AllExits) return false;
+                }
+            }
+            return true;
         }
 
         // `moveDir` is the world direction of travel; `faceHeading` stays the machine's heading (a reverse keeps facing the same way).
@@ -185,6 +297,8 @@ namespace GameCore.Navigation
         {
             if (!_grid.CanExit(cx, cz, moveDir)) return;
             int nx = cx + NavGrid.DX[moveDir], nz = cz + NavGrid.DZ[moveDir];
+            // Backing up against the traffic inside an aisle is not a route, it is a manoeuvre: only when the profile says so.
+            if (_follow && !_aisleReverse && moveDir != faceHeading && (_grid.GetAisleTravel(cx, cz) >= 0 || _grid.GetAisleTravel(nx, nz) >= 0)) return;
             if (!Fits(fp, nx, nz, faceHeading)) return;
             int ns = State(nx, nz, faceHeading, W);
             float ng = gCur + (1f + _grid.GetCost(nx, nz)) * stepMul;
@@ -209,6 +323,7 @@ namespace GameCore.Navigation
             var steps = res.Steps;
             if (steps.Count == 0) return;
             res.Waypoints.Add(_grid.CellCenter(steps[0].X, steps[0].Z, y));
+            res.WaypointStep.Add(0);
             // A corner is a cell where the machine pivots in place, or where its direction of travel flips or changes (a reverse after a
             // forward move is a cusp even though the heading is the same).
             int lastDx = 0, lastDz = 0;
@@ -216,18 +331,27 @@ namespace GameCore.Navigation
             {
                 var a = steps[i - 1]; var b = steps[i];
                 int dx = b.X - a.X, dz = b.Z - a.Z;
-                if (dx == 0 && dz == 0) { AddCorner(res, b.X, b.Z, y); continue; }
-                if ((lastDx != 0 || lastDz != 0) && (dx != lastDx || dz != lastDz)) AddCorner(res, a.X, a.Z, y);
+                if (dx == 0 && dz == 0) { AddCorner(res, b.X, b.Z, y, i); continue; }
+                if ((lastDx != 0 || lastDz != 0) && (dx != lastDx || dz != lastDz)) AddCorner(res, a.X, a.Z, y, i - 1);
                 lastDx = dx; lastDz = dz;
             }
             var last = steps[steps.Count - 1];
-            AddCorner(res, last.X, last.Z, y);
+            AddCorner(res, last.X, last.Z, y, steps.Count - 1);
         }
 
-        private void AddCorner(PlanResult res, int x, int z, float y)
+        private void AddCorner(PlanResult res, int x, int z, float y, int stepIndex)
         {
             Vector3 c = _grid.CellCenter(x, z, y);
-            if (res.Waypoints.Count == 0 || (res.Waypoints[res.Waypoints.Count - 1] - c).sqrMagnitude > 1e-6f) res.Waypoints.Add(c);
+            if (res.Waypoints.Count == 0 || (res.Waypoints[res.Waypoints.Count - 1] - c).sqrMagnitude > 1e-6f)
+            {
+                res.Waypoints.Add(c);
+                res.WaypointStep.Add(stepIndex);
+            }
+            else
+            {
+                // Same pivot cell as the previous corner: the later step is where the machine finishes turning, so a shortcut ending here must include it.
+                res.WaypointStep[res.WaypointStep.Count - 1] = stepIndex;
+            }
         }
 
         // ── Binary min-heap (Unity's .NET profile has no PriorityQueue) ─────────────────────────────

@@ -99,6 +99,64 @@ namespace GameCore.Tests
         }
 
         [Test]
+        public void Smoothing_CutsOpenFloorStaircases_ButNeverThroughWallsOrCostCells()
+        {
+            var open = G(40, 40);
+            var r = new GridPlanner(open).Plan(Jack(0.6f), C(open, 2, 2), NavGrid.East, C(open, 30, 20));
+            Assert.AreEqual(2, r.Smoothed.Count);
+
+            var walled = G(40, 40);
+            for (int z = 0; z < 40; z++) if (z < 15 || z > 16) walled.SetStaticBlocked(15, z, true);
+            var w = new GridPlanner(walled).Plan(Small, C(walled, 2, 2), NavGrid.East, C(walled, 30, 30));
+            Assert.IsTrue(w.Ok);
+            Assert.GreaterOrEqual(w.Smoothed.Count, 3);
+            for (int i = 1; i < w.Smoothed.Count; i++)
+                for (int k = 0; k <= 200; k++)
+                {
+                    Vector3 a = w.Smoothed[i - 1], b = w.Smoothed[i], q = Vector3.Lerp(a, b, k / 200f);
+                    var c = walled.WorldToCell(q);
+                    Assert.IsFalse(walled.IsBlocked(c.x, c.y), $"smoothed leg {i} crosses a blocked cell at {c}");
+                }
+
+            // Aisle and aisle-mouth cells (NoSmooth) always keep the lattice, however open they look.
+            var aisle = G(40, 40);
+            for (int x = 0; x < 40; x++) for (int z = 0; z < 40; z++) aisle.SetNoSmooth(x, z, true);
+            var ar = new GridPlanner(aisle).Plan(Small, C(aisle, 2, 2), NavGrid.East, C(aisle, 30, 20));
+            Assert.AreEqual(ar.Waypoints.Count, ar.Smoothed.Count);
+
+            // The rack-clearance cost ring no longer stops smoothing; the 0.25 m outline margin does the protecting.
+            var ring = G(40, 40);
+            for (int x = 0; x < 40; x++) for (int z = 0; z < 40; z++) ring.SetCost(x, z, 0.5f);
+            Assert.AreEqual(2, new GridPlanner(ring).Plan(Small, C(ring, 2, 2), NavGrid.East, C(ring, 30, 20)).Smoothed.Count);
+        }
+
+        [Test]
+        public void AisleTraffic_JackFollowsTheFlow_ReachTruckMayGoEitherWay()
+        {
+            var g = G(30, 14);
+            for (int z = 0; z < 14; z++) if (z < 5 || z > 8) g.SetStaticBlocked(10, z, true);
+            for (int x = 7; x <= 13; x++) for (int z = 5; z <= 8; z++) g.SetAisle(x, z, 1, NavGrid.East);
+            var p = new GridPlanner(g);
+            var jack = Jack(0.6f); jack.FollowAisleTraffic = true;
+            Assert.IsTrue(p.Plan(jack, C(g, 2, 6), NavGrid.East, C(g, 22, 6)).Ok, "with the traffic");
+            Assert.IsFalse(p.Plan(jack, C(g, 22, 6), NavGrid.West, C(g, 2, 6)).Ok, "against the traffic");
+            Assert.IsTrue(p.Plan(Jack(0.6f), C(g, 22, 6), NavGrid.West, C(g, 2, 6)).Ok, "a reach truck is not bound by it");
+            jack.AllowAisleReverse = true;
+            Assert.IsTrue(p.Plan(jack, C(g, 22, 6), NavGrid.West, C(g, 2, 6)).Ok, "reversing only when the profile allows it");
+        }
+
+        [Test]
+        public void Smoothing_KeepsTheFinalApproach_WhenAnArrivalHeadingIsRequired()
+        {
+            var g = G(40, 40);
+            var r = new GridPlanner(g).Plan(Small, C(g, 2, 2), NavGrid.East, C(g, 30, 20), NavGrid.South);
+            int n = r.Waypoints.Count, m = r.Smoothed.Count;
+            Assert.IsTrue(r.Ok);
+            Assert.AreEqual(0f, (r.Smoothed[m - 1] - r.Waypoints[n - 1]).sqrMagnitude, 1e-4f);
+            Assert.AreEqual(0f, (r.Smoothed[m - 2] - r.Waypoints[n - 2]).sqrMagnitude, 1e-4f);
+        }
+
+        [Test]
         public void StartInsideABlockedCell_StillPlansOut()
         {
             var g = G(20, 20);

@@ -20,6 +20,7 @@ namespace GameCore.Navigation
         public float back = 2.55f;
         public float halfWidth = 0.7f;
         public bool canReverse = true;
+        [Tooltip("Pallet-jack rule: face the aisle's travel direction inside aisles")] public bool followAisleTraffic = true;
 
         [Header("Planner")]
         public float turnCost = 2f;
@@ -37,7 +38,7 @@ namespace GameCore.Navigation
             var placement = FindFirstObjectByType<PlacementGrid>();
             if (placement == null) { Debug.LogWarning("[NavGrid] no PlacementGrid in the scene."); return; }
             var t0 = Time.realtimeSinceStartup;
-            var g = NavGridService.Rebuild(placement, new NavGridBuilder.Options { ClearanceCost = clearanceCost, RequireFloor = true });
+            var g = NavGridService.Rebuild(placement, new NavGridBuilder.Options { ClearanceCost = clearanceCost, RequireFloor = true, ImportAisles = true });
             int blocked = 0;
             for (int x = 0; x < g.Width; x++) for (int z = 0; z < g.Height; z++) if (g.IsStaticBlocked(x, z)) blocked++;
             Debug.LogWarning($"[NavGrid] built {g.Width}x{g.Height} @ {g.CellSize:0.###} m, {blocked} blocked cells, {(Time.realtimeSinceStartup - t0) * 1000f:0.0} ms.");
@@ -50,7 +51,7 @@ namespace GameCore.Navigation
             if (NavGridService.Planner == null || from == null || to == null) { Debug.LogWarning("[NavGrid] need a built grid plus 'from' and 'to'."); return; }
             var planner = NavGridService.Planner;
             planner.TurnCost = turnCost;
-            var profile = new MachineProfile { Name = "debug", Front = front, Back = back, HalfWidth = halfWidth, CanReverse = canReverse };
+            var profile = new MachineProfile { Name = "debug", Front = front, Back = back, HalfWidth = halfWidth, CanReverse = canReverse, FollowAisleTraffic = followAisleTraffic };
             int h = NavGrid.HeadingOf(from.forward);
             var t0 = Time.realtimeSinceStartup;
             _last = planner.Plan(profile, from.position, h, to.position, finalHeading);
@@ -71,6 +72,13 @@ namespace GameCore.Navigation
                 {
                     Vector3 c = g.CellCenter(x, z, drawY);
                     if (drawBlocked && g.IsStaticBlocked(x, z)) { Gizmos.color = new Color(1f, 0.2f, 0.2f, 0.6f); Gizmos.DrawCube(c, size); }
+                    else if (g.IsAisle(x, z))
+                    {
+                        Gizmos.color = new Color(0.3f, 0.6f, 1f, 0.45f); Gizmos.DrawCube(c, size);
+                        int t = g.GetAisleTravel(x, z);
+                        if (t >= 0) { Gizmos.color = Color.white; Gizmos.DrawLine(c, c + NavGrid.ForwardOf(t) * g.CellSize * 0.4f); }
+                    }
+                    else if (g.IsNoSmooth(x, z)) { Gizmos.color = new Color(1f, 0.6f, 0.2f, 0.4f); Gizmos.DrawCube(c, size); }
                     else if (g.IsDynamicBlocked(x, z)) { Gizmos.color = new Color(0.2f, 0.9f, 1f, 0.6f); Gizmos.DrawCube(c, size); }
                     else if (g.GetCost(x, z) > 0f) { Gizmos.color = new Color(1f, 0.9f, 0.2f, 0.25f); Gizmos.DrawCube(c, size); }
                 }
@@ -84,6 +92,13 @@ namespace GameCore.Navigation
             }
             Gizmos.color = Color.white;
             foreach (var w in _last.Waypoints) Gizmos.DrawSphere(new Vector3(w.x, drawY + 0.15f, w.z), 0.15f);
+            // The route a machine would actually drive: lattice corners with open-floor staircases cut straight.
+            Gizmos.color = Color.cyan;
+            for (int i = 1; i < _last.Smoothed.Count; i++)
+            {
+                var a = _last.Smoothed[i - 1]; var b = _last.Smoothed[i];
+                Gizmos.DrawLine(new Vector3(a.x, drawY + 0.3f, a.z), new Vector3(b.x, drawY + 0.3f, b.z));
+            }
         }
     }
 }

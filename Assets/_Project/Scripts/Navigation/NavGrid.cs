@@ -26,6 +26,9 @@ namespace GameCore.Navigation
         private readonly bool[] _dynamicBlocked;
         private readonly float[] _cost;
         private readonly byte[] _exits;
+        private readonly int[] _aisleId;        // 0 = not in an aisle, else the rack aisle number
+        private readonly sbyte[] _aisleTravel;  // heading of traffic in the aisle (toward higher bay numbers), -1 = unknown
+        private readonly bool[] _noSmooth;      // aisle cells and the lead-in cells at their mouths: routes keep the lattice there
 
         /// <summary>Bumped on every change, so a path planned against an older version can tell it may be stale.</summary>
         public int Version { get; private set; }
@@ -41,7 +44,39 @@ namespace GameCore.Navigation
             _dynamicBlocked = new bool[n];
             _cost = new float[n];
             _exits = new byte[n];
-            for (int i = 0; i < n; i++) _exits[i] = AllExits;
+            _aisleId = new int[n];
+            _aisleTravel = new sbyte[n];
+            _noSmooth = new bool[n];
+            for (int i = 0; i < n; i++) { _exits[i] = AllExits; _aisleTravel[i] = -1; }
+        }
+
+        // ── Aisles: the data behind "jacks follow the traffic, never sideways" ──────────────────────
+
+        public int GetAisleId(int x, int z) => InBounds(x, z) ? _aisleId[Index(x, z)] : 0;
+        /// <summary>Heading of traffic in this cell's aisle (toward higher bay numbers), or -1 when not in an aisle or unknown.</summary>
+        public int GetAisleTravel(int x, int z) => InBounds(x, z) && _aisleId[Index(x, z)] != 0 ? _aisleTravel[Index(x, z)] : -1;
+        public bool IsAisle(int x, int z) => GetAisleId(x, z) != 0;
+        public bool IsNoSmooth(int x, int z) => InBounds(x, z) && _noSmooth[Index(x, z)];
+
+        /// <summary>Mark a cell as part of aisle <paramref name="id"/>. The first aisle to claim a cell keeps it.</summary>
+        public void SetAisle(int x, int z, int id, int travelHeading)
+        {
+            if (!InBounds(x, z) || id == 0) return;
+            int i = Index(x, z);
+            if (_aisleId[i] != 0) return;
+            _aisleId[i] = id;
+            _aisleTravel[i] = (sbyte)(travelHeading < 0 ? -1 : travelHeading & 3);
+            _noSmooth[i] = true;
+            Version++;
+        }
+
+        public void SetNoSmooth(int x, int z, bool value)
+        {
+            if (!InBounds(x, z)) return;
+            int i = Index(x, z);
+            if (_noSmooth[i] == value) return;
+            _noSmooth[i] = value;
+            Version++;
         }
 
         public int Index(int x, int z) => z * Width + x;

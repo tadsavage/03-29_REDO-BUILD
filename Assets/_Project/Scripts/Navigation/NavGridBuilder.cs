@@ -14,7 +14,9 @@ namespace GameCore.Navigation
             /// ~8% of the 100x100 grid has floor, and a grid that treats the empty yard as open drives machines off the slab).
             /// Dock stockers entering a trailer are NOT on this layer; that leg stays with the load / unload choreography.</summary>
             public bool RequireFloor;
-            public static Options Default => new Options { ClearanceCost = 0.75f, RequireFloor = true };
+            /// <summary>Import rack aisles (cells between racks, their travel direction) from the live racks.</summary>
+            public bool ImportAisles;
+            public static Options Default => new Options { ClearanceCost = 0.75f, RequireFloor = true, ImportAisles = true };
         }
 
         /// <summary>A cell is blocked when a REAL (non-buffer) placed object in it is solid by <see cref="MachineClearance.IsSolidData"/>
@@ -46,6 +48,8 @@ namespace GameCore.Navigation
                 }
             }
 
+            if (opt.ImportAisles) ImportAisles(nav);
+
             if (opt.ClearanceCost > 0f)
             {
                 // Read blocked state first, then write costs, so a cost ring never feeds back into itself.
@@ -65,9 +69,95 @@ namespace GameCore.Navigation
             return nav;
         }
 
+        /// <summary>How far from a rack face an aisle can reach, in cells. Aisles here are 3-4 cells wide (three-door layout: 4 cells between rack rows);
+        /// a rack facing open floor must not turn the whole floor into an aisle.</summary>
+        public const int AisleDepthCells = 4;
+        /// <summary>Cells either side of an aisle's ends treated as its mouth (no smoothing across them).</summary>
+        public const int AisleMouthCells = 2;
+
+        /// <summary>Aisles from the live ground racks (PlacedObject.rackAisle / rackBay / rackAisleFacing, set when the aisle is initialised):
+        /// from every ground rack cell, walk out in the rack's aisle-facing direction until something blocked, marking aisle cells. Travel
+        /// direction is toward higher bay numbers (same side, so the vector runs along the aisle, never across it) and is the SAME definition
+        /// the jack driver uses. An aisle whose direction can't be worked out is still marked (no smoothing) with travel unknown.</summary>
+        private static void ImportAisles(NavGrid nav)
+        {
+            var byAisle = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<PlacedObject>>();
+            foreach (var po in PlacedObjectRegistry.All)
+            {
+                if (po == null || po.data == null || po.data.category != "Racking" || !po.isRackLive || po.rackAisle < 0 || po.rackLevelIndex > 0) continue;
+                if (!byAisle.TryGetValue(po.rackAisle, out var list)) byAisle[po.rackAisle] = list = new System.Collections.Generic.List<PlacedObject>();
+                list.Add(po);
+            }
+
+            foreach (var kv in byAisle)
+            {
+                int travel = TravelHeading(kv.Value);
+                foreach (var po in kv.Value)
+                {
+                    Vector3 f = po.rackAisleFacing; f.y = 0f;
+                    if (f.sqrMagnitude < 1e-4f) continue;
+                    int hf = NavGrid.HeadingOf(f);
+                    var offsets = po.data.GetFootprintOffsets(-po.rotation * 90f);
+                    int core = Mathf.Min(po.data.CoreFootprintCellCount, offsets.Length);
+                    for (int i = 0; i < core; i++)
+                    {
+                        int x = po.gridX + offsets[i].x, z = po.gridY + offsets[i].y;
+                        for (int k = 1; k <= AisleDepthCells; k++)
+                        {
+                            int cx = x + NavGrid.DX[hf] * k, cz = z + NavGrid.DZ[hf] * k;
+                            if (!nav.InBounds(cx, cz) || nav.IsStaticBlocked(cx, cz)) break;
+                            nav.SetAisle(cx, cz, kv.Key, travel);
+                        }
+                    }
+                }
+                if (travel < 0) continue;
+                // Mouths: the cells just beyond each end of the aisle, along its run.
+                var mouth = new System.Collections.Generic.List<Vector2Int>();
+                for (int x = 0; x < nav.Width; x++)
+                    for (int z = 0; z < nav.Height; z++)
+                    {
+                        if (nav.GetAisleId(x, z) != kv.Key) continue;
+                        for (int s = 0; s < 2; s++)
+                        {
+                            int d = s == 0 ? travel : (travel + 2) & 3;
+                            for (int k = 1; k <= AisleMouthCells; k++)
+                            {
+                                int mx = x + NavGrid.DX[d] * k, mz = z + NavGrid.DZ[d] * k;
+                                if (!nav.InBounds(mx, mz) || nav.IsStaticBlocked(mx, mz)) break;
+                                if (nav.GetAisleId(mx, mz) == kv.Key) continue;   // still inside the aisle
+                                mouth.Add(new Vector2Int(mx, mz));
+                            }
+                        }
+                    }
+                foreach (var m in mouth) nav.SetNoSmooth(m.x, m.y, true);
+            }
+        }
+
+        // Toward higher bay numbers, from the side of the aisle with the widest bay span (same parity = same side of the aisle).
+        private static int TravelHeading(System.Collections.Generic.List<PlacedObject> racks)
+        {
+            int best = -1, bestSpan = 1;
+            for (int parity = 0; parity < 2; parity++)
+            {
+                PlacedObject lo = null, hi = null;
+                foreach (var r in racks)
+                {
+                    if (r.rackBay < 0 || (r.rackBay & 1) != parity) continue;
+                    if (lo == null || r.rackBay < lo.rackBay) lo = r;
+                    if (hi == null || r.rackBay > hi.rackBay) hi = r;
+                }
+                if (lo == null || hi == null || hi.rackBay - lo.rackBay < 2 || hi.rackBay - lo.rackBay <= bestSpan) continue;
+                Vector3 v = hi.transform.position - lo.transform.position; v.y = 0f;
+                if (v.sqrMagnitude < 0.01f) continue;
+                bestSpan = hi.rackBay - lo.rackBay;
+                best = NavGrid.HeadingOf(v);
+            }
+            return best;
+        }
+
         /// <summary>The machine's real outline from its renderers (the same footprint MachineClearance tests), as a profile.
         /// Pivot-relative: Front/Back along the machine's local +Z/-Z, HalfWidth the larger side of its local X.</summary>
-        public static MachineProfile ProfileOf(MHEOperatorSlot m, bool canReverse)
+        public static MachineProfile ProfileOf(MHEOperatorSlot m, bool canReverse, bool followAisleTraffic = false)
         {
             var f = MachineClearance.FootprintOf(m);
             return new MachineProfile
@@ -77,6 +167,7 @@ namespace GameCore.Navigation
                 Back = Mathf.Max(0.1f, -f.MinZ),
                 HalfWidth = Mathf.Max(0.3f, Mathf.Max(-f.MinX, f.MaxX)),
                 CanReverse = canReverse,
+                FollowAisleTraffic = followAisleTraffic,
             };
         }
     }
