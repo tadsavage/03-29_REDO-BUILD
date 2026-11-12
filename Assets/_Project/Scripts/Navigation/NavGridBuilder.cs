@@ -212,6 +212,11 @@ namespace GameCore.Navigation
             set { try { PlayerPrefs.SetInt(RtPrefKey, value ? 1 : 0); } catch { } }
         }
 
+        /// <summary>One line saying which machines drive on the grid and which on the NavMesh, for block logs: a playtest block is only
+        /// comparable with another if you know which nav it ran on.</summary>
+        public static string FlagSummary()
+            => $"nav: jacks={(UseForJacks ? "GRID" : "navmesh")}, reach trucks={(UseForReachTrucks ? "GRID" : "navmesh")}, dock stockers={(UseForDockStockers ? "GRID" : "navmesh")}";
+
         public static NavGrid Rebuild(PlacementGrid placement, NavGridBuilder.Options? options = null)
         {
             if (placement == null) return null;
