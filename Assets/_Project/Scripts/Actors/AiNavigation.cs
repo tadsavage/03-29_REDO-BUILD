@@ -28,8 +28,7 @@ public class AiNavigation : MonoBehaviour
     private NavMeshAgent agent;
     private int currentIndex = 0;
     private bool initialized = false;
-    private VehicleThrottleAudio throttleAudio;
-    private bool hasHonkedThisArrival = false;
+    private bool hasMumbledThisArrival = false;
     private bool    _traversingLink = false;
     private Vector3 _pendingFrom;
     private Vector3 _pendingTo;
@@ -207,7 +206,6 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
-        throttleAudio = GetComponent<VehicleThrottleAudio>();
         _agentAnimation = GetComponent<AgentAnimation>();
         _indicator = GetComponent<NoWaypointIndicator>();
         _mumble    = GetComponent<AmbientMumble>();
@@ -1425,15 +1423,14 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // ── Arrival audio ────────────────────────────────────────────────────────
         {
             bool arrived = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f;
-            if (arrived && !hasHonkedThisArrival)
+            if (arrived && !hasMumbledThisArrival)
             {
-                hasHonkedThisArrival = true;
-                if (throttleAudio != null) throttleAudio.TriggerArrivalHonk();
+                hasMumbledThisArrival = true;
                 _mumble?.TryMumble();
             }
             else if (!arrived && agent.remainingDistance > agent.stoppingDistance + 0.5f)
             {
-                hasHonkedThisArrival = false;
+                hasMumbledThisArrival = false;
             }
         }
 

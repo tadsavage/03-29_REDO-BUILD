@@ -6,6 +6,8 @@ using GameCore.Actors;
 public class EquipmentTrafficTests
 {
     private GameObject _go;
+    private GameObject _blockerObject;
+    private MHEOperatorSlot _blocker;
     private EquipmentTrafficAgent _agent;
     private Func<float> _savedRandom;
 
@@ -15,6 +17,8 @@ public class EquipmentTrafficTests
         _savedRandom = EquipmentTrafficAgent.RandomSource;
         _go = new GameObject("TestMachine");
         _agent = _go.AddComponent<EquipmentTrafficAgent>();
+        _blockerObject = new GameObject("BlockingVehicle");
+        _blocker = _blockerObject.AddComponent<MHEOperatorSlot>();
     }
 
     [TearDown]
@@ -22,11 +26,12 @@ public class EquipmentTrafficTests
     {
         EquipmentTrafficAgent.RandomSource = _savedRandom;
         UnityEngine.Object.DestroyImmediate(_go);
+        UnityEngine.Object.DestroyImmediate(_blockerObject);
     }
 
     private void Hold(float seconds, float step = 0.5f)
     {
-        for (float t = 0f; t < seconds - 0.001f; t += step) _agent.NoteHeld(null, "wall", step);
+        for (float t = 0f; t < seconds - 0.001f; t += step) _agent.NoteHeld(_blocker, null, step);
     }
 
     [Test]
@@ -68,6 +73,29 @@ public class EquipmentTrafficTests
         Assert.GreaterOrEqual(_agent.HonkCount, 1);
         Assert.IsTrue(_agent.FxShowing, "red frustration lines should be visible after a honk");
         Assert.GreaterOrEqual(_agent.FxLineCount, 3);
+    }
+
+    [Test]
+    public void BlockedByWallDoesNotHonk()
+    {
+        EquipmentTrafficAgent.RandomSource = () => 0f;
+        for (int i = 0; i < 40; i++) _agent.NoteHeld(null, "wall", 0.5f);
+        Assert.AreEqual(TrafficState.Blocked, _agent.State);
+        Assert.AreEqual(0, _agent.RollCount);
+        Assert.AreEqual(0, _agent.HonkCount);
+        Assert.IsFalse(_agent.FxShowing);
+    }
+
+    [Test]
+    public void SolidHoldDoesNotAdvanceVehicleHonkTimer()
+    {
+        EquipmentTrafficAgent.RandomSource = () => 0f;
+        for (int i = 0; i < 40; i++) _agent.NoteHeld(null, "wall", 0.5f);
+        Hold(4f);
+        Assert.AreEqual(0, _agent.RollCount);
+        Hold(1f);
+        Assert.AreEqual(1, _agent.RollCount);
+        Assert.AreEqual(1, _agent.HonkCount);
     }
 
     [Test]

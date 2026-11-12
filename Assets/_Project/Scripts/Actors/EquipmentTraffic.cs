@@ -353,6 +353,11 @@ namespace GameCore.Actors
             if (HeldReal < BlockedGraceReal || behindMover) { State = TrafficState.Waiting; return; }
             State = TrafficState.Blocked;
             _blockedReal += realDt;
+            if (blocker == null)
+            {
+                _honkClock = 0f;
+                return;
+            }
             _honkClock += realDt;
             while (_honkClock >= HonkRollInterval)
             {

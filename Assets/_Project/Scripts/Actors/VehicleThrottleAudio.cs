@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -16,12 +15,7 @@ public class VehicleThrottleAudio : MonoBehaviour
     [SerializeField] private float fadeSpeed = 4f;
 
     [Header("Honker Settings")]
-    [SerializeField] private bool _honker = true;
     [SerializeField] private AudioClip honkClip;
-    [SerializeField] private float honkVolume = 0.7f;
-    [SerializeField] private float honkPitch = 1.0f; // Fixed pitch for honks
-    [Range(0f, 1f)]
-    [SerializeField] private float honkProbability = 0.5f;
 
     [Header("Backup Alarm Settings")]
     [Tooltip("Plays once when the truck starts its final backing/pivot maneuver into the dock door (see TruckController.BeginReversingArcAroundPivot1 callers). Assign the truck-backing-up.wav clip.")]
@@ -33,7 +27,6 @@ public class VehicleThrottleAudio : MonoBehaviour
     public AudioClip HonkClip => honkClip;
 
     private AudioSource _engineSource;
-    private AudioSource _honkSource;
     private AudioSource _backupAlarmSource;
     private NavMeshAgent _agent;
     private float _targetVolume;
@@ -53,16 +46,6 @@ public class VehicleThrottleAudio : MonoBehaviour
         _engineSource.minDistance = 2f;
         _engineSource.maxDistance = hearingDistance;
         _engineSource.volume = 0;
-
-        // Create Honk Source (Fixed Pitch)
-        _honkSource = gameObject.AddComponent<AudioSource>();
-        _honkSource.loop = false;
-        _honkSource.playOnAwake = false;
-        _honkSource.spatialBlend = 1.0f;
-        _honkSource.rolloffMode = AudioRolloffMode.Logarithmic;
-        _honkSource.minDistance = 5f;
-        _honkSource.maxDistance = hearingDistance * 1.2f;
-        _honkSource.pitch = honkPitch;
 
         // Create Backup Alarm Source (one-shot, plays once per docking approach)
         _backupAlarmSource = gameObject.AddComponent<AudioSource>();
@@ -106,24 +89,4 @@ public class VehicleThrottleAudio : MonoBehaviour
         _backupAlarmSource.PlayOneShot(backupAlarmClip, backupAlarmVolume * AudioManager.GameVolumeLevel);
     }
 
-    public void TriggerArrivalHonk()
-    {
-        if (!_honker || honkClip == null) return;
-        
-        if (Random.value > honkProbability) return;
-
-        int honkCount = Random.value > 0.5f ? 3 : 1;
-        StartCoroutine(HonkRoutine(honkCount));
-    }
-
-    private IEnumerator HonkRoutine(int count)
-    {
-        for (int i = 0; i < count; i++)
-        {
-            // Play on the dedicated honk source to ensure fixed pitch
-            _honkSource.pitch = honkPitch;
-            _honkSource.PlayOneShot(honkClip, honkVolume * AudioManager.GameVolumeLevel);
-            yield return new WaitForSeconds(0.25f);
-        }
-    }
 }
