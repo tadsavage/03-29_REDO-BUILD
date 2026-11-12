@@ -1731,7 +1731,7 @@ namespace GameCore.Actors
             yield return ExitAisleTowards(target, phase);
             if (_jack == null) yield break;
 
-            yield return JackNavLeg(target, phase);
+            yield return JackLeg(target, phase);   // NavMeshAgent leg, or the grid planner when NavGridService.UseForJacks is on
             if (_jackLegQueued) { yield return SquareUpInAisle(finalForward); yield break; }   // _jackLegOk already true: parked in a queue
             if (!_jackLegOk || _jack == null) yield break;
 
@@ -1742,7 +1742,7 @@ namespace GameCore.Actors
             for (int retry = 0; retry < NavLegRetries && _jack != null && PlanarDist(jt.position, target) > NavLegArriveTolerance; retry++)
             {
                 Debug.LogWarning($"[OrderSelectionTaskDriver] Pallet jack stopped {PlanarDist(jt.position, target):0.0}m short of '{phase}' - re-issuing the drive ({retry + 1}/{NavLegRetries}).");
-                yield return JackNavLeg(target, phase);
+                yield return JackLeg(target, phase);
                 if (_jackLegQueued) { yield return SquareUpInAisle(finalForward); yield break; }
                 if (!_jackLegOk || _jack == null) yield break;
             }
@@ -1881,9 +1881,18 @@ namespace GameCore.Actors
                 bool rtHold = !jackHold && MachineClearance.ReachTruckBufferBlocked(_jack, next, jt.rotation, AisleTraffic.ReachTruckBuffer, out truck);
                 if (rtHold) { what = $"reach truck {truck.name} (right of way)"; WarnYield(truck); }
                 bool solidHold = !jackHold && !rtHold && StepBlocked(next, jt.rotation, out what);
-                if (jackHold || rtHold || solidHold)
+                bool yieldHold = false;
+                if (!jackHold) TrafficBlocker(move.normalized, solidHold, ref blocker, out yieldHold);
+                if (AisleExitDue(move, out var exitPrefix, out var exitPoint))
+                {
+                    yield return JackAisleExitCheck(exitPrefix, exitPoint, move);
+                    continue;
+                }
+                if (jackHold || rtHold || solidHold || yieldHold)
                 {
                     NoteHeld(true, blocker, what);
+                    if (blocker != null && !jackHold) yield return JackYieldReverse(move, blocker);
+                    if (yieldHold) { yield return null; continue; }
                     _legTarget = flat;
                     if (ShouldBackUpFor(out var yieldTo)) { yield return BackUpAndWait(yieldTo); continue; }   // two jacks stuck: the loser backs up 1.5 m
                     var held = jackHold ? DecideHeldInAisle(blocker, flat) : HeldChoice.Wait;
@@ -2076,8 +2085,23 @@ namespace GameCore.Actors
                         if (rtHold) { what = $"reach truck {truck.name} (right of way)"; WarnYield(truck); }
                         else solidHold = StepBlocked(predPos, predRot, out what);
                     }
-                    bool hold = jackHold || solidHold || rtHold;
+                    bool yieldHold = false;
+                    if (!jackHold) TrafficBlocker(heading.normalized, solidHold, ref blocker, out yieldHold);
+                    if (AisleExitDue(heading, out var exitPrefix, out var exitPoint))
+                    {
+                        _jackAgent.isStopped = true; _jackAgent.velocity = Vector3.zero;
+                        yield return JackAisleExitCheck(exitPrefix, exitPoint, heading);
+                        if (_jack == null) yield break;
+                        _jackAgent.isStopped = false;
+                    }
+                    bool hold = jackHold || solidHold || rtHold || yieldHold;
                     NoteHeld(hold, blocker, what);
+                    if (hold && blocker != null && !jackHold)
+                    {
+                        _jackAgent.isStopped = true; _jackAgent.velocity = Vector3.zero;
+                        yield return JackYieldReverse(heading, blocker);
+                        if (_jack == null) yield break;
+                    }
                     // Held (behind a jack OR by a solid): AiNavigation's 10 s no-progress backstop must not end the leg. It counts GAME seconds
                     // (2 real s at 5x), so a jack held by an UNMANNED jack parked in the aisle was handed back long before the 5-real-s
                     // step-off-and-walk could fire; after 6 re-issues the selector abandoned this jack beside it too (Tad, 2026-11-07:

@@ -232,12 +232,12 @@ namespace GameCore.Diagnostics
             {
                 // The player sets the speed. HAL only watches and scores.
                 SystemsLogWindow.LogHal($"HAL 9000 is watching. Your block {_blockNo - 1000}, day {_startDay}, cash ${_startCash:N0}. {S.daysPerBlock} days. Good luck.");
-                Debug.LogWarning($"[PlaytestBot] PLAYER block {_blockNo} started on day {_startDay}, cash ${_startCash:N0} (observe only).");
+                Debug.LogWarning($"[PlaytestBot] PLAYER block {_blockNo} started on day {_startDay}, cash ${_startCash:N0} (observe only; {GameCore.Navigation.NavGridService.FlagSummary()}).");
                 return;
             }
             Time.timeScale = Mathf.Max(0.1f, S.gameSpeed);
             SystemsLogWindow.LogHal($"HAL 9000 initiated. Block {_blockNo}, day {_startDay}, cash ${_startCash:N0}.");
-            Debug.LogWarning($"[PlaytestBot] Block {_blockNo} started on day {_startDay} at {S.gameSpeed}x, cash ${_startCash:N0}.");
+            Debug.LogWarning($"[PlaytestBot] Block {_blockNo} started on day {_startDay} at {S.gameSpeed}x, cash ${_startCash:N0}; {GameCore.Navigation.NavGridService.FlagSummary()}.");
         }
 
         public void StopBot() { Running = false; AutoObserveSuppressed = true; _status = "stopped"; Debug.LogWarning("[PlaytestBot] Stopped."); }

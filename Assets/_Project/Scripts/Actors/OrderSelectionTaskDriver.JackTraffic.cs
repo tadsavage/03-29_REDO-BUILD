@@ -61,6 +61,8 @@ namespace GameCore.Actors
 
         private void NoteHeld(bool held, MHEOperatorSlot behind, string solid)
         {
+            var ta = JackTrafficAgent();
+            if (ta != null) { if (held) ta.NoteHeld(behind, behind == null ? (solid ?? "something") : null); else ta.NoteClear(false); }
             if (held)
             {
                 _notHeldReal = 0f;
@@ -78,6 +80,96 @@ namespace GameCore.Actors
         {
             _heldBehindJack = null; _heldBySolid = null; _yieldingTo = null;
             _heldRealSeconds = 0f; _heldGameMinutes = 0f; _notHeldReal = 0f;
+            _yieldTried = false;
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════════════
+        // Equipment traffic (EquipmentTraffic.cs): reach drivers have right of way, aisle exits, jam yielding
+        // ══════════════════════════════════════════════════════════════════════════════════════════════
+
+        private const float YieldReverseAfterReal = 1.5f;   // a higher-priority machine has been stuck in front of us this long: back off if safe
+        private const float AisleExitLook = 1.0f;           // "this step leaves the aisle" = the point this far ahead is outside it
+        private bool _yieldTried;
+        private string _exitCheckedPrefix;
+        private float _exitCheckedAt, _nextExitPoll;
+
+        private EquipmentTrafficAgent JackTrafficAgent() => _jack != null ? _jack.GetComponent<EquipmentTrafficAgent>() : null;
+
+        /// <summary>Who holds this jack up, beyond other jacks: a reach truck / dock stocker in its lane (it always gives way to those,
+        /// even before touching), or the machine the solid guard stopped it on. <paramref name="yieldHold"/>: a higher-priority machine is in the lane.</summary>
+        private bool TrafficBlocker(Vector3 dir, bool solidHold, ref MHEOperatorSlot blocker, out bool yieldHold)
+        {
+            yieldHold = false;
+            if (_jack == null) return false;
+            if (blocker == null && EquipmentTraffic.FindInLane(_jack, dir, EquipmentTraffic.LaneAhead, EquipmentTraffic.LaneSide, true, out var hi))
+            {
+                blocker = hi; yieldHold = true;
+            }
+            else if (blocker == null && solidHold)
+            {
+                var m = MachineClearance.LastMachineHit;
+                if (m != null && m != _jack && m.IsOccupied) blocker = m;
+            }
+            return blocker != null;
+        }
+
+        /// <summary>Selectors yield to reach drivers: after <see cref="YieldReverseAfterReal"/> in front of a stationary higher-priority machine,
+        /// back up 0.5-1 m if that is safe (one maneuver at a time, MachineClearance + NavMesh checked); otherwise stay put and let it get round.</summary>
+        private IEnumerator JackYieldReverse(Vector3 travelDir, MHEOperatorSlot to)
+        {
+            if (_jack == null || _yieldTried || to == null) yield break;
+            if (_heldRealSeconds < YieldReverseAfterReal) yield break;
+            var ta = to.GetComponent<EquipmentTrafficAgent>();
+            if (ta != null && ta.IsMoving) yield break;   // it is going past: just wait
+            if (!EquipmentTraffic.TryBeginManeuver(_jack)) yield break;
+            _yieldTried = true;
+            Vector3 back = -Flat(travelDir, 0f).normalized;
+            float d = EquipmentTraffic.PickSafeReverse(_jack, back, EquipmentTraffic.YieldOptionsFor(to));
+            if (d > 0f)
+            {
+                yield return EquipmentTraffic.ReverseStraight(_jack, back, d, JackReverseSpeed, _jackAgent);
+            }
+            else
+            {
+                ThrottledLog.Warn("jack-yield-" + name, $"[EquipmentTraffic] '{name}' pallet jack cannot reverse safely for {to.name} - staying put so it can get round.", 30f);
+            }
+            EquipmentTraffic.EndManeuver(_jack);
+        }
+
+        /// <summary>True (at most 5 times a second) when this step takes the jack out of the end of an aisle it has not just been checked at.</summary>
+        private bool AisleExitDue(Vector3 dir, out string prefix, out Vector3 exitPoint)
+        {
+            prefix = null; exitPoint = default;
+            if (_jack == null || Time.unscaledTime < _nextExitPoll) return false;
+            _nextExitPoll = Time.unscaledTime + 0.2f;
+            Vector3 c = JackCentre(_jack.transform);
+            if (!IsAisleExitStep(c, dir, AisleExitLook, out prefix)) return false;
+            if (prefix == _exitCheckedPrefix && Time.unscaledTime - _exitCheckedAt < 8f) return false;
+            exitPoint = c;
+            return true;
+        }
+
+        /// <summary>Stop at the aisle mouth, look both ways, wait until the cross aisle is clear.</summary>
+        private IEnumerator JackAisleExitCheck(string prefix, Vector3 exitPoint, Vector3 dir)
+        {
+            _exitCheckedPrefix = prefix; _exitCheckedAt = Time.unscaledTime;
+            yield return EquipmentTraffic.AisleExitCheck(_jack, exitPoint, dir);
+            _exitCheckedAt = Time.unscaledTime;
+        }
+
+        /// <summary>A step from <paramref name="p"/> along <paramref name="dir"/> that leaves the aisle <paramref name="p"/> is in through one
+        /// of its ends (not sideways). Shared with the reach trucks.</summary>
+        internal static bool IsAisleExitStep(Vector3 p, Vector3 dir, float look, out string prefix)
+        {
+            prefix = null;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.0001f) return false;
+            dir.Normalize();
+            if (!TryFindAisleAt(p, 0f, out var cur)) return false;
+            if (TryFindAisleAt(p + dir * look, 0f, out _)) return false;
+            if (Mathf.Abs(Vector3.Dot(dir, cur.Travel)) < 0.5f) return false;
+            prefix = cur.Prefix;
+            return true;
         }
 
         /// <summary>Called at the end of every jack leg / straight move.</summary>

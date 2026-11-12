@@ -9,8 +9,8 @@ using UnityEngine.AI;
 /// workers' agents steer round it through local avoidance. Non-carving on purpose: carving would cut the NavMesh out from
 /// under the operator and the machine itself, and re-carve every frame it moves.
 ///
-/// Only live while the machine is manned and its OWN NavMeshAgent is off (scripted moves, parked, being loaded): an agent must never have to
-/// avoid its own obstacle, and SetDriveMode remains the only thing that flips the vehicle agent - this just follows it.
+/// Live whenever the machine's OWN NavMeshAgent is off (scripted moves, parked with or without a driver, being loaded): an agent must never have
+/// to avoid its own obstacle, and SetDriveMode remains the only thing that flips the vehicle agent - this just follows it.
 /// Added at runtime by EquipmentBattery.Start (every RT / DS / pallet jack carries one).
 /// </summary>
 [DisallowMultipleComponent]
@@ -76,9 +76,11 @@ public class MheAvoidanceObstacle : MonoBehaviour
     private void LateUpdate()
     {
         if (_obstacle == null) return;
-        // Off while nobody is aboard: an operator walking up to board (its agent heads for a mount point right beside the
-        // machine) must not be pushed away from it by the machine's own personal space.
-        bool want = (_agent == null || !_agent.enabled) && _slot != null && _slot.IsOccupied;
+        // On whenever the machine's own agent is off: manned (driven by script or parked with the driver aboard) AND
+        // unmanned-and-parked (2026-11-11: a parked jack's agent is disabled, so without this it was invisible to other
+        // agents' avoidance and a reach truck drove through it). Trade-off: an operator walking up to board may be steered
+        // by the 0.25 m margin; there is no "walking to this slot" flag to gate on yet.
+        bool want = (_agent == null || !_agent.enabled) && _slot != null;
         if (_obstacle.enabled != want) _obstacle.enabled = want;
         if (Time.unscaledTime >= _nextResize) { _nextResize = Time.unscaledTime + 30f; Resize(); }
     }

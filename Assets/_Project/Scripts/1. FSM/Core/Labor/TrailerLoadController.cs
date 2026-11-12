@@ -1121,6 +1121,13 @@ namespace GameCore.Labor
         /// fallback here: the caller decides what to do when it fails.</summary>
         private IEnumerator SeekViaNavMesh(Transform ds, Vector3 target, string phase, System.Action<bool> onDone)
         {
+            // Grid backend (flag, default off): plan on the NavGrid and drive it scripted. Same contract: bool callback, no fallback.
+            if (GameCore.Navigation.NavGridService.UseForDockStockers && ds != null)
+            {
+                yield return GameCore.Navigation.GridMachineMover.DockStockerLeg(ds, target, phase,
+                    DriveSpeed * EquipmentBattery.SpeedMultiplierFor(ds), TurnSpeed * EquipmentBattery.SpeedMultiplierFor(ds), onDone);
+                yield break;
+            }
             var nav = ds != null ? ds.GetComponent<AiNavigation>() : null;
             var agent = ds != null ? ds.GetComponent<NavMeshAgent>() : null;
             if (nav == null || agent == null)

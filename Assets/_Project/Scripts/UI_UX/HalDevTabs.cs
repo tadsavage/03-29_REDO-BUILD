@@ -51,7 +51,7 @@ public static class HalDevTabs
         {
             if (!Application.isPlaying) { UIToast.Show("Enter Play mode first."); return; }
             PlayerPrefs.SetString("PlayerName", PlayerPrefs.GetString("PlayerName", "Tug Dudley"));
-            PlayerPrefs.SetInt("IsNewGame", 1); PlayerPrefs.SetInt("FromMainMenu", 1); PlayerPrefs.SetInt("HalAutoStart", 1); PlayerPrefs.Save();
+            GameCore.Diagnostics.HalBuilder.SetLaunchPrefs();   // a new company, or the saved slot named in startFromSlot
             Time.timeScale = 1f;
             UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
         });
@@ -88,6 +88,8 @@ public static class HalDevTabs
         Toggle(run, "Save the game when a block ends", () => S.saveAtBlockEnd, v => S.saveAtBlockEnd = v);
 
         var crew = Section(root, "STARTING A NEW COMPANY", Blue);
+        // INITIATE HAL 9000 (and NEW COMPANY) load this saved slot and run the block from it, instead of building. 0 = build a new company.
+        Slider(crew, "Start from saved game (0 = build a new company)", 0, 8, 1, () => S.startFromSlot, v => S.startFromSlot = v, v => v == 0 ? "build new" : "Slot " + v);
         var layouts = HalLayout.Names();
         if (layouts.Count > 0)
         {
