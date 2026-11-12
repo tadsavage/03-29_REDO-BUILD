@@ -441,6 +441,13 @@ namespace GameCore.Actors
             return true;
         }
 
+        /// <summary>Distance between two machines' outlines on the floor right now (0 when they overlap).</summary>
+        public static float OutlineGap(MHEOperatorSlot a, MHEOperatorSlot b)
+        {
+            if (a == null || b == null) return float.MaxValue;
+            return FootprintGap(a, a.transform.position, a.transform.rotation, FootprintOf(a), b, FootprintOf(b));
+        }
+
         private static float FootprintRadius(Footprint f, Vector3 scale)
         {
             float x = Mathf.Max(Mathf.Abs(f.MinX), Mathf.Abs(f.MaxX)) * Mathf.Abs(scale.x);

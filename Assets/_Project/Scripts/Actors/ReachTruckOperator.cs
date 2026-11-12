@@ -18,7 +18,7 @@ namespace GameCore.Actors
     /// </summary>
     [RequireComponent(typeof(AiNavigation))]
     [RequireComponent(typeof(MHEOperatorSlot))]
-    public class ReachTruckOperator : MonoBehaviour
+    public partial class ReachTruckOperator : MonoBehaviour
     {
         // ── Constants ─────────────────────────────────────────────────────────────────────────────
 
@@ -992,7 +992,7 @@ namespace GameCore.Actors
             // NavMeshObstacle are respected. Everything after this until we're back out of the lane
             // is Manual (precision) work.
             bool reachedLane = false;
-            yield return SeekViaNavMesh(exitPoint, $"putaway: → lane {door}{lane} exit", r => reachedLane = r);
+            yield return RtLeg(exitPoint, $"putaway: → lane {door}{lane} exit", r => reachedLane = r);
             if (!reachedLane || NoOperatorAboard())
             {
                 // No path — do NOT plow through. Release the reserved slot and re-queue the task.
@@ -1252,7 +1252,7 @@ namespace GameCore.Actors
             if (_forks != null) yield return LiftForks(_forks, ForkTravelHeight);
 
             bool reachedRack = false;
-            yield return SeekViaNavMesh(locApproach.position, $"deliver: → location {toAddress} anchor", r => reachedRack = r);
+            yield return RtLeg(locApproach.position, $"deliver: → location {toAddress} anchor", r => reachedRack = r);
             if (!reachedRack || NoOperatorAboard())
             {
                 // No path (or operator gone mid-carry) — do NOT plow through. Put the pallet back
@@ -1751,7 +1751,7 @@ namespace GameCore.Actors
             _carryOriginValid = true;
 
             bool reachedLane = false;
-            yield return SeekViaNavMesh(exitPoint, $"pallet pick: → source lane {srcDoor}{srcLane} exit", r => reachedLane = r);
+            yield return RtLeg(exitPoint, $"pallet pick: → source lane {srcDoor}{srcLane} exit", r => reachedLane = r);
             if (!reachedLane || NoOperatorAboard())
             {
                 _blockedUntil[palletId] = Time.time + NoDestinationBackoff;
@@ -1926,7 +1926,7 @@ namespace GameCore.Actors
                 ? geo.ExitPoint
                 : slotPos + depthAxis * LaneApproachStandoff;
             bool reachedLane = false;
-            yield return SeekViaNavMesh(approach, $"pallet pick: → lane {door}{resolvedLane}", r => reachedLane = r);
+            yield return RtLeg(approach, $"pallet pick: → lane {door}{resolvedLane}", r => reachedLane = r);
             if (!reachedLane || NoOperatorAboard())
             {
                 Debug.LogWarning($"[ReachTruckOperator] PalletPick: no path to lane {door}{resolvedLane}. " +
@@ -2081,7 +2081,7 @@ namespace GameCore.Actors
             yield return LiftForks(_forks, ForkTravelHeight);
 
             bool reachedReserve = false;
-            yield return SeekViaNavMesh(locApproach.position, $"replenish: → reserve {reserveAddress} anchor", r => reachedReserve = r);
+            yield return RtLeg(locApproach.position, $"replenish: → reserve {reserveAddress} anchor", r => reachedReserve = r);
             if (!reachedReserve || NoOperatorAboard())
             {
                 onDone?.Invoke(false);

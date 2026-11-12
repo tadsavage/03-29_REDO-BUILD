@@ -16,7 +16,11 @@ namespace GameCore.Navigation
     {
         /// <summary>Rebuild the dynamic layer from the live scene. <paramref name="self"/> (the machine being planned for) is never blocked
         /// by its own outline. Returns the number of cells blocked.</summary>
-        public static int Refresh(NavGrid grid, MHEOperatorSlot self)
+        /// <param name="machineInflate">Grow each unmanned machine's blocked outline by this many metres: the 1 m vehicle buffer
+        /// (<see cref="MachineClearance.VehicleSpacingMeters"/>) the scripted moves enforce, so a route is planned that the guard will not
+        /// then hold. A machine already inside that buffer of <paramref name="self"/> (a jack parked between two others) is NOT grown, or the
+        /// machine could never leave its own parking row: the guard lets a vehicle inside the buffer move away.</param>
+        public static int Refresh(NavGrid grid, MHEOperatorSlot self, float machineInflate = 0f)
         {
             if (grid == null) return 0;
             grid.ClearDynamic();
@@ -25,7 +29,8 @@ namespace GameCore.Navigation
             foreach (var m in MachineClearance.AllMachines())
             {
                 if (m == null || m == self || m.IsOccupied) continue;
-                cells += BlockMachine(grid, m);
+                float inflate = machineInflate > 0f && self != null && MachineClearance.OutlineGap(self, m) >= machineInflate ? machineInflate : 0f;
+                cells += BlockMachine(grid, m, inflate);
             }
 
             float half = MachineClearance.PalletHalfSize;
@@ -39,7 +44,7 @@ namespace GameCore.Navigation
         }
 
         /// <summary>One machine's real outline (the same footprint MachineClearance tests) as blocked cells.</summary>
-        public static int BlockMachine(NavGrid grid, MHEOperatorSlot m)
+        public static int BlockMachine(NavGrid grid, MHEOperatorSlot m, float inflate = 0f)
         {
             var f = MachineClearance.FootprintOf(m);
             Transform t = m.transform;
@@ -47,7 +52,7 @@ namespace GameCore.Navigation
             Vector3 right = t.right; right.y = 0f;
             // The outline is not centred on the pivot (a jack's forks trail behind it): find its middle, then its half sizes.
             Vector3 centre = t.position + fwd.normalized * ((f.MinZ + f.MaxZ) * 0.5f) + right.normalized * ((f.MinX + f.MaxX) * 0.5f);
-            return grid.BlockOutline(centre.x, centre.z, fwd.x, fwd.z, (f.MaxZ - f.MinZ) * 0.5f, (f.MaxX - f.MinX) * 0.5f);
+            return grid.BlockOutline(centre.x, centre.z, fwd.x, fwd.z, (f.MaxZ - f.MinZ) * 0.5f, (f.MaxX - f.MinX) * 0.5f, inflate);
         }
     }
 }

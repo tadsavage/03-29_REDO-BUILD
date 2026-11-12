@@ -59,6 +59,13 @@ namespace GameCore.Navigation
             Debug.LogWarning($"[NavGrid] pallet jacks now use the {(NavGridService.UseForJacks ? "GRID planner" : "NavMeshAgent")} for open-floor legs.");
         }
 
+        [ContextMenu("Toggle Grid Nav For Reach Trucks")]
+        public void ToggleGridNavForReachTrucks()
+        {
+            NavGridService.UseForReachTrucks = !NavGridService.UseForReachTrucks;
+            Debug.LogWarning($"[NavGrid] reach trucks now use the {(NavGridService.UseForReachTrucks ? "GRID planner" : "NavMeshAgent")} for travel legs.");
+        }
+
         [ContextMenu("Plan Route")]
         public void PlanRoute()
         {

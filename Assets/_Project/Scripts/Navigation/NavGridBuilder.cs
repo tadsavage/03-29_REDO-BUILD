@@ -196,6 +196,14 @@ namespace GameCore.Navigation
             set { try { PlayerPrefs.SetInt(JackPrefKey, value ? 1 : 0); } catch { } }
         }
 
+        private const string RtPrefKey = "NavGrid.RT";
+        /// <summary>FLAG (default off): drive the reach truck's travel legs on the grid planner instead of its NavMeshAgent.</summary>
+        public static bool UseForReachTrucks
+        {
+            get { try { return PlayerPrefs.GetInt(RtPrefKey, 0) == 1; } catch { return false; } }
+            set { try { PlayerPrefs.SetInt(RtPrefKey, value ? 1 : 0); } catch { } }
+        }
+
         public static NavGrid Rebuild(PlacementGrid placement, NavGridBuilder.Options? options = null)
         {
             if (placement == null) return null;
