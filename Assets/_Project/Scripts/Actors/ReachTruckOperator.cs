@@ -2779,6 +2779,12 @@ namespace GameCore.Actors
                 {
                     _nextPassTryReal = Time.unscaledTime + 2f;
                     yield return TryPassJack(driveTarget, null);
+                    if (_mode != DriveMode.Manual && _lastBlocker != null && _jackWaitReal >= 4f && Time.unscaledTime >= _nextGoAroundReal
+                        && !OrderSelectionTaskDriver.InAnyAisle(transform.position, out _))
+                    {
+                        _nextGoAroundReal = Time.unscaledTime + 3f;
+                        yield return TryGoAround(driveTarget, null);
+                    }
                     if (_mode == DriveMode.Manual)
                     {
                         SetDriveMode(DriveMode.Ai, $"AI leg → {phase} (after passing a jack)");
@@ -2969,6 +2975,62 @@ namespace GameCore.Actors
         private float _jackWaitReal;
         private bool _jackWaitLogged;
         private MHEOperatorSlot _blockingJack;     // the jack the last WaitForJack hold was for
+        private MHEOperatorSlot _lastBlocker;      // the vehicle behind the last WaitForJack hold (any kind)
+        private const float GoAroundGiveUpReal = 12f;
+        private float _nextGoAroundReal;
+
+        /// <summary>Held behind a stationary dock stocker / jack on open floor: the truck has right of way, so it drives AROUND it instead of
+        /// waiting for it. Plans a lateral offset to either side (nearest the destination first) then a leg past it, every point on the truck's
+        /// NavMesh and every straight leg clear of solids; the scripted legs keep the 1 m vehicle buffer. Returns false when no safe way round.</summary>
+        private IEnumerator TryGoAround(Vector3 dest, System.Action<bool> done)
+        {
+            bool ok = false;
+            var other = _lastBlocker;
+            if (other != null && other != _operatorSlot && _vehicleAgent != null)
+            {
+                var oa = other.GetComponent<GameCore.Actors.EquipmentTrafficAgent>();
+                Vector3 me = transform.position;
+                Vector3 toOther = other.transform.position - me; toOther.y = 0f;
+                float dist = toOther.magnitude;
+                if ((oa == null || !oa.IsMoving) && dist > 0.1f && dist < 6f)
+                {
+                    Vector3 fwd = toOther / dist;
+                    Vector3 right = Vector3.Cross(Vector3.up, fwd);
+                    Vector3 toDest = dest - me; toDest.y = 0f;
+                    float sign = Vector3.Dot(right, toDest) >= 0f ? 1f : -1f;
+                    List<Vector3> best = null;
+                    for (int s = 0; s < 2 && best == null; s++)
+                    {
+                        Vector3 side = right * (s == 0 ? sign : -sign);
+                        for (float lat = 2.4f; lat <= 3.6f && best == null; lat += 0.6f)
+                        {
+                            Vector3 a = me + side * lat;
+                            Vector3 b = a + fwd * (dist + 3.0f);
+                            if (!NavSample.OnAgentMesh(_vehicleAgent, a, 0.6f, out var ha) || !NavSample.OnAgentMesh(_vehicleAgent, b, 0.6f, out var hb)) continue;
+                            a = new Vector3(ha.position.x, me.y, ha.position.z);
+                            b = new Vector3(hb.position.x, me.y, hb.position.z);
+                            if (!GameCore.Actors.MachineClearance.StraightSlideClear(_operatorSlot, a, 0.25f)) continue;
+                            if (!GameCore.Actors.MachineClearance.StraightSlideClear(_operatorSlot, b, 0.25f)) continue;
+                            best = new List<Vector3> { a, b };
+                        }
+                    }
+                    if (best != null)
+                    {
+                        Debug.Log($"[ReachTruckOperator] '{name}' driving round {other.name} (right of way).");
+                        SetDriveMode(DriveMode.Manual, "driving round a vehicle");
+                        ok = true;
+                        foreach (var w in best)
+                        {
+                            bool reached = false;
+                            yield return PassLeg(w, r => reached = r);
+                            if (!reached) { ok = false; break; }
+                        }
+                    }
+                    else ThrottledLog.Warn("rt-goaround-" + name, $"[ReachTruckOperator] '{name}' cannot find a safe way round {other.name} - waiting for it to move.", 30f);
+                }
+            }
+            done?.Invoke(ok);
+        }
 
         // ── Aisle rules (Tad, 2026-11-09; shared logic in AisleTraffic.cs) ─────────────────────────────────────
         private const float RtPassAfterReal = 1.0f;   // held behind a jack in an aisle this long before trying to pass it
@@ -3103,6 +3165,7 @@ namespace GameCore.Actors
             }
             if (Time.timeScale > 0f) _jackWaitReal += Time.unscaledDeltaTime;
             var blocker = GameCore.Actors.MachineClearance.LastMachineHit;
+            _lastBlocker = blocker;
             if (ta != null) ta.NoteHeld(blocker, blocker == null ? jack : null);
             if (!_jackWaitLogged)
             {
@@ -3120,6 +3183,8 @@ namespace GameCore.Actors
         {
             if (_operatorSlot == null || _jackWaitReal < RecoverAfterReal || _recoveries >= MaxRecoveries) yield break;
             var blocker = GameCore.Actors.MachineClearance.LastMachineHit;
+            // Right of way: a lower-priority machine in front backs off or gets driven round first; the truck only reverses if that fails.
+            if (blocker != null && EquipmentTraffic.Yields(blocker, _operatorSlot) && _jackWaitReal < GoAroundGiveUpReal) yield break;
             var ba = blocker != null ? blocker.GetComponent<EquipmentTrafficAgent>() : null;
             if (ba != null && ba.IsMoving) yield break;
             if (!EquipmentTraffic.TryBeginManeuver(_operatorSlot)) yield break;

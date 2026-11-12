@@ -33,7 +33,11 @@ namespace GameCore.Actors
         public const float ManeuverLease = 6f;           // a maneuver that overruns this loses the lease
         public const float ManeuverGap = 0.75f;          // quiet gap before the next machine may start its maneuver
         public static readonly float[] SelectorReverse = { 1.0f, 0.75f, 0.5f };   // 0.5-1 m
+        public static readonly float[] YieldToReachReverse = { 2.5f, 2.0f, 1.5f, 1.0f, 0.5f };   // Tad 2026-11-11: back off "a couple meters at least" for a reach truck
         public static readonly float[] ReachReverse = { 1.5f, 1.0f, 0.5f };
+
+        /// <summary>How far a selector tries to back up for <paramref name="to"/>: a couple of metres when it is a reach truck.</summary>
+        public static float[] YieldOptionsFor(MHEOperatorSlot to) => RoleOf(to) == EquipmentRole.ReachTruck ? YieldToReachReverse : SelectorReverse;
 
         private static readonly List<MHEOperatorSlot> s_manned = new();
         private static float s_mannedAt = -100f;

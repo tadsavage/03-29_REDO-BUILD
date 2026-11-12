@@ -124,7 +124,7 @@ namespace GameCore.Actors
             if (!EquipmentTraffic.TryBeginManeuver(_jack)) yield break;
             _yieldTried = true;
             Vector3 back = -Flat(travelDir, 0f).normalized;
-            float d = EquipmentTraffic.PickSafeReverse(_jack, back, EquipmentTraffic.SelectorReverse);
+            float d = EquipmentTraffic.PickSafeReverse(_jack, back, EquipmentTraffic.YieldOptionsFor(to));
             if (d > 0f)
             {
                 yield return EquipmentTraffic.ReverseStraight(_jack, back, d, JackReverseSpeed, _jackAgent);

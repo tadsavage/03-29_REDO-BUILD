@@ -1123,7 +1123,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     {
         _stockerManeuvering = true;
         var a = agent;
-        float d = GameCore.Actors.EquipmentTraffic.PickSafeReverse(slot, back, GameCore.Actors.EquipmentTraffic.SelectorReverse);
+        float d = GameCore.Actors.EquipmentTraffic.PickSafeReverse(slot, back, GameCore.Actors.EquipmentTraffic.YieldOptionsFor(to));
         if (d > 0f)
         {
             if (a != null && a.isActiveAndEnabled && a.isOnNavMesh) { a.isStopped = true; a.velocity = Vector3.zero; }
