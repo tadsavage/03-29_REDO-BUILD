@@ -368,10 +368,10 @@ namespace GameCore.Labor
             UIToast.Show(msg, 5f);
             SystemsLogWindow.LogWarning(msg);
 
-            // The crew grumbles about it too: a speech bubble over each of them.
+            // One worker speaks for the crew instead of every worker complaining at once.
             string line = Grumbles.TryGetValue(role, out var own) ? own : DefaultGrumble;
-            foreach (var e in staff)
-                if (e != null) WorldSpeechBubbles.Show(e.transform, line, GrumbleSeconds);
+            var speaker = staff[UnityEngine.Random.Range(0, staff.Count)];
+            if (speaker != null) WorldSpeechBubbles.Show(speaker.transform, line, GrumbleSeconds);
         }
 
         /// <summary>

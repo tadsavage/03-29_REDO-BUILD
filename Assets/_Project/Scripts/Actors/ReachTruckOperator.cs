@@ -2557,7 +2557,8 @@ namespace GameCore.Actors
             while (PlanarDist(t.position, target) > threshold)
             {
                 Vector3 next = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
-                if (WaitForJack(t, next, t.rotation)) { yield return null; continue; }
+                if (WaitForJack(t, next, t.rotation)) { yield return ReachJamRecovery(next - t.position); yield return null; continue; }
+                yield return ReachAisleExitGate(next - t.position);
                 t.position = next;
                 yield return null;
             }
@@ -2746,8 +2747,8 @@ namespace GameCore.Actors
             {
                 sinceRecheck += Time.deltaTime;
 
-                // Don't clip a pallet jack (Tad, 2026-11-08): look a few frames along where the agent wants to go; hold still while that
-                // would run into a jack. The 30 s budget only runs while actually driving, and the no-progress backstop is told it's held.
+                // Keep the 1 m vehicle buffer (Tad, 2026-11-09): look a few frames along where the agent wants to go; hold still while
+                // that would clip another vehicle or reduce the footprint gap below the safe distance.
                 bool jackHold = false;
                 if (_vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh)
                 {
@@ -2756,8 +2757,19 @@ namespace GameCore.Actors
                     float look = Mathf.Max(_vehicleAgent.speed * Time.deltaTime * 3f, 0.3f);
                     Quaternion rot = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(lastHeading), _vehicleAgent.angularSpeed * Time.deltaTime * 3f);
                     jackHold = WaitForJack(transform, transform.position + lastHeading * look, rot);
+                    if (!jackHold && dv.sqrMagnitude > 0.01f) yield return ReachAisleExitGate(lastHeading);
                     if (_vehicleAgent.isStopped != jackHold) _vehicleAgent.isStopped = jackHold;
-                    if (jackHold) _vehicleAgent.velocity = Vector3.zero;
+                    if (jackHold)
+                    {
+                        _vehicleAgent.velocity = Vector3.zero;
+                        int before = _recoveries;
+                        yield return ReachJamRecovery(lastHeading);
+                        if (_recoveries != before && _vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh)
+                        {
+                            _vehicleNav.CancelSeekPosition();
+                            _vehicleNav.SeekPosition(driveTarget, () => arrived = true);
+                        }
+                    }
                     _vehicleNav.HeldInQueue = jackHold;
                 }
 
@@ -2939,7 +2951,8 @@ namespace GameCore.Actors
             while (PlanarDist(t.position, target) > ArriveThreshold)
             {
                 Vector3 next = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
-                if (WaitForJack(t, next, t.rotation)) { yield return null; continue; }
+                if (WaitForJack(t, next, t.rotation)) { yield return ReachJamRecovery(next - t.position); yield return null; continue; }
+                yield return ReachAisleExitGate(next - t.position);
                 t.position = next;
                 yield return null;
             }
@@ -2951,6 +2964,8 @@ namespace GameCore.Actors
         // and pallets are the truck's own business. A wait that never clears (a jack parked for good) gives up after JackWaitGiveUpReal
         // REAL seconds with a warning rather than hanging the truck's task for ever.
         private const float JackWaitGiveUpReal = 30f;
+        private const float RecoverAfterReal = 3f;      // held this long behind a stationary machine: try backing up
+        private const int MaxRecoveries = 2;
         private float _jackWaitReal;
         private bool _jackWaitLogged;
         private MHEOperatorSlot _blockingJack;     // the jack the last WaitForJack hold was for
@@ -3066,26 +3081,72 @@ namespace GameCore.Actors
             }
             GameCore.Actors.AisleTraffic.EndExitWait(_operatorSlot);
         }
+        private int _recoveries;
+        private string _exitCheckedPrefix;
+        private float _exitCheckedAt, _nextExitPoll;
 
-        /// <summary>True when this step of the vehicle (<paramref name="t"/> must be the truck itself) would clip a pallet jack: wait a frame.</summary>
+        private EquipmentTrafficAgent TrafficAgent() => _operatorSlot != null ? _operatorSlot.GetComponent<EquipmentTrafficAgent>() : null;
+
+        /// <summary>True when this step would clip another vehicle or breach the 1 m vehicle-spacing buffer: wait a frame.
+        /// Never "carries on" into it: if the jam outlasts recovery it is reported and the truck keeps holding.</summary>
         private bool WaitForJack(Transform t, Vector3 nextPos, Quaternion nextRot)
         {
             if (t != transform || _operatorSlot == null) return false;
+            var ta = TrafficAgent();
             if (!GameCore.Actors.MachineClearance.JackStepBlocked(_operatorSlot, nextPos, nextRot, out string jack, out _blockingJack))
             {
                 _jackWaitReal = 0f;
                 _jackWaitLogged = false;
+                _recoveries = 0;
+                if (ta != null) ta.NoteClear(false);
                 return false;
             }
             if (Time.timeScale > 0f) _jackWaitReal += Time.unscaledDeltaTime;
+            var blocker = GameCore.Actors.MachineClearance.LastMachineHit;
+            if (ta != null) ta.NoteHeld(blocker, blocker == null ? jack : null);
             if (!_jackWaitLogged)
             {
                 _jackWaitLogged = true;
-                ThrottledLog.Warn("rt-jack-wait-" + name, $"[ReachTruckOperator] '{name}' waiting at {transform.position} - the next move would clip pallet jack {jack}.", 30f);
+                ThrottledLog.Warn("rt-jack-wait-" + name, $"[ReachTruckOperator] '{name}' waiting at {transform.position} - the next move would violate the 1 m vehicle clearance from {jack}.", 30f);
             }
-            if (_jackWaitReal < JackWaitGiveUpReal) return true;
-            ThrottledLog.Warn("rt-jack-giveup-" + name, $"[ReachTruckOperator] '{name}' waited {JackWaitGiveUpReal:0}s for pallet jack {jack} to move - carrying on.", 60f);
-            return false;
+            if (_jackWaitReal >= JackWaitGiveUpReal)
+                EquipmentTraffic.ReportBlockage(_operatorSlot, $"blocked by {jack} for {JackWaitGiveUpReal:0}s with no safe way round");
+            return true;
+        }
+
+        /// <summary>Held behind a stationary machine for a while: take the maneuver lease and back up (1.5/1.0/0.5 m, whichever is safe),
+        /// then the caller re-issues its path. Capped; if there is nowhere safe to go the blockage is reported and the truck stays put.</summary>
+        private IEnumerator ReachJamRecovery(Vector3 heading)
+        {
+            if (_operatorSlot == null || _jackWaitReal < RecoverAfterReal || _recoveries >= MaxRecoveries) yield break;
+            var blocker = GameCore.Actors.MachineClearance.LastMachineHit;
+            var ba = blocker != null ? blocker.GetComponent<EquipmentTrafficAgent>() : null;
+            if (ba != null && ba.IsMoving) yield break;
+            if (!EquipmentTraffic.TryBeginManeuver(_operatorSlot)) yield break;
+            _recoveries++;
+            Vector3 back = -Flat(heading);
+            float d = EquipmentTraffic.PickSafeReverse(_operatorSlot, back, EquipmentTraffic.ReachReverse);
+            if (d > 0f) yield return EquipmentTraffic.ReverseStraight(_operatorSlot, back, d, 1.2f, _vehicleAgent);
+            else EquipmentTraffic.ReportBlockage(_operatorSlot, "no safe reverse available while blocked");
+            EquipmentTraffic.EndManeuver(_operatorSlot);
+            if (_recoveries >= MaxRecoveries && _jackWaitReal >= RecoverAfterReal)
+                EquipmentTraffic.ReportBlockage(_operatorSlot, "still blocked after backing up; not retrying");
+        }
+
+        /// <summary>Stop at the mouth of an aisle, look both ways, wait until the cross aisle is clear (no automatic horn).</summary>
+        private IEnumerator ReachAisleExitGate(Vector3 heading)
+        {
+            if (_operatorSlot == null || Time.unscaledTime < _nextExitPoll) yield break;
+            _nextExitPoll = Time.unscaledTime + 0.2f;
+            Vector3 c = transform.position;
+            if (!OrderSelectionTaskDriver.IsAisleExitStep(c, heading, 1.5f, out string prefix)) yield break;
+            if (prefix == _exitCheckedPrefix && Time.unscaledTime - _exitCheckedAt < 8f) yield break;
+            _exitCheckedPrefix = prefix; _exitCheckedAt = Time.unscaledTime;
+            bool agentOn = _vehicleAgent != null && _vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh;
+            if (agentOn) { _vehicleAgent.isStopped = true; _vehicleAgent.velocity = Vector3.zero; }
+            yield return EquipmentTraffic.AisleExitCheck(_operatorSlot, c, heading);
+            if (_vehicleAgent != null && _vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh) _vehicleAgent.isStopped = false;
+            _exitCheckedAt = Time.unscaledTime;
         }
 
         private IEnumerator DriveToGrab(Transform pallet)

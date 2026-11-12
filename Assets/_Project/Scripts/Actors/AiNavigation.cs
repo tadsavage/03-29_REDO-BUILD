@@ -28,8 +28,7 @@ public class AiNavigation : MonoBehaviour
     private NavMeshAgent agent;
     private int currentIndex = 0;
     private bool initialized = false;
-    private VehicleThrottleAudio throttleAudio;
-    private bool hasHonkedThisArrival = false;
+    private bool hasMumbledThisArrival = false;
     private bool    _traversingLink = false;
     private Vector3 _pendingFrom;
     private Vector3 _pendingTo;
@@ -207,7 +206,6 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
-        throttleAudio = GetComponent<VehicleThrottleAudio>();
         _agentAnimation = GetComponent<AgentAnimation>();
         _indicator = GetComponent<NoWaypointIndicator>();
         _mumble    = GetComponent<AmbientMumble>();
@@ -1012,6 +1010,131 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // the current path here, which would cause visible path flicker every recovery tick.
     }
 
+    // ── Equipment traffic for dock stockers (EquipmentTraffic.cs) ─────────────────────────────────
+    // Jacks and reach trucks report their own holds; a dock stocker is driven purely by this agent, so it is watched here: path in hand,
+    // not moving, still some way off, with a manned machine in its lane = held. Held long enough = genuinely blocked (honk + red lines).
+    // Dock stockers still never route through aisles (DockStockerRouteUsesAisle) - this only observes and, when yielding to a reach truck,
+    // backs up a little; it never changes the route.
+    private const float StockerHeldSpeed = 0.1f;
+    private const float StockerReverseAfterReal = 1.5f;
+    private float _stockerHeldReal;
+    private bool _stockerYieldTried, _stockerManeuvering;
+    private bool _stockerSpacingHeld;
+    private MHEOperatorSlot _stockerSpacingBlocker;
+    private Vector3 _stockerSpacingHeading;
+    private GameCore.Actors.EquipmentTrafficAgent _stockerTraffic;
+
+    private void GuardStockerVehicleSpacing(NavMeshAgent a)
+    {
+        var slot = GetComponent<MHEOperatorSlot>();
+        if (slot == null || !slot.IsOccupied || GameCore.Actors.EquipmentTraffic.RoleOf(slot) != GameCore.Actors.EquipmentRole.DockStocker)
+        {
+            ClearStockerSpacingHold(a);
+            return;
+        }
+        if (_stockerManeuvering) return;
+
+        if (!a.hasPath)
+        {
+            ClearStockerSpacingHold(a);
+            return;
+        }
+
+        Vector3 heading = a.desiredVelocity;
+        heading.y = 0f;
+        if (heading.sqrMagnitude < 0.01f)
+        {
+            heading = a.steeringTarget - slot.transform.position;
+            heading.y = 0f;
+        }
+        if (heading.sqrMagnitude < 0.01f)
+        {
+            heading = a.destination - slot.transform.position;
+            heading.y = 0f;
+        }
+        if (heading.sqrMagnitude < 0.0001f) return;
+
+        heading.Normalize();
+        float look = Mathf.Max(a.speed * Time.deltaTime * 2f, 0.15f);
+        Vector3 next = slot.transform.position + heading * look;
+        Quaternion nextRot = Quaternion.RotateTowards(slot.transform.rotation, Quaternion.LookRotation(heading),
+            a.angularSpeed * Time.deltaTime * 2f);
+        if (!GameCore.Actors.MachineClearance.VehicleSpacingBlocked(slot, next, nextRot,
+                GameCore.Actors.MachineClearance.VehicleSpacingMeters, out var blocker))
+        {
+            ClearStockerSpacingHold(a);
+            return;
+        }
+
+        _stockerSpacingHeld = true;
+        _stockerSpacingBlocker = blocker;
+        _stockerSpacingHeading = heading;
+        HeldInQueue = true;
+        if (a.isActiveAndEnabled && a.isOnNavMesh)
+        {
+            a.isStopped = true;
+            a.velocity = Vector3.zero;
+        }
+    }
+
+    private void ClearStockerSpacingHold(NavMeshAgent a)
+    {
+        if (!_stockerSpacingHeld) return;
+        _stockerSpacingHeld = false;
+        _stockerSpacingBlocker = null;
+        _stockerSpacingHeading = Vector3.zero;
+        HeldInQueue = false;
+        if (a != null && a.isActiveAndEnabled && a.isOnNavMesh) a.isStopped = false;
+    }
+
+    private void TrackStockerTraffic(NavMeshAgent a)
+    {
+        if ((HeldInQueue && !_stockerSpacingHeld) || _stockerManeuvering) return;   // jacks / reach trucks report themselves
+        var slot = GetComponent<MHEOperatorSlot>();
+        if (slot == null || !slot.IsOccupied || GameCore.Actors.EquipmentTraffic.RoleOf(slot) != GameCore.Actors.EquipmentRole.DockStocker) return;
+        if (_stockerTraffic == null) _stockerTraffic = GameCore.Actors.EquipmentTrafficAgent.Ensure(gameObject);
+
+        float dt = Time.timeScale > 0f ? Time.unscaledDeltaTime : 0f;
+        bool stalled = _stockerSpacingHeld || (a.hasPath && !a.pathPending && a.velocity.sqrMagnitude < StockerHeldSpeed * StockerHeldSpeed
+                       && a.remainingDistance > 1.5f && a.desiredVelocity.sqrMagnitude > 0.01f);
+        MHEOperatorSlot blocker = _stockerSpacingBlocker;
+        if (stalled && blocker == null)
+            GameCore.Actors.EquipmentTraffic.FindInLane(slot, a.desiredVelocity, GameCore.Actors.EquipmentTraffic.LaneAhead, GameCore.Actors.EquipmentTraffic.LaneSide, false, out blocker);
+        if (blocker == null)
+        {
+            _stockerHeldReal = 0f; _stockerYieldTried = false;
+            _stockerTraffic.NoteClear(false);
+            return;
+        }
+        _stockerHeldReal += dt;
+        _stockerTraffic.NoteHeld(blocker, null);
+        if (!_stockerYieldTried && _stockerHeldReal >= StockerReverseAfterReal && GameCore.Actors.EquipmentTraffic.Yields(slot, blocker))
+        {
+            var ba = blocker.GetComponent<GameCore.Actors.EquipmentTrafficAgent>();
+            if (ba != null && ba.IsMoving) return;
+            if (!GameCore.Actors.EquipmentTraffic.TryBeginManeuver(slot)) return;
+            _stockerYieldTried = true;
+            Vector3 travel = _stockerSpacingHeld ? _stockerSpacingHeading : a.desiredVelocity.normalized;
+            StartCoroutine(StockerYieldReverse(slot, -travel, blocker));
+        }
+    }
+
+    private IEnumerator StockerYieldReverse(MHEOperatorSlot slot, Vector3 back, MHEOperatorSlot to)
+    {
+        _stockerManeuvering = true;
+        var a = agent;
+        float d = GameCore.Actors.EquipmentTraffic.PickSafeReverse(slot, back, GameCore.Actors.EquipmentTraffic.SelectorReverse);
+        if (d > 0f)
+        {
+            if (a != null && a.isActiveAndEnabled && a.isOnNavMesh) { a.isStopped = true; a.velocity = Vector3.zero; }
+            yield return GameCore.Actors.EquipmentTraffic.ReverseStraight(slot, back, d, 0.9f, a);
+            if (a != null && a.isActiveAndEnabled && a.isOnNavMesh) a.isStopped = false;
+        }
+        else GameCore.Actors.EquipmentTraffic.ReportBlockage(slot, $"no safe reverse while yielding to {to.name}");
+        GameCore.Actors.EquipmentTraffic.EndManeuver(slot);
+        _stockerManeuvering = false;
+    }
+
     private void Update()
     {
         // ── Parked forklift: no driver, no movement ──────────────────────────────
@@ -1031,6 +1154,11 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // the Console's Error Pause on, that one error froze the whole game on its first frames. The
         // off-mesh recovery further down re-seats the agent; the seeks simply wait until it has.
         bool onMesh = agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh;
+        if (onMesh)
+        {
+            GuardStockerVehicleSpacing(agent);
+            TrackStockerTraffic(agent);
+        }
 
         // ── Equipment seeking (operator walks toward placed equipment) ──────────────
         if (_seekingEquipment && _targetEquipment != null && onMesh)
@@ -1295,15 +1423,14 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // ── Arrival audio ────────────────────────────────────────────────────────
         {
             bool arrived = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.1f;
-            if (arrived && !hasHonkedThisArrival)
+            if (arrived && !hasMumbledThisArrival)
             {
-                hasHonkedThisArrival = true;
-                if (throttleAudio != null) throttleAudio.TriggerArrivalHonk();
+                hasMumbledThisArrival = true;
                 _mumble?.TryMumble();
             }
             else if (!arrived && agent.remainingDistance > agent.stoppingDistance + 0.5f)
             {
-                hasHonkedThisArrival = false;
+                hasMumbledThisArrival = false;
             }
         }
 
