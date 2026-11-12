@@ -29,16 +29,53 @@ namespace GameCore.Diagnostics
             public int Orders;          // large orders to create
             public int MinLines, MaxLines;
             public int MinCases, MaxCases;   // per line
-            public bool Release;        // release them to the staging lanes straight away
+            public bool Release;        // release them to the staging lanes straight away (off by default: HAL releases orders itself, at the right time)
+            public bool ClearLanes;     // first un-release every Pending order with nothing picked, so the staging lanes start with no commitments
             public int SaveToSlot;      // 1-8 = save the game there when done, 0 = don't
 
-            public static Spec Default => new Spec { PalletsPerSku = 4, Orders = 6, MinLines = 38, MaxLines = 50, MinCases = 4, MaxCases = 9, Release = true, SaveToSlot = 8 };
+            public static Spec Default => new Spec { PalletsPerSku = 4, Orders = 6, MinLines = 38, MaxLines = 50, MinCases = 4, MaxCases = 9, Release = false, ClearLanes = true, SaveToSlot = 8 };
         }
 
         /// <summary>The values the HAL tab's sliders edit.</summary>
         public static Spec Current = Spec.Default;
 
         public struct Result { public int Pallets, Orders, Lines, Cases, Released, WaitingForLane; public string Note; }
+
+        /// <summary>Un-releases every Pending order that has nothing picked: no lane, no door, not released, and its released tasks (selector and
+        /// pallet-pick work filed for the lane) cancelled, then frees any reservation no live task still holds. Orders already being picked or
+        /// staged are left alone. Returns how many orders were un-released.</summary>
+        public static int ClearLaneCommitments(OrderService orders)
+        {
+            if (orders == null || !ServiceLocator.TryGet<WorkQueueSystem>(out var wq) || wq == null) return 0;
+            int n = 0;
+            foreach (var o in orders.ActiveOrders.ToList())
+            {
+                if (o == null || o.Status != OrderData.OrderStatus.Pending || o.TotalUnitsPicked > 0) continue;
+                if (!o.ReleasedToFloor && string.IsNullOrEmpty(o.AssignedLane) && o.AssignedDoorNumber == 0) continue;
+                foreach (var t in orders.LiveTasksForOrder(o.OrderId).ToList())
+                    if (t.Type == WorkTaskType.OrderSelect || t.Type == WorkTaskType.PalletPick) t.Status = WorkTaskStatus.Cancelled;
+                o.AssignedDoorNumber = 0;
+                o.StagingDoorNumber = 0;
+                o.ReleasedToFloor = false;
+                o.PlannedPallets = 0;
+                o.AssignedLane = null;
+                o.OverflowLanes.Clear();
+                n++;
+            }
+            if (n > 0)
+            {
+                // Same sweep a load does: a Reserved slot with no live task behind it is released.
+                var claimed = new HashSet<string>();
+                foreach (var t in wq.Tasks)
+                {
+                    if (t.Status == WorkTaskStatus.Complete || t.Status == WorkTaskStatus.Cancelled) continue;
+                    if (!string.IsNullOrEmpty(t.ToLocation)) claimed.Add(t.ToLocation);
+                    if (!string.IsNullOrEmpty(t.FromLocation)) claimed.Add(t.FromLocation);
+                }
+                LocationStatusRegistry.ReleaseUnclaimedReservations(claimed);
+            }
+            return n;
+        }
 
         public static Result Build(Spec s)
         {
@@ -51,6 +88,10 @@ namespace GameCore.Diagnostics
 
             var customers = CustomerRegistry.Load();
             if (customers == null) { r.Note = "No CustomerRegistry asset."; return r; }
+
+            // 0. Clean staging lanes: a saved game can carry orders released to lanes (each commits 2 tiers in its lane until it is picked), which
+            //    made lanes that hold no pallet at all read as full and paused offloading ("no room in any staging lane", Tad 2026-11-12).
+            int unreleased = s.ClearLanes ? ClearLaneCommitments(orders) : 0;
 
             // 1. Stock.
             var stock = TestRackStocker.FillRacks(Mathf.Max(2, s.PalletsPerSku));
@@ -111,7 +152,8 @@ namespace GameCore.Diagnostics
                 saved = $" Saved to slot {s.SaveToSlot} (set \"Start from saved game\" to {s.SaveToSlot}).";
             }
 
-            r.Note = $"{stock.Pallets} pallet(s) stocked for {stock.SkusStocked} SKU(s); {r.Orders} large order(s), {r.Lines} lines, {r.Cases} cases; " +
+            r.Note = (unreleased > 0 ? $"{unreleased} order(s) un-released (lanes cleared); " : "") +
+                     $"{stock.Pallets} pallet(s) stocked for {stock.SkusStocked} SKU(s); {r.Orders} large order(s), {r.Lines} lines, {r.Cases} cases; " +
                      (s.Release ? $"{r.Released}/{ids.Count} released" + (r.WaitingForLane > 0 ? $" ({r.WaitingForLane} waiting for a lane)" : "") + (lastFail != null ? $", last failure: {lastFail}" : "") + "." : "not released.") + saved;
             Debug.LogWarning("[HalStressScenario] " + r.Note);
             return r;

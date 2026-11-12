@@ -487,21 +487,34 @@ namespace GameCore.Labor
             // and drove it nose to tail. While some of the order's pallets are being picked, hand out the one furthest (by plan number,
             // i.e. along the path) from them - 1, 9, 5 rather than 1, 2, 3. Same order, priority and hotness only: never reorders
             // anything else.
-            if (task.Type == WorkTaskType.OrderSelect && task.HasPlan && !string.IsNullOrEmpty(task.OrderId))
+            // ...AND ACROSS ORDERS BY START AISLE (Tad, 2026-11-12, "spread by start aisle"): the stress scenario (10 big orders, 3 selectors) put
+            // all three selectors in the front of aisle 01 at once, because every order's first pallet starts there; 61% of the crew's held
+            // time was the aisle 01 mouth. So among the equally urgent planned pallets, prefer one whose FIRST stop is in an aisle no other
+            // selector's pallet started in. Order stays FIFO otherwise (aisle preference first, then the oldest order, then plan numbers
+            // spread apart within that order). Unplanned tasks and everything else are untouched.
+            if (task.Type == WorkTaskType.OrderSelect && task.HasPlan)
             {
                 var first = task;
-                var busy = _tasks.Where(t => t.OrderId == first.OrderId && t.Type == WorkTaskType.OrderSelect && t.HasPlan
-                                          && t.Status == WorkTaskStatus.Assigned)
-                                 .Select(t => t.PlanNumber).ToList();
-                if (busy.Count > 0)
+                var busyTasks = _tasks.Where(t => t.Type == WorkTaskType.OrderSelect && t.HasPlan && t.Status == WorkTaskStatus.Assigned).ToList();
+                if (busyTasks.Count > 0)
                 {
-                    var spread = _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available && t.OrderId == first.OrderId
-                                                && t.Type == WorkTaskType.OrderSelect && t.HasPlan && t.Priority == first.Priority
-                                                && t.IsHot == first.IsHot && (skip == null || !skip(t)))
-                                       .OrderByDescending(t => busy.Min(b => Math.Abs(t.PlanNumber - b)))
-                                       .ThenBy(t => t.PlanNumber)
-                                       .FirstOrDefault();
-                    if (spread != null) task = spread;
+                    var busyAisles = SpreadByStartAisle ? new HashSet<int>(busyTasks.Select(StartAisle).Where(a => a >= 0)) : new HashSet<int>();
+                    var busySameOrder = busyTasks.Where(t => t.OrderId == first.OrderId).Select(t => t.PlanNumber).ToList();
+                    var pick = _tasks.Where(t => t.RequiredRole == role && t.Status == WorkTaskStatus.Available && t.Type == WorkTaskType.OrderSelect
+                                              && t.HasPlan && t.Priority == first.Priority && t.IsHot == first.IsHot && (skip == null || !skip(t)))
+                                     .OrderBy(t => busyAisles.Contains(StartAisle(t)) ? 1 : 0)                     // an aisle nobody started in first
+                                     .ThenBy(t => t.OrderId == first.OrderId ? 0 : 1)                              // then the oldest order (FIFO)
+                                     .ThenByDescending(t => t.OrderId == first.OrderId && busySameOrder.Count > 0
+                                                            ? busySameOrder.Min(b => Math.Abs(t.PlanNumber - b)) : 0)   // far from its sibling pallets
+                                     .ThenBy(t => t.PlanNumber)
+                                     .FirstOrDefault();
+                    if (pick != null)
+                    {
+                        if (pick != first)
+                            Debug.Log($"[WorkQueue] dealt pallet {pick.PlanNumber} of order {pick.OrderId} (starts in aisle {StartAisle(pick):00}) instead of pallet {first.PlanNumber} of order {first.OrderId} " +
+                                      $"(aisle {StartAisle(first):00}): aisles {string.Join(",", busyAisles.OrderBy(a => a).Select(a => a.ToString("00")))} already have a selector starting.");
+                        task = pick;
+                    }
                 }
             }
 
@@ -510,6 +523,21 @@ namespace GameCore.Labor
             task.AssignedAtRealtime = Time.realtimeSinceStartup;
             NoteClaimed(task);
             return true;
+        }
+
+        /// <summary>Spread-by-start-aisle switch (dev / A-B testing with JackTrafficRecorder). On by default.</summary>
+        public static bool SpreadByStartAisle = true;
+
+        /// <summary>The aisle number (01, 02...) of the FIRST stop of a planned pallet: the pick face the selector goes to first. -1 when the plan has no
+        /// stocked face (nothing to deal by).</summary>
+        private static int StartAisle(WorkTask t)
+        {
+            if (t == null || !t.HasPlan) return -1;
+            var lines = t.PlanLines();
+            if (lines.Count == 0) return -1;
+            var slot = OrderPickPath.ChooseSlot(lines[0].Key, lines[0].Value, out _);
+            string a = slot != null ? slot.Address : null;
+            return !string.IsNullOrEmpty(a) && a.Length >= 2 && int.TryParse(a.Substring(0, 2), out int aisle) ? aisle : -1;
         }
 
         /// <summary>Time-study stamps: how long the task waited to be claimed (OpsMetrics.TaskWait). The claim time is kept for TaskRun.</summary>

@@ -120,7 +120,8 @@ public static class HalDevTabs
         Slider(scen, "Lines per order (at most)", 10, 60, 5, () => HalStressScenario.Current.MaxLines, v => { var c = HalStressScenario.Current; c.MaxLines = v; c.MinLines = Mathf.Min(c.MinLines, v); HalStressScenario.Current = c; }, v => v.ToString());
         Slider(scen, "Cases per line (at most)", 3, 12, 1, () => HalStressScenario.Current.MaxCases, v => { var c = HalStressScenario.Current; c.MaxCases = v; c.MinCases = Mathf.Min(c.MinCases, v); HalStressScenario.Current = c; }, v => v.ToString());
         Slider(scen, "Save to slot (0 = don't save)", 0, 8, 1, () => HalStressScenario.Current.SaveToSlot, v => { var c = HalStressScenario.Current; c.SaveToSlot = v; HalStressScenario.Current = c; }, v => v == 0 ? "don't save" : "Slot " + v);
-        Toggle(scen, "Release the orders to the floor", () => HalStressScenario.Current.Release, v => { var c = HalStressScenario.Current; c.Release = v; HalStressScenario.Current = c; });
+        Toggle(scen, "Start with clear staging lanes (un-release old orders)", () => HalStressScenario.Current.ClearLanes, v => { var c = HalStressScenario.Current; c.ClearLanes = v; HalStressScenario.Current = c; });
+        Toggle(scen, "Release the new orders to the floor (HAL does it itself when off)", () => HalStressScenario.Current.Release, v => { var c = HalStressScenario.Current; c.Release = v; HalStressScenario.Current = c; });
         var build = BigButton("BUILD THE SCENARIO", new Color(0.55f, 0.32f, 0.7f), () =>
         {
             var res = HalStressScenario.Build(HalStressScenario.Current);

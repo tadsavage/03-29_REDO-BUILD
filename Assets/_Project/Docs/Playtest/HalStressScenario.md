@@ -37,6 +37,19 @@ trucks + 3 dock stockers, and FillRacks assigns faces in pick order so every ord
 across ORDERS by start aisle (WorkQueueSystem.TryClaimNextTask already deals plan numbers apart within one order), treat a reach truck in the
 door like a parked jack in the door (DoorBlocked), or size the scenario crew to the building (2 selectors for 2 aisles).
 
+**"Door 2 is full and there are no pallets" (Tad, 2026-11-12) - cause and fix.** The staging lanes were physically empty (0 pallets, 10 free
+slots in every lane) but read as full because of COMMITTED TIERS: every order released to a lane commits 2 tiers there until picked
+(`OrderService.CommittedTiers`), and the offload check subtracts them, so "There is no room in any staging lane. Offloading is paused". The
+"Built_Hired" slot already had 3 released orders (lane A at doors 1, 2, 3), my first scenario released 6 more, and HAL's bot (restored RUNNING
+from the save: `PlaytestBot running=True block=1091`) released the rest. Fix: the scenario now un-releases every Pending order with nothing
+picked (`ClearLaneCommitments`: no lane, no door, tasks cancelled, orphan reservations freed), and does NOT release its own orders by default
+(HAL releases at the right time). Verified on the saved slot 8: 0 pallets in lanes, 0 committed tiers, all 10 orders unassigned/unreleased, 0 Reserved rack
+slots. NOTE: a loaded save restarts HAL's block; for traffic recordings stop it first (`PlaytestBot.Instance.StopBot()`).
+
+**Spread by start aisle (built 2026-11-12, NOT yet proven).** `WorkQueueSystem.TryClaimNextTask` now prefers a planned pallet whose FIRST stop is in
+an aisle no other selector's pallet started in (then oldest order, then plan numbers apart). Switch `WorkQueueSystem.SpreadByStartAisle`.
+Four runs on the old contaminated slot were inconclusive (picking 4% on vs 10% off, held 75-84% in both, run-to-run swing 0-21%): redo on the clean slot.
+
 **Incident.** `BugFocus` quicksaves over `quicksave.json` whenever a bug toast pauses and zooms the game. During a test run that replaced Tad's
 Day 1 13:19 quicksave, and the next Play loaded it. Fixed: the file being replaced is first copied to `quicksave_before_bug.json`. Test runs
 should start from slot 8 (or any slot), never rely on `quicksave`. Also fixed: `RotatingBeacon.LateUpdate` threw every frame after a recompile in
