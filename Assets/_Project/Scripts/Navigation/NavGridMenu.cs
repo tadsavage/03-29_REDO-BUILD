@@ -35,6 +35,14 @@ namespace GameCore.Navigation
             Report();
         }
 
+        [MenuItem(Root + "Audit Reachability (in Play, paused)")]
+        static void Audit()
+        {
+            if (!Application.isPlaying) { Debug.LogWarning("[NavAudit] Enter Play mode with the warehouse loaded first (the clock can stay paused)."); return; }
+            string report = NavAudit.Run();
+            Debug.LogWarning("[NavAudit]\n" + report);
+        }
+
         static void Report() => Debug.LogWarning("[NavGrid] " + NavGridService.FlagSummary());
     }
 }
