@@ -17,6 +17,14 @@ namespace GameCore.Navigation
         public int FinalHeading;
         /// <summary>Counts as arrived within this many metres (planar). 0 = the backend's default.</summary>
         public float ArriveRadius;
+        /// <summary>Ground speed (m/s) and turn rate (deg/s) the machine drives at, battery multiplier already applied.</summary>
+        public float DriveSpeed, TurnSpeed;
+        /// <summary>May the route back the machine up? (A machine standing nose-along a wall must, to turn.)</summary>
+        public bool CanReverse;
+        /// <summary>No part of the route may touch a rack aisle (dock stockers: Tad, 2026-11-09).</summary>
+        public bool AvoidAisles;
+        /// <summary>Plan this far (metres) clear of every unmanned machine; 0 = just not through it. Normally MachineClearance.VehicleSpacingMeters.</summary>
+        public float VehicleBuffer;
     }
 
     public struct MoveResult

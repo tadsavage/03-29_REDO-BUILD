@@ -662,6 +662,13 @@ namespace GameCore.Labor
         private IEnumerator SeekViaNavMesh(Transform ds, AiNavigation nav, NavMeshAgent agent, Vector3 target,
                                            string phase, System.Action<bool> onDone)
         {
+            // Grid backend (flag, default off): plan on the NavGrid and drive it scripted. Same contract: bool callback, no fallback.
+            if (GameCore.Navigation.NavGridService.UseForDockStockers && ds != null)
+            {
+                yield return GameCore.Navigation.GridMachineMover.DockStockerLeg(ds, target, phase,
+                    DriveSpeed * EquipmentBattery.SpeedMultiplierFor(ds), TurnSpeed * EquipmentBattery.SpeedMultiplierFor(ds), onDone);
+                yield break;
+            }
             if (ds == null || nav == null || agent == null)
             {
                 Debug.LogError($"[TrailerLoad] {phase}: no AiNavigation/NavMeshAgent on this dock stocker.");

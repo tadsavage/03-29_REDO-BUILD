@@ -20,6 +20,9 @@ namespace GameCore.Navigation
         /// <summary>With <see cref="FollowAisleTraffic"/>: may the machine BACK UP inside an aisle (against the traffic, still facing it)? Off by
         /// default, so a route never reverses up an aisle to reach a stop behind it; the jack driver sets it only for its short back-out.</summary>
         public bool AllowAisleReverse;
+        /// <summary>Dock stockers stay out of the aisles (Tad, 2026-11-09): no state may touch an aisle cell. The planner then simply has no route
+        /// that runs down an aisle, which is what AiNavigation's "refused to drive ... the only route runs down aisle 02" did after the fact.</summary>
+        public bool AvoidAisles;
     }
 
     public enum PlanStatus { Ok, GoalBlocked, NoPath, OutOfBudget }
@@ -114,7 +117,7 @@ namespace GameCore.Navigation
             return list;
         }
 
-        private bool _follow, _aisleReverse;   // set per Plan from the profile
+        private bool _follow, _aisleReverse, _avoidAisles;   // set per Plan from the profile
 
         private bool Fits(List<Vector2Int>[] fp, int x, int z, int h)
         {
@@ -123,6 +126,7 @@ namespace GameCore.Navigation
             {
                 int cx = x + offs[i].x, cz = z + offs[i].y;
                 if (_grid.IsBlocked(cx, cz)) return false;
+                if (_avoidAisles && _grid.IsAisle(cx, cz)) return false;
                 if (_follow)
                 {
                     int t = _grid.GetAisleTravel(cx, cz);
@@ -147,6 +151,7 @@ namespace GameCore.Navigation
             startHeading &= 3;
             _follow = profile.FollowAisleTraffic;
             _aisleReverse = profile.AllowAisleReverse;
+            _avoidAisles = profile.AvoidAisles;
 
             // The goal must be reachable in at least one acceptable heading, or there is no point searching.
             bool goalOk = false;

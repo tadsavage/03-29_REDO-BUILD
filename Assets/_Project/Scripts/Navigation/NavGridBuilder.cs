@@ -196,6 +196,14 @@ namespace GameCore.Navigation
             set { try { PlayerPrefs.SetInt(JackPrefKey, value ? 1 : 0); } catch { } }
         }
 
+        private const string DsPrefKey = "NavGrid.DS";
+        /// <summary>FLAG (default off): drive the dock stocker's cross-dock travel legs on the grid planner instead of its NavMeshAgent.</summary>
+        public static bool UseForDockStockers
+        {
+            get { try { return PlayerPrefs.GetInt(DsPrefKey, 0) == 1; } catch { return false; } }
+            set { try { PlayerPrefs.SetInt(DsPrefKey, value ? 1 : 0); } catch { } }
+        }
+
         private const string RtPrefKey = "NavGrid.RT";
         /// <summary>FLAG (default off): drive the reach truck's travel legs on the grid planner instead of its NavMeshAgent.</summary>
         public static bool UseForReachTrucks

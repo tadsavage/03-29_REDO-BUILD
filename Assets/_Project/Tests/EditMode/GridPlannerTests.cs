@@ -157,6 +157,24 @@ namespace GameCore.Tests
         }
 
         [Test]
+        public void AvoidAisles_DockStockersHaveNoRouteThroughAnAisle()
+        {
+            var g = G(30, 14);
+            for (int z = 0; z < 14; z++) if (z < 5 || z > 8) g.SetStaticBlocked(10, z, true);   // the only way across is the aisle
+            for (int x = 7; x <= 13; x++) for (int z = 5; z <= 8; z++) g.SetAisle(x, z, 1, NavGrid.East);
+            var p = new GridPlanner(g);
+            var ds = Small; ds.AvoidAisles = true;
+            Assert.IsFalse(p.Plan(ds, C(g, 2, 6), NavGrid.East, C(g, 22, 6)).Ok, "a dock stocker never uses an aisle");
+            Assert.IsTrue(p.Plan(Small, C(g, 2, 6), NavGrid.East, C(g, 22, 6)).Ok, "anything else may");
+            // With another way round it takes it.
+            var g2 = G(30, 14);
+            for (int x = 7; x <= 13; x++) for (int z = 5; z <= 8; z++) g2.SetAisle(x, z, 1, NavGrid.East);
+            var r = new GridPlanner(g2).Plan(ds, C(g2, 2, 6), NavGrid.East, C(g2, 22, 6));
+            Assert.IsTrue(r.Ok);
+            Assert.IsFalse(r.Steps.Exists(s => g2.IsAisle(s.X, s.Z)));
+        }
+
+        [Test]
         public void PlanNearest_MovesAnUnusableGoalToTheNearestFittingCell_AndSaysHowFar()
         {
             var g = G(30, 20);
