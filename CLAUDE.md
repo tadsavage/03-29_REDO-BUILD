@@ -335,6 +335,8 @@ by clicking a rack (`PlacementStateMachine` → `ShowForAisle`).
 - Blender `Female_Body_Reg-White.blend` is the single source. Export ONLY with the `Unity_Avatar` preset, armature + every mesh, to `2. FBX/female_regular_body.fbx` (male: `Male/2. FBX/Male_Regular_Body.fbx`). Never leave a second FBX with the same mesh names in the folder. Stop Play → Scan & Rebuild Library → Finalize All Pending after every re-export. Empty material slots arrive as grey `Lit`.
 - Never move humanoid-mapped bones (Eye_L/R, EyeEnd) in Blender. NSFW parts: weight 0, female, Dirty Dev gate.
 
+**No interruptions (Tad, 2026-11-12):** bugs go to the LOG only. `BugFocus.Show` pauses nothing, moves no camera, writes no quicksave and shows no toast (it used to replace `quicksave.json`); HAL's purple pop (`PlaytestBot.HalPop`) writes to the Systems Log. The offload's "no room in any staging lane" and "using Door X instead" modals are log lines (`TrailerOffloadController`). Do not add new modal notices for things the sim can handle by itself.
+
 **Process**
 - **Verify the thing, not the value you set** — screenshot, measure, read the runtime log. Simulate risk mechanics a few hundred times before believing them.
 - Change ONE thing per HAL playtest block so scores are comparable. Don't build anything from `FUTURE_IDEAS.md` unasked; use the `roadmap` skill when new ideas appear.

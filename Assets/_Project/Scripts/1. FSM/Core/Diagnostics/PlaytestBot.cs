@@ -924,14 +924,15 @@ namespace GameCore.Diagnostics
         }
 
         readonly Dictionary<string, float> _lastPop = new();
-        /// <summary>Purple on-screen headline for an event HAL noticed. One per category per 30 real seconds, so a repeating bug cannot flood the screen.</summary>
+        /// <summary>An event HAL noticed. Goes to the in-game Systems Log only (no purple on-screen headline since 2026-11-12: Tad does not want
+        /// anything interrupting). One per category per 30 real seconds, so a repeating bug cannot flood the log.</summary>
         void HalPop(string category, string text)
         {
             if (!Running) return;
             float now = Time.unscaledTime;
             if (_lastPop.TryGetValue(category, out float t) && now - t < 30f) return;
             _lastPop[category] = now;
-            ShippedFanfare.ShowHalEvent(text.Length > 90 ? text.Substring(0, 90) + "..." : text);
+            SystemsLogWindow.LogHal(text.Length > 160 ? text.Substring(0, 160) + "..." : text);
         }
 
         void OnFined(OrderData o, int amount)
@@ -1416,7 +1417,7 @@ namespace GameCore.Diagnostics
             _lastLogSeen[key] = nowKey;
             _incidents[key] = _incidents.TryGetValue(key, out int n) ? n + 1 : 1;
             WriteBug(category, text, stack);
-            if (category != "WARN") { HalPop(category, $"BUG: {category}  {text}"); BugFocus.Show(category, text, S.pauseOnBug); }
+            if (category != "WARN") BugFocus.Show(category, text, false);   // log only: no pause, no zoom, no popup
             EvaluateScore("Bug: " + category);
             if (!_firstSeen.ContainsKey(key))
             {
@@ -1448,8 +1449,7 @@ namespace GameCore.Diagnostics
                 newTag ??= tag;
                 _incidents[key] = _incidents.TryGetValue(key, out int n) ? n + 1 : 1;
                 WriteBug(tag, line + hist);
-                HalPop(tag, $"BUG: {line}");
-                BugFocus.Show(tag, line, S.pauseOnBug);
+                BugFocus.Show(tag, line, false);   // log only: no pause, no zoom, no popup
                 if (!_firstSeen.ContainsKey(key))
                 {
                     _firstSeen[key] = $"day {CurrentDay()}";

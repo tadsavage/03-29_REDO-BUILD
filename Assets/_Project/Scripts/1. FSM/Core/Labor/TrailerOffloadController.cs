@@ -431,11 +431,8 @@ namespace GameCore.Labor
                         run.CrossDoorNoticeShown = true;
                         string fromName = ZoneRegistry.IsZone(doorNumber) ? ZoneRegistry.DisplayPrefix(doorNumber) : $"Door {doorNumber}";
                         string toName   = ZoneRegistry.IsZone(farDoor)    ? ZoneRegistry.DisplayPrefix(farDoor)    : $"Door {farDoor}";
-                        bool acknowledged = false;
-                        ConfirmationModal.ShowNotice(
-                            $"There are no more openings in {fromName}'s lanes. We will be using {toName} instead.",
-                            () => acknowledged = true);
-                        while (!acknowledged) yield return null;
+                        // No modal (Tad, 2026-11-12: "I don't want anything interrupting"): it blocked the offload until clicked. Log line only.
+                        SystemsLogWindow.Log($"There are no more openings in {fromName}'s lanes. We will be using {toName} instead.");
                     }
 
                     LaneEntryGeometry(LaneNamingService.GetLane(farDoor, farLane), doorPos, out Vector3 farEntryW, out Vector3 farDownLane);
@@ -478,7 +475,8 @@ namespace GameCore.Labor
                     if (!_noRoomNoticeShown)
                     {
                         _noRoomNoticeShown = true;
-                        ConfirmationModal.ShowNotice("There is no room in any staging lane. Offloading is paused until space opens up.");
+                        // No modal (Tad, 2026-11-12). The offload still pauses and retries (_noRoomUntil); the message goes to the log.
+                        SystemsLogWindow.LogWarning("There is no room in any staging lane. Offloading is paused until space opens up.");
                     }
                     yield break;
                 }

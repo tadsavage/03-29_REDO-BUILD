@@ -15,7 +15,7 @@ namespace GameCore.Diagnostics
         [Tooltip("In-game days per scored block.")] public int daysPerBlock = 7;
         [Tooltip("Pause at the end of each block so fixes can be made. Off = roll straight into the next block.")] public bool pauseAtBlockEnd = true;
         [Tooltip("Write a quicksave slot at the end of every block (bot_block_N).")] public bool saveAtBlockEnd = true;
-        [Tooltip("When a bug involves something you can see (worker, machine, trailer, door, pallet): pause, fly the camera to 3 m from it and show the full text in the toast.")] public bool pauseOnBug = true;
+        [Tooltip("NOT USED any more (2026-11-12): bugs no longer pause the game, move the camera or quicksave; they go to the log only.")] public bool pauseOnBug = false;
         [Tooltip("How often (in-game minutes) the bot makes decisions.")] public int decisionIntervalMinutes = 30;
 
         [Header("Starting a company (HAL builds from nothing)")]
