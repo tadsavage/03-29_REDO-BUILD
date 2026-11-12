@@ -51,8 +51,45 @@ namespace GameCore.Diagnostics
             Instance = go.AddComponent<HalBuilder>();
         }
 
+        // ── launch from a saved game (Tad, 2026-11-12) ──────────────────────────────────────────────────────────
+        // PlaytestBotSettings.startFromSlot (1-8): INITIATE HAL 9000 loads that save slot instead of building a company, then starts HAL's
+        // block from it. Every block then begins from the SAME stocked warehouse, which is what a comparison between two runs needs.
+        public const string FromSlotKey = "HalFromSlot";
+
+        /// <summary>Sets the PlayerPrefs for an INITIATE HAL launch: a new company, or (startFromSlot set and that slot exists) a load of the saved slot.
+        /// Used by the main menu button and the HAL tab's NEW COMPANY button so both do the same thing.</summary>
+        public static void SetLaunchPrefs()
+        {
+            PlayerPrefs.SetInt("FromMainMenu", 1);
+            PlayerPrefs.SetInt("HalAutoStart", 1);
+            var s = Resources.Load<PlaytestBotSettings>("PlaytestBotSettings");
+            int slot = s != null ? s.startFromSlot - 1 : -1;   // the setting is numbered like the save window; slots are 0-based
+            bool exists = slot >= 0 && System.IO.File.Exists(System.IO.Path.Combine(SaveSystem.SaveFolder, $"slot_{slot}_data.json"));
+            if (exists)
+            {
+                PlayerPrefs.SetInt("IsNewGame", 0);
+                PlayerPrefs.SetInt("LoadSlotIndex", slot);
+                PlayerPrefs.SetString("LastSaveName", $"slot_{slot}");
+                PlayerPrefs.SetInt(FromSlotKey, 1);
+            }
+            else
+            {
+                if (slot >= 0) Debug.LogWarning($"[HalBuilder] startFromSlot = {slot + 1} but that slot has no save file - building a new company instead.");
+                PlayerPrefs.SetInt("IsNewGame", 1);
+                PlayerPrefs.SetInt(FromSlotKey, 0);
+            }
+            PlayerPrefs.Save();
+        }
+
         IEnumerator Start()
         {
+            bool fromSlot = PlayerPrefs.GetInt(FromSlotKey, 0) == 1;
+            if (fromSlot)
+            {
+                PlayerPrefs.SetInt(FromSlotKey, 0); PlayerPrefs.Save();
+                PlaytestBot.AutoObserveSuppressed = true;   // HAL is driving: the always-on observer must not start its own block over a loaded game
+            }
+
             // Wait for the new game to finish booting (loading screen gone, services registered).
             float t0 = Time.realtimeSinceStartup;
             while (Time.realtimeSinceStartup - t0 < 120f)
@@ -65,6 +102,18 @@ namespace GameCore.Diagnostics
                 yield return null;
             }
             yield return new WaitForSecondsRealtime(2f);
+
+            if (fromSlot)
+            {
+                // The save was loaded by GameContext during boot. Nothing to build: hand the running warehouse to the bot.
+                ServiceLocator.TryGet<SimulationTimeService>(out var loadedClock);
+                int slot = PlayerPrefs.GetInt("LoadSlotIndex", -1);
+                Status = "loaded";
+                SystemsLogWindow.LogHal($"HAL 9000 initiated from the saved game in Slot {slot + 1}, day {(loadedClock != null ? loadedClock.Day : 0)}. No building: the warehouse is already running. Handing over to the operations bot.");
+                PlaytestBot.Ensure().StartBlock();   // sets the game speed from the settings and takes it off pause
+                Destroy(gameObject);
+                yield break;
+            }
 
             _grid = FindAnyObjectByType<PlacementGrid>();
             _validator = FindAnyObjectByType<PlacementValidator>();

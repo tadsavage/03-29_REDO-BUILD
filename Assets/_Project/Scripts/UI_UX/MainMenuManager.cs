@@ -367,10 +367,8 @@ public class MainMenuManager : MonoBehaviour
     {
         if (string.IsNullOrEmpty(_playerName)) _playerName = "Tug Dudley";
         PlayerPrefs.SetString("PlayerName", _playerName);
-        PlayerPrefs.SetInt("IsNewGame", 1);
-        PlayerPrefs.SetInt("FromMainMenu", 1);
-        PlayerPrefs.SetInt("HalAutoStart", 1);
-        PlayerPrefs.Save();
+        // A new company, or the saved slot named in the HAL settings (startFromSlot): HalBuilder.SetLaunchPrefs decides and sets the flags.
+        GameCore.Diagnostics.HalBuilder.SetLaunchPrefs();
         LoadGameScene();
     }
 

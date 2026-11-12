@@ -19,6 +19,7 @@ namespace GameCore.Diagnostics
         [Tooltip("How often (in-game minutes) the bot makes decisions.")] public int decisionIntervalMinutes = 30;
 
         [Header("Starting a company (HAL builds from nothing)")]
+        [Tooltip("0 = INITIATE HAL 9000 builds a new company from the layout below. 1-8 = it LOADS that save slot instead (numbered as in the save window, Slot 1 = first) and starts its block from there: no building, no hiring. For repeatable blocks from the same stocked warehouse.")] public int startFromSlot = 0;
         [Tooltip("Which file in Resources/HalLayouts the building is copied from.")] public string layoutName = "Standard Layout";
         public int startDockStockers = 1;
         public int startReachTruckOps = 1;
