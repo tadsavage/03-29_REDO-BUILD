@@ -42,7 +42,11 @@ public class LocationRegistry : MonoBehaviour
     // ── Static Dictionary ────────────────────────────────────────────────────────────────
 
     private static readonly Dictionary<string, LocationData> _byAddress = new();
-    private static readonly HashSet<string> _reconciledPalletIds = new();
+    // pallet id -> the LocationData it was matched to. Keyed to the slot OBJECT, not just the id (2026-11-12): a quickload over a running
+    // game rebuilds every rack (fresh, empty LocationData) while the pallet ids come back unchanged, so a plain id set skipped them all and
+    // every pick face read empty ("every pick face is empty" with 50/50 lines in stock). A matched pallet whose slot object has been
+    // destroyed is reconciled again.
+    private static readonly Dictionary<string, LocationData> _reconciledPalletIds = new();
 
     /// <summary>Retrieve the <see cref="LocationData"/> for a slot address. Returns false if
     /// the slot has not yet been registered (rack not yet placed / not yet live).</summary>
@@ -360,7 +364,7 @@ public class LocationRegistry : MonoBehaviour
         foreach (var link in PalletMasterLink.All)
         {
             if (link == null || string.IsNullOrEmpty(link.PalletId)) continue;
-            if (_reconciledPalletIds.Contains(link.PalletId)) continue; // already resolved
+            if (_reconciledPalletIds.TryGetValue(link.PalletId, out var doneAt) && doneAt != null) continue; // already resolved (and its slot still exists)
 
             var record = inv.GetPallet(link.PalletId);
             if (record == null) continue;
@@ -377,7 +381,7 @@ public class LocationRegistry : MonoBehaviour
 
             // Only mark this pallet resolved once we've actually found its slot -- otherwise an
             // early pass (before racks finish registering) would permanently skip it with no match.
-            _reconciledPalletIds.Add(link.PalletId);
+            _reconciledPalletIds[link.PalletId] = nearest;
 
             // Fill the slot's CONTENTS whenever they're missing -- do NOT gate on IsAvailable.
             // LocationStatusRegistry (status) IS persisted across save/load, but LocationData's

@@ -125,6 +125,7 @@ public class AiNavigation : MonoBehaviour
     private const float SeekNoProgressTimeout = 10f;
     private const float SeekProgressEpsilon   = 0.25f;
     private float _seekBestRemaining = float.MaxValue;
+    private float _seekBestPath = float.MaxValue;   // best agent.remainingDistance seen on a usable path (see the no-progress backstop)
     private float _seekNoProgressSeconds;
 public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     /// <summary>True when there are at least 2 waypoints — enough for a return trip.</summary>
@@ -463,6 +464,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         _onTaskArrived = onArrived;
         _seekingTask = true;
         _seekBestRemaining = float.MaxValue;
+        _seekBestPath = float.MaxValue;
         _seekNoProgressSeconds = 0f;
         _partialSeekSeconds = 0f;
         // Same reasoning as SeekEquipment: an employee walking to a receive task never went through
@@ -498,6 +500,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         _seekingTask = false;
         _onTaskArrived = null;
         _seekBestRemaining = float.MaxValue;
+        _seekBestPath = float.MaxValue;
         _seekNoProgressSeconds = 0f;
         _partialSeekSeconds = 0f;
     }
@@ -1220,9 +1223,16 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             // obstacle can briefly stall it, which only delays the backstop — the right way to err
             // for a last-resort anti-deadlock, since the three branches above handle real outcomes.
             float remaining = Vector3.Distance(transform.position, _taskTargetPosition);
-            if (remaining < _seekBestRemaining - SeekProgressEpsilon)
+            // ...and the PATH distance counts too (2026-11-12): a walk that has to go round a rack block (the selectors' 30 m walk to the jacks
+            // runs out to z 55 and back) gets FARTHER from the target in a straight line for 10+ s while it is walking perfectly well, so the
+            // straight-line test alone fired the backstop at the start of every run ("stopped 15-31 m short") and cost 25-34 s. Path progress
+            // only counts while the path is usable (finite, not pending); either measure improving resets the timer.
+            float pathRemaining = (!agent.pathPending && agent.hasPath && !float.IsInfinity(agent.remainingDistance)) ? agent.remainingDistance : float.MaxValue;
+            bool pathProgress = pathRemaining < _seekBestPath - SeekProgressEpsilon;
+            if (pathRemaining < _seekBestPath) _seekBestPath = pathRemaining;
+            if (remaining < _seekBestRemaining - SeekProgressEpsilon || pathProgress)
             {
-                _seekBestRemaining = remaining;
+                if (remaining < _seekBestRemaining) _seekBestRemaining = remaining;
                 _seekNoProgressSeconds = 0f;
             }
             else if (!HeldInQueue)   // deliberately held (waiting behind another machine) is not "no progress"
