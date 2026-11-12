@@ -51,6 +51,9 @@ public class RotatingBeacon : MonoBehaviour
         float k = Mathf.Pow(facing, beamSharpness);
         float intensity = Mathf.Lerp(dimIntensity, peakIntensity, k);
 
+        // _mpb is not serialized: after a script recompile in Play _renderers survives but this comes back null, and the NullReferenceException
+        // fired every frame (a 15 GB Editor log, 2026-11-12). Rebuild it.
+        if (_mpb == null) _mpb = new MaterialPropertyBlock();
         _mpb.SetColor(EmissionId, emissionColor * intensity);
         for (int i = 0; i < _renderers.Length; i++)
             if (_renderers[i] != null) _renderers[i].SetPropertyBlock(_mpb);

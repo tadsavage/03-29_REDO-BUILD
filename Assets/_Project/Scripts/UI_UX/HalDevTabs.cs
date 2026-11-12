@@ -111,6 +111,24 @@ public static class HalDevTabs
 
         Toggle(crew, "Just build it: no bot, no records (for making layouts)", () => S.buildOnly, v => S.buildOnly = v);
 
+        // TEST SCENARIO (Tad, 2026-11-12): stock every SKU, drop LARGE case-pick orders, release them and save to a slot, so HAL's blocks start from
+        // the same stocked warehouse and the same big orders (set "Start from saved game" to that slot).
+        var scen = Section(root, "TEST SCENARIO: LARGE CASE-PICK ORDERS", Blue);
+        scen.Add(Text("Stocks every item, creates big case-pick orders, releases them and saves the game to a slot for 'Start from saved game'.", Small, Dim));
+        Slider(scen, "Pallets of each item", 2, 8, 1, () => HalStressScenario.Current.PalletsPerSku, v => { var c = HalStressScenario.Current; c.PalletsPerSku = v; HalStressScenario.Current = c; }, v => v.ToString());
+        Slider(scen, "Large orders", 1, 12, 1, () => HalStressScenario.Current.Orders, v => { var c = HalStressScenario.Current; c.Orders = v; HalStressScenario.Current = c; }, v => v.ToString());
+        Slider(scen, "Lines per order (at most)", 10, 60, 5, () => HalStressScenario.Current.MaxLines, v => { var c = HalStressScenario.Current; c.MaxLines = v; c.MinLines = Mathf.Min(c.MinLines, v); HalStressScenario.Current = c; }, v => v.ToString());
+        Slider(scen, "Cases per line (at most)", 3, 12, 1, () => HalStressScenario.Current.MaxCases, v => { var c = HalStressScenario.Current; c.MaxCases = v; c.MinCases = Mathf.Min(c.MinCases, v); HalStressScenario.Current = c; }, v => v.ToString());
+        Slider(scen, "Save to slot (0 = don't save)", 0, 8, 1, () => HalStressScenario.Current.SaveToSlot, v => { var c = HalStressScenario.Current; c.SaveToSlot = v; HalStressScenario.Current = c; }, v => v == 0 ? "don't save" : "Slot " + v);
+        Toggle(scen, "Release the orders to the floor", () => HalStressScenario.Current.Release, v => { var c = HalStressScenario.Current; c.Release = v; HalStressScenario.Current = c; });
+        var build = BigButton("BUILD THE SCENARIO", new Color(0.55f, 0.32f, 0.7f), () =>
+        {
+            var res = HalStressScenario.Build(HalStressScenario.Current);
+            UIToast.Show(res.Note ?? "done");
+        });
+        build.style.marginTop = 10; build.style.alignSelf = Align.FlexStart;
+        scen.Add(build);
+
         var lay = Section(root, "SAVE THE WAREHOUSE AS A LAYOUT", Blue);
         lay.Add(Text("Edit the building in the game as you like, then save it here. It appears in the layout list next time.", Small, Dim));
         var nameRow = new VisualElement(); nameRow.style.flexDirection = FlexDirection.Row; nameRow.style.alignItems = Align.Center; nameRow.style.minHeight = RowH;

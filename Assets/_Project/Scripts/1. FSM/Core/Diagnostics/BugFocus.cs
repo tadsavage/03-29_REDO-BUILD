@@ -34,7 +34,15 @@ namespace GameCore.Diagnostics
             if (!found) { UIToast.Show(body, ToastSeconds); return; }
 
             _lastFocus = Time.unscaledTime;
-            // Quicksave first (same save as F5), so F9 returns to the moment of the bug.
+            // Quicksave first (same save as F5), so F9 returns to the moment of the bug. The quicksave being replaced is kept as
+            // quicksave_before_bug.json first (2026-11-12: a bug during a test run replaced Tad's Day 1 13:19 quicksave and it was lost).
+            try
+            {
+                string qs = System.IO.Path.Combine(SaveSystem.SaveFolder, "quicksave.json");
+                if (System.IO.File.Exists(qs))
+                    System.IO.File.Copy(qs, System.IO.Path.Combine(SaveSystem.SaveFolder, "quicksave_before_bug.json"), true);
+            }
+            catch (System.Exception e) { Debug.LogWarning("[BugFocus] could not back up the quicksave: " + e.Message); }
             try { if (SaveLoadSystem.SaveManager.Instance != null) SaveLoadSystem.SaveManager.Instance.SaveToSlot(-1, "quicksave"); }
             catch (System.Exception e) { Debug.LogWarning("[BugFocus] quicksave failed: " + e.Message); }
             Time.timeScale = 0f;
