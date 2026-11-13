@@ -125,6 +125,18 @@ namespace GameCore.Inventory
             if (task != null) task.Status = WorkTaskStatus.Open;
         }
 
+        /// <summary>A never-released order must have exactly one live task: the Open placeholder <see cref="FilePlaceholderTask"/> files. Without it
+        /// <see cref="IsAwaitingRelease"/> is false, so neither HAL nor the Scheduler's RELEASE ORDERS can ever release the order (2026-11-12: slot 8's
+        /// 14 orders were un-released by cancelling all their tasks and not one was released in a 3-day block). Anything that puts an order back to
+        /// "not released" must call this. Does nothing when the order already has a live task.</summary>
+        public void EnsureAwaitingReleaseTask(OrderData order)
+        {
+            if (order == null || order.ReleasedToFloor) return;
+            if (order.Status == OrderData.OrderStatus.Cancelled || order.Status == OrderData.OrderStatus.Shipped) return;
+            if (LiveTasksForOrder(order.OrderId).Any()) return;
+            FilePlaceholderTask(order);
+        }
+
         /// <summary>Letter prefix for OrderData.OrderNumber, keyed by AreaCategory. Only Grocery is
         /// reachable today — Perishable/Frozen inventory doesn't exist in the game yet — but the order
         /// number format is written to support all three from day one so turning those areas on later

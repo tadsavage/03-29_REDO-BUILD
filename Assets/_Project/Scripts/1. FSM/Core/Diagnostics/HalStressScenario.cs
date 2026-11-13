@@ -60,6 +60,9 @@ namespace GameCore.Diagnostics
                 o.PlannedPallets = 0;
                 o.AssignedLane = null;
                 o.OverflowLanes.Clear();
+                // An unreleased order carries one Open placeholder task. Cancelling everything and leaving none made the order unreleasable:
+                // IsAwaitingRelease needs a live placeholder, so HAL never released any of them (block 39, 2026-11-12).
+                orders.EnsureAwaitingReleaseTask(o);
                 n++;
             }
             if (n > 0)
