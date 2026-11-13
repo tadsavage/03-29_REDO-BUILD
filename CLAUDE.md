@@ -1,116 +1,101 @@
 # CLAUDE.md
 
-## CURRENT WORK — Playtest bot benchmark (2026-11-02)
+## CURRENT WORK — Grid navigation + traffic testing (2026-11-12)
 
-The playtest bot (`PlaytestBot`, Tools > Playtest Bot) scores 7-day "blocks". Blocks 29-33 are on the
-board. Throughput has been pinned at **6 pallets per block for four blocks running**.
+The MHE navigation (NavMeshAgent + `AiNavigation` seek + scripted moves + avoidance obstacles) is being replaced one role at a time by a grid
+planner. Everything below is committed and pushed on `polyperfect-men`, and **every grid switch is OFF by default**. The 2026-11-02 playtest-benchmark
+notes (blocks 29-33, the bot throughput cap, the cross-aisle layout, the `AiNavigation` backstop fixes) are archived verbatim in
+`docs/history/09_playtest_benchmark_2026-11-02.md`. Handoff notes from the other session: `Assets/_Project/Docs/Playtest/HANDOFF_2026-11-12_nav.md`
+and `HalStressScenario.md`.
 
-### The headline finding: throughput is capped by the BOT, not the warehouse
+### What exists (`Assets/_Project/Scripts/Navigation/`)
 
-- `SignContracts` signs every available non-bulk offer up to `maxRecurringAccounts` (3). Exactly one
-  is ever on offer — `Contract_Starter`.
-- Bulk orders, where real volume comes from, are gated on `FreePallets() >= max(12, order size)`.
-  With one starter contract the bot only buys its 2-day cover (~14 tiny POs), so it never holds 12
-  free pallets, so it never signs a bulk order, so demand never grows. Closed loop.
-- Every block reloads the day-1 save, so reputation restarts at 0 each time (see the scoreboard:
-  "0 to 16", "0 to 18"). The benchmark has measured the first 8 days of a brand-new company 33 times.
-- The 12 pallets/day (84/block) target belongs to a mature warehouse. Throughput scoring 7.1/15 and
-  revenue ~3/15 for four blocks is that mismatch, not bugs.
+- `NavGrid` (data: blocked static + dynamic, per-cell cost, exit directions, aisle id + travel heading, no-smooth) <- `NavGridBuilder` (from `PlacementGrid`;
+  a cell is blocked by a solid placed object (`MachineClearance.IsSolidData`) or by having no floor/foundation; aisles imported from live racks via
+  `rackAisleFacing`, travel = toward higher bay numbers; a free cell touching a blocked one gets a clearance cost). `NavGridService` holds it and rebuilds
+  when the placed-object count changes or after 30 s.
+- `GridPlanner`: A* over (cell, 4 headings): forward, quarter turn, reverse (x2 cost). The machine's real outline is tested at every state. Jacks
+  (`FollowAisleTraffic`) must face the aisle's travel direction on every aisle cell their outline touches and never back up an aisle; reach trucks go either
+  way; dock stockers `AvoidAisles`. `PlanNearest` moves an unusable goal to the nearest fitting cell (<= 2 cells) and reports how far (the NavMesh snaps goals
+  silently). Smoothing cuts open-floor staircases but keeps a 0.25 m margin to blocked cells and never enters aisles or their mouths.
+- `NavDynamicLayer`: unmanned machines + floor pallets, refreshed at plan time (RT / dock stocker legs inflate machines by the 1 m vehicle buffer).
+  **Manned machines are NOT in the grid** (the queue / buffer code handles them), so the planner has no notion of a crowd.
+- `IMachineMover` (the seam) / `GridMachineMover` (generic: plan, scripted drive with `MachineClearance.StepBlocked`, re-plan round a stationary machine, no
+  fallback). Used by the dock stockers.
+- Role dispatch, each replacing ONLY the travel leg and keeping the queue / 1 m buffer / solid guard / aisle-exit stop: `JackLeg` in
+  `OrderSelectionTaskDriver.GridLeg.cs` (replaces `JackNavLeg`); `RtLeg` in `ReachTruckOperator.GridLeg.cs` (5 call sites of `SeekViaNavMesh`); the three dock stocker
+  `SeekViaNavMesh` copies (`TrailerLoadController` x2, `TrailerOffloadController`) hand to `GridMachineMover.DockStockerLeg`.
+- **Tools > Navigation**: three checkable switches (Pallet Jacks / Reach Trucks / Dock Stockers = PlayerPrefs `NavGrid.Jacks/RT/DS`), "All back to NavMesh",
+  and "Audit Reachability (in Play, paused)" (`NavAudit`, writes `Logs/NavAudit.txt`). The block start line prints which nav it ran on
+  (`NavGridService.FlagSummary`). The switches are shared state: a script that sets them changes YOUR ticks.
+- Tests: `GridPlannerTests` (14) + `EquipmentTrafficTests` (14) = 28 EditMode tests, all passing.
 
-### Next step (agreed, NOT yet done): continuous blocks
+### Evidence so far (be honest about what is NOT proven)
 
-Set `pauseAtBlockEnd = 0` ("Pause when a block ends" on the HAL tab). `PlaytestBot.FinishBlock`
-already ends with `if (S.pauseAtBlockEnd) Time.timeScale = 0f; else StartBlock();` — so blocks roll
-straight on, the company carries cash/reputation/contracts/stock forward, and day ranges advance
-(block 34 = days 8-15, since `_startDay = time.Day`).
+- NavAudit on the quicksave Play loads by default ("three doors aisle", 1208 placed objects, 2 aisles): all 60 pick locations reachable by jack AND reach truck on the grid AND the NavMesh, 0
+  disagreements, goal shift 0.0 m. So layout geometry is not the problem; failures are dynamic (traffic, guards, stock).
+- Live: jacks and reach trucks drove grid legs in short runs with no `[GridNav]` errors, and jacks followed aisle direction. The dock stocker leg was verified
+  only through the generic mover on a jack. **Never run in a scored or recorded block.** A NavMesh baseline and a grid run both completed no putaway in ~130
+  game-seconds on that quicksave (empty pick faces), so there is no throughput claim either way.
 
-Caveats: `HalPlanner.PlanAndApply` fires on every `StartBlock`, so growth changes compound
-unattended, and there is no window to apply fixes between blocks. Run as a batch, then stop.
-`saveAtBlockEnd` still writes `bot_block_N` snapshots so you can rewind.
+### Starting a run from a save (2026-11-12)
 
-### Changes made this session
+- `PlaytestBotSettings.startFromSlot`: 0 = INITIATE HAL 9000 builds a new company; 1-8 = it loads that save slot (numbered as in the save window; slot 8 =
+  `slot_7_data.json`) and starts HAL's block from it with no building or hiring. Code: `HalBuilder.SetLaunchPrefs` (main menu button and HAL tab NEW COMPANY),
+  the `fromSlot` branch in `HalBuilder.Start`, a slider on the HAL tab. A missing slot file falls back to building. The asset currently says 1.
+- The HAL stress scenario (HAL tab > TEST SCENARIO > BUILD THE SCENARIO) builds large case-pick orders on a fully stocked warehouse and saves to **slot 8**.
+- A loaded save restarts HAL's block, and a block number is reused until a block finishes. `plannerEnabled` fires one growth change at each block start
+  unless `changes.json` already has a row for that block number: turn it off for any A/B so the crew is identical. For traffic recordings stop the bot first
+  (`PlaytestBot.Instance.StopBot()`).
+- Unity throttles when it is not focused (about 0.15 game-seconds per real second even at "8x"), and `execute_code` times out during a scene reload: live
+  checks take minutes, and a long block needs a focused Unity.
 
-1. **`AiNavigation.cs` — seek no-progress backstop.** Progress was measured with
-   `agent.remainingDistance`, which is `+Infinity` whenever there is no usable CURRENT path —
-   including mid-repath, where `pathPending` is already false and `pathStatus` still reports the
-   PREVIOUS path's result. Infinity never beats `_seekBestRemaining`, so every such frame counted as
-   no-progress and the backstop fired mid-walk, handing tasks back from 25m out; the receiving
-   workflow then refused (max 4.5m) and the task bounced round the queue forever. Now measured
-   straight-line to the target. Verified live: the log reads `stopped 9.13m short` instead of
-   `stopped Infinity m short`.
-2. **`AiNavigation.cs` — `PathPartial` branch.** It declared "arrived" once the agent reached the end
-   of the partial path, which can be 15m from the real target (logged `stopped 0.00m short` while the
-   worker stood 15.7m away). Added `PartialArrivalMaxGap = 4f`; beyond that it reports the target as
-   unreachable. Runtime behaviour is unchanged — same callback either way, which is this file's
-   hand-back idiom — but it stops lying, and the new wording is caught by the bug monitor.
-3. **`PlaytestBot.cs` — `WatchWarnings`.** A warning only counted as a bug if it matched that list,
-   and none of the receiving-bounce messages did (`"cannot reach"` is not `"could not reach"`). Block
-   30 scored Reliability 80/100 off TWO bugs while a receive task bounced all block. Added
-   `"cannot reach"`, `"no reachable"`, `"not reachable"`, `"only partially reachable"`,
-   `"refusing to start receiving"`, `"staging short"`.
-   **Bug counts are not comparable with blocks 1-30**, which were scored blind to this.
-4. **`HalPlanner.cs` — one change per block.** `PlanAndApply` now skips if the ledger already has a
-   row for that block number. Block 29 was started six times and fired SIX dock stocker operators
-   (changes.json held six rows, five unmeasured). **If you restart a block from a reloaded save,
-   delete that block's row from changes.json first** or it will run without its growth change.
-5. **`changes.json`** — removed the five stale unmeasured block-29 rows.
-6. **NEW `Resources/HalLayouts/three doors aisle.json`** — `three doors` with lane rows at cell y 83-84
-   (z 44.34 / 45.66) removed to give a cross-aisle. Lanes 75 -> 45. `layoutName` now points at it.
+### Test method and baseline (the other session's recorder)
 
-### Why the cross-aisle was built, and what it actually did
+`JackTrafficRecorder`: 5x, 08:13 -> 12:00, a few real minutes per run. Clean slot 8, jacks on the NavMeshAgent, 6 runs: crew picking 8-20%, held 39-62%; 69% of
+held samples are the dock/staging corridor (z 48-59), where jacks, dock stockers and reach trucks all contend. Runs are chaotic (picking 3-21%, held up to
+87% from the same start): never judge from one run.
 
-Staged outbound pallets carve the NavMesh (`OutboundPalletBuilder.SetNavObstacleActive`,
-`carving = true`, `ObstacleFootprint = 1.15`). Grid pitch is 1.325 and agent radius 0.5, so two
-adjacent staged pallets leave **0.175m** against the **1.0m** an agent needs — *any two adjacent
-staged pallets are impassable*. The old 5-deep lane block therefore had interior rows reachable only
-through other rows.
+### Next steps (agreed order)
 
-The cross-aisle did fix that: block 33's "Fixed / no longer seen" list is six
-`has no reachable pick location` entries. It did **not** move throughput, for the headline reason above.
+1. Rerun NavAudit on the slot 8 layout (same building, expect the same result).
+2. A/B on slot 8, ONE switch at a time (jacks first), 3-6 runs per arm, bot stopped, recorder on; compare held share and corridor share to the baseline above.
+3. Grid wins -> make it the default. It does not -> try manned machines as a soft cost in the planner.
+4. Then continuous HAL blocks (`pauseAtBlockEnd = 0`: `FinishBlock` ends with `if (S.pauseAtBlockEnd) Time.timeScale = 0f; else StartBlock();`, so the company carries cash,
+   reputation and stock forward and the planner's growth changes compound unattended): run as a batch, then stop. `saveAtBlockEnd` still writes `bot_block_N`.
+5. Delete the old NavMesh movement code only after a switch has held up over several blocks. Humans, rats and trucks stay on the NavMesh.
 
-You cannot tune `ObstacleFootprint` out of this: threading 1.0m at 1.325 pitch needs a carve of
-<= 0.219, about 18% of the pallet's real footprint.
+### Still true / open from the 2026-11-02 benchmark (details in the history file)
 
-### Still open
-
-- **Edge-of-floor targets are unreachable.** `(-3.71, 1.13, 50.96)` is ~0.66m past the floor's north
-  edge; `(-47.09, 1.12, 45.66)` sits 0.16m inside the walkable band after 0.5m agent erosion.
-- **A second reachability problem inside the rack block** (x -37.8..-19.3, z 37.71..49.64), e.g.
-  `(-20.59, 1.11, 37.71)`. Separate from the lanes; untouched.
-- **Fill rate is falling** (68 -> 66 -> 55) and it is now stock-outs
-  (`N case(s) not in stock - cut from the order`), not reachability.
-- **"B" was never done.** The map is built at runtime (Sims/SimCity style), so a player can rebuild
-  the same trap. The intended systemic fix is a placement rule: *no lane cell more than one row from
-  open floor*, i.e. staging at most 2 deep between aisles. That is also how real warehouses are laid
-  out, and it would make HAL's layouts correct by construction.
+- Throughput is capped by the bot, not the warehouse: only `Contract_Starter` is ever on offer, bulk orders need 12 free pallets, so demand never grows.
+- NavMesh goals at the floor edge or inside the rack block are snapped 1-1.6 m and reported as arrived; the grid refuses them (GoalBlocked / NoPath).
+- Fill rate was falling because of stock-outs, not reachability.
+- "B" was never done: the intended placement rule is *no lane cell more than one row from open floor* (staging at most 2 deep between aisles), which would make
+  HAL's layouts correct by construction.
 
 ### Geometry reference (`three doors` / `three doors aisle`)
 
-`PlacementGrid`: `CellSize 1.325`, `Origin (-66.3, 0.005, -66.3)`.
-World position = `Origin + cell * 1.325 + 0.6625`.
+`PlacementGrid`: `CellSize 1.325`, `Origin (-66.3, 0.005, -66.3)`, 100 x 100 cells (about 8% have floor). World position = `Origin + cell * 1.325 + 0.6625`.
 
 ```
 RACKS       x -37.81 .. -19.26   z 37.71 .. 49.64    (96 cells)
 SHIP LANES  x -13.96 .. +9.89    z 41.69, 43.01, [cross-aisle], 46.99   (45 cells after the fix)
 DOCK DOORS  x -11.31, -2.04, +7.24    z 36.39
-FOUNDATION  x -47.09 .. +11.21   z 36.39 .. 49.64
+FOUNDATION  x -47.09 .. +11.21   z 36.39 .. 49.64   (the loaded saves show floor up to z ~58)
 ```
 
-The X aisles between the three lane groups are 3.97m (1.83m walkable after erosion). The new Z
-cross-aisle is 2.83m clear / 1.83m walkable — deliberately matched to the X aisles, which work.
+The X aisles between the three lane groups are 3.97m (1.83m walkable after erosion). The Z cross-aisle is 2.83m clear / 1.83m walkable.
 
 ### Gotchas worth keeping
 
-- Saves: `SaveSystem.SaveFolder` returns `Assets/_Saves` only if it is non-empty, otherwise
-  `persistentDataPath/Saves`. `autosave.json` and `slot_0_data.json` there are a DIFFERENT, older
-  warehouse (all negative Z) — not the one the blocks run in.
-- `PlaytestBot` is created with `HideFlags.DontSave`, so it does not show up in a GameObject search.
-  Use the console (`[PlaytestBot] Block N started...`) to tell whether a block is running.
-- `HalBuilder` has no editor menu item. It is launched only by **INITIATE HAL 9000 on the main menu**
-  (PlayerPrefs `HalAutoStart`). With `buildOnly = 1` it builds, hires the crew, then pauses and hands
-  over so you can save the result as a baseline.
-- Editing any `.cs` while in Play mode triggers a domain reload that kills the running block (and
-  strands reach trucks mid-carry). Stop the bot first.
+- Saves: `SaveSystem.SaveFolder` returns `Assets/_Saves` only if it is non-empty, otherwise `persistentDataPath/Saves` (`%USERPROFILE%/AppData/LocalLow/SavageDev/Warehouse/Saves`).
+  Slot files are `slot_<index>_data.json`; the save window shows index + 1. Check the slot names in `metadata.json` before assuming which warehouse a slot holds.
+- `PlaytestBot` is created with `HideFlags.DontSave`, so it does not show up in a GameObject search. Use the console (`[PlaytestBot] Block N started...`) to tell
+  whether a block is running.
+- `HalBuilder` has no editor menu item. It is launched by **INITIATE HAL 9000 on the main menu** (PlayerPrefs `HalAutoStart`) or the HAL tab's NEW COMPANY. With
+  `buildOnly = 1` it builds, hires the crew, then pauses and hands over so you can save the result as a baseline.
+- Editing any `.cs` while in Play mode triggers a domain reload that kills the running block (and strands reach trucks mid-carry). Stop the bot first.
+- Static state survives between Play sessions (Domain Reload is off): `NavGridService` resets its statics in a `SubsystemRegistration` hook; any new static cache must too.
 
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -379,5 +364,6 @@ Full session history was moved out of this file on 2026-11-02 (it was 406 KB / ~
 | `docs/history/06_avatar_sep_oct.md` | AOD, modular avatar pipeline, Pimp My Employee |
 | `docs/history/07_oct_gameplay_log.md` | Oct log: negotiation, release flow, batteries, soak tests, builds, HAL, metrics |
 | `docs/history/08_latest_2026-10-31.md` | Latest addenda |
+| `docs/history/09_playtest_benchmark_2026-11-02.md` | Playtest benchmark blocks 29-33: bot throughput cap, `AiNavigation` backstop fixes, cross-aisle layout (the old CURRENT WORK block) |
 
 The system skills (table at top) are the first stop; these files are the archive. Original untouched copy: `docs/CLAUDE.md.backup-2026-11-02`. Add new session notes to the matching topic file (or a new `docs/history/` file), and put only *rules that always apply* in the Hard rules section above.
