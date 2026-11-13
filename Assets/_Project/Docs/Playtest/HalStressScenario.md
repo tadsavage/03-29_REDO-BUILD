@@ -46,7 +46,14 @@ picked (`ClearLaneCommitments`: no lane, no door, tasks cancelled, orphan reserv
 (HAL releases at the right time). Verified on the saved slot 8: 0 pallets in lanes, 0 committed tiers, all 10 orders unassigned/unreleased, 0 Reserved rack
 slots. NOTE: a loaded save restarts HAL's block; for traffic recordings stop it first (`PlaytestBot.Instance.StopBot()`).
 
-**Spread by start aisle (built 2026-11-12, NOT yet proven).** `WorkQueueSystem.TryClaimNextTask` now prefers a planned pallet whose FIRST stop is in
+**CORRECTION - the clean slot (6 runs, 2026-11-12, HAL bot stopped, 6 of 10 orders released, 08:13 -> 12:00 at 5x, NavMeshAgent for jacks).**
+Everything above about the aisle 01 mouth came from the CONTAMINATED slot (lanes committed, HAL running). On the clean slot the crew is far steadier
+(picking 8-20%, held 39-62%) and the held time is the DOCK / STAGING CORRIDOR: 69% of 2,225 held samples are at z 48-59 (cells (-8,54) 24%, (8,48) 14%,
+(0,48) 10%, (-16,54) 9%, (0,54) 6%, (-16,48) 6%); the aisle 01 mouth is 2-10%. Causes: jacks 873, dock stockers 704, reach trucks 526, racks 122
+samples: all three vehicle types contend for the same corridor. Spread by start aisle: no benefit (picking 15% on vs 17% off, held 59% vs 47%), so it is OFF
+by default. `Tools > Navigation > Grid legs - Pallet Jacks` (the other session's grid planner, default OFF) was off for all of these runs.
+
+**Spread by start aisle (built 2026-11-12, NOT proven, now OFF by default).** `WorkQueueSystem.TryClaimNextTask` now prefers a planned pallet whose FIRST stop is in
 an aisle no other selector's pallet started in (then oldest order, then plan numbers apart). Switch `WorkQueueSystem.SpreadByStartAisle`.
 Four runs on the old contaminated slot were inconclusive (picking 4% on vs 10% off, held 75-84% in both, run-to-run swing 0-21%): redo on the clean slot.
 

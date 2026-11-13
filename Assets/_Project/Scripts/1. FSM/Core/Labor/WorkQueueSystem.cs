@@ -525,8 +525,10 @@ namespace GameCore.Labor
             return true;
         }
 
-        /// <summary>Spread-by-start-aisle switch (dev / A-B testing with JackTrafficRecorder). On by default.</summary>
-        public static bool SpreadByStartAisle = true;
+        /// <summary>Spread-by-start-aisle switch (dev / A-B testing with JackTrafficRecorder). OFF by default since 2026-11-12: on the clean stress slot
+        /// it showed no benefit (3 runs each: picking 15% on vs 17% off, held 59% vs 47%), because the aisle 01 mouth jam it targeted was mostly an
+        /// artifact of a contaminated slot; the held time is in the dock / staging corridor.</summary>
+        public static bool SpreadByStartAisle = false;
 
         /// <summary>The aisle number (01, 02...) of the FIRST stop of a planned pallet: the pick face the selector goes to first. -1 when the plan has no
         /// stocked face (nothing to deal by).</summary>
