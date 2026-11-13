@@ -125,6 +125,10 @@ namespace GameCore.Inventory
             if (task != null) task.Status = WorkTaskStatus.Open;
         }
 
+        /// <summary>Pending, not released, no lane: the order is still "awaiting release". Public so a test can pin the save rule.</summary>
+        public static bool NeverReleased(OrderData o)
+            => o != null && !o.ReleasedToFloor && o.Status == OrderData.OrderStatus.Pending && string.IsNullOrEmpty(o.AssignedLane);
+
         /// <summary>A never-released order must have exactly one live task: the Open placeholder <see cref="FilePlaceholderTask"/> files. Without it
         /// <see cref="IsAwaitingRelease"/> is false, so neither HAL nor the Scheduler's RELEASE ORDERS can ever release the order (2026-11-12: slot 8's
         /// 14 orders were un-released by cancelling all their tasks and not one was released in a 3-day block). Anything that puts an order back to
@@ -3898,8 +3902,12 @@ namespace GameCore.Inventory
                     createdTimeMinute = o.CreatedTimeMinute,
                     status = (int)o.Status,
                     paymentMethod = (int)o.PaymentMethod,
-                    assignedDoorNumber = o.AssignedDoorNumber,
-                    stagingDoorNumber = o.StagingDoorNumber,
+                    // A never-released order has its door stamped from its dock APPOINTMENT (DockScheduleService.HealAppointments, on every load).
+                    // Written as it stands, the next load read "door != 0" as "released" (the old-save rule in Import) and the order could no
+                    // longer be released at all: a save taken after a load turned every booked, unreleased order into a released one
+                    // (slot 8, block 39, 2026-11-12). Heal puts the door back on the next load, so nothing is lost by writing 0.
+                    assignedDoorNumber = NeverReleased(o) ? 0 : o.AssignedDoorNumber,
+                    stagingDoorNumber = NeverReleased(o) ? 0 : o.StagingDoorNumber,
                     releasedToFloor = o.ReleasedToFloor,
                     returnsMode = o.ReturnsMode,
                     cancelledCases = o.CancelledCases,

@@ -64,7 +64,8 @@ false = nothing is held back and the player must keep inbound and outbound apart
 2. Cover the stock: buy for the order (soonest due first, only when the whole order's shortfall is affordable).
 3. Book the **inbound** PO slots first (earliest free).
 4. Book the **outbound** trailer for stock-ready + work time, never earlier.
-5. **Release the order to the floor about 3 hours before the appointment** (not earlier: it fills lanes with pallets that then wait).
+5. **Release the order to the floor at  appointment start - (the calculated time to do it + a couple of hours)** (Tad, 2026-11-12; not earlier: it fills
+   lanes with pallets that then wait, and a lane claimed by a released order is closed to inbound freight). The old rule was a flat 3 h plus 1.25 x the pick time.
 
 ## How this is wired in code
 
@@ -79,7 +80,7 @@ All in `Assets/_Project/Scripts/1. FSM/Core/Diagnostics/` (PlaytestBot.cs, Playt
 | Pallet-only vs case-pick turn time | `TurnHoursFor` | `palletTurnHours` (1.5), `pickHoursPerPicklist` (2.25), `loadBufferHours` (1) |
 | Wait for inbound to be received before it counts | `BuildStockTimeline` | `inboundBufferHours` (3) |
 | Optional extra minimum lead | `BookDock` | `outboundLeadHours` (0; Tad: the 24 h rule "isn't necessary") |
-| Release ~3 h before the appointment | `ReleaseOrders` | `releaseLeadHours` (3) |
+| Release at appointment start - (turn time + buffer) | `ReleaseOrders`, pure test hook `PlaytestBot.ReleaseIsDue` (minutes; "turn time" = `TurnHoursFor`: queue ahead + pick + load) | `releaseBufferHours` (2). `releaseLeadHours` is no longer used. |
 | Do not sign bulk without stock covered | `SignContracts`, `CoveredPallets` | `minPalletsBeforeBulk`, `bulkCashMultiple` |
 
 ## Status / history
@@ -126,6 +127,8 @@ changes nothing, and the game speed is the player's. Score, bug monitor and repo
   only as the drivers arrived, and one selector could not pick both: the dock shut down and the drivers left. Keep AT LEAST ONE DOOR FREE FOR INBOUND.
   With N outbound-capable doors, at most N-1 outbound trailers may overlap in time; a second case-pick booking waits for a later block.
 - **Release by pick time, not a flat lead.** Release an order at least its estimated pick time (plus the usual buffer) before the trailer arrives.
+  BUILT 2026-11-12: `ReleaseOrders` releases at appointment start - (`TurnHoursFor` + `releaseBufferHours`, default 2 h). The action log line now names each order
+  and how many hours the trailer was away. An unreleased order must keep its Open placeholder task or HAL cannot release it at all (`OrderService.EnsureAwaitingReleaseTask`).
 - **Scale with trouble.** A human whose doors are blocked builds a door and hires people; HAL can only change crew once per block and has no
   "add a door" action. Ideas: hire a selector immediately when picklists queue behind busy selectors; an add-door builder step.
 - Planned order of changes (one per block): block 15 = door-reserve + release-by-pick-time booking rules and darker outbound cab paints;

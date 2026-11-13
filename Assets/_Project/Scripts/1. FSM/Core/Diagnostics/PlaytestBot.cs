@@ -728,26 +728,34 @@ namespace GameCore.Diagnostics
             return cpp;
         }
 
+        /// <summary>The release rule (Tad, 2026-11-12): an order goes to the floor at  appointment start - (calculated time to do it + releaseBufferHours).
+        /// "Calculated time" is <see cref="TurnHoursFor"/>: the pick work (queue ahead of it included) plus loading. Minutes, not whole hours:
+        /// HAL decides every 30 game minutes, so the release lands within one decision of the exact time. Pure so it can be tested.</summary>
+        public static bool ReleaseIsDue(long apptStartMinutes, long nowMinutes, float turnHours, float bufferHours)
+            => apptStartMinutes - nowMinutes <= Mathf.RoundToInt((Mathf.Max(0f, turnHours) + Mathf.Max(0f, bufferHours)) * 60f);
+
         void ReleaseOrders(OrderService orders, DockScheduleService schedule, SimulationTimeService time)
         {
-            // Only orders whose trailer arrives within the lead window (or is already due): the rest wait, so lanes stay free.
-            int nowHours = (time.Day - 1) * 24 + time.Hour;
+            // Only orders that are due by the rule above: the rest wait, so the staging lanes stay free for inbound.
+            long nowMinutes = (long)(time.Day - 1) * 1440 + time.Hour * 60 + time.Minute;
             _cppCache = null;
-            int lead = Mathf.Max(0, S.releaseLeadHours);
-            var ready = orders.ActiveOrders.Where(o =>
+            var ready = new List<OrderData>();
+            var why = new List<string>();
+            foreach (var o in orders.ActiveOrders.ToList())
             {
-                if (o == null || !orders.IsAwaitingRelease(o)) return false;
+                if (o == null || !orders.IsAwaitingRelease(o)) continue;
                 var appt = schedule.FindForOrder(o.OrderId);
-                if (appt == null) return false;
-                int startHours = (appt.Day - 1) * 24 + appt.StartHour;
-                // Release early enough for the work itself: this order's own estimated pick time plus the usual buffer.
-                float pick = TurnHoursFor(new[] { o.OrderId }, orders, _cppCache ??= BuildCpp(), out _);
-                return startHours - nowHours <= lead + Mathf.CeilToInt(pick * 1.25f);
-            }).ToList();
+                if (appt == null) continue;
+                long startMinutes = (long)(appt.Day - 1) * 1440 + appt.StartMinute;
+                float turn = TurnHoursFor(new[] { o.OrderId }, orders, _cppCache ??= BuildCpp(), out _);
+                if (!ReleaseIsDue(startMinutes, nowMinutes, turn, S.releaseBufferHours)) continue;
+                ready.Add(o);
+                why.Add($"{o.OrderNumber} (trailer {(startMinutes - nowMinutes) / 60f:0.0} h away; {turn:0.0} h work + {S.releaseBufferHours:0.#} h)");
+            }
             if (ready.Count == 0) return;
-            if (orders.ReleaseOrdersToStages(ready.Select(o => o.OrderId).ToList(), out string why, out bool waiting, out _))
-            { _released += ready.Count; Act($"released {ready.Count} order(s){(waiting ? " (waiting for lane)" : "")}"); }
-            else Note("BOT-ACTION-FAIL", $"release failed: {why}");
+            if (orders.ReleaseOrdersToStages(ready.Select(o => o.OrderId).ToList(), out string fail, out bool waiting, out _))
+            { _released += ready.Count; Act($"released {ready.Count} order(s){(waiting ? " (waiting for lane)" : "")}: {string.Join("; ", why)}"); }
+            else Note("BOT-ACTION-FAIL", $"release failed: {fail}");
         }
 
         void Purchase(MoneyService money, SimulationTimeService time, DockScheduleService schedule)

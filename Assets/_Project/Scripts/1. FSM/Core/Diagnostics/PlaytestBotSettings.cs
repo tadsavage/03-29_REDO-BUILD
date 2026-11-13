@@ -41,7 +41,8 @@ namespace GameCore.Diagnostics
 
         [Header("Purchasing")]
         [Tooltip("The MOST pallets of one item HAL will hold (on shelf + inbound). How many it actually wants comes from recent demand.")] public int palletsPerActiveSku = 2;
-        [Tooltip("HAL releases an order to the floor only this many game hours before its trailer's booked block starts. Releasing earlier fills the staging lanes with pallets that then wait hours for a trailer (block 5).")] public int releaseLeadHours = 3;
+        [Tooltip("HAL releases an order to the floor at  appointment start - (its calculated time to do the order + this many game hours). The calculated time is the bot's turn estimate: the pick work (queue ahead of it included) plus loading. Releasing much earlier fills the staging lanes with pallets that wait for a trailer (block 5) and blocks inbound.")] public float releaseBufferHours = 2f;
+        [Tooltip("NO LONGER USED (2026-11-12): replaced by releaseBufferHours. Kept only so older saved settings still load.")] public int releaseLeadHours = 3;
         [Tooltip("An outbound trailer is booked only once its product is in the building or on an inbound PO that already has a slot, and never before the work of preparing it can be done (below). Stops trailers sitting at doors with nothing to ship (block 9).")] public int outboundLeadHours = 0;
         [Tooltip("Game hours to stage and load an order made only of whole pallets once the stock is here (straight roll-on / roll-off).")] public float palletTurnHours = 1.5f;
         [Tooltip("Game hours one selector picklist (a trip, up to 2 pallets) takes. Long on purpose in the current build; shorten once the loop is stable.")] public float pickHoursPerPicklist = 2.25f;
