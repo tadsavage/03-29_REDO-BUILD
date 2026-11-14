@@ -241,6 +241,90 @@ public class EquipmentBattery : MonoBehaviour
         _lapAfter = Random.Range(5f, 15f);
         _lap = null;
     }
+    // ── Dock stocker restlessness (Tad, 2026-11-14): parked in its door pocket it turns round or shuffles along the wall every 20-40 s ──
+    private const float RestlessMinSeconds = 20f;      // Time.deltaTime seconds (scaled by the speed buttons, like any movement)
+    private const float RestlessMaxSeconds = 40f;
+    private const float RestlessShuffle = 0.8f;        // never further than this along the wall from the pocket centre
+    private const float RestlessWiggleDeg = 10f;       // heading eased at most this far off the wall line (a full turn doesn't fit the apron)
+    private const float RestlessTrafficRadius = 4f;    // a moving jack / reach truck this close: keep still
+    private const float MakeWayAfterReal = 1.0f;       // another machine held behind this one this long (REAL s): move out of its way
+    private float _restlessT, _restlessAfter = 30f, _makeWayCheckT;
+    private Vector3 _restlessHome, _restlessAxis;
+    private Vector3? _avoidPocket;
+
+    private bool InDoorPocket => !string.IsNullOrEmpty(_idleName) && _idleName.StartsWith("DOOR ");
+
+    private IEnumerator RestlessRoutine()
+    {
+        _restlessAfter = Random.Range(RestlessMinSeconds, RestlessMaxSeconds);
+        if (!InDoorPocket)
+        {
+            // Parked on a fallback spot (no pocket was free then). Move only when a pocket really is free now - clearing the spot
+            // without one sent the machine to a new random corridor spot every 20-40 s (block 54).
+            if (DockStockerHome.AnyPocketFree(this)) _idlePos = null;
+            _lap = null;
+            yield break;
+        }
+        if (Slot == null || !Slot.IsOccupied || IsBusy || DockStockerHome.OtherTrafficNear(this, transform.position, RestlessTrafficRadius))
+        { _lap = null; yield break; }
+
+        Vector3 axis = _restlessAxis; axis.y = 0f;
+        if (axis.sqrMagnitude < 0.0001f) { axis = transform.forward; axis.y = 0f; }
+        if (axis.sqrMagnitude < 0.0001f) { _lap = null; yield break; }
+        axis.Normalize();
+        if (Random.value < 0.5f)
+        {
+            // Ease the heading a few degrees either side of the wall line. A full turn round does not fit: the body runs ~2.6 m behind
+            // the pivot and the apron is ~4.6 m deep between the wall and the lane pallets.
+            yield return GuardedFace(Quaternion.Euler(0f, Random.Range(-RestlessWiggleDeg, RestlessWiggleDeg), 0f) * axis);
+        }
+        else
+        {
+            // A short shuffle along the wall: out to one side of the pocket centre, or back to it.
+            Vector3 off = transform.position - _restlessHome; off.y = 0f;
+            float cur = Vector3.Dot(off, axis);
+            float to = Mathf.Abs(cur) > 0.1f ? 0f : (Random.value < 0.5f ? 1f : -1f) * RestlessShuffle;
+            Vector3 goal = _restlessHome + axis * to;
+            goal.y = transform.position.y;
+            yield return GuardedMoveStraight(goal);
+        }
+        if (this != null && !IsBusy) _idlePos = BodyCentre;
+        _lap = null;
+    }
+
+    /// <summary>Turn in place towards <paramref name="dir"/>, one small step at a time, each step checked with MachineClearance (machines never
+    /// swing into racks, walls, other machines or pallets). Blocked: stop where it is. Abandoned the moment a job claims the machine.</summary>
+    private IEnumerator GuardedFace(Vector3 dir)
+    {
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.0001f || Slot == null) yield break;
+        Quaternion goal = Quaternion.LookRotation(dir.normalized);
+        while (this != null && Quaternion.Angle(transform.rotation, goal) > 0.5f)
+        {
+            if (IsBusy) yield break;
+            Quaternion next = Quaternion.RotateTowards(transform.rotation, goal, TripTurnSpeed * Time.deltaTime);
+            if (MachineClearance.StepBlocked(Slot, transform.position, next, out _)) yield break;
+            transform.rotation = next;
+            yield return null;
+        }
+    }
+
+    /// <summary>Slide straight to <paramref name="target"/> (at most <see cref="MaxHandDriveMeters"/>), each step checked with MachineClearance.</summary>
+    private IEnumerator GuardedMoveStraight(Vector3 target)
+    {
+        if (Slot == null) yield break;
+        target.y = transform.position.y;
+        if (Flat(transform.position - target).magnitude > MaxHandDriveMeters) yield break;
+        while (this != null && Vector3.Distance(Flat(transform.position), Flat(target)) > 0.02f)
+        {
+            if (IsBusy) yield break;
+            Vector3 next = Vector3.MoveTowards(transform.position, target, TripDriveSpeed * 0.5f * Time.deltaTime);
+            if (MachineClearance.StepBlocked(Slot, next, transform.rotation, out _)) yield break;
+            transform.position = next;
+            yield return null;
+        }
+    }
+
     private float _idleWait;
     private bool _idleCharge;
     private Vector3? _idlePos;
@@ -321,6 +405,32 @@ public class EquipmentBattery : MonoBehaviour
             // Never leave a full machine on a charger: try an out-of-the-way spot, then a station's left / right / front or an empty
             // lane, then ANY clear floor - and keep trying if a drive fails.
             bool placed = alreadyParked;
+
+            // A dock stocker waits at a door, on the dock apron beside the opening (DockStockerHome), never in the corridor behind the
+            // lanes where jacks stage and reach trucks pick up. Only with no door pocket free does it fall back to the spots below.
+            if (!placed && DockStockerHome.IsDockStocker(this))
+            {
+                for (int attempt = 0; attempt < 2 && !placed && !IsBusy && this != null; attempt++)
+                {
+                    if (!DockStockerHome.TryClaimPocket(this, out var pocket, _avoidPocket)) break;
+                    _avoidPocket = null;
+                    bool ok = false;
+                    yield return NavTo(pocket.Pos, r => ok = r, () => IsBusy);
+                    if (!ok || IsBusy) { DockStockerHome.Release(this); continue; }
+                    Vector3 toSpot = pocket.Pos - transform.position; toSpot.y = 0f;
+                    if (toSpot.magnitude > 0.05f) { yield return GuardedFace(toSpot); yield return GuardedMoveStraight(pocket.Pos); }
+                    yield return GuardedFace(pocket.Forward);
+                    _idlePos = BodyCentre;
+                    _idleName = pocket.Name;
+                    _idleMinutes = 0f;
+                    _restlessAfter = Random.Range(RestlessMinSeconds, RestlessMaxSeconds);
+                    _restlessT = 0f;
+                    _restlessHome = transform.position;
+                    _restlessAxis = pocket.Forward;
+                    placed = true;
+                }
+            }
+
             for (int attempt = 0; attempt < 5 && !placed && !IsBusy && this != null; attempt++)
             {
                 MheParking.Spot spot;
@@ -492,7 +602,29 @@ public class EquipmentBattery : MonoBehaviour
         {
             bool parkedAtSpot = _idlePos.HasValue && Flat(BodyCentre - _idlePos.Value).magnitude < 1.5f && PalletJackParkingSpot.ChargerAt(BodyCentre) == null;
             bool wantsCharge = Charge01 <= ChargeAt01 && PalletJackParkingSpot.FindNearestFree(BodyCentre, Slot) != null;
-            if (parkedAtSpot && !wantsCharge)
+            if (parkedAtSpot && !wantsCharge && DockStockerHome.IsDockStocker(this))
+            {
+                // A dock stocker never takes a lap (laps drove it round the busiest floor): it stays in its door pocket and is just
+                // restless - every 20-40 s it eases its heading a few degrees or shuffles a little along the wall.
+                _idleWait = 0f;
+                // MAKE WAY: another machine held up behind this parked one (block 53: six cross-door offloads timed out behind a parked
+                // stocker) - leave this pocket for another one, or for an out-of-the-way spot if no pocket is free.
+                _makeWayCheckT += Time.unscaledDeltaTime;
+                if (InDoorPocket && _makeWayCheckT >= 0.5f)
+                {
+                    _makeWayCheckT = 0f;
+                    if (DockStockerHome.SomeoneWaitingOn(this, MakeWayAfterReal))
+                    {
+                        if (DockStockerHome.TryGetClaim(this, out var mine)) _avoidPocket = mine;
+                        DockStockerHome.Release(this);
+                        Debug.Log($"[EquipmentBattery] {name}: another machine is waiting on it in {_idleName} - moving out of the way.");
+                        _idlePos = null; _idleName = null; _restlessT = 0f;   // not parked any more: IdleRoutine finds it a new place
+                    }
+                }
+                _restlessT += Time.deltaTime;
+                if (_restlessT >= _restlessAfter) { _restlessT = 0f; _lap = StartCoroutine(RestlessRoutine()); }
+            }
+            else if (parkedAtSpot && !wantsCharge)
             {
                 // Parked out of the way with still nothing to do: now and then take a lap, 2-5 minutes, then park again.
                 _idleWait = 0f;
@@ -505,7 +637,7 @@ public class EquipmentBattery : MonoBehaviour
                 if (_idleWait > IdleGraceSeconds) { _idleWait = 0f; _idle = StartCoroutine(IdleRoutine()); }
             }
         }
-        else if (!operated || IsBusy) { _idleWait = 0f; _idleMinutes = 0f; }
+        else if (!operated || IsBusy) { _idleWait = 0f; _idleMinutes = 0f; _restlessT = 0f; if (IsBusy) DockStockerHome.Release(this); }
 
         // During a charge trip the vehicle's navigation is on ONLY inside NavTo; anywhere else (Face / MoveStraight / waiting) it must be
         // off, or its own patrol drags the machine around while the trip stands still.

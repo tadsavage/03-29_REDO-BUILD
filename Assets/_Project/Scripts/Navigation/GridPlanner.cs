@@ -119,12 +119,20 @@ namespace GameCore.Navigation
 
         private bool _follow, _aisleReverse, _avoidAisles;   // set per Plan from the profile
 
+        // Cells the machine's outline already covers where it starts (packed x + z * W). A move only has to be clear in the cells it
+        // newly enters: a jack parked 1.35 m from its neighbour (they share a 1.325 m cell), or standing in an aisle facing the wrong way,
+        // must still be able to drive out. Without this every move out of such a start failed and the search ended after one state
+        // ("NoPath, 1 expanded": all 75 grid no-route errors in blocks 43-50).
+        private readonly HashSet<int> _startCells = new HashSet<int>();
+
         private bool Fits(List<Vector2Int>[] fp, int x, int z, int h)
         {
             var offs = fp[h];
+            int W = _grid.Width;
             for (int i = 0; i < offs.Count; i++)
             {
                 int cx = x + offs[i].x, cz = z + offs[i].y;
+                if (_startCells.Count > 0 && cx >= 0 && cz >= 0 && cx < W && cz < _grid.Height && _startCells.Contains(cx + cz * W)) continue;
                 if (_grid.IsBlocked(cx, cz)) return false;
                 if (_avoidAisles && _grid.IsAisle(cx, cz)) return false;
                 if (_follow)
@@ -153,11 +161,20 @@ namespace GameCore.Navigation
             _aisleReverse = profile.AllowAisleReverse;
             _avoidAisles = profile.AvoidAisles;
 
-            // The goal must be reachable in at least one acceptable heading, or there is no point searching.
+            // The goal must be reachable in at least one acceptable heading, or there is no point searching. Judged strictly: the start's
+            // own cells are not exempt here.
+            _startCells.Clear();
             bool goalOk = false;
             if (goalHeading >= 0) goalOk = Fits(fp, gc.x, gc.y, goalHeading & 3);
             else for (int h = 0; h < 4 && !goalOk; h++) goalOk = Fits(fp, gc.x, gc.y, h);
             if (!goalOk) { res.Status = PlanStatus.GoalBlocked; return res; }
+
+            // The start is never validated; the cells it already covers are exempt for the whole search (see _startCells).
+            foreach (var o in fp[startHeading])
+            {
+                int cx = sc.x + o.x, cz = sc.y + o.y;
+                if (cx >= 0 && cz >= 0 && cx < W && cz < H) _startCells.Add(cx + cz * W);
+            }
 
             int n = W * H * 4;
             if (_g == null || _g.Length != n) { _g = new float[n]; _parent = new int[n]; _stamp = new int[n]; _curStamp = 0; }

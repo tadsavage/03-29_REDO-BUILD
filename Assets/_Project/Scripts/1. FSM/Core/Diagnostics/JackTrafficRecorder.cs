@@ -17,6 +17,7 @@ namespace GameCore.Diagnostics
     {
         public int Runs = 8;
         public int EndHour = 12;
+        public int EndDay = 0;              // 0 = stop at EndHour on the day it started; N = stop at EndHour on day N
         public float Speed = 1f;
         public float SampleRealSeconds = 0.5f;
 
@@ -40,13 +41,13 @@ namespace GameCore.Diagnostics
 
         /// <summary>Quickloading on top of an already-loaded scene leaves every pick face reading empty (2026-11-10), so for clean runs
         /// start Play fresh (it loads the quicksave) and call Begin(1, speed, 12, reload: false, firstRun: N).</summary>
-        public static JackTrafficRecorder Begin(int runs, float speed, int endHour = 12, bool reload = true, int firstRun = 1)
+        public static JackTrafficRecorder Begin(int runs, float speed, int endHour = 12, bool reload = true, int firstRun = 1, int endDay = 0)
         {
             if (Instance != null) Destroy(Instance.gameObject);
             var go = new GameObject("JackTrafficRecorder");
             DontDestroyOnLoad(go);
             var r = go.AddComponent<JackTrafficRecorder>();
-            r.Runs = runs; r.Speed = speed; r.EndHour = endHour; r.ReloadEachRun = reload; r.FirstRun = firstRun;
+            r.Runs = runs; r.Speed = speed; r.EndHour = endHour; r.ReloadEachRun = reload; r.FirstRun = firstRun; r.EndDay = endDay;
             Instance = r;
             return r;
         }
@@ -98,7 +99,7 @@ namespace GameCore.Diagnostics
                 while (true)
                 {
                     var t = Clock();
-                    if (t != null && t.Hour >= EndHour) break;
+                    if (t != null && (EndDay > 0 ? (t.Day > EndDay || (t.Day == EndDay && t.Hour >= EndHour)) : t.Hour >= EndHour)) break;
                     if (Time.unscaledTime - start > 60f * 30f) break;   // safety
                     if (HoldSpeed)   // the playtest block changes speed; runs must match
                     {

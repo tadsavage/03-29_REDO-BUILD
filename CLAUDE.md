@@ -28,7 +28,12 @@ and `HalStressScenario.md`.
 - **Tools > Navigation**: three checkable switches (Pallet Jacks / Reach Trucks / Dock Stockers = PlayerPrefs `NavGrid.Jacks/RT/DS`), "All back to NavMesh",
   and "Audit Reachability (in Play, paused)" (`NavAudit`, writes `Logs/NavAudit.txt`). The block start line prints which nav it ran on
   (`NavGridService.FlagSummary`). The switches are shared state: a script that sets them changes YOUR ticks.
-- Tests: `GridPlannerTests` (14) + `EquipmentTrafficTests` (14) = 28 EditMode tests, all passing.
+- Tests: `GridPlannerTests` (16) + `EquipmentTrafficTests` (14) = 30 of the 35 EditMode tests, all passing (2026-11-14).
+- 2026-11-14 review of blocks 42-51 and the next steps: `Assets/_Project/Docs/Playtest/NavReview_2026-11-14.md`. Step 1 done: the planner's
+  start cells are exempt from `Fits` (every grid "no route" was "NoPath, 1 expanded" from a start overlapping a neighbour or an aisle cell).
+  Step 2 (idle part) done: idle dock stockers wait in door pockets on the dock apron (`Actors/DockStockerHome.cs`, `EquipmentBattery`
+  IdleRoutine / RestlessRoutine), no laps, make way when something is held behind them. Block 54: 0 stocker stuck (was 12), 0 cross-door failures.
+  A dock stocker's pivot is near its FRONT (body ~2.6 m behind it): place it by its outline, and a full turn does not fit the 4.6 m apron.
 
 ### Evidence so far (be honest about what is NOT proven)
 

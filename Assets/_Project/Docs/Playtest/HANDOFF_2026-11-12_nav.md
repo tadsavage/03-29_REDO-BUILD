@@ -37,3 +37,7 @@ All three switches ("Grid legs - Pallet Jacks / Reach Trucks / Dock Stockers") a
 Never edit scripts during Play; never `git pull`/reset with Unity open; one change per HAL block; machines never drive through
 racks/walls/machines/pallets; compile gate = `GameCore.Simulation.dll` mtime + `error CS` in `Logs/Editor.log`.
 Open/unproven: mid-pick save/load dropping cases (probably not real), reach-truck vs jack standoffs, start-walk backstop (coded, stall not reproduced).
+
+## Parked for after the blocks (noted 2026-11-13)
+- **Dock stockers idle on the dock front.** Today they wait right in front of the doors, which is where jacks stage pallets and where most of the traffic is, so they block paths and jack staging. Idea: while idle they hang around in front of the doors and move a little every ~30 s (step to another spot between doors, or just change facing), but they stay off the dock front where jacks run. Goal: stop them blocking paths and staging.
+- Not started. Do not change this during the nav A/B blocks (one change at a time).

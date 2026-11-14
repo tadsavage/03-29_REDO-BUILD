@@ -225,5 +225,31 @@ namespace GameCore.Tests
             g.SetStaticBlocked(2, 2, true);
             Assert.IsTrue(new GridPlanner(g).Plan(Small, C(g, 2, 2), NavGrid.East, C(g, 10, 2)).Ok);
         }
+
+        /// <summary>Blocks 43-50: every grid "no route" was "NoPath, 1 expanded". A full-length jack whose outline already shares a cell with
+        /// a neighbour (parked 1.35 m apart on 1.325 m cells) kept that cell under its outline for its first steps, so no move out fit.</summary>
+        [Test]
+        public void LongMachine_StartingOverABlockedCell_DrivesOutOfIt()
+        {
+            var g = G(30, 11);
+            for (int x = 0; x < 30; x++) { g.SetStaticBlocked(x, 4, true); g.SetStaticBlocked(x, 6, true); }   // a one-cell corridor: no turning
+            g.SetStaticBlocked(4, 5, true);                                                                   // the neighbour's outline, under our tail
+            var jack = Jack(0.6f);
+            var r = new GridPlanner(g).Plan(jack, C(g, 5, 5), NavGrid.East, C(g, 20, 5));
+            Assert.IsTrue(r.Ok, $"status {r.Status}, expanded {r.Expanded}");
+            Assert.IsFalse(r.Steps.Exists(s => s.X < 5), "it drives away from the cell it started over, never further into it");
+        }
+
+        [Test]
+        public void StartExemption_DoesNotOpenBlockedCellsElsewhere_OrTheGoal()
+        {
+            var g = G(30, 11);
+            for (int x = 0; x < 30; x++) { g.SetStaticBlocked(x, 4, true); g.SetStaticBlocked(x, 6, true); }
+            g.SetStaticBlocked(4, 5, true);
+            g.SetStaticBlocked(12, 5, true);   // a real obstacle further down the corridor
+            var p = new GridPlanner(g);
+            Assert.AreEqual(PlanStatus.NoPath, p.Plan(Jack(0.6f), C(g, 5, 5), NavGrid.East, C(g, 20, 5)).Status);
+            Assert.AreEqual(PlanStatus.GoalBlocked, p.Plan(Jack(0.6f), C(g, 5, 5), NavGrid.East, C(g, 4, 5)).Status);
+        }
     }
 }
