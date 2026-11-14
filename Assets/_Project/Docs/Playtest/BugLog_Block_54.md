@@ -1,0 +1,51 @@
+# Bug log - block 54
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 08:18 | **WARN** | [AiNavigation] Employee_Kelly Harmon: stuck at (5.92, 1.16, 49.86) — walking out to (-5.33, 1.21, 43.36) (12.00m to mesh).
+- day 1 10:09 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 01 - walking out forward along the right lane to (-37.12, 1.11, 42.34).
+- day 1 10:09 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-25.60, 1.11, 43.21) — walking out to (-37.12, 1.11, 42.34) (11.55m to mesh).
+- day 1 10:47 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-11.58, 1.12, 58.65) — walking out to (-11.58, 1.21, 45.65) (12.00m to mesh).
+- day 1 10:54 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-12.34, 1.13, 57.70) — walking out to (-23.58, 1.12, 50.90) (12.14m to mesh).
+- day 1 11:09 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-9.54, 1.11, 51.19) — walking out to (1.72, 1.25, 44.69) (12.00m to mesh).
+- day 1 12:36 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-8.29, 1.11, 46.99) — walking out to (-7.71, 1.24, 48.37) (12.22m to mesh).
+- day 1 12:41 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (8.71, 1.12, 58.73) — walking out to (8.71, 1.21, 45.73) (12.00m to mesh).
+- day 1 12:42 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 108/248.
+- day 1 14:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 01 - walking out forward along the right lane to (-36.93, 1.11, 42.34).
+- day 1 14:44 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-25.41, 1.11, 43.21) — walking out to (-36.93, 1.11, 42.34) (11.55m to mesh).
+- day 1 15:50 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (1.65, 1.13, 58.02) — walking out to (-4.85, 1.24, 46.77) (12.00m to mesh).
+- day 1 15:51 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (1.63, 1.13, 58.02) — walking out to (-4.87, 1.24, 46.76) (12.00m to mesh).
+- day 1 15:51 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 134/248.
+- day 1 16:18 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-16.73, 1.14, 47.95) — walking out to (-16.73, 0.04, 34.46) (12.49m to mesh).
+- day 1 16:27 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-9.38, 1.14, 55.40) — walking out to (-2.88, 1.22, 44.15) (12.00m to mesh).
+- day 1 17:24 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.08, 1.11, 54.26) — walking out to (-12.50, 1.19, 55.64) (12.00m to mesh).
+- day 1 17:39 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (0.50, 1.12, 59.17) — walking out to (0.50, 1.20, 46.17) (12.00m to mesh).
+- day 1 17:41 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-1.93, 1.12, 58.80) — walking out to (-1.93, 1.23, 45.80) (12.00m to mesh).
+- day 1 18:59 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-7.23, 1.12, 59.11) — walking out to (-13.73, 1.16, 47.85) (12.00m to mesh).
+- day 1 19:01 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-12.23, 1.12, 59.19) — walking out to (-12.23, 1.19, 46.19) (12.00m to mesh).
+- day 1 20:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 25 task(s) it could take wait
+- day 1 20:47 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 01 - walking out forward along the right lane to (-39.78, 1.11, 42.34).
+- day 1 21:51 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 227/248.
+- day 1 23:48 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-19.33, 1.11, 56.33) — walking out to (-20.72, 1.16, 56.33) (12.00m to mesh).
+- day 2 01:14 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (2.95, 1.11, 55.81) — walking out to (-3.55, 1.25, 44.55) (12.00m to mesh).
+- day 2 04:11 | **REPEATING** | x25 and counting: [TrailerOffload] No reachable Inbound/Both staging-lane slot anywhere in the building — returning the pallet to the trailer and pausing the offload.
+- day 2 04:24 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-3.36, 1.11, 50.49) — walking out to (-2.79, 1.22, 51.88) (12.00m to mesh).
+- day 2 09:30 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-39.69, 1.11, 46.79) — walking out to (-38.30, 1.18, 46.79) (12.32m to mesh).
+- day 2 10:54 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.00, 1.11, 45.41) — walking out to (-11.43, 1.25, 46.80) (5.00m to mesh).
+- day 2 11:40 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-38.52, 1.12, 43.12) — walking out to (-32.02, 1.12, 54.38) (12.00m to mesh).
+- day 2 12:15 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-38.02, 1.11, 43.06) — walking out to (-38.59, 1.17, 41.68) (12.00m to mesh).
+- day 2 12:18 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-41.73, 1.12, 43.82) — walking out to (-28.73, 1.12, 43.43) (12.01m to mesh).
+- day 2 12:24 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-8.81, 1.12, 58.97) — walking out to (-8.81, 1.20, 45.97) (12.00m to mesh).
+- day 2 12:31 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-8.81, 1.12, 58.67) — walking out to (-8.81, 1.20, 45.67) (12.00m to mesh).
+- day 2 13:06 | **WARN** | [OrderSelectionTaskDriver] Order a73ffce7-e0a7-4563-8ce5-522a69ed33da (Crunch-Time Cereals) has no reachable pick location for its remaining line item(s) — staging short at 42/55.
+- day 2 13:09 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-45.76, 1.18, 40.36) (path invalid) — abandoning the walk and handing the task back.
+- day 2 15:09 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.30, 1.11, 56.91) — walking out to (-25.30, 1.16, 56.29) (12.01m to mesh).
+- day 2 16:10 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (1.06, 1.11, 51.82) — walking out to (0.48, 1.21, 53.21) (12.71m to mesh).
+- day 2 17:55 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-11.31, 1.23, 48.99) (path invalid) — abandoning the walk and handing the task back.
+- day 2 18:10 | **OVERLAP** | OVERLAP A Chep & A Chep @(22, 84)  <<HISTORY: d2 17:02 Replenish task created (01-14-B0->02-03-00) by ReplenishmentService.CreateReplenishTask | d2 17:03 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d2 17:08 moved (23, 83)->(-1, -1) by InventoryService.MovePallet | d2 17:42 moved (-1, -1)->(23, 84) by InventoryService.MovePallet | d2 17:42 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask | d2 17:43 Replenish task Complete->Available by ReachTruckOperator.ReleaseTaskWithBackoff>>  <<HISTORY: d1 08:10 restored from save at (24, 84) 32x659083 by InventoryService.RegisterPalletDirect | d2 17:46 Replenish task created (02-05-B0->02-03-00) by ReplenishmentService.CreateReplenishTask | d2 17:46 Replenish task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d2 18:02 moved (24, 84)->(-1, -1) by InventoryService.MovePallet | d2 18:09 moved (-1, -1)->(23, 84) by InventoryService.MovePallet | d2 18:09 Replenish task Assigned->Complete by WorkQueueSystem.CompleteTask>>
+- day 2 18:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-14.10, 1.16, 46.69) — walking out to (-20.58, 0.04, 34.58) (12.73m to mesh).
+- day 2 18:23 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 0ac24a01-2bce-46f6-ac80-bb050e0a5701 but the employee is 25.8m away (max 4.5m) — refusing to start receiving.
+- day 2 18:38 | **WARN** | [AiNavigation] Employee_Mary Young: task target (-13.06, 1.20, 45.66) is not reachable — the partial path ends 10.11m short of it. Handing the task back.
+- day 2 18:44 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-10.77, 1.19, 47.85) — walking out to (1.09, 1.20, 41.33) (12.54m to mesh).
+- day 2 19:49 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-10.10, 1.16, 48.72) — walking out to (-3.60, 1.11, 37.46) (12.00m to mesh).
+- day 2 21:38 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-10.81, 1.19, 47.86) — walking out to (1.10, 1.20, 41.34) (12.57m to mesh).

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PlaytestBotSettings
   m_EditorClassIdentifier: GameCore.Simulation:GameCore.Diagnostics:PlaytestBotSettings
   gameSpeed: 8
-  daysPerBlock: 3
+  daysPerBlock: 2
   pauseAtBlockEnd: 1
   saveAtBlockEnd: 1
   pauseOnBug: 0
@@ -33,6 +33,7 @@ MonoBehaviour:
   targetPalletsPerDay: 12
   minCashBalance: 15000
   palletsPerActiveSku: 2
+  releaseBufferHours: 2
   releaseLeadHours: 3
   outboundLeadHours: 0
   palletTurnHours: 1.5

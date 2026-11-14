@@ -1,0 +1,72 @@
+# Bug log - block 46
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 08:43 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (4.40, 1.12, 59.25) — walking out to (4.40, 1.23, 46.25) (12.00m to mesh).
+- day 1 08:54 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-19.33, 1.11, 56.33) — walking out to (-20.72, 1.16, 56.33) (12.00m to mesh).
+- day 1 09:47 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-3.24, 1.12, 59.25) — walking out to (-3.24, 1.24, 46.25) (12.00m to mesh).
+- day 1 10:19 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-10.68, 1.11, 56.22) — walking out to (-10.68, 1.25, 43.22) (12.00m to mesh).
+- day 1 10:24 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-39.37, 1.11, 47.64) — walking out to (-37.99, 1.18, 48.22) (12.00m to mesh).
+- day 1 10:53 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-4.80, 1.12, 58.40) — walking out to (-4.80, 1.23, 45.40) (12.00m to mesh).
+- day 1 11:24 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-23.91, 1.11, 53.41) — walking out to (-22.53, 1.18, 53.41) (12.00m to mesh).
+- day 1 11:33 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (5.91, 1.11, 49.00) — walking out to (6.49, 1.23, 50.39) (12.00m to mesh).
+- day 1 12:01 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-8.11, 1.12, 59.25) — walking out to (-8.11, 1.20, 46.25) (12.00m to mesh).
+- day 1 12:01 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-9.38, 1.12, 59.25) — walking out to (-9.38, 1.20, 46.25) (12.00m to mesh).
+- day 1 12:10 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-41.57, 1.12, 51.33) — walking out to (-48.07, 1.08, 40.07) (12.00m to mesh).
+- day 1 12:18 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-23.98, 1.11, 50.19).
+- day 1 13:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-0.20, 1.12, 59.16) — walking out to (-0.20, 1.24, 46.16) (12.00m to mesh).
+- day 1 13:13 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 91/248.
+- day 1 13:58 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 01 - walking out forward along the right lane to (-42.14, 1.11, 42.34).
+- day 1 14:00 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-19.33, 1.11, 56.33) — walking out to (-20.72, 1.16, 56.33) (12.00m to mesh).
+- day 1 14:16 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 98/248.
+- day 1 16:15 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (0.69, 1.12, 58.78) — walking out to (0.69, 1.20, 45.78) (12.00m to mesh).
+- day 1 16:16 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (2.07, 1.11, 59.00) — walking out to (2.07, 1.25, 46.00) (12.00m to mesh).
+- day 1 16:39 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (8.11, 1.11, 49.64) — walking out to (-3.14, 1.25, 43.14) (12.00m to mesh).
+- day 1 17:09 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 140/248.
+- day 1 17:39 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-21.68, 1.11, 50.19).
+- day 1 17:39 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-33.20, 1.11, 51.16) — walking out to (-21.68, 1.11, 50.19) (11.56m to mesh).
+- day 1 17:48 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-13.82, 1.12, 58.72) — walking out to (-7.32, 1.19, 47.47) (12.00m to mesh).
+- day 1 19:58 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-41.17, 1.12, 49.11) — walking out to (-47.67, 1.08, 37.85) (12.00m to mesh).
+- day 1 20:07 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-16.02, 1.11, 59.00) — walking out to (-9.52, 1.25, 47.74) (12.00m to mesh).
+- day 1 20:24 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 191/248.
+- day 1 21:27 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (7.81, 1.11, 54.82) — walking out to (9.19, 1.20, 54.24) (12.00m to mesh).
+- day 1 21:57 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 235/248.
+- day 1 22:08 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-12.75, 1.12, 58.95) — walking out to (-12.75, 1.20, 45.95) (12.00m to mesh).
+- day 1 23:04 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-6.61, 1.11, 54.85) — walking out to (-6.04, 1.18, 56.24) (12.00m to mesh).
+- day 1 23:33 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (7.20, 1.12, 58.47) — walking out to (7.20, 1.21, 45.47) (12.00m to mesh).
+- day 1 23:33 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (7.15, 1.12, 59.25) — walking out to (7.15, 1.22, 46.25) (12.00m to mesh).
+- day 1 23:56 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-32.61, 1.12, 48.90) — walking out to (-32.61, 0.04, 34.46) (13.44m to mesh).
+- day 2 00:21 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-42.41, 1.11, 52.29) — walking out to (-41.83, 1.17, 53.67) (12.05m to mesh).
+- day 2 00:31 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-36.31, 1.12, 46.71) — walking out to (-42.78, 0.04, 34.58) (12.74m to mesh).
+- day 2 00:41 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-11.00, 1.11, 48.31) — walking out to (-10.43, 1.23, 49.70) (12.00m to mesh).
+- day 2 01:33 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 01 - walking out forward along the right lane to (-39.01, 1.11, 42.34).
+- day 2 01:33 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-27.49, 1.11, 43.21) — walking out to (-39.01, 1.11, 42.34) (11.55m to mesh).
+- day 2 02:32 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-3.72, 1.13, 57.62) — walking out to (-3.72, 1.22, 44.62) (12.00m to mesh).
+- day 2 03:14 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-5.71, 1.12, 58.42) — walking out to (-5.71, 1.21, 45.42) (12.00m to mesh).
+- day 2 04:18 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.81, 1.11, 55.70) — walking out to (-13.24, 1.18, 57.09) (12.00m to mesh).
+- day 2 06:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-6.34, 1.12, 59.25) — walking out to (0.16, 1.19, 47.99) (12.00m to mesh).
+- day 2 08:02 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-1.83, 1.12, 59.17) — walking out to (-1.83, 1.24, 46.17) (12.00m to mesh).
+- day 2 09:22 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (5.01, 1.12, 58.92) — walking out to (5.01, 1.23, 45.92) (12.00m to mesh).
+- day 2 09:36 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.60, 1.13, 56.97) — walking out to (-29.60, 1.12, 56.64) (12.00m to mesh).
+- day 2 10:06 | **REPEATING** | x25 and counting: [AiNavigation] RT_Full(Clone): the straight way out of (-6.01, 1.11, 53.57) runs through something solid - taking a clear way out to (-5.44, 1.19, 54.96) instead.
+- day 2 11:05 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (8.49, 1.12, 59.25) — walking out to (8.49, 1.21, 46.25) (12.00m to mesh).
+- day 2 12:22 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-10.24, 1.11, 45.94) — walking out to (-10.24, 1.25, 44.55) (12.03m to mesh).
+- day 2 13:24 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (6.89, 1.11, 56.26) — walking out to (6.89, 1.25, 43.26) (12.00m to mesh).
+- day 2 13:54 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-33.25, 1.11, 48.96) — walking out to (-34.75, 1.19, 48.96) (9.00m to mesh).
+- day 2 14:03 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-12.77, 1.14, 55.36) — walking out to (-12.77, 1.21, 42.51) (12.00m to mesh).
+- day 2 14:12 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-33.57, 1.12, 49.68) — walking out to (-22.32, 1.12, 42.95) (12.11m to mesh).
+- day 2 14:14 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-32.05, 1.12, 50.55) — walking out to (-20.07, 1.13, 44.08) (12.62m to mesh).
+- day 2 15:20 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-2.75, 1.14, 55.54) — walking out to (-2.75, 1.20, 42.54) (12.00m to mesh).
+- day 2 15:25 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (0.63, 1.11, 54.84) — walking out to (0.06, 1.18, 56.23) (12.00m to mesh).
+- day 2 17:41 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-7.85, 1.11, 58.70) — walking out to (-6.79, 1.16, 59.00) (12.00m to mesh).
+- day 2 18:36 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-25.02, 1.11, 50.19).
+- day 2 18:47 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-36.48, 1.11, 46.79) — walking out to (-35.09, 1.18, 46.79) (12.32m to mesh).
+- day 2 18:56 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-37.13, 1.12, 51.20) — walking out to (-48.33, 1.08, 44.70) (12.00m to mesh).
+- day 2 20:49 | **REPEATING** | x25 and counting: [AiNavigation] RT_Full(Clone): stuck at (-41.37, 1.11, 44.97) — walking out to (-42.76, 1.16, 44.40) (12.13m to mesh).
+- day 2 20:49 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-41.37, 1.11, 44.97) — walking out to (-42.76, 1.16, 44.40) (12.13m to mesh).
+- day 2 21:54 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-38.57, 1.12, 51.03) — walking out to (-45.07, 1.09, 39.77) (12.00m to mesh).
+- day 2 21:57 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-40.58, 1.12, 46.56) — walking out to (-47.05, 0.04, 34.58) (12.61m to mesh).
+- day 2 22:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 8 task(s) it could take wait
+- day 2 22:30 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-26.70, 1.11, 50.19).
+- day 2 23:39 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-17.59, 1.11, 50.19).
+- day 2 23:39 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-24.34, 1.11, 51.16) — walking out to (-17.59, 1.11, 50.19) (6.83m to mesh).
