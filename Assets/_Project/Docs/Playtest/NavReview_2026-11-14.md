@@ -50,6 +50,24 @@ granted first come, first served at the mouth, in the aisle's one travel directi
 reach truck > dock stocker > loaded jack > empty jack, then whoever asked first. Remove the three hash tie-breaks and the random avoidance
 priority; set fixed priorities (RT 10, DS 20, jacks 40).
 
+**Done 2026-11-14 (step 3a, the priority part; aisle tokens NOT built yet):**
+- `OrderSelectionTaskDriver.JackGoesFirst(a, b)` is the one jack-vs-jack order: loaded jack (cases on its pallet) first, then the leg that
+  started first (`_legStartedAt`, stamped by `SetLegTarget` only when the target moves > 0.5 m), then the driver created first. It is
+  antisymmetric, so two jacks always agree. `HasRightOfWayOver`, `JackBufferHold` and `ShouldBackUpFor` all use it. In `ShouldBackUpFor`, if
+  the loser has no room behind it and the other jack is waiting on the winner, the winner backs up instead (before, both waited for ever).
+- `AiNavigation`: machines get a fixed `avoidancePriority` by role (`MachineAvoidancePriority`: RT 10, DS 20, jack 40). People, rats and
+  trucks keep the random value.
+- Tests: `JackGoesFirst_IsAntisymmetric...`, `AvoidancePriority_FollowsRightOfWay...` (37/37 EditMode pass).
+
+| Block (jacks GRID) | Score | Shipped / late / pallets | Cash | Selectors stuck | No-progress | Leave jack | Jack hit jack / rack / other | RT stuck / RT into jack | DS stuck | Offload no slot |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 54 (step 2) | 43.4 | 4 / 0 / 12 | +20,744 | 35 | 20 | 14 | 12 / 15 / 33 | 35 / 11 | 0 | 35 |
+| 55 (step 3a) | 40.5 | 3 / 1 / 11 | +8,785 | **20** | **9** | **5** | 8 / 11 / 23 | 43 / 16 | 8 | 69 |
+
+The jack-side numbers all improved. The reach truck and dock stocker numbers got worse. A possible cause: the NavMesh now ranks reach trucks
+above jacks every time, so a reach truck's avoidance pushes into jacks instead of sometimes waiting. The 8 dock stocker events are all
+"stuck ... walking out", 6 of them on the apron or in door 2's lanes (z 38-43). One block each, so this is not proven either way.
+
 ### 2.2 Jacks must know when and how to pass each other
 Today a jack held 0.4 real seconds behind a stopped jack passes if its next pick is more than 4 m beyond it (`PassMinPickAhead`), otherwise
 waits 5 REAL seconds (`QueueWaitRealSeconds`) and walks up to 10 m. A one-sided aisle has no pass lane, so its jacks only queue.
@@ -162,8 +180,77 @@ Also lower than every earlier block: no-progress 17 (was 32-73), leave-jack 7 (1
 3. **One aisle authority** (2.1): aisle and turning-box tokens, one priority function, fixed avoidance priorities, remove the random priority.
 4. **Aisle-end turning box + swept turns** (2.3).
 5. **Nose-first rules** (2.6) and **pass-or-follow** (2.2), with `QueueWalkMax` = 5 m (2.5) and game-time waits.
+   **Pulled forward (Tad, 2026-11-14, screenshot during block 56): a jack NEVER turns round in an aisle, and never angles across it.** The
+   only turn inside an aisle is a slight one to pass a blocking machine. Turn sources found:
+   - `RightInAisle` spins a jack that faces more than 30 degrees off the traffic direction all the way back (up to 180 degrees). It fired 6
+     times in blocks 55-56 so far: 4 at queue stops, 2 when leaving the aisle.
+   - `JackFace` lets an in-aisle turn go up to `InAisleMaxYaw` (30 degrees) for any reason, and a request more than 100 degrees round is
+     turned into "face the traffic direction" (a full turn round).
+   - `DriveJackTo`'s short move turns toward an offset target (up to ~37 degrees) and back; `LaneDriveCore` faces `park - position`.
+   - A turn the clearance guard stops partway leaves the jack angled across the aisle (36 "(turning) stopped" in blocks 55-56 so far).
+   Fix: in an aisle, a turn never leaves the axis the jack already lies on (no axis flip, so no turning round). It is at most a few degrees
+   for a lane correction, and `PassAngleDeg` (25 degrees) only while passing. A jack facing the wrong way drives out of the near end nose
+   first and comes round, instead of spinning. A turn that can't finish goes back to the axis instead of stopping halfway.
+   **Also pulled forward (Tad, 2026-11-14, second screenshot): a jack held behind a PARKED jack can't pass.** In `TryPlanPass` a 25-degree
+   pull-out needs about 2 m of run before the nose reaches the parked jack's pallet. Stopped at the 1 m buffer (`JackBuffer`), the jack must
+   first back straight up about 1.2 m (`backUp`), and `JackBehindWithin` refuses that whenever another jack has queued up behind it, which
+   is the usual case. So the pass is refused, and the selector waits or walks. Fix: behind a STOPPED jack (not driving), hold at the
+   pass-ready distance (the run the pull-out needs, ~2.2 m tail to nose), not 1 m, so the pass never needs a back-up. A jack behind a
+   MOVING one still follows at 1 m.
+   Note: `Debug.Log` is muted (`DebugLogSwitch`), so "passing it" / "walking" / `[AisleToken]` decisions don't reach the log. Turn
+   Tools > Logging on before a block that has to measure them.
 6. **Staging line-up reservation** (2.4).
+   **Seen in block 57 (Tad, screenshot): jacks drive INTO the lane nose first and the pallet appears in front of them.** `JackStageRoutine`
+   still backs in: it drives to the line-up point (`DriveJackTo(mouth, forward)`), expects to face AWAY from the lane, then
+   `JackMoveStraight(backTo)` slides toward the door. Jacks arrive from the corridor facing the lane, so the line-up ends in a 180-degree turn
+   in place at the mouth. When `JackFace` gives that turn up (the forks' sweep hits a neighbour lane's pallet or a waiting jack), the jack keeps
+   facing the lane and the "reverse" becomes a forward drive in. Then `PlacePalletsAtStagingSlot` puts the pallet at the slot, which is now in
+   FRONT of the jack. Fix: the grid leg plans the line-up with the goal heading (`PlanNearest(..., goalHeading)`; the jack leg passes -1 today),
+   so the jack arrives already facing out (a loop or three-point turn on open floor, no spin at the mouth). And never back in unless the jack
+   faces within ~15 degrees of `forward`: otherwise re-plan the line-up.
+   **Also seen: outbound orders spread one pallet into every lane, so the inbound offload has nowhere to go** ("no reachable Inbound/Both
+   staging-lane slot" 35 -> 69 a block). `StagingLaneAssignmentService.TryFindLaneForOrder` gives every released order its own completely
+   empty lane, by design ("one customer per stage"). Many small orders = every lane gets one pallet at slot 1. Needs a rule decision from Tad
+   (e.g. orders of one customer / one appointment share a lane and fill it deep first; keep N lanes, or one door's lanes, free for receiving).
 7. **Then** decide NavMesh vs grid for open floor (radius fix vs grid for all machines), re-run the A/B with the recorder metrics, not the score.
 
 Measure each step on slot 8: pallets shipped, recorder held % and corridor %, and the counts in the table above (RT stuck, JackSolid, no
 progress, leave jack). The block score stays useful only as a bug count.
+
+## 6. Blocks 58-61 (2026-11-14): what broke, what was switched off
+
+| Block | Change tested | Score | Shipped / late / pallets | Cash |
+|---|---|---|---|---|
+| 57 | no turning round in aisles, pass-ready stop | 39.3 | 3 / 0 / 12 | -20,273 |
+| 58 | + same-customer lanes, line-up facing out | 26.9 | 1 / 1 / 7 | -5,097 |
+| 59 | + lane tiles cost 6 on the grid, exit-end-only staging slots | 11.2 | 0 / 2 / 0 | -10,206 |
+| 60 | + reach truck reverses out of a head-on with a jack | 14.3 | 0 / 1 / 0 | -114,370 |
+| 61 | block 58-59 changes switched OFF (60's reach truck rule kept) | 40.1 | 3 / 0 / 11 | +11,611 |
+
+- Block 59: head-on deadlock INSIDE aisle 02 (reach truck leaving a rack against the traffic, three jacks queued nose to nose; the jack
+  gives way, never reverses; the truck had "no safe way round"). Fixed in block 60 (`ReachJamRecovery`, head-on rule).
+- Block 60: the same at the far MOUTH of aisle 02 (x -19.3, ~5.5 m from lane 1A): two reach trucks waiting to enter against the traffic
+  sat in the jacks' way out, with lane 1A (filled to its exit end) 1.7 m behind them. Still open: leaving traffic should go first, and a
+  machine waiting to enter must wait clear of the mouth.
+- Switched off behind flags (code kept): `StagingLaneAssignmentService.ShareCustomerLanes`, `OrderSelectionTaskDriver.LineUpFacingOut`,
+  `OrderSelectionTaskDriver.StageFromExitEndOnly`, `InventoryService.ExitEndSlotsOnly`, `NavGridBuilder.Options.Default.LaneCost` (0, was 6).
+- Inbound offload stall (Tad's screenshot, block 61): "No reachable Inbound/Both staging-lane slot" (36 in block 61) is the offload
+  skipping every lane an active outbound order owns (`TrailerOffloadController.LaneClaimedByOutboundOrder`), even while still empty.
+  HAL releases hours early, one empty lane per order, so every lane is claimed. Not the dock stocker pockets.
+
+## 7. Blocks 62-66 (2026-11-14)
+
+| Block | Change | Score | Shipped / late / pallets | Cash | Notes |
+|---|---|---|---|---|---|
+| 61 | (block 58-59 changes off) | 40.1 | 3 / 0 / 11 | +11,611 | offload "no slot" 37 |
+| 62 | inbound takes its door's lanes E first | 12.9 | 0 / 2 / 0 | -12,150 | offload "no slot" 34; 82 of 135 stalls on OG2624 |
+| 63 | + inbound may take a lane an outbound order only claimed (nothing picked/staged) | 16.2 | 0 / 2 / 0 | -7,662 | offload "no slot" **0**, 47 receive tasks |
+| 64 | + a jack behind a reach truck standing still for 3 s passes it or walks | 33.3 | 1 / 1 / 5 | -6,774 | reach truck stuck 6 (was 20) |
+| 65 | + 0.5 m spacing for all machines, reach truck agent radius 0.5 | 19.8 | 0 / 2 / 0 | -11,410 | mouth deadlock again (aisle at z 50.2); block started twice |
+| 66 | + reach truck backs off a jack driving out of an aisle (inside: out the far end; at the mouth: 3 m) | 38.1 | 1 / 1 / 8 | +11,203 | back-off fired 4 times |
+
+- Slot 8 starts with all the Day 2-3 orders released (set up by hand), one lane each: every lane is claimed at the start. That is why
+  inbound needed the empty-claim rule.
+- OG2624 (Sneaky Pete's, 27 lines) is still the largest single drain: 24 of 34 selector stalls in block 66. Its pick faces run empty
+  and the reach trucks replenishing them sit in aisle 01, where the jacks queue. A replenishment / pick-face problem, not traffic.
+- Block scores swing 13-40 on the same save and code; judge changes by the stall counts, not one score.

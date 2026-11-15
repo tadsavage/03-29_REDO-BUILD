@@ -1,0 +1,53 @@
+# Bug log - block 62
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 08:54 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-19.33, 1.16, 56.33) — walking out to (-20.72, 1.16, 56.33) (12.00m to mesh).
+- day 1 08:59 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 01 - walking out forward along the right lane to (-36.41, 1.11, 42.34).
+- day 1 10:22 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (4.89, 1.12, 59.19) — walking out to (4.89, 1.23, 46.19) (12.00m to mesh).
+- day 1 10:28 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (4.89, 1.12, 59.19) — walking out to (4.89, 1.23, 46.19) (12.00m to mesh).
+- day 1 11:32 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-42.22, 1.12, 49.55) — walking out to (-30.96, 1.12, 42.96) (12.04m to mesh).
+- day 1 11:51 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-11.31, 1.13, 57.93) — walking out to (-22.55, 1.12, 50.88) (12.27m to mesh).
+- day 1 12:11 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 108/248.
+- day 1 15:32 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (4.47, 1.12, 59.19) — walking out to (4.47, 1.23, 46.19) (12.00m to mesh).
+- day 1 15:32 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (0.95, 1.12, 59.00) — walking out to (0.95, 1.19, 46.00) (12.00m to mesh).
+- day 1 15:40 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-18.93, 1.13, 41.31) — walking out to (-7.67, 1.20, 47.81) (12.00m to mesh).
+- day 1 16:36 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-9.30, 1.12, 59.11) — walking out to (-9.30, 1.20, 46.11) (12.00m to mesh).
+- day 1 16:44 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-9.30, 1.12, 59.01) — walking out to (-9.30, 1.20, 46.01) (12.00m to mesh).
+- day 1 19:02 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-4.73, 1.12, 59.11) — walking out to (-4.73, 1.24, 46.11) (12.00m to mesh).
+- day 1 19:02 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-7.29, 1.12, 59.16) — walking out to (-13.79, 1.16, 47.90) (12.00m to mesh).
+- day 1 19:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 28 task(s) it could take wait
+- day 1 20:35 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 20:39 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-13.61, 1.12, 59.25) — walking out to (-7.11, 1.18, 47.99) (12.00m to mesh).
+- day 1 21:40 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 28 task(s) it could take wait
+- day 1 23:26 | **REPEATING** | x25 and counting: [TrailerOffload] No reachable Inbound/Both staging-lane slot anywhere in the building — returning the pallet to the trailer and pausing the offload.
+- day 1 23:40 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 28 task(s) it could take wait
+- day 2 00:55 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-20.37, 1.12, 41.31) — walking out to (-9.11, 1.19, 47.81) (12.00m to mesh).
+- day 2 03:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 28 task(s) it could take wait
+- day 2 03:37 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 148/248.
+- day 2 04:06 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.01, 1.11, 44.60) — walking out to (-17.58, 1.23, 45.98) (12.08m to mesh).
+- day 2 05:03 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-15.04, 1.17, 44.24) — walking out to (-28.03, 1.12, 43.40) (12.03m to mesh).
+- day 2 06:09 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-16.73, 1.15, 43.16) — walking out to (-3.73, 1.21, 43.16) (12.00m to mesh).
+- day 2 08:49 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-17.54, 1.14, 46.72) — walking out to (-24.01, 0.04, 34.58) (12.76m to mesh).
+- day 2 09:35 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-19.62, 1.14, 43.25) — walking out to (-6.62, 1.17, 43.25) (12.00m to mesh).
+- day 2 10:31 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-16.61, 1.15, 44.52) — walking out to (-29.61, 1.12, 43.37) (12.05m to mesh).
+- day 2 10:33 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-11.91, 1.12, 59.25) — walking out to (-11.91, 1.23, 46.25) (12.00m to mesh).
+- day 2 10:44 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-6.30, 1.11, 55.65) — walking out to (0.20, 1.25, 44.39) (12.00m to mesh).
+- day 2 10:58 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress on order OG2624 for 10 game minutes - staging the 15 case(s) picked and freeing the rest.
+- day 2 10:58 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' leaving the pallet jack (no progress) - its 15 case(s) stay on the jack for the next free selector to take over (order OG2624).
+- day 2 12:00 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Shirley Edwards' made no progress on order OG3625 for 10 game minutes - staging the 34 case(s) picked and freeing the rest.
+- day 2 12:00 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Shirley Edwards' leaving the pallet jack (no progress) - its 34 case(s) stay on the jack for the next free selector to take over (order OG3625).
+- day 2 12:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 450s while 27 task(s) it could take wait
+- day 2 13:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 27 task(s) it could take wait
+- day 2 14:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 27 task(s) it could take wait
+- day 2 14:28 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-21.58, 1.12, 48.22) — walking out to (-21.58, 0.04, 34.46) (12.76m to mesh).
+- day 2 14:35 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-10.34, 1.13, 57.85) — walking out to (-21.58, 1.12, 50.89) (12.23m to mesh).
+- day 2 15:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 27 task(s) it could take wait
+- day 2 16:40 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 450s while 27 task(s) it could take wait
+- day 2 16:42 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-42.35, 1.11, 48.11) — walking out to (-41.78, 1.17, 49.50) (12.00m to mesh).
+- day 2 16:58 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 151/248.
+- day 2 17:13 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-15.89, 1.15, 47.40) — walking out to (-22.34, 0.04, 34.57) (13.36m to mesh).
+- day 2 17:25 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-1.74, 1.13, 59.17) — walking out to (-1.74, 1.24, 46.17) (12.00m to mesh).
+- day 2 19:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 27 task(s) it could take wait
+- day 2 21:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 27 task(s) it could take wait
+- day 2 23:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 27 task(s) it could take wait

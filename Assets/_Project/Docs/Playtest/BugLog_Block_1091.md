@@ -811,3 +811,1156 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
 - day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
 - day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **NO-RECORD** | NO-RECORD lane pallet 2B-1 A Chep  <<HISTORY: d2 07:59 restored from save at (47, 81) 8x193587 by InventoryService.RegisterPalletDirect | d2 07:59 Putaway task Available->Cancelled by PlacementSystem.ApplySaveData | d2 08:18 PalletPick task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d1 08:10 PalletPick task Assigned->Cancelled by WorkQueueSystem.CancelTasksForPallet>>
+- day 1 08:29 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-10.70, 1.12, 59.13) — walking out to (-10.70, 1.21, 46.13) (12.00m to mesh).
+- day 1 08:46 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-4.19, 1.12, 59.11) — walking out to (-4.19, 1.24, 46.11) (12.00m to mesh).
+- day 1 08:47 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (0.11, 1.12, 59.16) — walking out to (0.11, 1.24, 46.16) (12.00m to mesh).
+- day 1 10:41 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-15.68, 1.12, 59.25) — walking out to (-9.18, 1.18, 47.99) (12.00m to mesh).
+- day 1 11:21 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-6.20, 1.12, 59.12) — walking out to (0.30, 1.19, 47.86) (12.00m to mesh).
+- day 1 11:42 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 6/248.
+- day 1 13:07 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-07-00 anchor: NO NAVMESH PATH. anchor=(-31.19, 1.11, 48.66) → driveTarget=(-31.19, 1.20, 48.66), from=(-27.39, 1.11, 48.60), elapsed=30.1s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=3.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at GameCore.Actors.ReachTruckOperator+<SeekViaNavMesh>d__141.MoveNext () [0x00786] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\ReachTruckOperator.cs:2769 < at UnityEngine.SetupCoroutine.InvokeMoveNext (System.Collections.IEnumerator enumerator, System.IntPtr returnValueAddress) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < ] 54.3s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:45 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-13.32, 1.16, 47.09) — walking out to (-2.07, 1.16, 40.35) (12.12m to mesh).
+- day 1 14:37 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 3C: never arrived at (7.24, 1.19, 39.19) (elapsed 31.0s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=7.2, reissues=0, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 143.0s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 14:39 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-11.98, 1.20, 47.81) — walking out to (-11.98, 1.08, 35.17) (12.00m to mesh).
+- day 1 14:48 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 3D: never arrived at (8.56, 1.19, 39.19) (elapsed 30.1s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=9.5, reissues=0, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 32.7s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 14:56 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 6/248.
+- day 1 15:14 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (10.74, 1.20, 42.12) — walking out to (-2.51, 1.20, 42.12) (12.25m to mesh).
+- day 1 15:17 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 2bf676d3-c4b1-40f7-9f63-0ad63755b37d but the employee is 8.6m away (max 4.5m) — refusing to start receiving.
+- day 1 16:29 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-7.79, 1.12, 58.61) — walking out to (-7.79, 1.20, 45.61) (12.00m to mesh).
+- day 1 17:53 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (4.48, 1.19, 40.86) — walking out to (4.48, 1.14, 53.86) (12.00m to mesh).
+- day 1 18:13 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' pallet pick: → lane 1A: NO NAVMESH PATH. anchor=(-12.64, 1.14, 46.34) → driveTarget=(-12.64, 1.25, 46.34), from=(-10.41, 1.11, 48.12), elapsed=31.3s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=3.7, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at GameCore.Actors.ReachTruckOperator+<SeekViaNavMesh>d__141.MoveNext () [0x00786] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\ReachTruckOperator.cs:2769 < at UnityEngine.SetupCoroutine.InvokeMoveNext (System.Collections.IEnumerator enumerator, System.IntPtr returnValueAddress) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < ] 99.0s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:49 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' cross-door load: to lane 1A: NO NAVMESH PATH to (-12.64, 1.25, 45.41) from (-10.83, 1.11, 47.41) (elapsed 30.8s).
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__103:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:1222)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:49 | **ERROR** | [TrailerLoad] Could not reach lane 1A (far end) — leaving Pallet_07_Slot3_Tier1 staged.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<LoadOnePallet>d__96:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:832)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 19:41 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 20/248.
+- day 1 19:43 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: back to source lane: never arrived at (-0.71, 1.19, 39.19) (elapsed 30.1s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=2.9, reissues=0, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 33.8s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:57 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (3.51, 1.11, 41.49) — walking out to (2.94, 1.22, 40.10) (12.04m to mesh).
+- day 1 21:03 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 3E: never arrived at (9.89, 1.19, 39.19) (elapsed 30.0s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=3.5, reissues=0, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 41.8s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 21:39 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (7.24, 1.24, 48.99) (path invalid) — abandoning the walk and handing the task back.
+- day 1 22:10 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: back to source lane: never arrived at (9.89, 1.19, 39.19) (elapsed 30.8s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=2.4, reissues=0, lastSeekCancelledBy=[at AiNavigation.Update () [0x00535] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1341 < ] 39.4s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 22:34 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' cross-door load: to trailer: NO NAVMESH PATH to (-10.71, 1.18, 38.89) from (2.33, 1.11, 40.76) (elapsed 30.1s).
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__103:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:1222)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 22:34 | **ERROR** | [TrailerLoad] Cross-door NavMesh leg to the trailer failed with a pallet on the forks — falling back to a straight slide to the shipping-door pivot.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<PlaceCarriedInTrailer>d__97:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:981)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 23:14 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 27/248.
+- day 2 00:31 | **ERROR** | [GridNav] 'Employee_Shirley Edwards': no route for 'staging lane 1A wait' from (-16.26, 1.11, 47.66) to (-12.64, 1.11, 33.34) (NoPath, 1499 expanded) - the jack will not drive it.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<JackGridLeg>d__8:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.GridLeg.cs:76)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 00:44 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-13.93, 1.16, 47.45) — walking out to (-2.70, 1.16, 40.33) (12.30m to mesh).
+- day 2 01:11 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 29/248.
+- day 2 01:19 | **ERROR** | [GridNav] 'Employee_Mark Peterson': no route for 'staging lane 1A wait' from (-24.95, 1.11, 47.66) to (-12.64, 1.11, 33.34) (NoPath, 1 expanded) - the jack will not drive it.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<JackGridLeg>d__8:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.GridLeg.cs:76)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 02:07 | **ERROR** | [GridNav] 'DS_FULL(Clone)' dig: → source lane 1B: leg FAILED (held by another vehicle 30+ s) - aborting, no straight-line fallback.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Navigation.GridMachineMover/<MoveTo>d__8:MoveNext () (at Assets/_Project/Scripts/Navigation/GridMachineMover.cs:109)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 03:58 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 29/248.
+- day 2 04:20 | **ERROR** | [GridNav] 'Employee_Mark Peterson': no route for 'staging lane 1A line-up' from (-18.76, 1.11, 47.66) to (-12.64, 1.11, 48.68) (NoPath, 1 expanded) - the jack will not drive it.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<JackGridLeg>d__8:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.GridLeg.cs:76)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 04:22 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-16.81, 1.14, 48.70) — walking out to (-3.81, 1.16, 48.70) (12.00m to mesh).
+- day 2 04:49 | **ERROR** | [GridNav] 'DS_FULL(Clone)' cross-door load: to trailer: leg FAILED (held by another vehicle 30+ s) - aborting, no straight-line fallback.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Navigation.GridMachineMover/<MoveTo>d__8:MoveNext () (at Assets/_Project/Scripts/Navigation/GridMachineMover.cs:109)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 04:49 | **ERROR** | [TrailerLoad] Cross-door NavMesh leg to the trailer failed with a pallet on the forks — falling back to a straight slide to the shipping-door pivot.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<PlaceCarriedInTrailer>d__97:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:981)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 06:57 | **ERROR** | [GridNav] 'DS_FULL(Clone)' dig: → source lane 3B: leg FAILED (held by another vehicle 30+ s) - aborting, no straight-line fallback.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Navigation.GridMachineMover/<MoveTo>d__8:MoveNext () (at Assets/_Project/Scripts/Navigation/GridMachineMover.cs:109)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 07:50 | **ERROR** | [GridNav] 'DS_FULL(Clone)' dig: → source lane 1C: leg FAILED (held by another vehicle 30+ s) - aborting, no straight-line fallback.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Navigation.GridMachineMover/<MoveTo>d__8:MoveNext () (at Assets/_Project/Scripts/Navigation/GridMachineMover.cs:109)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 07:53 | **WARN** | [OrderService] Order OG2792 closed with a IN TRANSIT pallet (29 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 08:40 | **ORPHAN-OUTBOUND** | ORPHAN-OUTBOUND 1A-3 (order 6a2eb072-6607-40a5-9111-b5c8d1aa6312 gone)
+- day 2 08:53 | **ERROR** | [GridNav] 'RT_Full(Clone)' putaway: → lane 2D exit: leg FAILED (interrupted 7 times) - aborting this leg, no straight-line fallback.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<RtGridLeg>d__10:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.GridLeg.cs:122)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 09:44 | **ERROR** | [GridNav] 'DS_FULL(Clone)' dig: → 3E far end: leg FAILED (held by another vehicle 30+ s) - aborting, no straight-line fallback.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Navigation.GridMachineMover/<MoveTo>d__8:MoveNext () (at Assets/_Project/Scripts/Navigation/GridMachineMover.cs:109)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 09:54 | **ERROR** | [GridNav] 'Employee_Shirley Edwards': 'pallet jack parking' was interrupted 7 times - giving the leg up.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<JackGridLeg>d__8:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.GridLeg.cs:109)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 10:32 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 29/248.
+- day 2 11:13 | **ERROR** | [GridNav] 'RT_Full(Clone)' deliver: → location 01-04-00 anchor: leg FAILED (held by another vehicle 30+ s) - aborting this leg, no straight-line fallback.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<RtGridLeg>d__10:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.GridLeg.cs:122)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 17:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 35 task(s) it could take wait
+- day 2 17:22 | **REPEATING** | x25 and counting: [ReachTruckOperator] 'RT_Full(Clone)' waiting at (-30.81, 1.20, 49.87) - the next move would violate the 1 m vehicle clearance from RT_Full(Clone).
+- day 2 18:37 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 95/248.
+- day 2 19:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 35 task(s) it could take wait
+- day 2 20:18 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 127/248.
+- day 2 21:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 35 task(s) it could take wait
+- day 2 22:03 | **ERROR** | [OrderSelectionTaskDriver] Pallet jack never got within 3m of 'staging lane 1A line-up' (25.8m short) - giving up on this stop.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<DriveJackTo>d__222:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.PalletJack.cs:1787)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 22:15 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-29.87, 1.12, 49.51) — walking out to (-36.37, 1.10, 38.59) (12.00m to mesh).
+- day 2 22:22 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 127/248.
+- day 2 23:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 35 task(s) it could take wait
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:28 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (4.56, 1.11, 53.18) — walking out to (5.95, 1.21, 52.61) (12.00m to mesh).
+- day 1 08:29 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (6.53, 1.17, 49.14) — walking out to (6.53, 1.09, 36.14) (12.00m to mesh).
+- day 1 08:35 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-0.41, 1.12, 59.18) — walking out to (-0.41, 1.24, 46.18) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-4.09, 1.14, 59.12) — walking out to (-4.09, 1.24, 46.12) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-0.41, 1.12, 59.16) — walking out to (-0.41, 1.24, 46.16) (12.00m to mesh).
+- day 1 08:41 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (7.23, 1.11, 57.42) — walking out to (7.81, 1.16, 58.81) (12.00m to mesh).
+- day 1 08:51 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-4.09, 1.14, 58.86) — walking out to (-4.09, 1.23, 45.86) (12.00m to mesh).
+- day 1 08:32 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-0.41, 1.12, 59.03) — walking out to (-0.41, 1.24, 46.03) (12.00m to mesh).
+- day 1 08:32 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-8.58, 1.20, 59.42) — walking out to (4.42, 1.22, 59.24) (12.00m to mesh).
+- day 1 08:34 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-4.09, 1.14, 58.92) — walking out to (-4.09, 1.23, 45.92) (12.00m to mesh).
+- day 1 08:34 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-4.09, 1.14, 58.31) — walking out to (-4.09, 1.23, 45.31) (12.00m to mesh).
+- day 1 08:39 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-10.70, 1.16, 58.53) — walking out to (-10.70, 1.20, 45.53) (12.00m to mesh).
+- day 1 08:25 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:29 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (7.61, 1.15, 50.19) — walking out to (-3.64, 1.21, 43.69) (12.00m to mesh).
+- day 1 08:39 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-0.43, 1.12, 58.79) — walking out to (-0.43, 1.23, 45.79) (12.00m to mesh).
+- day 1 08:40 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-4.08, 1.14, 58.35) — walking out to (-4.08, 1.23, 45.35) (12.00m to mesh).
+- day 1 08:48 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-0.42, 1.12, 58.28) — walking out to (6.08, 1.25, 47.03) (12.00m to mesh).
+- day 1 08:49 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-0.42, 1.12, 58.81) — walking out to (-0.42, 1.23, 45.81) (12.00m to mesh).
+- day 1 09:03 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-0.17, 1.11, 57.52) — walking out to (-0.17, 1.16, 59.00) (12.00m to mesh).
+- day 1 08:29 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (4.56, 1.11, 53.20) — walking out to (5.94, 1.21, 52.62) (12.00m to mesh).
+- day 1 08:29 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (6.53, 1.16, 49.15) — walking out to (6.53, 1.09, 36.15) (12.00m to mesh).
+- day 1 08:34 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-4.09, 1.14, 58.32) — walking out to (-4.09, 1.23, 45.32) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (1.83, 1.20, 58.60) — walking out to (12.92, 1.12, 52.10) (12.00m to mesh).
+- day 1 08:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-4.09, 1.14, 58.32) — walking out to (-4.09, 1.23, 45.32) (12.00m to mesh).
+- day 1 08:46 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-0.17, 1.11, 58.86) — walking out to (0.50, 1.16, 59.00) (12.00m to mesh).
+- day 1 08:46 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-0.17, 1.11, 58.86) — walking out to (0.50, 1.16, 59.00) (12.00m to mesh).
+- day 1 08:51 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-4.09, 1.14, 58.32) — walking out to (-4.09, 1.23, 45.32) (12.00m to mesh).
+- day 1 08:28 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (4.56, 1.11, 53.20) — walking out to (5.13, 1.22, 51.81) (12.00m to mesh).
+- day 1 08:30 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (6.54, 1.16, 49.13) — walking out to (-4.71, 1.20, 42.63) (12.00m to mesh).
+- day 1 08:33 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-4.09, 1.14, 58.32) — walking out to (-4.09, 1.23, 45.32) (12.00m to mesh).
+- day 1 08:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-4.09, 1.14, 58.30) — walking out to (-4.09, 1.23, 45.30) (12.00m to mesh).
+- day 1 08:37 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-0.41, 1.12, 58.79) — walking out to (-0.41, 1.23, 45.79) (12.00m to mesh).
+- day 1 08:44 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-7.05, 1.16, 58.66) — walking out to (4.21, 1.17, 52.16) (12.00m to mesh).
+- day 1 08:28 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (4.61, 1.11, 53.06) — walking out to (5.19, 1.22, 51.67) (12.00m to mesh).
+- day 1 08:32 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-8.58, 1.20, 59.42) — walking out to (4.42, 1.18, 59.24) (12.00m to mesh).
+- day 1 08:34 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-4.09, 1.14, 58.33) — walking out to (-4.09, 1.23, 45.33) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-0.41, 1.12, 58.71) — walking out to (-0.41, 1.23, 45.71) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-10.70, 1.16, 58.52) — walking out to (2.30, 1.16, 58.23) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-7.05, 1.16, 58.43) — walking out to (4.21, 1.20, 51.93) (12.00m to mesh).
+- day 1 08:31 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (4.07, 1.11, 53.27) — walking out to (5.13, 1.16, 52.21) (12.00m to mesh).
+- day 1 08:31 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (1.50, 1.12, 58.62) — walking out to (1.50, 1.19, 45.62) (12.00m to mesh).
+- day 1 08:32 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (0.58, 1.25, 58.62) — walking out to (13.58, 0.04, 58.62) (12.00m to mesh).
+- day 1 08:34 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-9.17, 1.25, 59.42) — walking out to (3.83, 1.15, 59.24) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-10.70, 1.16, 58.44) — walking out to (2.50, 1.12, 58.44) (12.20m to mesh).
+- day 1 08:44 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-7.05, 1.16, 59.22) — walking out to (-20.04, 0.04, 58.80) (12.00m to mesh).
+- day 1 09:49 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (10.65, 1.20, 43.51) — walking out to (-0.61, 1.11, 37.01) (12.00m to mesh).
+- day 1 09:57 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (10.65, 1.20, 42.19) — walking out to (-0.60, 1.08, 35.37) (12.16m to mesh).
+- day 1 09:57 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (10.65, 1.20, 42.19) — walking out to (-0.60, 1.08, 35.37) (12.16m to mesh).
+- day 1 09:57 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (10.65, 1.20, 42.19) — walking out to (-0.60, 1.08, 35.37) (12.16m to mesh).
+- day 1 09:57 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (10.65, 1.20, 42.19) — walking out to (-0.60, 1.08, 35.37) (12.16m to mesh).
+- day 1 09:57 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (10.65, 1.20, 42.19) — walking out to (-0.60, 1.08, 35.37) (12.16m to mesh).
+- day 1 08:30 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (4.75, 1.11, 53.10) — walking out to (4.75, 1.20, 51.60) (12.00m to mesh).
+- day 1 08:32 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-10.70, 1.16, 58.77) — walking out to (-10.70, 1.20, 45.77) (12.00m to mesh).
+- day 1 08:32 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-8.58, 1.29, 59.42) — walking out to (4.42, 1.12, 59.24) (12.00m to mesh).
+- day 1 08:38 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-0.41, 1.12, 59.04) — walking out to (-0.41, 1.24, 46.04) (12.00m to mesh).
+- day 1 08:46 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-0.41, 1.12, 59.13) — walking out to (-0.41, 1.24, 46.13) (12.00m to mesh).
+- day 1 08:48 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-0.41, 1.12, 59.11) — walking out to (-0.41, 1.24, 46.11) (12.00m to mesh).
+- day 1 08:29 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (8.14, 1.12, 50.88) — walking out to (-3.12, 1.22, 44.38) (12.00m to mesh).
+- day 1 08:33 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (7.15, 1.12, 48.57) — walking out to (-4.10, 1.20, 42.07) (12.00m to mesh).
+- day 1 09:02 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (4.44, 1.12, 48.93) — walking out to (-8.56, 1.19, 48.93) (12.00m to mesh).
+- day 1 08:28 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (6.51, 1.22, 45.79) — walking out to (0.01, 0.04, 34.53) (12.00m to mesh).
+- day 1 08:30 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-4.09, 1.15, 58.33) — walking out to (-17.09, 1.16, 58.33) (12.00m to mesh).
+- day 1 08:30 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-4.09, 1.15, 58.33) — walking out to (-17.09, 1.16, 58.33) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-0.41, 1.12, 58.64) — walking out to (-0.41, 1.23, 45.64) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-0.41, 1.13, 58.03) — walking out to (-0.41, 1.23, 45.03) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-0.41, 1.13, 58.03) — walking out to (-0.41, 1.23, 45.03) (12.00m to mesh).
+- day 1 08:54 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-4.09, 1.15, 58.18) — walking out to (-17.09, 1.16, 58.18) (12.00m to mesh).
+- day 1 08:27 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (6.54, 1.16, 49.14) — walking out to (-4.71, 1.20, 42.64) (12.00m to mesh).
+- day 1 08:29 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (4.58, 1.11, 53.16) — walking out to (5.15, 1.22, 51.78) (12.00m to mesh).
+- day 1 08:29 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (4.58, 1.11, 53.16) — walking out to (5.15, 1.22, 51.78) (12.00m to mesh).
+- day 1 08:29 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (4.58, 1.11, 53.16) — walking out to (5.15, 1.22, 51.78) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-0.41, 1.12, 58.80) — walking out to (-0.41, 1.23, 45.80) (12.00m to mesh).
+- day 1 08:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-4.09, 1.14, 58.34) — walking out to (-4.09, 1.23, 45.34) (12.00m to mesh).
+- day 1 08:39 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-0.41, 1.12, 58.79) — walking out to (-0.41, 1.23, 45.79) (12.00m to mesh).
+- day 1 08:52 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-4.09, 1.14, 59.25) — walking out to (-17.50, 1.14, 59.25) (12.41m to mesh).
+- day 1 08:26 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (6.57, 1.16, 49.12) — walking out to (6.57, 1.09, 36.12) (12.00m to mesh).
+- day 1 08:30 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (11.59, 1.19, 38.49) (path invalid) — abandoning the walk and handing the task back.
+- day 1 08:30 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (11.59, 1.19, 38.49) (path invalid) — abandoning the walk and handing the task back.
+- day 1 08:30 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (11.59, 1.19, 38.49) (path invalid) — abandoning the walk and handing the task back.
+- day 1 08:30 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (11.59, 1.19, 38.49) (path invalid) — abandoning the walk and handing the task back.
+- day 1 08:30 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (11.59, 1.19, 38.49) (path invalid) — abandoning the walk and handing the task back.
+- day 1 08:30 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (11.59, 1.19, 38.49) (path invalid) — abandoning the walk and handing the task back.
+- day 1 08:30 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (11.59, 1.19, 38.49) (path invalid) — abandoning the walk and handing the task back.
+- day 1 08:30 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (11.59, 1.19, 38.49) (path invalid) — abandoning the walk and handing the task back.
+- day 1 08:30 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (11.59, 1.19, 38.49) (path invalid) — abandoning the walk and handing the task back.
+- day 1 08:30 | **WARN** | [AiNavigation] DS_FULL(Clone) cannot reach task position at (11.59, 1.19, 38.49) (path invalid) — abandoning the walk and handing the task back.
+- day 1 08:31 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-4.09, 1.14, 58.35) — walking out to (-4.09, 1.23, 45.35) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-0.41, 1.12, 58.82) — walking out to (-0.41, 1.23, 45.82) (12.00m to mesh).
+- day 1 08:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-4.09, 1.14, 58.30) — walking out to (-4.09, 1.23, 45.30) (12.00m to mesh).
+- day 1 08:50 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-4.09, 1.14, 58.37) — walking out to (-4.09, 1.23, 45.37) (12.00m to mesh).
+- day 1 09:48 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-33.84, 1.16, 49.29) (path invalid) — abandoning the walk and handing the task back.
+- day 1 09:48 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-33.84, 1.16, 49.29) (path invalid) — abandoning the walk and handing the task back.
+- day 1 09:48 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-33.84, 1.16, 49.29) (path invalid) — abandoning the walk and handing the task back.
+- day 1 09:48 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-33.84, 1.16, 49.29) (path invalid) — abandoning the walk and handing the task back.
+- day 1 09:48 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-33.84, 1.16, 49.29) (path invalid) — abandoning the walk and handing the task back.
+- day 1 09:48 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-33.84, 1.16, 49.29) (path invalid) — abandoning the walk and handing the task back.
+- day 1 09:48 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-33.84, 1.16, 49.29) (path invalid) — abandoning the walk and handing the task back.
+- day 1 09:48 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-33.84, 1.16, 49.29) (path invalid) — abandoning the walk and handing the task back.
+- day 1 09:48 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-33.84, 1.16, 49.29) (path invalid) — abandoning the walk and handing the task back.
+- day 1 09:48 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-33.84, 1.16, 49.29) (path invalid) — abandoning the walk and handing the task back.
+- day 1 09:51 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-7.05, 1.16, 58.26) — walking out to (4.21, 1.20, 51.76) (12.00m to mesh).
+- day 1 09:54 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-7.05, 1.16, 58.59) — walking out to (4.21, 1.18, 52.09) (12.00m to mesh).
+- day 1 09:54 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-7.05, 1.16, 58.59) — walking out to (4.21, 1.18, 52.09) (12.00m to mesh).
+- day 1 10:14 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 10:14 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 10:14 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 10:14 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 10:14 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 10:14 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 10:14 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 10:14 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 10:14 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 10:14 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 10:19 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 8/248.
+- day 1 10:19 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 8/248.
+- day 1 10:19 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 8/248.
+- day 1 10:19 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 8/248.
+- day 1 10:19 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 8/248.
+- day 1 10:19 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 8/248.
+- day 1 10:19 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 8/248.
+- day 1 10:19 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 8/248.
+- day 1 10:19 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 8/248.
+- day 1 10:19 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 8/248.
+- day 1 10:26 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.90, 1.11, 39.21) — walking out to (0.33, 1.23, 40.60) (12.21m to mesh).
+- day 1 10:26 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.90, 1.11, 39.21) — walking out to (0.33, 1.23, 40.60) (12.21m to mesh).
+- day 1 10:26 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.90, 1.11, 39.21) — walking out to (0.33, 1.23, 40.60) (12.21m to mesh).
+- day 1 10:26 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.90, 1.11, 39.21) — walking out to (0.33, 1.23, 40.60) (12.21m to mesh).
+- day 1 10:26 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.90, 1.11, 39.21) — walking out to (0.33, 1.23, 40.60) (12.21m to mesh).
+- day 1 10:26 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.90, 1.11, 39.21) — walking out to (0.33, 1.23, 40.60) (12.21m to mesh).
+- day 1 10:26 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.90, 1.11, 39.21) — walking out to (0.33, 1.23, 40.60) (12.21m to mesh).
+- day 1 10:26 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.90, 1.11, 39.21) — walking out to (0.33, 1.23, 40.60) (12.21m to mesh).
+- day 1 10:26 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.90, 1.11, 39.21) — walking out to (0.33, 1.23, 40.60) (12.21m to mesh).
+- day 1 10:26 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (0.90, 1.11, 39.21) — walking out to (0.33, 1.23, 40.60) (12.21m to mesh).
+- day 1 10:55 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1914 & Truck→PO_IG1916 at (7.2, 0.0, 17.9)
+- day 1 10:55 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1914 & Truck→PO_IG1916 at (7.2, 0.0, 18.2)
+- day 1 10:55 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1914 & Truck→PO_IG1916 at (7.2, 0.0, 18.2)
+- day 1 10:55 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1914 & Truck→PO_IG1916 at (7.2, 0.0, 18.2)
+- day 1 10:55 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1914 & Truck→PO_IG1916 at (7.2, 0.0, 18.2)
+- day 1 10:55 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1914 & Truck→PO_IG1916 at (7.2, 0.0, 18.2)
+- day 1 10:55 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1914 & Truck→PO_IG1916 at (7.2, 0.0, 18.2)
+- day 1 10:55 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1914 & Truck→PO_IG1916 at (7.2, 0.0, 18.2)
+- day 1 10:55 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1914 & Truck→PO_IG1916 at (7.2, 0.0, 18.2)
+- day 1 10:55 | **TRUCK-OVERLAP** | TRUCK-OVERLAP Truck→PO_IG1914 & Truck→PO_IG1916 at (7.2, 0.0, 18.2)
+- day 1 11:16 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (9.60, 1.22, 40.86) — walking out to (9.60, 1.14, 53.86) (12.00m to mesh).
+- day 1 11:16 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (9.60, 1.22, 40.86) — walking out to (9.60, 1.14, 53.86) (12.00m to mesh).
+- day 1 11:16 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (9.60, 1.22, 40.86) — walking out to (9.60, 1.14, 53.86) (12.00m to mesh).
+- day 1 11:16 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (9.60, 1.22, 40.86) — walking out to (9.60, 1.14, 53.86) (12.00m to mesh).
+- day 1 11:16 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (9.60, 1.22, 40.86) — walking out to (9.60, 1.14, 53.86) (12.00m to mesh).
+- day 1 11:16 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (9.60, 1.22, 40.86) — walking out to (9.60, 1.14, 53.86) (12.00m to mesh).
+- day 1 11:16 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (9.60, 1.22, 40.86) — walking out to (9.60, 1.14, 53.86) (12.00m to mesh).
+- day 1 11:16 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (9.60, 1.22, 40.86) — walking out to (9.60, 1.14, 53.86) (12.00m to mesh).
+- day 1 11:16 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (9.60, 1.22, 40.86) — walking out to (9.60, 1.14, 53.86) (12.00m to mesh).
+- day 1 11:16 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (9.60, 1.22, 40.86) — walking out to (9.60, 1.14, 53.86) (12.00m to mesh).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-22.31, 1.11, 49.11) — walking out to (-16.26, 1.11, 47.66) (6.22m to mesh).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-22.31, 1.11, 49.11) — walking out to (-16.26, 1.11, 47.66) (6.22m to mesh).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-22.31, 1.11, 49.11) — walking out to (-16.26, 1.11, 47.66) (6.22m to mesh).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-22.31, 1.11, 49.11) — walking out to (-16.26, 1.11, 47.66) (6.22m to mesh).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-22.31, 1.11, 49.11) — walking out to (-16.26, 1.11, 47.66) (6.22m to mesh).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-22.31, 1.11, 49.11) — walking out to (-16.26, 1.11, 47.66) (6.22m to mesh).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-22.31, 1.11, 49.11) — walking out to (-16.26, 1.11, 47.66) (6.22m to mesh).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-22.31, 1.11, 49.11) — walking out to (-16.26, 1.11, 47.66) (6.22m to mesh).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-22.31, 1.11, 49.11) — walking out to (-16.26, 1.11, 47.66) (6.22m to mesh).
+- day 1 12:16 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-22.31, 1.11, 49.11) — walking out to (-16.26, 1.11, 47.66) (6.22m to mesh).
+- day 1 12:16 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 12:16 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 12:16 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 12:16 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 12:16 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 12:16 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 12:16 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 12:16 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 12:16 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 12:16 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 12:25 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.83, 1.16, 58.51) — walking out to (12.92, 1.12, 52.01) (12.00m to mesh).
+- day 1 12:25 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.83, 1.16, 58.51) — walking out to (12.92, 1.12, 52.01) (12.00m to mesh).
+- day 1 12:25 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.83, 1.16, 58.51) — walking out to (12.92, 1.12, 52.01) (12.00m to mesh).
+- day 1 12:25 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.83, 1.16, 58.51) — walking out to (12.92, 1.12, 52.01) (12.00m to mesh).
+- day 1 12:25 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.83, 1.16, 58.51) — walking out to (12.92, 1.12, 52.01) (12.00m to mesh).
+- day 1 12:25 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.83, 1.16, 58.51) — walking out to (12.92, 1.12, 52.01) (12.00m to mesh).
+- day 1 12:25 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.83, 1.16, 58.51) — walking out to (12.92, 1.12, 52.01) (12.00m to mesh).
+- day 1 12:44 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.83, 1.16, 58.58) — walking out to (12.92, 1.12, 52.08) (12.00m to mesh).
+- day 1 12:44 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.83, 1.16, 58.58) — walking out to (12.92, 1.12, 52.08) (12.00m to mesh).
+- day 1 12:44 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.83, 1.16, 58.58) — walking out to (12.92, 1.12, 52.08) (12.00m to mesh).
+- day 1 12:44 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.83, 1.16, 58.58) — walking out to (12.92, 1.12, 52.08) (12.00m to mesh).
+- day 1 12:44 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.83, 1.16, 58.58) — walking out to (12.92, 1.12, 52.08) (12.00m to mesh).
+- day 1 12:44 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.83, 1.16, 58.58) — walking out to (12.92, 1.12, 52.08) (12.00m to mesh).
+- day 1 12:44 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.83, 1.16, 58.58) — walking out to (12.92, 1.12, 52.08) (12.00m to mesh).
+- day 1 12:44 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.83, 1.16, 58.58) — walking out to (12.92, 1.12, 52.08) (12.00m to mesh).
+- day 1 12:44 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.83, 1.16, 58.58) — walking out to (12.92, 1.12, 52.08) (12.00m to mesh).
+- day 1 12:44 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.83, 1.16, 58.58) — walking out to (12.92, 1.12, 52.08) (12.00m to mesh).
+- day 1 12:56 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (3.85, 1.21, 44.12) — walking out to (-7.41, 1.12, 37.62) (12.00m to mesh).
+- day 1 12:56 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (3.85, 1.21, 44.12) — walking out to (-7.41, 1.12, 37.62) (12.00m to mesh).
+- day 1 12:56 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (3.85, 1.21, 44.12) — walking out to (-7.41, 1.12, 37.62) (12.00m to mesh).
+- day 1 12:56 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (3.85, 1.21, 44.12) — walking out to (-7.41, 1.12, 37.62) (12.00m to mesh).
+- day 1 12:56 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (3.85, 1.21, 44.12) — walking out to (-7.41, 1.12, 37.62) (12.00m to mesh).
+- day 1 12:56 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (3.85, 1.21, 44.12) — walking out to (-7.41, 1.12, 37.62) (12.00m to mesh).
+- day 1 12:56 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (3.85, 1.21, 44.12) — walking out to (-7.41, 1.12, 37.62) (12.00m to mesh).
+- day 1 12:56 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (3.85, 1.21, 44.12) — walking out to (-7.41, 1.12, 37.62) (12.00m to mesh).
+- day 1 12:56 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (3.85, 1.21, 44.12) — walking out to (-7.41, 1.12, 37.62) (12.00m to mesh).
+- day 1 12:56 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (3.85, 1.21, 44.12) — walking out to (-7.41, 1.12, 37.62) (12.00m to mesh).
+- day 1 13:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet bd688682-8cf0-4350-bb03-1efe6808bcef but the employee is 9.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet bd688682-8cf0-4350-bb03-1efe6808bcef but the employee is 9.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet bd688682-8cf0-4350-bb03-1efe6808bcef but the employee is 9.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet bd688682-8cf0-4350-bb03-1efe6808bcef but the employee is 9.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet bd688682-8cf0-4350-bb03-1efe6808bcef but the employee is 9.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet bd688682-8cf0-4350-bb03-1efe6808bcef but the employee is 9.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet bd688682-8cf0-4350-bb03-1efe6808bcef but the employee is 9.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet bd688682-8cf0-4350-bb03-1efe6808bcef but the employee is 9.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet bd688682-8cf0-4350-bb03-1efe6808bcef but the employee is 9.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet bd688682-8cf0-4350-bb03-1efe6808bcef but the employee is 9.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:13 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (1.62, 1.16, 58.25) — walking out to (7.74, 1.23, 46.99) (12.00m to mesh).
+- day 1 13:13 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (1.62, 1.16, 58.25) — walking out to (7.74, 1.23, 46.99) (12.00m to mesh).
+- day 1 13:13 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (1.62, 1.16, 58.25) — walking out to (7.74, 1.23, 46.99) (12.00m to mesh).
+- day 1 13:13 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (1.62, 1.16, 58.25) — walking out to (7.74, 1.23, 46.99) (12.00m to mesh).
+- day 1 13:22 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-06-A0 anchor: NO NAVMESH PATH. anchor=(-33.84, 3.11, 49.29) → driveTarget=(-33.84, 1.16, 49.29), from=(-24.08, 1.19, 49.29), elapsed=30.5s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=9.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 189.2s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:22 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-06-A0 anchor: NO NAVMESH PATH. anchor=(-33.84, 3.11, 49.29) → driveTarget=(-33.84, 1.16, 49.29), from=(-24.08, 1.19, 49.29), elapsed=30.5s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=9.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 189.2s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:22 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-06-A0 anchor: NO NAVMESH PATH. anchor=(-33.84, 3.11, 49.29) → driveTarget=(-33.84, 1.16, 49.29), from=(-24.08, 1.19, 49.29), elapsed=30.5s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=9.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 189.2s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:22 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-06-A0 anchor: NO NAVMESH PATH. anchor=(-33.84, 3.11, 49.29) → driveTarget=(-33.84, 1.16, 49.29), from=(-24.08, 1.19, 49.29), elapsed=30.5s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=9.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 189.2s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:22 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-06-A0 anchor: NO NAVMESH PATH. anchor=(-33.84, 3.11, 49.29) → driveTarget=(-33.84, 1.16, 49.29), from=(-24.08, 1.19, 49.29), elapsed=30.5s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=9.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 189.2s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:22 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-06-A0 anchor: NO NAVMESH PATH. anchor=(-33.84, 3.11, 49.29) → driveTarget=(-33.84, 1.16, 49.29), from=(-24.08, 1.19, 49.29), elapsed=30.5s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=9.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 189.2s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:22 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-06-A0 anchor: NO NAVMESH PATH. anchor=(-33.84, 3.11, 49.29) → driveTarget=(-33.84, 1.16, 49.29), from=(-24.08, 1.19, 49.29), elapsed=30.5s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=9.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 189.2s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:22 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-06-A0 anchor: NO NAVMESH PATH. anchor=(-33.84, 3.11, 49.29) → driveTarget=(-33.84, 1.16, 49.29), from=(-24.08, 1.19, 49.29), elapsed=30.5s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=9.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 189.2s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:22 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-06-A0 anchor: NO NAVMESH PATH. anchor=(-33.84, 3.11, 49.29) → driveTarget=(-33.84, 1.16, 49.29), from=(-24.08, 1.19, 49.29), elapsed=30.5s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=9.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 189.2s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:22 | **ERROR** | [ReachTruckOperator] 'RT_Full(Clone)' deliver: → location 02-06-A0 anchor: NO NAVMESH PATH. anchor=(-33.84, 3.11, 49.29) → driveTarget=(-33.84, 1.16, 49.29), from=(-24.08, 1.19, 49.29), elapsed=30.5s, timedOut=True, agentOnMeshAtEnd=True, navEnabled=True, seekingTask=True, pathStatus=PathComplete, hasPath=True, remaining=9.8, reissues=0, batteryNeedsCharge=False, lastSeekCancelledBy=[at AiNavigation.Update () [0x002df] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1263 < ] 189.2s ago. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2868)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-21.58, 1.11, 49.70) — walking out to (-16.26, 1.11, 47.66) (5.70m to mesh).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-21.58, 1.11, 49.70) — walking out to (-16.26, 1.11, 47.66) (5.70m to mesh).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-21.58, 1.11, 49.70) — walking out to (-16.26, 1.11, 47.66) (5.70m to mesh).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-21.58, 1.11, 49.70) — walking out to (-16.26, 1.11, 47.66) (5.70m to mesh).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-21.58, 1.11, 49.70) — walking out to (-16.26, 1.11, 47.66) (5.70m to mesh).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-21.58, 1.11, 49.70) — walking out to (-16.26, 1.11, 47.66) (5.70m to mesh).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-21.58, 1.11, 49.70) — walking out to (-16.26, 1.11, 47.66) (5.70m to mesh).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-21.58, 1.11, 49.70) — walking out to (-16.26, 1.11, 47.66) (5.70m to mesh).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-21.58, 1.11, 49.70) — walking out to (-16.26, 1.11, 47.66) (5.70m to mesh).
+- day 1 13:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-21.58, 1.11, 49.70) — walking out to (-16.26, 1.11, 47.66) (5.70m to mesh).
+- day 1 13:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:55 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.62, 1.16, 58.25) — walking out to (7.74, 1.23, 46.99) (12.00m to mesh).
+- day 1 14:30 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet a415fd2a-7e44-4e3f-ab03-7696c2553f6b but the employee is 14.7m away (max 4.5m) — refusing to start receiving.
+- day 1 14:30 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet a415fd2a-7e44-4e3f-ab03-7696c2553f6b but the employee is 14.7m away (max 4.5m) — refusing to start receiving.
+- day 1 14:30 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet a415fd2a-7e44-4e3f-ab03-7696c2553f6b but the employee is 14.7m away (max 4.5m) — refusing to start receiving.
+- day 1 14:30 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet a415fd2a-7e44-4e3f-ab03-7696c2553f6b but the employee is 14.7m away (max 4.5m) — refusing to start receiving.
+- day 1 14:30 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet a415fd2a-7e44-4e3f-ab03-7696c2553f6b but the employee is 14.7m away (max 4.5m) — refusing to start receiving.
+- day 1 14:30 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet a415fd2a-7e44-4e3f-ab03-7696c2553f6b but the employee is 14.7m away (max 4.5m) — refusing to start receiving.
+- day 1 14:30 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet a415fd2a-7e44-4e3f-ab03-7696c2553f6b but the employee is 14.7m away (max 4.5m) — refusing to start receiving.
+- day 1 14:30 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet a415fd2a-7e44-4e3f-ab03-7696c2553f6b but the employee is 14.7m away (max 4.5m) — refusing to start receiving.
+- day 1 14:30 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet a415fd2a-7e44-4e3f-ab03-7696c2553f6b but the employee is 14.7m away (max 4.5m) — refusing to start receiving.
+- day 1 14:30 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet a415fd2a-7e44-4e3f-ab03-7696c2553f6b but the employee is 14.7m away (max 4.5m) — refusing to start receiving.
+- day 1 15:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.62, 1.11, 46.74) — walking out to (-13.19, 1.25, 45.41) (12.98m to mesh).
+- day 1 15:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.62, 1.11, 46.74) — walking out to (-13.19, 1.25, 45.41) (12.98m to mesh).
+- day 1 15:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.62, 1.11, 46.74) — walking out to (-13.19, 1.25, 45.41) (12.98m to mesh).
+- day 1 15:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.62, 1.11, 46.74) — walking out to (-13.19, 1.25, 45.41) (12.98m to mesh).
+- day 1 15:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.62, 1.11, 46.74) — walking out to (-13.19, 1.25, 45.41) (12.98m to mesh).
+- day 1 15:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.62, 1.11, 46.74) — walking out to (-13.19, 1.25, 45.41) (12.98m to mesh).
+- day 1 15:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.62, 1.11, 46.74) — walking out to (-13.19, 1.25, 45.41) (12.98m to mesh).
+- day 1 15:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.62, 1.11, 46.74) — walking out to (-13.19, 1.25, 45.41) (12.98m to mesh).
+- day 1 15:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.62, 1.11, 46.74) — walking out to (-13.19, 1.25, 45.41) (12.98m to mesh).
+- day 1 15:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.62, 1.11, 46.74) — walking out to (-13.19, 1.25, 45.41) (12.98m to mesh).
+- day 1 15:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 44 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 361s while 44 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 361s while 3 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 361s while 44 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 361s while 3 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 361s while 44 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 361s while 3 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 361s while 44 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 361s while 3 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 361s while 44 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 361s while 3 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 361s while 44 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 361s while 3 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 361s while 44 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 361s while 3 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 361s while 44 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 361s while 3 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 361s while 44 task(s) it could take wait
+- day 1 15:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 361s while 3 task(s) it could take wait
+- day 1 16:56 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.19, 1.11, 45.41) — walking out to (-14.58, 1.24, 45.99) (12.08m to mesh).
+- day 1 16:56 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.19, 1.11, 45.41) — walking out to (-14.58, 1.24, 45.99) (12.08m to mesh).
+- day 1 16:56 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.19, 1.11, 45.41) — walking out to (-14.58, 1.24, 45.99) (12.08m to mesh).
+- day 1 16:56 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.19, 1.11, 45.41) — walking out to (-14.58, 1.24, 45.99) (12.08m to mesh).
+- day 1 16:56 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.19, 1.11, 45.41) — walking out to (-14.58, 1.24, 45.99) (12.08m to mesh).
+- day 1 16:56 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.19, 1.11, 45.41) — walking out to (-14.58, 1.24, 45.99) (12.08m to mesh).
+- day 1 16:56 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.19, 1.11, 45.41) — walking out to (-14.58, 1.24, 45.99) (12.08m to mesh).
+- day 1 16:56 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.19, 1.11, 45.41) — walking out to (-14.58, 1.24, 45.99) (12.08m to mesh).
+- day 1 16:56 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.19, 1.11, 45.41) — walking out to (-14.58, 1.24, 45.99) (12.08m to mesh).
+- day 1 16:56 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-13.19, 1.11, 45.41) — walking out to (-14.58, 1.24, 45.99) (12.08m to mesh).
+- day 1 16:56 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 16:56 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 16:56 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 16:56 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 16:56 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 16:56 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 16:56 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 16:56 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 16:56 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 16:56 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 17:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 17:56 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.57, 1.11, 46.30) — walking out to (-8.15, 1.25, 47.69) (12.24m to mesh).
+- day 1 17:56 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.57, 1.11, 46.30) — walking out to (-8.15, 1.25, 47.69) (12.24m to mesh).
+- day 1 17:56 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.57, 1.11, 46.30) — walking out to (-8.15, 1.25, 47.69) (12.24m to mesh).
+- day 1 17:56 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.57, 1.11, 46.30) — walking out to (-8.15, 1.25, 47.69) (12.24m to mesh).
+- day 1 17:56 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.57, 1.11, 46.30) — walking out to (-8.15, 1.25, 47.69) (12.24m to mesh).
+- day 1 17:56 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.57, 1.11, 46.30) — walking out to (-8.15, 1.25, 47.69) (12.24m to mesh).
+- day 1 17:56 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.57, 1.11, 46.30) — walking out to (-8.15, 1.25, 47.69) (12.24m to mesh).
+- day 1 17:56 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.57, 1.11, 46.30) — walking out to (-8.15, 1.25, 47.69) (12.24m to mesh).
+- day 1 17:56 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.57, 1.11, 46.30) — walking out to (-8.15, 1.25, 47.69) (12.24m to mesh).
+- day 1 17:56 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-7.57, 1.11, 46.30) — walking out to (-8.15, 1.25, 47.69) (12.24m to mesh).
+- day 1 17:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 17:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 17:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 17:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 17:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 17:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 17:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 17:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 17:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 17:59 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-16.26, 1.24, 42.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 18:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-17.24, 1.14, 46.62) — walking out to (-23.71, 0.04, 34.58) (12.67m to mesh).
+- day 1 18:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-17.24, 1.14, 46.62) — walking out to (-23.71, 0.04, 34.58) (12.67m to mesh).
+- day 1 18:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-17.24, 1.14, 46.62) — walking out to (-23.71, 0.04, 34.58) (12.67m to mesh).
+- day 1 18:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-17.24, 1.14, 46.62) — walking out to (-23.71, 0.04, 34.58) (12.67m to mesh).
+- day 1 18:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-17.24, 1.14, 46.62) — walking out to (-23.71, 0.04, 34.58) (12.67m to mesh).
+- day 1 18:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-17.24, 1.14, 46.62) — walking out to (-23.71, 0.04, 34.58) (12.67m to mesh).
+- day 1 18:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-17.24, 1.14, 46.62) — walking out to (-23.71, 0.04, 34.58) (12.67m to mesh).
+- day 1 18:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-17.24, 1.14, 46.62) — walking out to (-23.71, 0.04, 34.58) (12.67m to mesh).
+- day 1 18:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-17.24, 1.14, 46.62) — walking out to (-23.71, 0.04, 34.58) (12.67m to mesh).
+- day 1 18:08 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-17.24, 1.14, 46.62) — walking out to (-23.71, 0.04, 34.58) (12.67m to mesh).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.11, 47.66).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.96, 1.11, 48.94) — walking out to (-16.26, 1.11, 47.66) (2.12m to mesh).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.96, 1.11, 48.94) — walking out to (-16.26, 1.11, 47.66) (2.12m to mesh).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.96, 1.11, 48.94) — walking out to (-16.26, 1.11, 47.66) (2.12m to mesh).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.96, 1.11, 48.94) — walking out to (-16.26, 1.11, 47.66) (2.12m to mesh).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.96, 1.11, 48.94) — walking out to (-16.26, 1.11, 47.66) (2.12m to mesh).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.96, 1.11, 48.94) — walking out to (-16.26, 1.11, 47.66) (2.12m to mesh).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.96, 1.11, 48.94) — walking out to (-16.26, 1.11, 47.66) (2.12m to mesh).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.96, 1.11, 48.94) — walking out to (-16.26, 1.11, 47.66) (2.12m to mesh).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.96, 1.11, 48.94) — walking out to (-16.26, 1.11, 47.66) (2.12m to mesh).
+- day 1 18:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.96, 1.11, 48.94) — walking out to (-16.26, 1.11, 47.66) (2.12m to mesh).
+- day 1 18:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 19:31 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/248.
+- day 1 19:31 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/248.
+- day 1 19:31 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/248.
+- day 1 19:31 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/248.
+- day 1 19:31 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/248.
+- day 1 19:31 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/248.
+- day 1 19:31 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/248.
+- day 1 19:31 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/248.
+- day 1 19:31 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/248.
+- day 1 19:31 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 35/248.
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 19:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 20:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.21, 47.66).
+- day 1 20:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.21, 47.66).
+- day 1 20:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.21, 47.66).
+- day 1 20:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.21, 47.66).
+- day 1 20:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.21, 47.66).
+- day 1 20:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.21, 47.66).
+- day 1 20:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.21, 47.66).
+- day 1 20:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.21, 47.66).
+- day 1 20:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.21, 47.66).
+- day 1 20:26 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 02 - walking out forward along the right lane to (-16.26, 1.21, 47.66).
+- day 1 20:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:26 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 21:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.57, 1.16, 58.43) — walking out to (-23.07, 1.12, 47.17) (12.00m to mesh).
+- day 1 21:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.57, 1.16, 58.43) — walking out to (-23.07, 1.12, 47.17) (12.00m to mesh).
+- day 1 21:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.57, 1.16, 58.43) — walking out to (-23.07, 1.12, 47.17) (12.00m to mesh).
+- day 1 21:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.57, 1.16, 58.43) — walking out to (-23.07, 1.12, 47.17) (12.00m to mesh).
+- day 1 21:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.57, 1.16, 58.43) — walking out to (-23.07, 1.12, 47.17) (12.00m to mesh).
+- day 1 21:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.57, 1.16, 58.43) — walking out to (-23.07, 1.12, 47.17) (12.00m to mesh).
+- day 1 21:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.57, 1.16, 58.43) — walking out to (-23.07, 1.12, 47.17) (12.00m to mesh).
+- day 1 21:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.57, 1.16, 58.43) — walking out to (-23.07, 1.12, 47.17) (12.00m to mesh).
+- day 1 21:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.57, 1.16, 58.43) — walking out to (-23.07, 1.12, 47.17) (12.00m to mesh).
+- day 1 21:10 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.57, 1.16, 58.43) — walking out to (-23.07, 1.12, 47.17) (12.00m to mesh).
+- day 1 21:25 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress staging order OG2624 for 10 game minutes - staying aboard the loaded jack (StagingHold).
+- day 1 21:25 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress staging order OG2624 for 10 game minutes - staying aboard the loaded jack (StagingHold).
+- day 1 21:25 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress staging order OG2624 for 10 game minutes - staying aboard the loaded jack (StagingHold).
+- day 1 21:25 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress staging order OG2624 for 10 game minutes - staying aboard the loaded jack (StagingHold).
+- day 1 21:25 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress staging order OG2624 for 10 game minutes - staying aboard the loaded jack (StagingHold).
+- day 1 21:25 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress staging order OG2624 for 10 game minutes - staying aboard the loaded jack (StagingHold).
+- day 1 21:25 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress staging order OG2624 for 10 game minutes - staying aboard the loaded jack (StagingHold).
+- day 1 21:25 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress staging order OG2624 for 10 game minutes - staying aboard the loaded jack (StagingHold).
+- day 1 21:25 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress staging order OG2624 for 10 game minutes - staying aboard the loaded jack (StagingHold).
+- day 1 21:25 | **REPEATING** | x25 and counting: [OrderSelectionTaskDriver] 'Employee_Larry Morgan' made no progress staging order OG2624 for 10 game minutes - staying aboard the loaded jack (StagingHold).
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 53 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 23:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-16.14, 1.16, 58.54) — walking out to (-22.64, 1.12, 47.29) (12.00m to mesh).
+- day 1 23:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-16.14, 1.16, 58.54) — walking out to (-22.64, 1.12, 47.29) (12.00m to mesh).
+- day 1 23:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-16.14, 1.16, 58.54) — walking out to (-22.64, 1.12, 47.29) (12.00m to mesh).
+- day 1 23:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-16.14, 1.16, 58.54) — walking out to (-22.64, 1.12, 47.29) (12.00m to mesh).
+- day 1 23:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-16.14, 1.16, 58.54) — walking out to (-22.64, 1.12, 47.29) (12.00m to mesh).
+- day 1 23:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-16.14, 1.16, 58.54) — walking out to (-22.64, 1.12, 47.29) (12.00m to mesh).
+- day 1 23:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-16.14, 1.16, 58.54) — walking out to (-22.64, 1.12, 47.29) (12.00m to mesh).
+- day 1 23:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-16.14, 1.16, 58.54) — walking out to (-22.64, 1.12, 47.29) (12.00m to mesh).
+- day 1 23:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-16.14, 1.16, 58.54) — walking out to (-22.64, 1.12, 47.29) (12.00m to mesh).
+- day 1 23:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-16.14, 1.16, 58.54) — walking out to (-22.64, 1.12, 47.29) (12.00m to mesh).
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 51 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 51 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 51 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 51 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 51 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 51 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 51 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 51 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 51 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 51 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:26 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (6.69, 1.16, 49.00) — walking out to (6.69, 1.09, 36.00) (12.00m to mesh).
+- day 1 08:29 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (4.56, 1.11, 53.16) — walking out to (5.95, 1.20, 53.74) (12.00m to mesh).
+- day 1 08:32 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (1.63, 1.16, 58.25) — walking out to (8.13, 1.23, 46.99) (12.00m to mesh).
+- day 1 08:33 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (1.62, 1.16, 58.25) — walking out to (8.12, 1.23, 46.99) (12.00m to mesh).
+- day 1 08:36 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-4.09, 1.14, 58.31) — walking out to (-4.09, 1.23, 45.31) (12.00m to mesh).
+- day 1 08:50 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.62, 1.16, 57.70) — walking out to (8.12, 1.23, 46.44) (12.00m to mesh).
+- day 1 10:35 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 20/248.
+- day 1 11:22 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-10.95, 1.16, 48.78) — walking out to (-10.95, 1.09, 35.78) (12.00m to mesh).
+- day 1 11:32 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-11.59, 1.16, 58.09) — walking out to (-22.83, 1.12, 50.87) (12.35m to mesh).
+- day 1 11:57 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet fe91fdea-1c1e-4d21-b83f-625283a397e2 but the employee is 4.8m away (max 4.5m) — refusing to start receiving.
+- day 1 12:02 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-21.91, 1.22, 41.34) (path invalid) — abandoning the walk and handing the task back.
+- day 1 12:26 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 33/248.
+- day 1 14:06 | **ERROR** | [OrderSelectionTaskDriver] Pallet jack never got within 3m of 'staging lane 1B wait' (3.8m short) - giving up on this stop.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<DriveJackTo>d__227:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.PalletJack.cs:1810)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 14:27 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-1.79, 1.11, 47.83) — walking out to (-1.79, 1.25, 46.44) (12.18m to mesh).
+- day 1 14:27 | **ERROR** | "IsStopped" can only be called on an active agent that has been placed on a NavMesh.
+  ```
+  UnityEngine.AI.NavMeshAgent:get_isStopped ()
+  GameCore.Actors.ReachTruckOperator/<SeekViaNavMesh>d__141:MoveNext () (at Assets/_Project/Scripts/Actors/ReachTruckOperator.cs:2761)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:02 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (5.10, 1.20, 45.34) — walking out to (11.60, 1.13, 56.60) (12.00m to mesh).
+- day 1 15:37 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 68/248.
+- day 1 16:14 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-1.66, 1.13, 58.61) — walking out to (4.84, 1.32, 47.36) (12.00m to mesh).
+- day 1 16:42 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (2.53, 1.16, 58.96) — walking out to (-10.47, 1.16, 58.96) (12.00m to mesh).
+- day 1 16:42 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (0.93, 1.16, 57.90) — walking out to (7.43, 1.22, 46.64) (12.00m to mesh).
+- day 1 18:56 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (1.83, 1.16, 58.60) — walking out to (12.92, 1.12, 52.10) (12.00m to mesh).
+- day 1 20:30 | **WARN** | [OrderSelectionTaskDriver] Order eb1433f2-2ecc-4529-a46a-a256833be6b7 (Rooted Robotics) has no reachable pick location for its remaining line item(s) — staging short at 463/728.
+- day 1 21:24 | **WARN** | [InventoryService] Lane 3B lock was held for over 120s by pallet jack PltJack_FULL(Clone) (WorkerNew, staging) - treating it as leaked and taking it over.
+- day 2 00:14 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-41.26, 1.12, 44.05) — walking out to (-28.26, 1.12, 43.41) (12.01m to mesh).
+- day 2 02:23 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 01 - walking out forward along the right lane to (-40.81, 1.11, 42.34).
+- day 2 02:23 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-37.03, 1.11, 42.99) — walking out to (-40.81, 1.11, 42.34) (3.83m to mesh).
+- day 2 03:36 | **WARN** | [OrderSelectionTaskDriver] Order eb1433f2-2ecc-4529-a46a-a256833be6b7 (Rooted Robotics) has no reachable pick location for its remaining line item(s) — staging short at 701/728.
+- day 2 04:05 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-16.19, 1.16, 58.32) — walking out to (-22.69, 1.12, 47.06) (12.00m to mesh).
+- day 2 04:05 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.56, 1.16, 58.43) — walking out to (-23.06, 1.12, 47.18) (12.00m to mesh).
+- day 2 04:35 | **WARN** | [OrderSelectionTaskDriver] Order eb1433f2-2ecc-4529-a46a-a256833be6b7 (Rooted Robotics) has no reachable pick location for any line item and nothing was picked — returning it to Open and releasing Stage 3.
+- day 2 04:35 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (1.62, 1.16, 58.25) — walking out to (8.12, 1.23, 46.99) (12.00m to mesh).
+- day 2 05:11 | **WARN** | [OrderSelectionTaskDriver] Order eb1433f2-2ecc-4529-a46a-a256833be6b7 (Rooted Robotics) has no reachable pick location for its remaining line item(s) — staging short at 701/728.
+- day 2 05:15 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (7.79, 1.11, 56.94) — walking out to (7.79, 1.25, 43.94) (12.00m to mesh).
+- day 2 05:29 | **WARN** | [OrderService] Order OG4790 closed with a STAGED pallet (23 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 06:14 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-12.94, 1.16, 58.26) — walking out to (-24.17, 1.12, 50.86) (12.44m to mesh).
+- day 2 06:49 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (0.21, 1.13, 59.16) — walking out to (0.21, 1.24, 46.16) (12.00m to mesh).
+- day 2 07:38 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-16.20, 1.16, 58.34) — walking out to (-22.70, 1.12, 47.08) (12.00m to mesh).
+- day 2 08:17 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (6.71, 1.14, 58.62) — walking out to (6.71, 1.21, 45.62) (12.00m to mesh).
+- day 2 13:03 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-12.93, 1.16, 58.39) — walking out to (0.07, 1.13, 58.39) (12.00m to mesh).
+- day 2 13:09 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-12.95, 1.16, 58.38) — walking out to (0.05, 1.13, 58.38) (12.00m to mesh).
+- day 2 15:14 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-0.44, 1.12, 58.89) — walking out to (-0.44, 1.23, 45.89) (12.00m to mesh).
+- day 2 15:24 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-0.44, 1.13, 59.25) — walking out to (-0.44, 1.24, 46.25) (12.00m to mesh).
+- day 2 15:24 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-0.44, 1.12, 58.78) — walking out to (-0.44, 1.23, 45.78) (12.00m to mesh).
+- day 2 15:33 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (12.20, 1.13, 36.94) — walking out to (5.70, 1.16, 48.20) (12.00m to mesh).
+- day 2 19:46 | **WARN** | [AiNavigation] RT_Full(Clone) cannot reach task position at (-31.19, 1.16, 41.34) (path invalid) — abandoning the walk and handing the task back.
+- day 2 21:30 | **WARN** | [InventoryService] Lane 1A lock was held for over 120s by reach truck RT_Full(Clone) (Justin Waller, PalletPick) - treating it as leaked and taking it over.
+- day 2 21:33 | **ERROR** | [OrderSelectionTaskDriver] Pallet jack never got within 3m of 'bay 01-05 (aisle entry)' (10.6m short) - giving up on this stop.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<DriveJackTo>d__227:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.PalletJack.cs:1810)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 21:33 | **WARN** | [OrderSelectionTaskDriver] 'Employee_Mark Peterson': could not reach the low end of the aisle for 'bay 01-05' - driving straight to the stop instead.
+- day 2 21:35 | **WARN** | [OrderSelectionTaskDriver] 'Employee_Larry Morgan': could not reach the low end of the aisle for 'bay 01-01' - driving straight to the stop instead.
+- day 2 22:37 | **WARN** | [InventoryService] Lane 1A lock was held for over 120s by reach truck RT_Full(Clone) (Amanda Dixon, PalletPick) - treating it as leaked and taking it over.
+- day 2 23:25 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 14 task(s) it could take wait
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
