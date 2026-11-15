@@ -922,6 +922,10 @@ public class EmployeePhotoBooth : MonoBehaviour
 
     }
 
+    // Editor copy of the generated portraits, relative to Assets/. Git-ignored (see .gitignore):
+    // portraits are regenerated per candidate and pruned, so they must never be committed.
+    private const string EditorPortraitFolder = "_Project/Portraits";
+
     private void SavePortraitToDisk(string guid, byte[] pngBytes)
     {
         try
@@ -932,7 +936,7 @@ public class EmployeePhotoBooth : MonoBehaviour
             File.WriteAllBytes(buildPath, pngBytes);
 
 #if UNITY_EDITOR
-            string editorDir = Path.Combine(Application.dataPath, "_Project/Sprites/Portraits");
+            string editorDir = Path.Combine(Application.dataPath, EditorPortraitFolder);
             Directory.CreateDirectory(editorDir);
             string editorPath = Path.Combine(editorDir, guid + ".png");
             File.WriteAllBytes(editorPath, pngBytes);
@@ -965,7 +969,7 @@ public class EmployeePhotoBooth : MonoBehaviour
 
 #if UNITY_EDITOR
             // Load from Editor path so it registers during development
-            string editorDir = Path.Combine(Application.dataPath, "_Project/Sprites/Portraits");
+            string editorDir = Path.Combine(Application.dataPath, EditorPortraitFolder);
             if (Directory.Exists(editorDir))
             {
                 foreach (string file in Directory.GetFiles(editorDir, "*.png"))
@@ -1004,7 +1008,7 @@ public class EmployeePhotoBooth : MonoBehaviour
         int removed = 0;
         removed += PrunePortraitFolder(Path.Combine(Application.persistentDataPath, "Portraits"), keepGuids, deleteMeta: false);
 #if UNITY_EDITOR
-        removed += PrunePortraitFolder(Path.Combine(Application.dataPath, "_Project/Sprites/Portraits"), keepGuids, deleteMeta: true);
+        removed += PrunePortraitFolder(Path.Combine(Application.dataPath, EditorPortraitFolder), keepGuids, deleteMeta: true);
 #endif
 
         return removed;
