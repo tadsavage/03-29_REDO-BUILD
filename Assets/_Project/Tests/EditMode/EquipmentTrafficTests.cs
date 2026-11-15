@@ -168,10 +168,10 @@ public class EquipmentTrafficTests
     }
 
     [Test]
-    public void VehicleSpacingStopsAtOneMetreAndAllowsBackingAway()
+    public void VehicleSpacingStopsAtHalfAMetreAndAllowsBackingAway()
     {
         var first = CreateVehicle("FirstVehicle", Vector3.zero);
-        var second = CreateVehicle("SecondVehicle", new Vector3(0f, 0f, 3.1f));
+        var second = CreateVehicle("SecondVehicle", new Vector3(0f, 0f, 2.6f));   // 0.6 m gap; a 0.2 m step leaves 0.4 m, inside the 0.5 m buffer
         try
         {
             var firstSlot = first.GetComponent<MHEOperatorSlot>();
@@ -194,6 +194,56 @@ public class EquipmentTrafficTests
             UnityEngine.Object.DestroyImmediate(first);
             UnityEngine.Object.DestroyImmediate(second);
         }
+    }
+
+    // ── Step 3 (2026-11-14): one right-of-way order ──
+
+    [Test]
+    public void JackGoesFirst_IsAntisymmetric_SoTwoJacksNeverDisagree()
+    {
+        var a = new GameObject("DriverA").AddComponent<OrderSelectionTaskDriver>();
+        var b = new GameObject("DriverB").AddComponent<OrderSelectionTaskDriver>();
+        try
+        {
+            bool ab = OrderSelectionTaskDriver.JackGoesFirst(a, b);
+            bool ba = OrderSelectionTaskDriver.JackGoesFirst(b, a);
+            Assert.AreNotEqual(ab, ba, "exactly one of two jacks goes first");
+            Assert.AreEqual(ab, OrderSelectionTaskDriver.JackGoesFirst(a, b), "the answer is stable");
+            Assert.IsTrue(OrderSelectionTaskDriver.JackGoesFirst(a, null));
+            Assert.IsFalse(OrderSelectionTaskDriver.JackGoesFirst(null, a));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(a.gameObject);
+            UnityEngine.Object.DestroyImmediate(b.gameObject);
+        }
+    }
+
+    [Test]
+    public void AvoidancePriority_FollowsRightOfWay_LowerIsMoreImportant()
+    {
+        Assert.Less(AiNavigation.ReachTruckAvoidance, AiNavigation.DockStockerAvoidance);
+        Assert.Less(AiNavigation.DockStockerAvoidance, AiNavigation.PalletJackAvoidance);
+        // A machine that is neither a jack nor a reach truck is a dock stocker.
+        Assert.AreEqual(AiNavigation.DockStockerAvoidance, AiNavigation.MachineAvoidancePriority(_blocker));
+    }
+
+    [Test]
+    public void AisleDir_WithAgainstOrSideways()
+    {
+        Vector3 travel = Vector3.forward;
+        Assert.AreEqual(1, AisleTraffic.AisleDir(new Vector3(0.2f, 0f, 1f), travel));
+        Assert.AreEqual(-1, AisleTraffic.AisleDir(new Vector3(-0.2f, 0f, -1f), travel));
+        Assert.AreEqual(0, AisleTraffic.AisleDir(Vector3.right, travel), "sideways (a reach truck working a rack) is not a direction");
+        Assert.AreEqual(0, AisleTraffic.AisleDir(Vector3.zero, travel));
+    }
+
+    [Test]
+    public void MayEnterAisle_EmptyAisle_IsGranted()
+    {
+        Assert.IsTrue(AisleTraffic.MayEnterAisle(_blocker, "ZZ-", Vector3.forward, -1, out var who));
+        Assert.IsNull(who);
+        AisleTraffic.ReleaseAisleEntry(_blocker);
     }
 
     private static GameObject CreateVehicle(string name, Vector3 position)

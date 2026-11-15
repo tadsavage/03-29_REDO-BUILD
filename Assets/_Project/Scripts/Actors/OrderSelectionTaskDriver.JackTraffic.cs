@@ -101,14 +101,15 @@ namespace GameCore.Actors
         {
             yieldHold = false;
             if (_jack == null) return false;
-            if (blocker == null && EquipmentTraffic.FindInLane(_jack, dir, EquipmentTraffic.LaneAhead, EquipmentTraffic.LaneSide, true, out var hi))
+            if (blocker == null && EquipmentTraffic.FindInLane(_jack, dir, EquipmentTraffic.LaneAhead, EquipmentTraffic.LaneSide, true, out var hi)
+                && !MachineClearance.Ignores(_jack, hi))   // the machine being passed: ignored
             {
                 blocker = hi; yieldHold = true;
             }
             else if (blocker == null && solidHold)
             {
                 var m = MachineClearance.LastMachineHit;
-                if (m != null && m != _jack && m.IsOccupied) blocker = m;
+                if (m != null && m != _jack && m.IsOccupied && !MachineClearance.Ignores(_jack, m)) blocker = m;
             }
             return blocker != null;
         }
@@ -172,11 +173,38 @@ namespace GameCore.Actors
             return true;
         }
 
+        /// <summary>RULE 6 (AisleTraffic.MayEnterAisle): at the mouth of <paramref name="lane"/>, facing in, wait while a machine inside is
+        /// driving the other way, or a reach truck / dock stocker is queued to come in against the traffic. Capped at TokenWaitMaxReal.</summary>
+        private IEnumerator JackWaitForAisle(AisleLane lane)
+        {
+            if (_jack == null || string.IsNullOrEmpty(lane.Prefix)) yield break;
+            float waited = 0f;
+            bool logged = false;
+            while (_jack != null && !AisleTraffic.MayEnterAisle(_jack, lane.Prefix, lane.Travel, 1, out var who))
+            {
+                if (!logged)
+                {
+                    logged = true;
+                    Debug.Log($"[AisleToken] '{name}': waiting at the mouth of aisle {lane.Prefix.TrimEnd('-')} for {(who != null ? who.name : "traffic")} (coming the other way / going in first).");
+                }
+                NoteHeld(true, who, null);
+                waited += RealDt;
+                if (waited >= AisleTraffic.TokenWaitMaxReal)
+                {
+                    ThrottledLog.Warn("aisle-token-" + name, $"[AisleToken] '{name}' waited {AisleTraffic.TokenWaitMaxReal:0}s at the mouth of aisle {lane.Prefix.TrimEnd('-')} for {(who != null ? who.name : "traffic")} - going in anyway.", 30f);
+                    break;
+                }
+                yield return null;
+            }
+            if (logged) ClearHeld();
+        }
+
         /// <summary>Called at the end of every jack leg / straight move.</summary>
         private void EndTravel()
         {
             _travelDir = Vector3.zero;
             _legTarget = Vector3.zero;
+            _legStartedAt = float.MaxValue;
             ClearHeld();
         }
 
@@ -217,6 +245,14 @@ namespace GameCore.Actors
                 if (s != null && s.isActiveAndEnabled && s.IsPalletJack && s.GetComponent<PlacedObject>() != null) s_allJacks.Add(s);
         }
 
+        /// <summary>Extra hold-back behind a stopped jack (on top of the 1 m follow gap): the run a 25-degree pull-out needs to clear its pallet
+        /// (~2 m, see TryPlanPass) minus the metre already kept, plus a margin.</summary>
+        private const float PassReadyExtra = 1.8f;   // 1.3 with the old 1 m follow gap: same ~2.3 m tail-to-nose hold either way
+
+        /// <summary>This jack is in the aisle it is driving a bay leg in, and that aisle has a passing lane.</summary>
+        private bool PassLaneHere(Vector3 centre)
+            => _laneValid && _lane.Offset - _lane.PassOffset >= LaneMinPassOffset && InsideAisle(_lane, centre);
+
         /// <summary>A manned pallet jack sits in this jack's lane of travel for a move in <paramref name="moveDir"/>, and this jack
         /// doesn't have right of way over it. A jack off to the side (the other lane is free) doesn't count: pass it.</summary>
         private bool JackAhead(Vector3 moveDir, out MHEOperatorSlot blocker)
@@ -229,15 +265,20 @@ namespace GameCore.Actors
             RefreshJackList();
             Vector3 me = JackCentre(_jack.transform);
             float best = float.MaxValue;
+            bool canPassHere = PassLaneHere(me);
             foreach (var other in s_allJacks)
             {
-                if (other == null || other == _jack) continue;
+                if (other == null || other == _jack || MachineClearance.Ignores(_jack, other)) continue;   // the jack being passed: ignored
                 // An unmanned jack (parked, charging, left where a driver gave up) never moves, so queueing behind it would wait for ever
                 // (blocks 37+: jacks idle at (-18, 42)). MachineClearance keeps this jack out of it.
                 if (other.CurrentOperator == null) continue;
                 Vector3 rel = JackCentre(other.transform) - me; rel.y = 0f;
                 float ahead = Vector3.Dot(rel, moveDir);
-                if (ahead <= 0f || ahead > JackClearAhead) continue;
+                // PASS-READY (Tad, 2026-11-14 screenshot): behind a STOPPED jack in an aisle with a passing lane, hold far enough back that
+                // the 25-degree pull-out clears its pallet without backing up first (the back-up was refused whenever a jack had queued
+                // behind, so nobody ever passed). Behind a moving jack: follow at a metre, as before.
+                float reach = canPassHere && !IsDriving(other) ? JackClearAhead + PassReadyExtra : JackClearAhead;
+                if (ahead <= 0f || ahead > reach) continue;
                 if ((rel - moveDir * ahead).magnitude >= JackClearSide) continue;
                 if (HasRightOfWayOver(other, me, ahead)) continue;
                 if (ahead < best) { best = ahead; blocker = other; }
@@ -245,9 +286,48 @@ namespace GameCore.Actors
             return blocker != null;
         }
 
-        /// <summary>RIGHT OF WAY: two moving jacks each in the other's path (typically converging on one aisle mouth) used to hold each
-        /// other for 6 s and then both drive. Now the one with more room ahead goes and the other waits; a tie goes to the lower id.
-        /// A parked / picking jack never has to give way: whoever drives up to it waits.</summary>
+        // ══════════════════════════════════════════════════════════════════════════════════════════════
+        // ONE right-of-way order between two jacks (nav review step 3, 2026-11-14)
+        // ══════════════════════════════════════════════════════════════════════════════════════════════
+        // Blocks 42-51: three tie-breaks disagreed (more room ahead / lower hash / nearer its target + higher hash), so two jacks could
+        // each decide the other goes - or each decide it goes. Every jack-vs-jack decision now asks JackGoesFirst, which is a strict total
+        // order that both jacks compute the same way from shared state: loaded jack first, then the leg that started first, then instance id.
+        // Jacks against reach trucks / dock stockers keep EquipmentTraffic.Priority (reach truck > dock stocker > jack).
+
+        private float _legStartedAt = float.MaxValue;   // Time.time the current leg's target was set (float.MaxValue = not driving)
+
+        /// <summary>Set where this jack is driving; the leg's start time (its place in the "who asked first" order) moves only with the target.</summary>
+        private void SetLegTarget(Vector3 target)
+        {
+            if (_legTarget.sqrMagnitude < 0.0001f || PlanarDist(_legTarget, target) > 0.5f) _legStartedAt = Time.time;
+            _legTarget = target;
+            var ta = _jack != null ? _jack.GetComponent<EquipmentTrafficAgent>() : null;
+            if (ta != null) ta.Destination = target;   // for the untangle rule with reach trucks / dock stockers
+        }
+
+        /// <summary>A jack with cases on its pallet (it is carrying an order, or taking it to staging).</summary>
+        public bool JackLoaded
+        {
+            get { foreach (var p in _pallets) if (p != null && p.TotalCases > 0) return true; return false; }
+        }
+
+        /// <summary>THE right-of-way order between two jack drivers: true when <paramref name="a"/> goes before <paramref name="b"/>.
+        /// Loaded before empty, then the earlier leg, then the driver created first. Antisymmetric, so two jacks never disagree.</summary>
+        public static bool JackGoesFirst(OrderSelectionTaskDriver a, OrderSelectionTaskDriver b)
+        {
+            if (a == null) return false;
+            if (b == null || a == b) return true;
+            bool la = a.JackLoaded, lb = b.JackLoaded;
+            if (la != lb) return la;
+            if (!Mathf.Approximately(a._legStartedAt, b._legStartedAt)) return a._legStartedAt < b._legStartedAt;
+            return a._trafficSeq < b._trafficSeq;
+        }
+
+        private static int s_trafficSeq;
+        private readonly int _trafficSeq = System.Threading.Interlocked.Increment(ref s_trafficSeq);   // stable, unique last tie-break
+
+        /// <summary>RIGHT OF WAY: two moving jacks each in the other's path (typically converging on one aisle mouth): the one
+        /// <see cref="JackGoesFirst"/> picks goes and the other waits. A parked / picking jack never has to give way: whoever drives up to it waits.</summary>
         private bool HasRightOfWayOver(MHEOperatorSlot other, Vector3 me, float otherAheadOfMe)
         {
             if (!s_jackClaims.TryGetValue(other, out var od) || od == null || od == this) return false;
@@ -257,8 +337,7 @@ namespace GameCore.Actors
             float meAheadOfIt = Vector3.Dot(back, odDir);
             if (meAheadOfIt <= 0f || meAheadOfIt > JackClearAhead) return false;          // not in its way: it isn't waiting on me
             if ((back - odDir * meAheadOfIt).magnitude >= JackClearSide) return false;
-            if (Mathf.Abs(meAheadOfIt - otherAheadOfMe) > 0.05f) return otherAheadOfMe > meAheadOfIt;
-            return _jack.GetHashCode() < other.GetHashCode();   // any stable per-session order will do
+            return JackGoesFirst(this, od);
         }
 
         // ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -271,27 +350,40 @@ namespace GameCore.Actors
 
         private MHEOperatorSlot _yieldingTo;
 
-        public const float JackBuffer = 1.0f;       // jacks keep this far (outline to outline) from each other, except while passing
+        public const float JackBuffer = 0.5f;       // (was 1 m; Tad 2026-11-14) jacks keep this far (outline to outline) from each other, except while passing
         private MHEOperatorSlot _bufferYieldTo;     // the jack this one is currently keeping its distance from
 
         /// <summary>True when this step would bring the jack inside <see cref="JackBuffer"/> of another manned jack (any angle, open floor
-        /// or aisle). Not while passing (the pass goes 1.5 m out on purpose). Two jacks holding each other: the lower hash goes, so they
-        /// never both freeze.</summary>
+        /// or aisle). Not while passing (the pass goes 1.5 m out on purpose). Two jacks holding each other: the one
+        /// <see cref="JackGoesFirst"/> picks goes, so they never both freeze. (Summary of JackBufferHold, below.)</summary>
         // ── Deadlock breaker (Tad, 2026-11-10): two jacks stuck on each other near the same place (an aisle mouth) ──
         private const float YieldAfterReal   = 1.5f;   // held this long (REAL s) before the loser backs up
-        private const float YieldBackUp      = 1.5f;   // the loser backs straight up this far...
+        private const float YieldBackUp      = 1.0f;   // the loser backs straight up this far (Tad, 2026-11-14: a metre)...
         private const float YieldWaitReal    = 4f;     // ...and waits this long (REAL s) or until the other jack is out of its way
         private const float YieldNearRadius  = 5f;     // only jacks this close (centre to centre) count as "stuck on each other"
         private const float YieldClearRadius = 6f;     // "out of my way" = its centre this far from mine
         private Vector3 _legTarget;                    // where this jack is driving to right now (zero = not driving)
+        private MHEOperatorSlot _untangleFrom;         // set by ShouldBackUpFor for a ring: the vehicle to back away from
         private float _nextYieldReal;
 
-        /// <summary>Held up by a nearby manned jack that is itself driving or held: the one FURTHER from where it is going (or with the more
-        /// room behind it) is the loser and backs up. False for the winner, or when there is no room behind to back into.</summary>
+        /// <summary>Held up by a nearby manned jack that is itself driving or held: the loser by <see cref="JackGoesFirst"/> backs up;
+        /// if it has no room behind it and the other jack is waiting on this one, this one (the winner) backs up instead.</summary>
         private bool ShouldBackUpFor(out MHEOperatorSlot other)
         {
             other = null;
             if (_jack == null || _passing || _heldRealSeconds < YieldAfterReal || Time.unscaledTime < _nextYieldReal) return false;
+            // A pair or a RING of vehicles waiting on each other (jacks, reach trucks, dock stockers): the one with the least still to travel
+            // reverses (EquipmentTraffic.ShouldReverse, which every member computes the same way).
+            _untangleFrom = null;
+            if (EquipmentTraffic.ShouldReverse(_jack, out var from, out var letBy))
+            {
+                if (!CanBackUp(_jack)) return false;
+                other = letBy; _untangleFrom = from;
+                return true;
+            }
+            var myAgent = _jack.GetComponent<EquipmentTrafficAgent>();
+            var nonJack = myAgent != null ? myAgent.BlockedBy : null;
+            if (nonJack != null && !nonJack.IsPalletJack) return false;   // not a closed ring: the other machine's rules handle it
             Vector3 me = JackCentre(_jack.transform);
             float bestD = YieldNearRadius;
             foreach (var kv in s_jackClaims)
@@ -299,18 +391,42 @@ namespace GameCore.Actors
                 var o = kv.Key; var od = kv.Value;
                 if (o == null || o == _jack || od == null || od == this || !o.IsOccupied) continue;
                 if (od._travelDir.sqrMagnitude < 0.0001f && od._heldRealSeconds <= 0f) continue;   // parked / picking: passing or walking handles it
+                // Only a REAL tangle: that jack is held by THIS one too (block 69 watch: a jack queued behind another kept "untangling" -
+                // reversing for a jack that was held by something else further on and never waiting on it).
+                var oa = o.GetComponent<EquipmentTrafficAgent>();
+                bool heldByMe = od._heldBehindJack == _jack || od._bufferYieldTo == _jack || (oa != null && oa.BlockedBy == _jack);
+                if (!heldByMe) continue;
                 float d = PlanarDist(JackCentre(o.transform), me);
                 if (d < bestD) { bestD = d; other = o; }
             }
             if (other == null) return false;
             var odr = s_jackClaims[other];
-            float myTo = PlanarDist(_jack.transform.position, _legTarget);
-            float itsTo = odr._legTarget.sqrMagnitude > 0.0001f ? PlanarDist(other.transform.position, odr._legTarget) : 0f;
-            bool loser = myTo > itsTo + 0.5f || (Mathf.Abs(myTo - itsTo) <= 0.5f && _jack.GetHashCode() > other.GetHashCode());
-            if (!loser) return false;
-            Vector3 back = _jack.transform.position - Flat(_jack.transform.forward, 0f).normalized * YieldBackUp;
-            if (!MachineClearance.StraightSlideClear(_jack, back)) return false;   // nowhere to back into: the other one must give
-            return true;
+            // UNTANGLE (Tad, 2026-11-14): "pick one and have it back up a little so the other one can get by - the one that has the furthest
+            // distance still to travel goes, and the other one reverses a meter". Ties fall back to JackGoesFirst, so both jacks compute the
+            // same answer. If the one that should back up has no room behind it, the traveller backs up instead (exactly one moves).
+            bool iGo = TravelsFirst(this, odr);
+            bool myRoom = CanBackUp(_jack), itsRoom = CanBackUp(other);
+            if (!iGo) return myRoom;
+            bool itWaitsOnMe = odr._heldBehindJack == _jack || odr._bufferYieldTo == _jack;
+            return itWaitsOnMe && !itsRoom && myRoom;
+        }
+
+        /// <summary>Untangle order: the driver with further still to go to its leg target travels; the other backs up. Antisymmetric.</summary>
+        private static bool TravelsFirst(OrderSelectionTaskDriver a, OrderSelectionTaskDriver b)
+        {
+            float ra = a.RemainingToTarget(), rb = b.RemainingToTarget();
+            if (Mathf.Abs(ra - rb) > 0.5f) return ra > rb;
+            return JackGoesFirst(a, b);
+        }
+
+        private float RemainingToTarget()
+            => _jack == null || _legTarget.sqrMagnitude < 0.0001f ? 0f : PlanarDist(_jack.transform.position, _legTarget);
+
+        private static bool CanBackUp(MHEOperatorSlot j)
+        {
+            if (j == null) return false;
+            Vector3 back = j.transform.position - Flat(j.transform.forward, 0f).normalized * YieldBackUp;
+            return MachineClearance.StraightSlideClear(j, back);
         }
 
         /// <summary>Back straight up YieldBackUp, then wait YieldWaitReal real seconds or until <paramref name="other"/> is out of the way.</summary>
@@ -318,10 +434,13 @@ namespace GameCore.Actors
         {
             if (_jack == null) yield break;
             Transform jt = _jack.transform;
-            Debug.Log($"[OrderSelectionTaskDriver] '{name}': stuck with {(other != null ? other.name : "another jack")} - backing up {YieldBackUp:0.0}m to let it through, then waiting up to {YieldWaitReal:0}s.");
+            Debug.Log($"[OrderSelectionTaskDriver] '{name}': tangled with {(other != null ? other.name : "another jack")} - it has further to go, so this jack reverses {YieldBackUp:0.0}m and lets it by.");
             _nextYieldReal = Time.unscaledTime + 8f;
             Vector3 fwd = Flat(jt.forward, 0f).normalized;
             float moved = 0f;
+            // Reversing out of an overlap: the vehicle this jack is held by is ignored (only racks, walls, pallets and OTHER machines stop it).
+            MachineClearance.SetPassIgnore(_jack, _untangleFrom != null ? _untangleFrom : other);
+            _untangleFrom = null;
             while (_jack != null && moved < YieldBackUp)
             {
                 float step = Mathf.Min(JackReverseSpeed * Time.deltaTime, YieldBackUp - moved);
@@ -333,6 +452,10 @@ namespace GameCore.Actors
                 moved += step;
                 yield return null;
             }
+            MachineClearance.SetPassIgnore(_jack, null);
+            // So it doesn't snag again: while this jack waits, the traveller ignores it (its buffer / queue / clearance checks don't see
+            // this jack) until it is clear of it or the wait runs out.
+            if (other != null && !MachineClearance.Ignores(other, _jack)) MachineClearance.SetPassIgnore(other, _jack);
             float waited = 0f;
             while (_jack != null && other != null && waited < YieldWaitReal && other.IsOccupied
                    && PlanarDist(JackCentre(other.transform), JackCentre(jt)) < YieldClearRadius)
@@ -340,6 +463,7 @@ namespace GameCore.Actors
                 waited += RealDt;
                 yield return null;
             }
+            if (other != null && _jack != null && MachineClearance.Ignores(other, _jack)) MachineClearance.SetPassIgnore(other, null);
             ClearHeld();
             _bufferYieldTo = null;
         }
@@ -350,7 +474,7 @@ namespace GameCore.Actors
             if (_jack == null || _passing) { _bufferYieldTo = null; return false; }
             if (!MachineClearance.JackBufferBlocked(_jack, nextPos, nextRot, JackBuffer, out other)) { _bufferYieldTo = null; return false; }
             if (s_jackClaims.TryGetValue(other, out var od) && od != null && od != this && od._bufferYieldTo == _jack
-                && _jack.GetHashCode() < other.GetHashCode())
+                && JackGoesFirst(this, od))
             { _bufferYieldTo = null; return false; }   // it is waiting for me and I win the tie: go
             _bufferYieldTo = other;
             return true;

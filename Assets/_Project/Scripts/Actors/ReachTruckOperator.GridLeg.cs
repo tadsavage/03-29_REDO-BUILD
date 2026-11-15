@@ -34,6 +34,8 @@ namespace GameCore.Actors
         /// <summary>Dispatch point: the flag decides which backend carries the leg. Same signature and contract as SeekViaNavMesh.</summary>
         private IEnumerator RtLeg(Vector3 target, string phase, System.Action<bool> onDone)
         {
+            var ta = _operatorSlot != null ? _operatorSlot.GetComponent<EquipmentTrafficAgent>() : null;
+            if (ta != null) ta.Destination = target;   // for the untangle rule (EquipmentTraffic.ShouldReverseFor)
             if (NavGridService.UseForReachTrucks) yield return RtGridLeg(target, phase, onDone);
             else yield return SeekViaNavMesh(target, phase, onDone);
         }
@@ -110,6 +112,21 @@ namespace GameCore.Actors
                 }
                 if (failed) break;
                 if (!interrupted) { done = true; break; }
+
+                // Anywhere (Tad, 2026-11-14): pass the stopped machine 1.5 m off it on its open side, rules off, then plan on from there.
+                if (_rtGoAround != null)
+                {
+                    _lastBlocker = _rtGoAround;
+                    bool passed = false;
+                    yield return TryPassJack(driveTarget, r => passed = r);
+                    if (passed)
+                    {
+                        _rtGoAround = null;
+                        replans++;
+                        yield return null;
+                        continue;
+                    }
+                }
 
                 if (_rtGoAround != null && !_rtAvoid.Contains(_rtGoAround)) _rtAvoid.Add(_rtGoAround);
                 _rtGoAround = null;

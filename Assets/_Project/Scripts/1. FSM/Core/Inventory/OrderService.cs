@@ -781,6 +781,23 @@ namespace GameCore.Inventory
         /// <summary>How many of this order's tasks are being held back for lack of lane room.</summary>
         public int HeldWorkCount(OrderData order) => HeldTasks(order).Count();
 
+        /// <summary>Outbound work is actually heading for this lane right now: a pallet pick being driven there, or a selector picking
+        /// an order whose lanes include it. A lane an order merely CLAIMED at release (nothing picked yet) has none.</summary>
+        public bool LaneHasOutboundWorkUnderway(int door, string lane)
+        {
+            if (_workQueue == null) return false;
+            string address = $"{door}{lane}";
+            foreach (var t in _workQueue.Tasks)
+                if (t.Type == WorkTaskType.PalletPick && t.ToLocation == address && t.Status == WorkTaskStatus.Assigned) return true;
+            foreach (var o in _activeOrders)
+            {
+                if (o == null || !o.UsesLane(door, lane)) continue;
+                if (o.Status != OrderData.OrderStatus.Pending && o.Status != OrderData.OrderStatus.PartiallyPicked) return true;   // picked / staged / loading
+                if (LiveTasksForOrder(o.OrderId).Any(t => t.Status == WorkTaskStatus.Assigned)) return true;
+            }
+            return false;
+        }
+
         /// <summary>Tiers in a lane already spoken for by released work that hasn't landed yet: pallet
         /// picks headed there, and the pallets a selector will build into the order's primary lane.</summary>
         private int CommittedTiers(int door, string lane)

@@ -12,13 +12,8 @@ using GameCore.Services;
 ///   Spawn → GateStop (guard inspection)
 ///   → Xform 1  GateEnterNoTurn        (drive through, NO stop)
 ///   → Xform 2  _drApproach-DepartPoint (drive straight, NO stop)
-///   → drive straight to the door (DockPositionFor(_dock)), then snap-rotate to face
-///     away from it (DockRotationFor(_dock)) — an instant flip, not a reverse curve.
-///     (These were DockSlot.DockPosition/DockRotation until DockSlot's own waypoint math was
-///     stripped 2026-09-05; the formulas now live here as legacyDock* fallbacks.)
-///     Deliberately simple per Tad's call after the curved pull-in/reverse maneuver
-///     kept misreading as jerky no matter how it was tuned: driving straight in and
-///     flipping to "backed in" looks like a jump cut, but it's simple and reliable.
+///   → BACK IN (2026-11-14, BeginBackIn): drive along the yard past the door, reverse a quarter
+///     turn that swings the trailer's rear onto the door's centre line, back straight in.
 ///   → Docked (unload timer)
 ///   → pull out forward to Xform 2
 ///   → Xform 5  GateLeaveNoTurn         (drive through, NO stop)
@@ -75,171 +70,43 @@ public class TruckController : MonoBehaviour
         ToSideLotAnchor,         // straight drive forward from Entry into the Anchor — already
                                  // facing it correctly courtesy of FacingSideLotAnchor
         ReversingToSideLotEntry, // a door freed up — straight-line reverse from the Anchor back to
-                                 // Entry (transform.position translation only, no rotation change,
-                                 // same idiom as ReversingToTruckNavPoint3), then hands off to
-                                 // FacingTruckNavPoint0 with the assigned dock's own TruckNavPoint0
-                                 // as target — skips re-entering through the gate entirely
+                                 // Entry, then BeginBackIn for the claimed door
 
-        // Backing-maneuver rebuild (2026-09), built one leg at a time. DevCheckpoint_GateEnterNoTurn
-        // was step 1's dead-end (stop at GateEnterNoTurn); step 2 moved the dead-end further out to
-        // DevCheckpoint_FacingNav1 (drive to TruckNavPoint0, turn to face TruckNavPoint1). The old
-        // enum member is kept (unused) rather than renumbered — cheap insurance, no real cost.
-        DevCheckpoint_GateEnterNoTurn,
-        FacingTruckNavPoint0,   // rotating in place at GateEnterNoTurn to face TruckNavPoint0
-        ToTruckNavPoint0,       // GateEnterNoTurn → TruckNavPoint0 (facing it already, no turning needed)
-        FacingTruckNavPoint1,   // rotating in place at TruckNavPoint0 to face TruckNavPoint1
-        DevCheckpoint_FacingNav1, // retired dead-end — step 3 moved it on to ToTruckNavPoint1/DevCheckpoint_AtNav1
-        ToTruckNavPoint1,       // TruckNavPoint0 → TruckNavPoint1 (facing it already, no turning needed)
-        DevCheckpoint_AtNav1,   // retired dead-end — step 5 moved it on to ToTruckNavPoint2/etc
-        ToTruckNavPoint2,       // TruckNavPoint1 → TruckNavPoint2, arcing around TruckPivot0
-        DevCheckpoint_AtNav2,   // retired dead-end — step 7 moved it on to FacingTruckNavPoint3/etc
-        FacingTruckNavPoint3,   // at TruckNavPoint2: slowly swivel ONLY the tractor mesh (cosmetic —
-                                // root/trailer heading is untouched) to visually face TruckNavPoint3
-        DevCheckpoint_TractorFacingNav3, // retired dead-end — step 8 moved it on to ToTruckNavPoint3/etc
-        ToTruckNavPoint3,       // TruckNavPoint2 → TruckNavPoint3 (root rebased onto the tractor's
-                                // already-swiveled facing first, so there's no pop when driving starts)
-        FacingTruckNavPoint4,   // at TruckNavPoint3: slowly swivel ONLY the tractor mesh to face TruckNavPoint4
-        DevCheckpoint_TractorFacingNav4, // retired dead-end — step 9 moved it on to ToTruckNavPoint4/etc
-        ToTruckNavPoint4,       // TruckNavPoint3 → TruckNavPoint4 (root rebased onto the tractor's
-                                // already-swiveled facing first, so there's no pop when driving starts)
-        StraighteningAtNavPoint4, // at TruckNavPoint4: tractor ramps toward reverseArcCabAngle (+20°,
-                                  // 2026-09-05 — was "back to 0°"/undo-jackknife until Tad asked for
-                                  // one continuous climb to +20° across the whole TruckNavPoint3→
-                                  // TruckNavPoint5 stretch instead); body/root orientation is left alone
-        DevCheckpoint_StraightAtNav4,
-        // Step 10 (reverse straight into the shipping door, computed target) was attempted and
-        // rejected — see git history / conversation for the discarded ReversingIntoDoor/
-        // DevCheckpoint_AtDoor states and ReverseToward helper.
-        // Step 11: a simpler fixed-distance version — translate the whole body backward along its
-        // own local reverse (-transform.forward) for a fixed distance, no target/root-rotation
-        // involved, while the tractor mesh swivels to a fixed +slowReverseCabAngle local offset
-        // (cosmetic only).
-        ReversingStraightSlow, // retired dead-end — step 13 replaced the auto-continue out of
-                               // StraighteningAtNavPoint4 with ReversingToTruckNavPoint3 below
-        DevCheckpoint_ReversedSlow,
-        // Step 12: continue the same backward translation (still holding the tractor at the fixed
-        // cosmetic offset, no interruption) on to TruckNavPoint5, then square everything up: tractor
-        // eases back to 0° local, and the whole body ALSO rotates to face the nearest of world
-        // +Z/-Z exactly, finishing squared up before the checkpoint pause.
-        // (Also no longer entered by normal flow as of step 13 — kept inert, not deleted, since it
-        // wasn't rejected, just superseded at this branch point.)
-        ReversingToTruckNavPoint5,
-        StraighteningAtNavPoint5,
-        DevCheckpoint_AtNavPoint5,
-        // Step 13: StraighteningAtNavPoint4 now leads here instead — a target-based straight-line
-        // reverse (translation only, no root rotation) from TruckNavPoint4 back to TruckNavPoint3,
-        // while the tractor mesh gradually eases toward +reverseToNav3CabAngle (RotateTowards via
-        // cabSwivelSpeed — genuinely gradual over the whole leg, unlike the earlier holds-a-fixed-
-        // offset-immediately legs) so it reads as a slow correction rather than a snap.
-        ReversingToTruckNavPoint3,
-        DevCheckpoint_AtNavPoint3Reverse,
+        // RETIRED 2026-11-14: the TruckNavPoint0-5 / TruckPivot0-1 backing chain, replaced by the three
+        // BackIn states below. Kept ONLY so an old save's stored ordinal never resolves to the wrong state;
+        // RestoreFromSnapshot docks a truck saved in any of them. Never entered by gameplay.
+        DevCheckpoint_GateEnterNoTurn, FacingTruckNavPoint0, ToTruckNavPoint0, FacingTruckNavPoint1,
+        DevCheckpoint_FacingNav1, ToTruckNavPoint1, DevCheckpoint_AtNav1, ToTruckNavPoint2, DevCheckpoint_AtNav2,
+        FacingTruckNavPoint3, DevCheckpoint_TractorFacingNav3, ToTruckNavPoint3, FacingTruckNavPoint4,
+        DevCheckpoint_TractorFacingNav4, ToTruckNavPoint4, StraighteningAtNavPoint4, DevCheckpoint_StraightAtNav4,
+        ReversingStraightSlow, DevCheckpoint_ReversedSlow, ReversingToTruckNavPoint5, StraighteningAtNavPoint5,
+        DevCheckpoint_AtNavPoint5, ReversingToTruckNavPoint3, DevCheckpoint_AtNavPoint3Reverse,
+        ReversingArcAroundPivot1, StraighteningIntoDoor, StraighteningAtNavPoint2,
+        TrailerAligningToNavPoint1, TrailerAligningToNavPoint4,
 
-        // Step 14 (2026-09-05, Tad's spec): replaces the dead-simple ToApproach→ToBackup
-        // straight-in-then-flip with a real backing pivot, reusing the door's existing
-        // TruckPivot1/TruckNavPoint5 BackInSystem markers (previously only used by the retired
-        // NavPoint0-4 rebuild chain above). ToApproach now hands off into these two states instead
-        // of ToBackup; ToBackup itself is untouched and still serves as the fallback if a door is
-        // ever missing these markers.
-        ReversingArcAroundPivot1, // backing around TruckPivot1 at a constant radius toward
-                                   // TruckNavPoint5, tractor swiveling out to reverseArcCabAngle
-        StraighteningIntoDoor,    // final straight-line backward leg onto the dock offset; tractor
-                                   // eases to 0° and the body eases to DockRotationFor(_dock)
-                                   // (facing away from the door) — finishes by handing off to
-                                   // Docked/OnDocked exactly like ToBackup always has.
-
-        // Step 15 (2026-09-05, Tad's spec): the tractor now holds a cosmetic countersteer angle
-        // (nav1ApproachCabAngle) from just before TruckNavPoint1 through the entire TruckNavPoint1→
-        // TruckNavPoint2 arc (previously that whole stretch left the cab to the generic reactive
-        // auto-steer). This state is the "slowly ease back to 0°" tail once TruckNavPoint2 is
-        // reached, before FacingTruckNavPoint3 takes over cab control for its own purpose (looking
-        // at TruckNavPoint3) — same "drive leg, then a dedicated ease-the-cab state" shape as
-        // StraighteningAtNavPoint4/StraighteningAtNavPoint5 elsewhere in this chain.
-        StraighteningAtNavPoint2,
-
-        // Step 16 (2026-09-06, Tad's spec): FacingTruckNavPoint1 used to finish by instantly
-        // snapping the root's rotation to match the cab's now-fixed heading — confirmed-live as a
-        // jarring 1-frame teleport of the whole trailer. This state replaces that snap: the
-        // tractor's world heading is locked (it does NOT rotate again), the rig is towed forward
-        // at the regular driveSpeed along that fixed heading, and the root/trailer gradually
-        // RotateTowards-catches up to it — the cab's local rotation is recomputed every frame so its WORLD heading stays
-        // pinned even as the root rotates underneath it. Hands off to ToTruckNavPoint1 once the
-        // trailer's rotation is close enough to match.
-        TrailerAligningToNavPoint1,
-
-        // Step 17 (2026-09-15, Tad's report): FacingTruckNavPoint4 used to finish by instantly
-        // snapping the root's rotation to match the cab's now-fixed heading (BeginDriveToTruckNavPoint4)
-        // — the same class of jarring 1-frame teleport TrailerAligningToNavPoint1 was built to fix for
-        // Nav1, just never applied here. This state is the identical fix: tractor's world heading is
-        // locked, the rig is towed forward at driveSpeed along that fixed heading, and the root/trailer
-        // gradually RotateTowards-catches up to it. Hands off to ToTruckNavPoint4 once caught up.
-        TrailerAligningToNavPoint4
+        // Back-in (2026-11-14, from the NavTest graybox). See BeginBackIn.
+        BackInToSwingStart,   // forward along the yard, past the door, ending parallel to the wall
+        BackInArc,            // reverse a quarter turn: the trailer's rear axle swings onto the door's centre line
+        BackInStraight        // back straight in, squaring up, then Docked
     }
 
-    [Header("Backing maneuver (2026-09 rebuild)")]
-    [Tooltip("Radius (meters) the truck holds from TruckPivot0 while arcing from TruckNavPoint1 to TruckNavPoint2.")]
-    [SerializeField] private float arcRadius = 9.25f;
-    [Tooltip("Degrees/second the tractor mesh (cosmetic only — not the whole truck) swivels to face TruckNavPoint3. Deliberately much slower than driveTurnSpeed so it reads as a slow, intentional look-and-line-up rather than a snap.")]
-    [SerializeField] private float cabSwivelSpeed = 20f;
-    [Tooltip("Meters the whole body translates straight backward (along its own -transform.forward) during ReversingStraightSlow.")]
-    [SerializeField] private float slowReverseDistance = 2f;
-    [Tooltip("Meters/second the body moves during ReversingStraightSlow — deliberately much slower than driveSpeed so it reads as a slow, careful backing move.")]
+    [Header("Back-in (2026-11-14: drive past the door, reverse a quarter turn, back straight in)")]
+    [Tooltip("Metres/second while reversing (the quarter turn and the straight leg), and for the SideLot reverses.")]
     [SerializeField] private float slowReverseSpeed = 1.5f;
-    [Tooltip("Meters/second while pulling forward from the SideLot's Entry marker into its Anchor (ToSideLotAnchor) — slower than driveSpeed so the final rotate-and-line-up reads as a careful pull-in, not a normal drive.")]
+    [Tooltip("Metres/second while pulling forward from the SideLot's Entry marker into its Anchor.")]
     [SerializeField] private float sideLotPullInSpeed = 3f;
-    [Tooltip("Degrees the tractor mesh (cosmetic only) is turned to, locally, relative to the trailer, while ReversingStraightSlow/ReversingToTruckNavPoint5 are underway.")]
-    [SerializeField] private float slowReverseCabAngle = 10f;
-    [Tooltip("Degrees the tractor mesh (cosmetic only) holds while driving from TruckNavPoint2 to TruckNavPoint3 — negative reads as countersteering into the upcoming line-up.")]
-    [SerializeField] private float nav3ApproachCabAngle = -10f;
-    [Tooltip("Meters of remaining distance to TruckNavPoint3 at which the tractor starts easing back to 0° instead of holding nav3ApproachCabAngle.")]
-    [SerializeField] private float nav3StraightenDistance = 4f;
-    [Tooltip("Degrees the tractor mesh (cosmetic only) gradually eases toward, locally, while reversing straight from TruckNavPoint4 back to TruckNavPoint3.")]
-    [SerializeField] private float reverseToNav3CabAngle = 10f;
-
-    [Tooltip("Degrees the tractor mesh (cosmetic only) holds from just before TruckNavPoint1 through the whole TruckNavPoint1→TruckNavPoint2 arc (Tad's spec: -12.5°).")]
-    [SerializeField] private float nav1ApproachCabAngle = -12.5f;
-    [Tooltip("Meters of remaining distance to TruckNavPoint1 at which the tractor starts easing toward nav1ApproachCabAngle instead of holding rest.")]
-    [SerializeField] private float nav1CabEngageDistance = 4f;
-
-    [Tooltip("Degrees/second the trailer (root) rotates to catch up with the tractor's fixed heading during TrailerAligningToNavPoint1. Slower than driveTurnSpeed so it reads as being towed into alignment, not snapping.")]
-    [SerializeField] private float trailerCatchUpTurnSpeed = 60f;
-
-    [Tooltip("Degrees the tractor mesh (cosmetic only) cranks out to, locally, while backing around TruckPivot1 toward TruckNavPoint5 (Tad's spec: +20°).")]
-    [SerializeField] private float reverseArcCabAngle = 20f;
-
-    [Tooltip("Extra yaw (degrees, same sign/direction as reverseArcCabAngle) added ON TOP OF the geometrically-exact tangent heading during ReversingArcAroundPivot1 -- purely cosmetic, does NOT change the truck's actual position (it still tracks the arcRadius circle exactly). The pure-tangent heading is mathematically correct for zero-slip circular motion, but on a wide-radius arc it reads as the trailer 'sliding' sideways rather than visibly turning into the curve. This over-rotates the body's facing so it more dramatically mirrors the cab's own swivel. 0 = off (exact tangent, original behavior).")]
-    [SerializeField] private float trailerArcHeadingBias = 20f;
-
-
-    [Tooltip("Meters/second the effective arc radius is allowed to close toward arcRadius at the start of ReversingArcAroundPivot1 (the truck's actual entry distance from TruckPivot1 doesn't match arcRadius — TruckNavPoint4 isn't on that circle). Fast enough to close a 2-3m gap in under a second without an instant snap.")]
-    [SerializeField] private float radiusCorrectionSpeed = 4f;
-
-    [Tooltip("Degrees/second the root's rotation is allowed to catch up from whatever heading it entered ReversingArcAroundPivot1 with toward the geometrically-exact tangent heading. The arc's position/heading are otherwise both derived directly from the swept angle every frame (no independent catch-up state for the REST of the arc, by design — see UpdateReversingArcAroundPivot1), but the very first frame's exact tangent heading can differ from whatever heading the truck actually had a moment before (TruckNavPoint4 isn't on the arc's circle, so nothing guarantees the approach heading already matches the tangent there) — confirmed live as a 1-frame snap right as the truck started backing toward TruckNavPoint5. RotateTowards-capped catch-up only runs until the gap closes (_arcHeadingCaughtUp), then hands back to the exact direct assignment for the remainder of the arc — immune to timescale/frame-rate spikes the way a fixed-duration blend wouldn't be. Matches trailerCatchUpTurnSpeed's value (60): an initial value of 240 technically eliminated the true instant-teleport (measured live: closed in ~2 frames) but a multi-tens-of-degrees correction finishing in well under a tenth of a second still read as a snap — 60 spreads the same correction over a visibly gradual turn instead.")]
-    [SerializeField] private float arcHeadingCatchUpSpeed = 60f;
-
-    [Tooltip("The trailer's rear tandem axle, in the rig's own unrotated local space (measured from the WheelRearLeft/WheelRearRight mesh bounds — roughly (0, 0.5, -7.2) on this rig). ReversingArcAroundPivot1 holds THIS point on the TruckPivot1 circle (radius arcRadius) instead of the root, so the trailer pivots off its own back axle like a real reversing trailer — the tractor/front end, being further from the axle, sweeps a visibly wider arc off the same pivot rather than the whole rigid body swinging from one distant point. Only X/Z matter (Y is cosmetic, for the gizmo).")]
+    [Tooltip("Straight reverse (metres, measured at the trailer's rear axle) at the end, square to the door.")]
+    [SerializeField] private float backInStraight = 10f;
+    [Tooltip("Size of the reversing quarter turn (metres): the rear axle swings from this far along the wall onto the door's centre line.")]
+    [SerializeField] private float backInArm = 9f;
+    [Tooltip("Cosmetic: tractor angle (degrees) per degree/second the trailer turns while reversing.")]
+    [SerializeField] private float backInCabSteer = 2f;
+    [Tooltip("The trailer's rear tandem axle in the rig's own unrotated local space. The back-in plans its path for THIS point, so the trailer's rear leads the turn like a real reversing trailer.")]
     [SerializeField] private Vector3 trailerRearAxleLocalOffset = new Vector3(0f, 0.54f, -7.19f);
 
-    // Distance already covered this ReversingStraightSlow leg — reset by BeginReverseStraightSlow.
-    private float _slowReverseTraveled;
-
-    // Actual truck→TruckPivot1 distance at the moment ReversingArcAroundPivot1 begins — NOT the same
-    // as arcRadius (which is tuned to TruckPivot1→TruckNavPoint5's distance). Eases toward arcRadius
-    // over the arc (radiusCorrectionSpeed) rather than snapping to it — see
-    // UpdateReversingArcAroundPivot1 for why holding the raw entry radius for the whole arc was
-    // confirmed-live wrong (the truck ran 2-5m off the intended circle for its entire length).
-    private float _arcRadiusActive;
-
-    // Accumulated counterclockwise sweep for ReversingArcAroundPivot1 and the single angle (around
-    // TruckPivot1, AngleAroundPivot convention) that position/heading are both derived from each
-    // frame — see UpdateReversingArcAroundPivot1's doc comment for why this is angle-parametric
-    // rather than tangent-step-then-reproject.
-    private float _arcSweptSoFar;
-    private float _arcCurrentAngle;
-
-    // False from BeginReversingArcAroundPivot1 until the root's rotation has caught up (via
-    // arcHeadingCatchUpSpeed) to the arc's exact per-frame tangent heading — see that tunable's
-    // tooltip and UpdateReversingArcAroundPivot1.
-    private bool _arcHeadingCaughtUp;
+    // Back-in path (rear axle): quarter turn = quadratic Bezier _biP0 -> _biP1 (corner) -> _biP2 (line-up), then straight to _biAxleTo.
+    private Vector3 _biP0, _biP1, _biP2, _biAxle, _biAxleTo;
+    private float _biT, _biLen;
 
     [Header("Driving")]
     // Doubled per Tad's explicit request 2026-09 — backing/approach legs were reading as taking
@@ -304,9 +171,7 @@ public class TruckController : MonoBehaviour
     private bool  _offloadClaimed;
     private bool  _offloadComplete;
 
-    // Tiny cosmetic lateral correction left over from StraighteningIntoDoor (see its finalize block)
-    // — eased out slowly AFTER the truck is already Docked/OnDocked, at half slowReverseSpeed so it
-    // reads as a barely-noticeable settle rather than the door waiting on it, or a snap.
+    // Tiny cosmetic lateral settle after docking, eased at half slowReverseSpeed (unused by the 2026-11-14 back-in, which ends exact).
     private Vector3 _dockedSlideTarget;
     private bool    _dockedSlideActive;
 
@@ -605,14 +470,6 @@ private DockSlot        _dock;
         anchorPosition = _sideLotSlot.Anchor.position;
         return true;
     }
-
-    // World heading the tractor locked onto when it finished its cosmetic swivel in
-    // FacingTruckNavPoint1 — held fixed for the whole of TrailerAligningToNavPoint1 while the
-    // trailer (root) rotates to catch up to it. See that state's enum comment.
-    private Quaternion  _lockedTractorHeadingNav1;
-
-    // Same pattern, for FacingTruckNavPoint4 → TrailerAligningToNavPoint4. See that state's enum comment.
-    private Quaternion  _lockedTractorHeadingNav4;
 
     private float       _groundY;
     private Vector3     _currentTarget;
@@ -1334,20 +1191,24 @@ private DockSlot        _dock;
                 _useBezier     = false;
                 break;
 
-            case TruckState.ReversingArcAroundPivot1:
-                // _arcEntryAngle/_arcTargetSweptDegrees/_arcCurrentAngle/_arcRadiusActive are transient (not persisted)
-                // — re-derive them from the restored transform via the same Begin helper normal
-                // gameplay uses, rather than resuming with stale/zero values (which would read the
-                // sweep as already complete and pop straight to StraighteningIntoDoor).
+            case TruckState.BackInToSwingStart:
+                // Re-plan from where it stands (the path is not persisted).
+                if (_dock != null) { BeginBackIn(); return; }
+                BeginDoorWait();
+                return;
+
+            case TruckState.BackInArc:
+            case TruckState.BackInStraight:
+                // Saved mid-reverse, right in front of its door: dock it.
                 if (_dock != null)
                 {
-                    BeginReversingArcAroundPivot1(); // sets _state itself (arc or ToBackup fallback)
-                    return;
+                    transform.SetPositionAndRotation(DockedPosition(), DockRotationFor(_dock));
+                    restoredState = TruckState.Docked;
+                    ApplyDockedSideEffects();
+                    break;
                 }
-                restoredState  = TruckState.ToBackup;
-                _currentTarget = snap.worldPosition;
-                _useBezier     = false;
-                break;
+                BeginDoorWait();
+                return;
 
             case TruckState.ReversingToDock:
                 // Snap to the dock — the truck was almost there anyway.
@@ -1381,6 +1242,27 @@ private DockSlot        _dock;
                 // Bezier params were already restored generically above — resumes driving toward the
                 // wait spot exactly like DepartToApproach/ToLeaveNoTurn/ToExit do.
                 break;
+
+            case TruckState.DevCheckpoint_GateEnterNoTurn: case TruckState.FacingTruckNavPoint0: case TruckState.ToTruckNavPoint0:
+            case TruckState.FacingTruckNavPoint1: case TruckState.DevCheckpoint_FacingNav1: case TruckState.ToTruckNavPoint1:
+            case TruckState.DevCheckpoint_AtNav1: case TruckState.ToTruckNavPoint2: case TruckState.DevCheckpoint_AtNav2:
+            case TruckState.FacingTruckNavPoint3: case TruckState.DevCheckpoint_TractorFacingNav3: case TruckState.ToTruckNavPoint3:
+            case TruckState.FacingTruckNavPoint4: case TruckState.DevCheckpoint_TractorFacingNav4: case TruckState.ToTruckNavPoint4:
+            case TruckState.StraighteningAtNavPoint4: case TruckState.DevCheckpoint_StraightAtNav4: case TruckState.ReversingStraightSlow:
+            case TruckState.DevCheckpoint_ReversedSlow: case TruckState.ReversingToTruckNavPoint5: case TruckState.StraighteningAtNavPoint5:
+            case TruckState.DevCheckpoint_AtNavPoint5: case TruckState.ReversingToTruckNavPoint3: case TruckState.DevCheckpoint_AtNavPoint3Reverse:
+            case TruckState.ReversingArcAroundPivot1: case TruckState.StraighteningIntoDoor: case TruckState.StraighteningAtNavPoint2:
+            case TruckState.TrailerAligningToNavPoint1: case TruckState.TrailerAligningToNavPoint4:
+                // Retired backing chain (2026-11-14): a truck saved anywhere in it was on its way into its door — dock it.
+                if (_dock != null)
+                {
+                    transform.SetPositionAndRotation(DockedPosition(), DockRotationFor(_dock));
+                    restoredState = TruckState.Docked;
+                    ApplyDockedSideEffects();
+                    break;
+                }
+                BeginDoorWait();
+                return;
 
             case TruckState.WaitingForDoor:
                 // _inboundClockStartSimMinute is not persisted — UpdateInboundDwellClock lazily
@@ -1658,122 +1540,13 @@ private DockSlot        _dock;
     // position instead of throwing every frame in Update() forever.
     private Vector3 ApproachPoint() => _dock != null ? ApproachDepartPointFor(_dock) : transform.position;  // Xform 2
 
-    /// <summary>Resolves a named waypoint under the assigned dock's "BackInSystem" child (e.g.
-    /// "TruckNavPoint0"/"TruckNavPoint1") — the backing-maneuver rebuild's per-door waypoints.
-    /// Null if there's no dock assigned or the door doesn't have that child.</summary>
+    /// <summary>Resolves a named waypoint under the assigned dock's "BackInSystem" child. Only "TruckNavPoint5" (the docked
+    /// spot) is still read. Null if there's no dock assigned or the door doesn't have that child.</summary>
     private Transform FindDockWaypoint(string name)
     {
         if (_dock == null) return null;
         var backIn = _dock.transform.Find("BackInSystem");
         return backIn != null ? backIn.Find(name) : null;
-    }
-
-    private float _arcEntryAngle;
-    private float _arcTargetSweptDegrees;
-
-    /// <summary>Call once, right when entering ToTruckNavPoint2 — captures the angle swept needed to
-    /// reach navPoint2 around TruckPivot0. A raw XZ-distance-to-target check (as used everywhere else
-    /// in this file) can be skipped clean over on a circle: confirmed live, the truck swept straight
-    /// past TruckNavPoint2 without ever landing inside arrivedThreshold and kept circling the full
-    /// loop. Comparing swept angle instead is step-size independent — the exit fires the first frame
-    /// the required sweep is reached or exceeded, no matter how big that frame's step was.</summary>
-    private void BeginArcToTruckNavPoint2(Vector3 navPoint2Pos)
-    {
-        var pivot0 = FindDockWaypoint("TruckPivot0");
-        if (pivot0 == null) return;
-
-        _arcEntryAngle = AngleAroundPivot(transform.position, pivot0.position);
-        float targetAngle = AngleAroundPivot(navPoint2Pos, pivot0.position);
-        _arcTargetSweptDegrees = Mathf.Max(1f, Mathf.Abs(Mathf.DeltaAngle(_arcEntryAngle, targetAngle)));
-    }
-
-    private static float AngleAroundPivot(Vector3 worldPos, Vector3 pivotPos)
-    {
-        Vector3 offset = worldPos - pivotPos;
-        return Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg;
-    }
-
-    /// <summary>The exact tangent heading's yaw (degrees) at a given angle around TruckPivot1 during
-    /// ReversingArcAroundPivot1 — same formula as UpdateReversingArcAroundPivot1's exactHeading, kept
-    /// in sync with it by construction. Used by BeginReversingArcAroundPivot1 to find the angle where
-    /// the rig is squared up with the door, so the arc can stop turning there instead of continuing
-    /// to some other, position-derived angle.</summary>
-    private float ExactHeadingYawAt(float thetaDeg)
-    {
-        float rad = thetaDeg * Mathf.Deg2Rad;
-        Vector3 travelDir = new Vector3(-Mathf.Cos(rad), 0f, Mathf.Sin(rad));
-        Quaternion heading = Quaternion.LookRotation(-travelDir) * Quaternion.Euler(0f, trailerArcHeadingBias, 0f);
-        return heading.eulerAngles.y;
-    }
-
-    /// <summary>TruckNavPoint1 → TruckNavPoint2, curved: keeps the truck at a constant radius from
-    /// TruckPivot0 (an arc, not a straight line) instead of just driving straight there. Position is
-    /// re-snapped onto the exact circle every frame (not just nudged toward it), so the radius really
-    /// is constant, not merely close. Sweep direction is picked each frame as whichever of the two
-    /// tangents best matches the truck's CURRENT forward — since forward itself is turned toward that
-    /// same tangent every frame, the choice stays consistent turn to turn without needing a stored
-    /// direction flag. On arrival, hard-snaps to world yaw 0 exactly, per spec ("a perfect 0 degrees"),
-    /// rather than trusting wherever the discrete per-frame stepping happened to land.</summary>
-    private void UpdateArcToTruckNavPoint2()
-    {
-        var pivot0 = FindDockWaypoint("TruckPivot0");
-        if (pivot0 == null)
-        {
-            // No pivot to arc around — fall back to a straight drive rather than getting stuck.
-            if (DriveToward(_currentTarget)) _state = TruckState.FacingTruckNavPoint3;
-            return;
-        }
-
-        Vector3 toPivot = pivot0.position - transform.position;
-        toPivot.y = 0f;
-        float currentRadius = toPivot.magnitude;
-        if (currentRadius < 0.01f) { _state = TruckState.FacingTruckNavPoint3; return; }
-        Vector3 radialDir = toPivot / currentRadius; // truck → pivot
-
-        Vector3 tangentA = Vector3.Cross(Vector3.up, radialDir);
-        Vector3 tangent = Vector3.Dot(transform.forward, tangentA) >= 0f ? tangentA : -tangentA;
-
-        Vector3 movedPos = transform.position + tangent * (driveSpeed * Time.deltaTime);
-        Vector3 movedToPivot = pivot0.position - movedPos;
-        movedToPivot.y = 0f;
-        if (movedToPivot.sqrMagnitude > 0.0001f)
-        {
-            Vector3 onCircle = pivot0.position - movedToPivot.normalized * arcRadius;
-            onCircle.y = _groundY;
-            transform.position = onCircle;
-        }
-
-        if (tangent.sqrMagnitude > 0.0001f)
-        {
-            Quaternion desired = Quaternion.LookRotation(tangent.normalized);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, desired, driveTurnSpeed * Time.deltaTime);
-        }
-
-        // Tractor mesh (cosmetic only): hold nav1ApproachCabAngle through the whole arc — it should
-        // already be there from the tail end of ToTruckNavPoint1, this just keeps it pinned (and
-        // covers the case where the leg was too short to fully ease in).
-        if (_cab != null)
-        {
-            Quaternion desiredCabLocal = Quaternion.Euler(0f, nav1ApproachCabAngle, 0f) * _cabRest;
-            _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, desiredCabLocal, cabSwivelSpeed * Time.deltaTime);
-        }
-
-        float swept = Mathf.Abs(Mathf.DeltaAngle(_arcEntryAngle, AngleAroundPivot(transform.position, pivot0.position)));
-        if (swept >= _arcTargetSweptDegrees)
-        {
-            // Position snaps to the exact waypoint (harmless — a few mm of positional correction
-            // isn't visible), but rotation is deliberately left exactly as the arc's own tangent-
-            // following last set it. A hard snap to a fixed rotation here was a real, confirmed-live
-            // bug: it yanked the whole truck's heading discontinuously the instant the arc finished,
-            // reading as a jerk back toward the shipping door right before FacingTruckNavPoint3's
-            // tractor-only swivel took over. Leaving rotation untouched makes the handoff seamless —
-            // the tractor swivel continues smoothly from whatever heading the arc actually ended on.
-            transform.position = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
-            // Hands off to StraighteningAtNavPoint2 (eases the cab from nav1ApproachCabAngle back to
-            // 0°) instead of straight to FacingTruckNavPoint3 — that state immediately drives the cab
-            // toward TruckNavPoint3 instead, which would fight/skip the "slowly rotate to 0°" step.
-            _state = TruckState.StraighteningAtNavPoint2;
-        }
     }
 
     // Restored 2026-09-05 as local fallbacks after DockSlot's own waypoint math was stripped —
@@ -1877,12 +1650,7 @@ private DockSlot        _dock;
                 break;
 
             case TruckState.ToEnterNoTurn:
-                // Xform 1 — drive to GateEnterNoTurn, then turn in place to face TruckNavPoint0
-                // before driving to it (backing-maneuver rebuild, step 4). REVERTED 2026-09-05: I
-                // (wrongly) short-circuited this straight to ToApproach, thinking the NavPoint0-4
-                // chain below was abandoned dead code — it's actually Tad's working, verified
-                // step-by-step build. Restored to the real live route; see StraighteningAtNavPoint4
-                // below for where the new Pivot1/NavPoint5 maneuver now picks up instead.
+                // Xform 1 — drive to GateEnterNoTurn, then back in to the door (BeginBackIn).
                 if (DriveToward(_currentTarget))
                 {
                     // Truck has now physically driven past the gate arm (Tad's spec) — lower it here
@@ -1894,9 +1662,7 @@ private DockSlot        _dock;
                     // BUG FIX: a truck sent in via AssignAndGoWaitForDoor (no free door at spawn, see
                     // that method) still rolls through this same no-turn gate leg — GuardClearedToEnter
                     // routes EVERY truck through ToEnterNoTurn first, dock-assigned or not — but with
-                    // _dock null, FindDockWaypoint below always returns null too, so this used to fall
-                    // through to the "no TruckNavPoint0" dead-end and the truck sat stuck at the gate
-                    // forever instead of parking at the door-wait spot. Route dock-less trucks to
+                    // _dock null, it used to dead-end at the gate. Route dock-less trucks to
                     // BeginDoorWait() here instead of ever attempting dock-relative navigation.
                     if (_dock == null)
                     {
@@ -1904,588 +1670,21 @@ private DockSlot        _dock;
                         break;
                     }
 
-                    var nav0 = FindDockWaypoint("TruckNavPoint0");
-                    if (nav0 != null)
-                    {
-                        _currentTarget = nav0.position;
-                        _state = TruckState.FacingTruckNavPoint0;
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[TruckController] Dock has no TruckNavPoint0 (BackInSystem child) — stopping at the gate instead.");
-                        _state = TruckState.DevCheckpoint_GateEnterNoTurn;
-                    }
+                    BeginBackIn();
                 }
                 break;
 
-            case TruckState.DevCheckpoint_GateEnterNoTurn:
-                // Parked on purpose — see the enum comment. Nothing advances out of this automatically.
+            case TruckState.BackInToSwingStart:
+                // Forward along the yard, past the door, ending parallel to the wall (Bezier set up by BeginBackIn).
+                if (DriveToward(_currentTarget)) BeginBackInArc();
                 break;
 
-            case TruckState.FacingTruckNavPoint0:
-            {
-                Vector3 toNav0 = _currentTarget - transform.position;
-                toNav0.y = 0f;
-                if (toNav0.sqrMagnitude > 0.0001f)
-                {
-                    Quaternion desired = Quaternion.LookRotation(toNav0.normalized);
-                    transform.rotation = Quaternion.RotateTowards(transform.rotation, desired, driveTurnSpeed * Time.deltaTime);
-
-                    if (Quaternion.Angle(transform.rotation, desired) <= 0.5f)
-                    {
-                        transform.rotation = desired;
-                        SetTarget(TruckState.ToTruckNavPoint0, _currentTarget);
-                    }
-                }
-                else
-                {
-                    // Same degenerate-vector bug as FacingTruckNavPoint1 (see its fix) — here it spins
-                    // the WHOLE BODY instead of just the cab, which reads as the truck "doing laps" in
-                    // place. Root already sits at (or effectively at) TruckNavPoint0's XZ position —
-                    // nothing meaningful to face — so just move on instead of feeding LookRotation a
-                    // near-zero vector.
-                    SetTarget(TruckState.ToTruckNavPoint0, _currentTarget);
-                }
-                break;
-            }
-
-            case TruckState.ToTruckNavPoint0:
-                if (DriveToward(_currentTarget))
-                {
-                    _state = TruckState.FacingTruckNavPoint1;
-                }
+            case TruckState.BackInArc:
+                UpdateBackInArc();
                 break;
 
-            case TruckState.FacingTruckNavPoint1:
-            {
-                // Cosmetic ONLY (Tad's spec) — the TRACTOR turns to face TruckNavPoint1, root parked
-                // at TruckNavPoint0 for the duration. Once it's done, ToTruckNavPoint1 snaps the ROOT
-                // to this same heading and drives a pure STRAIGHT LINE — no gradual turn-while-moving
-                // (that arced the whole truck out wide instead of a clean straight shot, which is what
-                // read as "weird maneuvering"/endlessly re-attempting the backing leg — Tad's explicit
-                // call to remove it).
-                var nav1 = FindDockWaypoint("TruckNavPoint1");
-                if (nav1 == null)
-                {
-                    Debug.LogWarning("[TruckController] Dock has no TruckNavPoint1 (BackInSystem child) — stopping here instead.");
-                    _state = TruckState.DevCheckpoint_FacingNav1;
-                    break;
-                }
-
-                if (_cab == null)
-                {
-                    SetTarget(TruckState.ToTruckNavPoint1, nav1.position);
-                    break;
-                }
-
-                Vector3 toNav1 = nav1.position - transform.position;
-                toNav1.y = 0f;
-                if (toNav1.sqrMagnitude > 0.0001f)
-                {
-                    Quaternion desiredWorld = Quaternion.LookRotation(toNav1.normalized);
-                    Quaternion desiredLocalFull = Quaternion.Inverse(transform.rotation) * desiredWorld;
-                    // Tad: the full swing read as too dramatic — only turn halfway toward facing
-                    // TruckNavPoint1, not all the way. Slerp from rest (not from wherever the cab
-                    // currently sits) so "half" always means half of the full rest→target angle,
-                    // regardless of which frame this happens to be evaluated on.
-                    Quaternion desiredLocal = Quaternion.Slerp(_cabRest, desiredLocalFull, 0.5f);
-                    _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, desiredLocal, cabSwivelSpeed * Time.deltaTime);
-
-                    if (Quaternion.Angle(_cab.localRotation, desiredLocal) <= 0.5f)
-                    {
-                        _cab.localRotation = desiredLocal;
-                        // BUG FIX: used to snap transform.rotation to desiredWorld here — confirmed
-                        // live as a jarring 1-frame teleport of the whole trailer. The tractor's
-                        // heading is done rotating and must not move again, but the trailer/root
-                        // needs to swing into alignment gradually while being towed forward, not
-                        // snap. TrailerAligningToNavPoint1 owns that transition.
-                        _lockedTractorHeadingNav1 = desiredWorld;
-                        _currentTarget = nav1.position;
-                        _state = TruckState.TrailerAligningToNavPoint1;
-                    }
-                }
-                else
-                {
-                    // BUG FIX: root already sits at (or effectively at) TruckNavPoint1's XZ position —
-                    // confirmed live as the cause of a truck "circling repeatedly" forever in this
-                    // state. There's no meaningful direction to compute a facing rotation from here,
-                    // and feeding a near-zero-length vector into LookRotation is numerically unstable
-                    // (tiny per-frame float noise flips the result wildly, reading as the tractor
-                    // spinning in place instead of settling). Nothing to face — just move on.
-                    SetTarget(TruckState.ToTruckNavPoint1, nav1.position);
-                }
-                break;
-            }
-
-            case TruckState.DevCheckpoint_FacingNav1:
-                // Retired dead-end — see enum comment. Nothing advances out of this automatically.
-                break;
-
-            case TruckState.TrailerAligningToNavPoint1:
-            {
-                // The tractor's world heading (_lockedTractorHeadingNav1) is fixed — it does NOT
-                // rotate again in this state, per Tad's spec ("its DONE ROTATING, keep the rotation
-                // fixed... while the trailer rotates to match up with it"). The trailer (this
-                // transform, the actual root) is what's still catching up: towed forward at the
-                // regular driveSpeed along that fixed heading while its own rotation gradually
-                // swings into line with it — the visual read is the trailer swinging into alignment behind a tractor
-                // that's already pointed the right way, not an instant snap.
-                //
-                // BUG FIX: this state used to only hand off once the trailer's ROTATION caught up
-                // to the locked heading, with no distance check of its own. Confirmed live — on a
-                // short nav0→nav1 leg, moving forward the whole rotation-catch-up duration overshot
-                // TruckNavPoint1 before the rotation ever finished; ToTruckNavPoint1 then inherited
-                // a target that was already behind the truck and, having no way to reverse course,
-                // drove on forever off the map. Distance-to-target is now checked exactly like
-                // ToTruckNavPoint1 checks it, and wins over the rotation-catch-up check if the rig
-                // reaches the target first.
-                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
-                Vector3 toTarget = flat - transform.position;
-                toTarget.y = 0f;
-                if (toTarget.magnitude < arrivedThreshold)
-                {
-                    transform.position = flat;
-                    transform.rotation = _lockedTractorHeadingNav1;
-                    if (_cab != null) _cab.localRotation = _cabRest;
-                    SetTarget(TruckState.ToTruckNavPoint1, _currentTarget);
-                    break;
-                }
-
-                transform.position += (_lockedTractorHeadingNav1 * Vector3.forward) * driveSpeed * Time.deltaTime;
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, _lockedTractorHeadingNav1, trailerCatchUpTurnSpeed * Time.deltaTime);
-
-                // Cab's LOCAL rotation is recomputed every frame from the root's current (still
-                // catching-up) rotation so the cab's WORLD rotation stays pinned to
-                // _lockedTractorHeadingNav1 the whole time — the tractor visually doesn't move at
-                // all while the trailer swings underneath it.
-                if (_cab != null)
-                    _cab.localRotation = Quaternion.Inverse(transform.rotation) * _lockedTractorHeadingNav1;
-
-                if (Quaternion.Angle(transform.rotation, _lockedTractorHeadingNav1) <= 1f)
-                {
-                    transform.rotation = _lockedTractorHeadingNav1;
-                    if (_cab != null) _cab.localRotation = _cabRest;
-                    SetTarget(TruckState.ToTruckNavPoint1, _currentTarget);
-                }
-                break;
-            }
-
-            case TruckState.ToTruckNavPoint1:
-            {
-                // Pure straight-line translation — root was already snapped to face TruckNavPoint1 in
-                // FacingTruckNavPoint1 above, so no rotation happens here at all (see that state's
-                // comment for why: DriveToward's gradual turn-while-moving swung the whole truck out
-                // in a wide arc for this leg instead of a clean straight shot).
-                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
-                Vector3 toTarget = flat - transform.position;
-                toTarget.y = 0f;
-                // Arrived ALSO when this frame's step would carry it past the point, or the point is already
-                // behind it. Radius-only arrival let a fast frame (game speed 3x, or a hitch) jump past the
-                // arrival circle, and with the heading locked the truck drove straight on forever — one was
-                // found 2.6 km off the map (2026-10-17 soak test).
-                bool arrived = toTarget.magnitude < arrivedThreshold
-                            || toTarget.magnitude <= driveSpeed * Time.deltaTime
-                            || Vector3.Dot(toTarget, transform.forward) <= 0f;
-
-                if (arrived)
-                    transform.position = flat;
-                else
-                    transform.position += transform.forward * driveSpeed * Time.deltaTime;
-
-                // Tractor mesh (cosmetic only): holds rest until within nav1CabEngageDistance of
-                // TruckNavPoint1, then eases toward nav1ApproachCabAngle so it's already
-                // countersteering by the time the Nav1→Nav2 arc begins (Tad's spec) — same "hold,
-                // then ease near arrival" shape as nav3ApproachCabAngle's leg, just inverted
-                // (rest→angle instead of angle→rest).
-                if (_cab != null)
-                {
-                    float distRemaining = Vector3.Distance(
-                        new Vector3(transform.position.x, 0f, transform.position.z),
-                        new Vector3(flat.x, 0f, flat.z));
-                    Quaternion desiredCabLocal = distRemaining <= nav1CabEngageDistance
-                        ? Quaternion.Euler(0f, nav1ApproachCabAngle, 0f) * _cabRest
-                        : _cabRest;
-                    _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, desiredCabLocal, cabSwivelSpeed * Time.deltaTime);
-                }
-
-                if (arrived)
-                {
-                    var nav2 = FindDockWaypoint("TruckNavPoint2");
-                    if (nav2 != null)
-                    {
-                        SetTarget(TruckState.ToTruckNavPoint2, nav2.position);
-                        BeginArcToTruckNavPoint2(nav2.position);
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[TruckController] Dock has no TruckNavPoint2 (BackInSystem child) — stopping here instead.");
-                        _state = TruckState.DevCheckpoint_AtNav1;
-                    }
-                }
-                break;
-            }
-
-            case TruckState.DevCheckpoint_AtNav1:
-                // Retired dead-end — see enum comment. Nothing advances out of this automatically.
-                break;
-
-            case TruckState.ToTruckNavPoint2:
-                UpdateArcToTruckNavPoint2();
-                break;
-
-            case TruckState.StraighteningAtNavPoint2:
-            {
-                // Cosmetic only, root untouched — eases the tractor from nav1ApproachCabAngle back
-                // to rest "slowly" (Tad's spec) before FacingTruckNavPoint3 takes over cab control
-                // for its own purpose (looking at TruckNavPoint3).
-                if (_cab == null)
-                {
-                    _state = TruckState.FacingTruckNavPoint3;
-                    break;
-                }
-
-                _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, _cabRest, cabSwivelSpeed * Time.deltaTime);
-
-                if (Quaternion.Angle(_cab.localRotation, _cabRest) <= 0.5f)
-                {
-                    _cab.localRotation = _cabRest;
-                    _state = TruckState.FacingTruckNavPoint3;
-                }
-                break;
-            }
-
-            case TruckState.FacingTruckNavPoint3:
-            {
-                // Cosmetic ONLY — rotates the Tractor child mesh, never transform.rotation (the
-                // root, and therefore the Trailer, don't move). See UpdateCabSteering for why this
-                // state has to fully bypass that system rather than fight it over _cab.localRotation.
-                if (_cab == null)
-                {
-                    BeginDriveToTruckNavPoint3();
-                    break;
-                }
-
-                var nav3 = FindDockWaypoint("TruckNavPoint3");
-                if (nav3 == null)
-                {
-                    Debug.LogWarning("[TruckController] Dock has no TruckNavPoint3 (BackInSystem child) — stopping here instead.");
-                    _state = TruckState.DevCheckpoint_TractorFacingNav3;
-                    break;
-                }
-
-                Vector3 toNav3 = nav3.position - transform.position;
-                toNav3.y = 0f;
-                if (toNav3.sqrMagnitude > 0.0001f)
-                {
-                    Quaternion desiredWorld = Quaternion.LookRotation(toNav3.normalized);
-                    Quaternion desiredLocal = Quaternion.Inverse(transform.rotation) * desiredWorld;
-                    _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, desiredLocal, cabSwivelSpeed * Time.deltaTime);
-
-                    if (Quaternion.Angle(_cab.localRotation, desiredLocal) <= 0.5f)
-                    {
-                        _cab.localRotation = desiredLocal;
-                        BeginDriveToTruckNavPoint3();
-                    }
-                }
-                else
-                {
-                    // Same degenerate-vector bug as FacingTruckNavPoint1 — root already sits at (or
-                    // effectively at) TruckNavPoint3's XZ, nothing meaningful to face. Move on instead
-                    // of feeding LookRotation a near-zero vector.
-                    BeginDriveToTruckNavPoint3();
-                }
-                break;
-            }
-
-            case TruckState.DevCheckpoint_AtNav2:
-            case TruckState.DevCheckpoint_TractorFacingNav3:
-                // Retired dead-ends — see enum comments. Nothing advances out of these automatically.
-                break;
-
-            case TruckState.ToTruckNavPoint3:
-            {
-                bool arrived = DriveToward(_currentTarget);
-
-                // Tractor mesh only (cosmetic) — holds nav3ApproachCabAngle for most of the leg,
-                // then eases back to 0° once within nav3StraightenDistance of TruckNavPoint3 so it's
-                // square again by arrival. Root/trailer steering (DriveToward, above) is untouched.
-                if (_cab != null)
-                {
-                    Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
-                    float distRemaining = Vector3.Distance(
-                        new Vector3(transform.position.x, 0f, transform.position.z),
-                        new Vector3(flat.x, 0f, flat.z));
-                    Quaternion desiredCabLocal = distRemaining <= nav3StraightenDistance
-                        ? _cabRest
-                        : Quaternion.Euler(0f, nav3ApproachCabAngle, 0f) * _cabRest;
-                    _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, desiredCabLocal, cabSwivelSpeed * Time.deltaTime);
-                }
-
-                if (arrived)
-                {
-                    if (_cab != null) _cab.localRotation = _cabRest;
-                    BeginFacingTruckNavPoint4();
-                }
-                break;
-            }
-
-            case TruckState.FacingTruckNavPoint4:
-            {
-                if (_cab == null)
-                {
-                    BeginDriveToTruckNavPoint4();
-                    break;
-                }
-
-                var nav4 = FindDockWaypoint("TruckNavPoint4");
-                if (nav4 == null)
-                {
-                    Debug.LogWarning("[TruckController] Dock has no TruckNavPoint4 (BackInSystem child) — stopping here instead.");
-                    _state = TruckState.DevCheckpoint_TractorFacingNav4;
-                    break;
-                }
-
-                Vector3 toNav4 = nav4.position - transform.position;
-                toNav4.y = 0f;
-                if (toNav4.sqrMagnitude > 0.0001f)
-                {
-                    Quaternion desiredWorld = Quaternion.LookRotation(toNav4.normalized);
-                    Quaternion desiredLocal = Quaternion.Inverse(transform.rotation) * desiredWorld;
-                    _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, desiredLocal, cabSwivelSpeed * Time.deltaTime);
-
-                    if (Quaternion.Angle(_cab.localRotation, desiredLocal) <= 0.5f)
-                    {
-                        _cab.localRotation = desiredLocal;
-                        // BUG FIX (2026-09-15): used to call BeginDriveToTruckNavPoint4() here, which
-                        // instantly snapped transform.rotation to match the cab's world heading —
-                        // confirmed live as the same jarring 1-frame teleport TrailerAligningToNavPoint1
-                        // already fixed for Nav1. TrailerAligningToNavPoint4 owns that transition instead.
-                        _lockedTractorHeadingNav4 = desiredWorld;
-                        _currentTarget = nav4.position;
-                        _state = TruckState.TrailerAligningToNavPoint4;
-                    }
-                }
-                else
-                {
-                    // Same degenerate-vector bug as FacingTruckNavPoint1 — root already sits at (or
-                    // effectively at) TruckNavPoint4's XZ, nothing meaningful to face. Move on instead
-                    // of feeding LookRotation a near-zero vector.
-                    BeginDriveToTruckNavPoint4();
-                }
-                break;
-            }
-
-            case TruckState.DevCheckpoint_TractorFacingNav4:
-                // Retired dead-end — see enum comment. Nothing advances out of this automatically.
-                break;
-
-            case TruckState.TrailerAligningToNavPoint4:
-            {
-                // Mirror of TrailerAligningToNavPoint1 — see that state's implementation/comments for
-                // the full reasoning. The tractor's world heading (_lockedTractorHeadingNav4) is fixed;
-                // the trailer (this transform, the root) is towed forward at driveSpeed along that fixed
-                // heading while its own rotation gradually swings into line with it.
-                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
-                Vector3 toTarget = flat - transform.position;
-                toTarget.y = 0f;
-                if (toTarget.magnitude < arrivedThreshold)
-                {
-                    transform.position = flat;
-                    transform.rotation = _lockedTractorHeadingNav4;
-                    if (_cab != null) _cab.localRotation = _cabRest;
-                    SetTarget(TruckState.ToTruckNavPoint4, _currentTarget);
-                    break;
-                }
-
-                transform.position += (_lockedTractorHeadingNav4 * Vector3.forward) * driveSpeed * Time.deltaTime;
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, _lockedTractorHeadingNav4, trailerCatchUpTurnSpeed * Time.deltaTime);
-
-                // Cab's LOCAL rotation is recomputed every frame from the root's current (still
-                // catching-up) rotation so the cab's WORLD rotation stays pinned to
-                // _lockedTractorHeadingNav4 the whole time — the tractor visually doesn't move at all
-                // while the trailer swings underneath it.
-                if (_cab != null)
-                    _cab.localRotation = Quaternion.Inverse(transform.rotation) * _lockedTractorHeadingNav4;
-
-                if (Quaternion.Angle(transform.rotation, _lockedTractorHeadingNav4) <= 1f)
-                {
-                    transform.rotation = _lockedTractorHeadingNav4;
-                    if (_cab != null) _cab.localRotation = _cabRest;
-                    SetTarget(TruckState.ToTruckNavPoint4, _currentTarget);
-                }
-                break;
-            }
-
-            case TruckState.ToTruckNavPoint4:
-                if (DriveToward(_currentTarget))
-                {
-                    _state = TruckState.StraighteningAtNavPoint4;
-                }
-                break;
-
-            case TruckState.StraighteningAtNavPoint4:
-            {
-                if (_cab == null)
-                {
-                    _throttleAudio?.TriggerBackupAlarm(); // starting the pivot/reverse into the door
-                    BeginReversingArcAroundPivot1();
-                    break;
-                }
-
-                // Root/body orientation is left untouched here (deliberately no whole-body
-                // reorientation onto the world X axis, per Tad's request — the body just stays as-is).
-                // Tractor: NOT eased back to rest anymore (2026-09-05, Tad's spec) — ramps straight on
-                // toward reverseArcCabAngle (+20°) instead, at the same cabSwivelSpeed
-                // ReversingArcAroundPivot1 itself uses, so the whole TruckNavPoint3→TruckNavPoint5
-                // stretch reads as one continuous climb to +20° rather than dropping back to 0° here
-                // and ramping up again once the arc starts.
-                Quaternion desiredCabLocal = Quaternion.Euler(0f, reverseArcCabAngle, 0f) * _cabRest;
-                _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, desiredCabLocal, cabSwivelSpeed * Time.deltaTime);
-
-                if (Quaternion.Angle(_cab.localRotation, desiredCabLocal) <= 0.5f)
-                {
-                    _cab.localRotation = desiredCabLocal;
-                    _throttleAudio?.TriggerBackupAlarm(); // starting the pivot/reverse into the door
-                    // Step 14 (2026-09-05, Tad's spec): this used to call BeginReverseToTruckNavPoint3
-                    // (step 13's straight-line reverse, dead-ending at DevCheckpoint_AtNavPoint3Reverse).
-                    // Replaced with the new arc-around-TruckPivot1-to-TruckNavPoint5 maneuver, which
-                    // continues on into StraighteningIntoDoor and actually finishes the dock — the first
-                    // step in this whole chain to do so instead of pausing at a checkpoint.
-                    BeginReversingArcAroundPivot1();
-                }
-                break;
-            }
-
-            case TruckState.DevCheckpoint_StraightAtNav4:
-                // Retired dead-end — see enum comment. Nothing advances out of this automatically.
-                break;
-
-            case TruckState.ReversingStraightSlow:
-            {
-                // Whole body translates straight backward along its own local reverse — no rotation
-                // change to the root at all, so this can never fight/steer regardless of whatever
-                // heading was left over from the earlier legs (unlike the rejected target-seeking
-                // ReversingIntoDoor attempt, this one has no target to converge on — it's a fixed
-                // relative distance, so the direction is always well-defined).
-                float step = Mathf.Min(slowReverseSpeed * Time.deltaTime, slowReverseDistance - _slowReverseTraveled);
-                if (step > 0f)
-                {
-                    transform.position += -transform.forward * step;
-                    _slowReverseTraveled += step;
-                }
-
-                bool cabAligned = true;
-                if (_cab != null)
-                {
-                    Quaternion desiredCabLocal = Quaternion.Euler(0f, slowReverseCabAngle, 0f) * _cabRest;
-                    _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, desiredCabLocal, cabSwivelSpeed * Time.deltaTime);
-                    cabAligned = Quaternion.Angle(_cab.localRotation, desiredCabLocal) <= 0.5f;
-                }
-
-                if (_slowReverseTraveled >= slowReverseDistance - 0.001f && cabAligned)
-                {
-                    BeginReverseToTruckNavPoint5();
-                }
-                break;
-            }
-
-            case TruckState.DevCheckpoint_ReversedSlow:
-                // Retired dead-end — see enum comment. Nothing advances out of this automatically.
-                break;
-
-            case TruckState.ReversingToTruckNavPoint5:
-            {
-                // Continue the exact same backward translation, no rotation change to the root at
-                // all — seamless continuation of ReversingStraightSlow, just now aimed at a real
-                // waypoint instead of a fixed distance. Tractor is pinned (not eased toward, just
-                // held) at the same fixed offset the whole leg — nothing about the cosmetic look
-                // should change until we actually arrive.
-                if (_cab != null)
-                    _cab.localRotation = Quaternion.Euler(0f, slowReverseCabAngle, 0f) * _cabRest;
-
-                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
-                Vector3 toTarget = flat - transform.position;
-                toTarget.y = 0f;
-
-                if (toTarget.magnitude < arrivedThreshold)
-                {
-                    transform.position = flat;
-                    _state = TruckState.StraighteningAtNavPoint5;
-                    break;
-                }
-
-                // Straight-line translation toward the target (not along ±transform.forward) — same
-                // fix as the rejected ReversingIntoDoor attempt: guarantees arrival regardless of
-                // whether the frozen heading happens to point exactly at TruckNavPoint5.
-                Vector3 step = toTarget.normalized * slowReverseSpeed * Time.deltaTime;
-                if (step.magnitude > toTarget.magnitude) step = toTarget;
-                transform.position += step;
-                break;
-            }
-
-            case TruckState.StraighteningAtNavPoint5:
-            {
-                // Whole body rotates to face the nearest of world +Z/-Z exactly (whichever is
-                // closer to the current heading, so it doesn't spin an unnecessary ~180°) WHILE the
-                // tractor simultaneously eases back to 0° local — both must finish before pausing.
-                Vector3 zAxisTarget = Vector3.Dot(transform.forward, Vector3.forward) >= 0f ? Vector3.forward : Vector3.back;
-                Quaternion desiredRoot = Quaternion.LookRotation(zAxisTarget, Vector3.up);
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, desiredRoot, driveTurnSpeed * Time.deltaTime);
-                bool rootAligned = Quaternion.Angle(transform.rotation, desiredRoot) <= 0.5f;
-
-                bool cabAligned = true;
-                if (_cab != null)
-                {
-                    _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, _cabRest, cabSwivelSpeed * Time.deltaTime);
-                    cabAligned = Quaternion.Angle(_cab.localRotation, _cabRest) <= 0.5f;
-                }
-
-                if (rootAligned && cabAligned)
-                {
-                    transform.rotation = desiredRoot;
-                    if (_cab != null) _cab.localRotation = _cabRest;
-                    _state = TruckState.DevCheckpoint_AtNavPoint5;
-                }
-                break;
-            }
-
-            case TruckState.DevCheckpoint_AtNavPoint5:
-                // Retired dead-end — see enum comment (no longer reached by normal flow). Nothing
-                // advances out of this automatically.
-                break;
-
-            case TruckState.ReversingToTruckNavPoint3:
-            {
-                // Straight-line translation toward the target, root rotation untouched — same
-                // approach as ReversingToTruckNavPoint5, guarantees arrival regardless of whatever
-                // heading is left over from the earlier legs.
-                Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
-                Vector3 toTarget = flat - transform.position;
-                toTarget.y = 0f;
-
-                // Tractor mesh gradually eases toward reverseToNav3CabAngle over the whole leg
-                // (genuinely gradual, via cabSwivelSpeed — not held/snapped immediately).
-                if (_cab != null)
-                {
-                    Quaternion desiredCabLocal = Quaternion.Euler(0f, reverseToNav3CabAngle, 0f) * _cabRest;
-                    _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, desiredCabLocal, cabSwivelSpeed * Time.deltaTime);
-                }
-
-                if (toTarget.magnitude < arrivedThreshold)
-                {
-                    transform.position = flat;
-                    _state = TruckState.DevCheckpoint_AtNavPoint3Reverse;
-                    break;
-                }
-
-                Vector3 step = toTarget.normalized * slowReverseSpeed * Time.deltaTime;
-                if (step.magnitude > toTarget.magnitude) step = toTarget;
-                transform.position += step;
-                break;
-            }
-
-            case TruckState.DevCheckpoint_AtNavPoint3Reverse:
-                // Parked on purpose — see the enum comment. Nothing advances out of this automatically.
+            case TruckState.BackInStraight:
+                UpdateBackInStraight();
                 break;
 
             case TruckState.ToDoorWait:
@@ -2629,8 +1828,8 @@ private DockSlot        _dock;
                 // line reverse translation (root rotation untouched) from the Anchor back to Entry, same
                 // idiom as ReversingOutOfSideLot/ReversingToTruckNavPoint3 above. On arrival, this state
                 // serves two different callers that both back out to the same Entry marker: a door that
-                // freed up (UpdateWaitingForDoor claims _dock BEFORE starting the reverse) drives
-                // straight onto that door's TruckNavPoint0; a give-up timeout (_dock stays null — never
+                // freed up (UpdateWaitingForDoor claims _dock BEFORE starting the reverse) backs in to
+                // that door (BeginBackIn); a give-up timeout (_dock stays null — never
                 // claimed one) instead runs the normal give-up departure from here, exactly as if it had
                 // just started that departure from a stand-still.
                 Vector3 flat = new Vector3(_currentTarget.x, _groundY, _currentTarget.z);
@@ -2650,18 +1849,7 @@ private DockSlot        _dock;
                         break;
                     }
 
-                    var nav0 = FindDockWaypoint("TruckNavPoint0");
-                    if (nav0 != null)
-                    {
-                        _currentTarget = nav0.position;
-                        _state = TruckState.FacingTruckNavPoint0;
-                    }
-                    else if (_gateEnterNoTurn.HasValue)
-                    {
-                        // Fallback: this door has no TruckNavPoint0 marker — re-enter through the gate
-                        // like the old ReversingOutOfSideLot path did, rather than getting stuck.
-                        SetTarget(TruckState.ToEnterNoTurn, _gateEnterNoTurn.Value);
-                    }
+                    BeginBackIn();
                     break;
                 }
 
@@ -2672,32 +1860,18 @@ private DockSlot        _dock;
             }
 
             case TruckState.ToApproach:
-                // Xform 2 — straight, no stop, then straight on to the door itself. REVERTED
-                // 2026-09-05 back to its original behavior — this leg is no longer where the new
-                // maneuver hooks in (see StraighteningAtNavPoint4); ToBackup below is now purely
-                // the fallback path (see BeginReversingArcAroundPivot1).
-                if (DriveToward(_currentTarget))
-                    SetTarget(TruckState.ToBackup, DockPositionFor(_dock));
+                // Xform 2 (only reached by an old save now) — then back in to the door.
+                if (DriveToward(_currentTarget)) BeginBackIn();
                 break;
 
             case TruckState.ToBackup:
-                // Fallback only (see BeginReversingArcAroundPivot1) — a door missing its
-                // TruckPivot1/TruckNavPoint5 markers still gets the old dead-straight-then-flip
-                // maneuver instead of getting stuck.
+                // Old saves only: the dead-straight-then-flip maneuver.
                 if (DriveToward(_currentTarget))
                 {
                     transform.rotation = DockRotationFor(_dock);
                     _state = TruckState.Docked;
                     OnDocked();
                 }
-                break;
-
-            case TruckState.ReversingArcAroundPivot1:
-                UpdateReversingArcAroundPivot1();
-                break;
-
-            case TruckState.StraighteningIntoDoor:
-                UpdateStraighteningIntoDoor();
                 break;
 
             // WaitingAtBackup / Reversing / ReversingToDock: retired along with the old curved
@@ -2799,38 +1973,8 @@ private DockSlot        _dock;
     {
         if (!articulateCab || _cab == null) return;
 
-        // FacingTruckNavPoint3 drives _cab.localRotation directly (a deliberate slow swivel toward
-        // TruckNavPoint3, not a reaction to body movement) — fully bypass so the two don't fight
-        // over the same transform.
-        // DevCheckpoint_TractorFacingNav3 is included here too — without it, the very next frame
-        // after FacingTruckNavPoint3 finishes falls through to the generic logic below, which reads
-        // a ~zero body yaw-rate (parked) and slews _cabYaw back toward 0, silently undoing the
-        // deliberate swivel the moment time resumes. Confirmed live: tractor read back to exactly
-        // its rest rotation instead of holding the swiveled pose.
-        // StraighteningAtNavPoint4 also drives _cab.localRotation directly (easing the tractor back
-        // to rest). ReversingStraightSlow/ReversingToTruckNavPoint5 hold it at the fixed
-        // +slowReverseCabAngle offset; StraighteningAtNavPoint5 eases it back to rest. Same
-        // reasoning either way — bypass fully so the generic yaw-rate-reactive logic below can't
-        // fight a directly-driven rotation.
-        // ReversingArcAroundPivot1 (arcs to reverseArcCabAngle) and StraighteningIntoDoor (eases
-        // back to rest) drive _cab.localRotation directly too — same reasoning as every other
-        // entry in this list. FacingTruckNavPoint1 (forced-CCW swivel to face TruckNavPoint1, root
-        // parked), ToTruckNavPoint1 (eases toward nav1ApproachCabAngle near arrival), ToTruckNavPoint2
-        // (holds nav1ApproachCabAngle through the arc), and StraighteningAtNavPoint2 (eases back to
-        // rest) likewise.
-        if (_state == TruckState.FacingTruckNavPoint3 || _state == TruckState.DevCheckpoint_TractorFacingNav3 ||
-            _state == TruckState.FacingTruckNavPoint1 || _state == TruckState.TrailerAligningToNavPoint1 ||
-            _state == TruckState.ToTruckNavPoint1 || _state == TruckState.ToTruckNavPoint2 ||
-            _state == TruckState.StraighteningAtNavPoint2 ||
-            _state == TruckState.ToTruckNavPoint3 ||
-            _state == TruckState.FacingTruckNavPoint4 || _state == TruckState.DevCheckpoint_TractorFacingNav4 ||
-            _state == TruckState.TrailerAligningToNavPoint4 ||
-            _state == TruckState.StraighteningAtNavPoint4 || _state == TruckState.DevCheckpoint_StraightAtNav4 ||
-            _state == TruckState.ReversingStraightSlow || _state == TruckState.DevCheckpoint_ReversedSlow ||
-            _state == TruckState.ReversingToTruckNavPoint5 || _state == TruckState.StraighteningAtNavPoint5 ||
-            _state == TruckState.DevCheckpoint_AtNavPoint5 ||
-            _state == TruckState.ReversingToTruckNavPoint3 || _state == TruckState.DevCheckpoint_AtNavPoint3Reverse ||
-            _state == TruckState.ReversingArcAroundPivot1 || _state == TruckState.StraighteningIntoDoor)
+        // The back-in reverse legs steer the cab themselves (SteerCabReversing) — bypass so the two don't fight.
+        if (_state == TruckState.BackInArc || _state == TruckState.BackInStraight)
         {
             _prevYaw = transform.eulerAngles.y; // avoid a yaw-rate spike when this state ends
             return;
@@ -2995,326 +2139,110 @@ private DockSlot        _dock;
             GuardClearedToEnter();
     }
 
-    /// <summary>Hands control from the tractor's cosmetic swivel offset back to the root, with zero
-    /// visual change, then starts driving to TruckNavPoint3. The tractor's WORLD orientation right
-    /// now (root rotation combined with its swiveled local offset) is exactly what should keep
-    /// showing — so the root is snapped to that same world rotation and the tractor's local offset
-    /// is reset to rest, which cancels out to an identical visual result the next frame. Without
-    /// this, starting to drive would let the generic cosmetic system (UpdateCabSteering) immediately
-    /// recompute the tractor's local offset from scratch based on the root's own turning, visibly
-    /// popping away from the "look toward Nav3" pose it had just settled into.</summary>
-    private void BeginDriveToTruckNavPoint3()
-    {
-        if (_cab != null)
-        {
-            transform.rotation = _cab.rotation;
-            _cab.localRotation = _cabRest;
-        }
+    // ── Back-in (2026-11-14) ─────────────────────────────────────────────────────────────────────
+    // Replaces the TruckNavPoint0-5 / TruckPivot0-1 marker chain (13 states). Taken from the NavTest graybox, which Tad liked
+    // better: drive along the yard PAST the door, reverse in a quarter turn that swings the trailer's rear onto the door's centre
+    // line, then back straight in. The path is planned for the trailer's REAR AXLE (trailerRearAxleLocalOffset), so the rear leads
+    // the turn and the cab follows; the root is placed from the axle every frame. Only marker still read: TruckNavPoint5 (the
+    // docked spot), falling back to DockPositionFor.
 
-        var nav3 = FindDockWaypoint("TruckNavPoint3");
-        SetTarget(TruckState.ToTruckNavPoint3, nav3 != null ? nav3.position : transform.position);
+    private Vector3 AxleOffsetFlat => new Vector3(trailerRearAxleLocalOffset.x, 0f, trailerRearAxleLocalOffset.z);
+    private Vector3 AxleAt(Vector3 rootPos, Quaternion rot) => rootPos + rot * AxleOffsetFlat;
+    private Vector3 RootFromAxle(Vector3 axle, Quaternion rot)
+    {
+        Vector3 p = axle - rot * AxleOffsetFlat;
+        p.y = _groundY;
+        return p;
     }
 
-    private void BeginFacingTruckNavPoint4()
-    {
-        _state = TruckState.FacingTruckNavPoint4;
-    }
-
-    /// <summary>Same rebase pattern as BeginDriveToTruckNavPoint3 — the tractor just finished a
-    /// deliberate cosmetic swivel toward Nav4, so before driving starts, hand authority for that
-    /// world facing back to the root (root snaps to the tractor's world rotation, tractor's local
-    /// offset resets to rest) so nothing pops when the generic drive/steer logic takes over.</summary>
-    private void BeginDriveToTruckNavPoint4()
-    {
-        if (_cab != null)
-        {
-            transform.rotation = _cab.rotation;
-            _cab.localRotation = _cabRest;
-        }
-
-        var nav4 = FindDockWaypoint("TruckNavPoint4");
-        SetTarget(TruckState.ToTruckNavPoint4, nav4 != null ? nav4.position : transform.position);
-    }
-
-    private void BeginReverseStraightSlow()
-    {
-        _slowReverseTraveled = 0f;
-        _state = TruckState.ReversingStraightSlow;
-    }
-
-    private void BeginReverseToTruckNavPoint5()
+    /// <summary>Where the truck's root sits once backed in: TruckNavPoint5 (stopped dockBackInTrim short), else DockPositionFor.</summary>
+    private Vector3 DockedPosition()
     {
         var nav5 = FindDockWaypoint("TruckNavPoint5");
-        SetTarget(TruckState.ReversingToTruckNavPoint5, nav5 != null ? nav5.position : transform.position);
+        Vector3 p = nav5 != null ? nav5.position + DockYardForward(_dock) * dockBackInTrim : DockPositionFor(_dock);
+        p.y = _groundY;
+        return p;
     }
 
-    private void BeginReverseToTruckNavPoint3()
+    private static Vector3 QBezier(Vector3 a, Vector3 b, Vector3 c, float t) { float u = 1f - t; return u * u * a + 2f * u * t * b + t * t * c; }
+    private static Vector3 QBezierTangent(Vector3 a, Vector3 b, Vector3 c, float t) => 2f * (1f - t) * (b - a) + 2f * t * (c - b);
+
+    /// <summary>Plans the back-in for the assigned door from wherever the truck is and starts the forward leg to the swing point.</summary>
+    private void BeginBackIn()
     {
-        var nav3 = FindDockWaypoint("TruckNavPoint3");
-        SetTarget(TruckState.ReversingToTruckNavPoint3, nav3 != null ? nav3.position : transform.position);
+        if (_dock == null) { BeginDoorWait(); return; }
+        Vector3 fwd = DockYardForward(_dock); fwd.y = 0f; fwd.Normalize();     // out of the door, into the yard
+        Vector3 along = Vector3.Cross(Vector3.up, fwd);                          // along the wall
+        Quaternion dockRot = DockRotationFor(_dock);
+
+        Vector3 finalAxle = AxleAt(DockedPosition(), dockRot);
+        Vector3 lineUp = finalAxle + fwd * backInStraight;   // the axle is square to the door from here in
+        Vector3 corner = lineUp + fwd * backInArm;
+        // Come along the wall from the side the truck is on and stop PAST the door: the swing starts on the far side.
+        float side = Mathf.Sign(Vector3.Dot(transform.position - corner, along));
+        if (side == 0f) side = 1f;
+        Vector3 swingAxle = corner - along * side * backInArm;
+        Vector3 swingFwd = -along * side;
+        Vector3 swingRoot = RootFromAxle(swingAxle, Quaternion.LookRotation(swingFwd));
+
+        _biP0 = swingAxle; _biP1 = corner; _biP2 = lineUp; _biAxleTo = finalAxle;
+        _biLen = 0f;
+        Vector3 prev = _biP0;
+        for (int i = 1; i <= 16; i++) { Vector3 q = QBezier(_biP0, _biP1, _biP2, i / 16f); _biLen += Vector3.Distance(prev, q); prev = q; }
+        SetTargetCurved(TruckState.BackInToSwingStart, swingRoot, swingFwd);
     }
 
-    /// <summary>Starts the 2026-09-05 reversing-pivot maneuver: from wherever ToApproach ends, the
-    /// truck backs into the dock by arcing around the door's TruckPivot1 marker until it reaches
-    /// TruckNavPoint5, tractor swiveling out to reverseArcCabAngle for the duration. Falls back to
-    /// the old dead-straight ToBackup+flip if this door's BackInSystem child is missing either
-    /// marker, same defensive pattern as every other FindDockWaypoint call in this file.</summary>
-    private void BeginReversingArcAroundPivot1()
+    private void BeginBackInArc()
     {
-        var pivot1 = FindDockWaypoint("TruckPivot1");
-        var nav5   = FindDockWaypoint("TruckNavPoint5");
-        if (pivot1 == null || nav5 == null)
-        {
-            Debug.LogWarning("[TruckController] Dock missing TruckPivot1/TruckNavPoint5 (BackInSystem child) — falling back to the straight backup maneuver.");
-            SetTarget(TruckState.ToBackup, DockPositionFor(_dock));
-            return;
-        }
-
-        // Radius starts at the trailer's rear axle's actual measured distance from TruckPivot1
-        // (TruckNavPoint4 sits ~11.5m out; TruckPivot1→TruckNavPoint5 is exactly arcRadius, 9.25m —
-        // these two legs were never on the same circle) and eases toward the authored arcRadius over
-        // the arc (see Update) rather than snapping to it, so there's no instant position pop; it
-        // converges to and then HOLDS exactly arcRadius for the rest of the maneuver, per Tad's spec.
-        // The axle (not the root) is what's held on the circle — see trailerRearAxleLocalOffset.
-        Vector3 axleWorldNow = transform.position + transform.rotation * new Vector3(trailerRearAxleLocalOffset.x, 0f, trailerRearAxleLocalOffset.z);
-        Vector3 flatTruck  = new Vector3(axleWorldNow.x, 0f, axleWorldNow.z);
-        Vector3 flatPivot1 = new Vector3(pivot1.position.x, 0f, pivot1.position.z);
-        _arcRadiusActive = Vector3.Distance(flatTruck, flatPivot1);
-        if (_arcRadiusActive < 0.01f) _arcRadiusActive = arcRadius; // degenerate — truck is on the pivot
-
-        _arcEntryAngle = AngleAroundPivot(axleWorldNow, pivot1.position);
-
-        // Target angle: the FIRST point, sweeping forward (counterclockwise, decreasing) from entry,
-        // where the tractor's heading actually matches the door's final rotation — i.e. stop turning
-        // the moment the rig is squared up with the door, exactly like backing a real trailer, rather
-        // than continuing to whatever angle a position-based solve happens to land on. A full-circle
-        // "closest lateral position" search was tried here and confirmed-live wrong: it could pick a
-        // farther-around angle with a marginally better position match, so the truck visibly kept
-        // turning PAST the point where it already looked lined up (Tad, live capture) before the
-        // straightening leg slid it back — exactly backwards from the desired "stop turning, then
-        // roll straight in." Searching forward for the nearest heading match instead guarantees the
-        // shortest possible turn, and — because arcRadius/trailerRearAxleLocalOffset are tuned so a
-        // heading match essentially IS a lateral match on this rig — StraighteningIntoDoor still ends
-        // up with little to no sideways component left to correct.
-        float targetYaw = DockRotationFor(_dock).eulerAngles.y;
-        float prevAngle = _arcEntryAngle;
-        float prevDiff = Mathf.DeltaAngle(ExactHeadingYawAt(prevAngle), targetYaw);
-        float targetAngle = _arcEntryAngle - 360f; // fallback: full lap, shouldn't be reachable
-        for (int i = 1; i <= 360; i++)
-        {
-            float angle = _arcEntryAngle - i;
-            float diff = Mathf.DeltaAngle(ExactHeadingYawAt(angle), targetYaw);
-            if (prevDiff * diff <= 0f)
-            {
-                float lo = angle, hi = prevAngle, fLo = diff;
-                for (int b = 0; b < 30; b++)
-                {
-                    float mid = (lo + hi) * 0.5f;
-                    float fMid = Mathf.DeltaAngle(ExactHeadingYawAt(mid), targetYaw);
-                    if (fLo * fMid <= 0f) hi = mid; else { lo = mid; fLo = fMid; }
-                }
-                targetAngle = (lo + hi) * 0.5f;
-                break;
-            }
-            prevAngle = angle;
-            prevDiff = diff;
-        }
-
-        // ALWAYS counterclockwise (Tad's spec — this is not a "pick the shorter side" arc). Sweep
-        // target = the counterclockwise (decreasing-angle) distance from entry to TruckNavPoint5,
-        // which can legitimately exceed 180° depending on where the truck enters relative to the
-        // pivot.
-        _arcTargetSweptDegrees = Mathf.Repeat(_arcEntryAngle - targetAngle, 360f);
-        if (_arcTargetSweptDegrees < 1f) _arcTargetSweptDegrees = 360f; // degenerate "already at target"
-        _arcSweptSoFar = 0f;
-        _arcCurrentAngle = _arcEntryAngle;
-
-        // See arcHeadingCatchUpSpeed's tooltip: the exact tangent heading at entry can differ from
-        // whatever heading the truck actually had a moment before (StraighteningAtNavPoint4 never
-        // touches root rotation), so catch up to it at a capped speed rather than snapping straight
-        // to the computed tangent.
-        _arcHeadingCaughtUp = false;
-
-        _currentTarget = nav5.position;
-        _useBezier = false;
-        _state = TruckState.ReversingArcAroundPivot1;
+        _throttleAudio?.TriggerBackupAlarm();
+        _biT = 0f;
+        _biAxle = _biP0;
+        _state = TruckState.BackInArc;
     }
 
-    /// <summary>Backs the truck around TruckPivot1 toward TruckNavPoint5. Angle-parametric by
-    /// design (position and heading are both computed DIRECTLY from a single accumulated angle each
-    /// frame), not tangent-step-then-reproject — two confirmed-live bugs drove this rewrite:
-    /// (1) using the tangent-step/reproject-onto-circle technique with the truck's own entry radius
-    /// held the whole arc 2-5m off the authored 9.25 circle for its entire length (TruckNavPoint4
-    /// isn't on that circle, so "hold whatever radius you entered at" is simply the wrong radius);
-    /// (2) driving transform.rotation via Quaternion.RotateTowards toward a per-frame tangent target
-    /// let it take whichever rotational direction was LOCALLY shorter to catch up, which could be
-    /// briefly CLOCKWISE even though the arc's own sweep is always counterclockwise — visible live as
-    /// the trailer "swinging out the wrong way before it starts backing up."
-    /// Fix: _arcRadiusActive eases toward the authored arcRadius (MoveTowards, not a snap) so the
-    /// truck spends the arc's opening moment closing a small radial gap and then holds exactly
-    /// arcRadius for the rest of it; position and heading are both derived straight from
-    /// _arcCurrentAngle (which only ever decreases — counterclockwise, unconditionally) with no
-    /// independent "current vs desired" catch-up state for either, so neither can ever take a
-    /// wrong-direction detour.</summary>
-    private void UpdateReversingArcAroundPivot1()
+    /// <summary>Reverse the quarter turn: the rear axle follows the Bezier, the body faces against its direction of travel.</summary>
+    private void UpdateBackInArc()
     {
-        var pivot1 = FindDockWaypoint("TruckPivot1");
-        if (pivot1 == null)
-        {
-            // Marker vanished mid-maneuver (shouldn't happen — a dock doesn't move) — bail to the
-            // straight fallback rather than divide-by-zero on a missing pivot.
-            SetTarget(TruckState.ToBackup, DockPositionFor(_dock));
-            return;
-        }
-
-        _arcRadiusActive = Mathf.MoveTowards(_arcRadiusActive, arcRadius, radiusCorrectionSpeed * Time.deltaTime);
-
-        // Advance the parametric angle by however many degrees this frame's linear speed covers at
-        // the CURRENT radius (arc length / radius, in degrees). Always counterclockwise (decreasing).
-        float angularSpeedDeg = (slowReverseSpeed / Mathf.Max(_arcRadiusActive, 0.01f)) * Mathf.Rad2Deg;
-        float remaining = _arcTargetSweptDegrees - _arcSweptSoFar;
-        float stepDeg = Mathf.Min(angularSpeedDeg * Time.deltaTime, remaining);
-        _arcCurrentAngle -= stepDeg;
-        _arcSweptSoFar += stepDeg;
-
-        // Heading: the velocity direction for a DECREASING θ (counterclockwise) is (-cosθ, 0, sinθ)
-        // — computed directly from the angle every frame (physically correct for rigid circular
-        // motion, and structurally impossible to swing the wrong way since there's no separate
-        // "current heading" reconciling against a moving target). The root faces AWAY from the
-        // direction of travel (it's reversing) — the same orientation it needs at final dock.
-        //
-        // That exact tangent heading is caught up to from the truck's real entry heading via a
-        // RotateTowards cap (arcHeadingCatchUpSpeed) rather than assigned outright — the entry
-        // heading (whatever StraighteningAtNavPoint4 left it at) isn't guaranteed to already match
-        // the tangent at this exact point on the circle, and assigning it directly showed up live as
-        // a 1-frame snap right as the arc began. Once caught up, this reverts to the exact original
-        // direct assignment for the remainder of the arc — same "no independent catch-up state"
-        // guarantee as before, just deferred until the initial gap (if any) has actually closed.
-        // Computed BEFORE position below, since position is now derived FROM this heading (see
-        // trailerRearAxleLocalOffset — the axle, not the root, is what's held on the circle).
-        float rad = _arcCurrentAngle * Mathf.Deg2Rad;
-        Vector3 travelDir = new Vector3(-Mathf.Cos(rad), 0f, Mathf.Sin(rad));
-        Quaternion exactHeading = Quaternion.LookRotation(-travelDir) * Quaternion.Euler(0f, trailerArcHeadingBias, 0f);
-        if (!_arcHeadingCaughtUp)
-        {
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, exactHeading, arcHeadingCatchUpSpeed * Time.deltaTime);
-            if (Quaternion.Angle(transform.rotation, exactHeading) <= 1f)
-            {
-                _arcHeadingCaughtUp = true;
-                transform.rotation = exactHeading;
-            }
-        }
-        else
-        {
-            transform.rotation = exactHeading;
-        }
-
-        // Position: the trailer's rear axle (not the root) is held on the pivot1 circle — computed
-        // directly from angle+radius every frame, exact by construction (matches AngleAroundPivot's
-        // atan2(x,z) convention: offset = radius*(sinθ, 0, cosθ)), never drifts, never needs
-        // reprojecting. The root is then backed out from the axle using this frame's just-applied
-        // heading, so the tractor end (further from the axle in local space) sweeps a visibly wider
-        // arc off the same pivot instead of the whole rigid body swinging from one distant point.
-        Vector3 offset = new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad)) * _arcRadiusActive;
-        Vector3 axleWorld = pivot1.position + offset;
-        Vector3 rotatedAxleOffset = transform.rotation * new Vector3(trailerRearAxleLocalOffset.x, 0f, trailerRearAxleLocalOffset.z);
-        Vector3 newPos = axleWorld - rotatedAxleOffset;
-        newPos.y = _groundY;
-        transform.position = newPos;
-
-        if (_cab != null)
-        {
-            // Sweep is always CCW now, so the cab always cranks the same way — no sign needed.
-            Quaternion desiredCabLocal = Quaternion.Euler(0f, reverseArcCabAngle, 0f) * _cabRest;
-            _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, desiredCabLocal, cabSwivelSpeed * Time.deltaTime);
-        }
-
-        if (_arcSweptSoFar >= _arcTargetSweptDegrees)
-        {
-            // No position snap here — _arcRadiusActive has already eased to exactly arcRadius well
-            // before the sweep completes (radiusCorrectionSpeed closes a 2-3m gap in under a second,
-            // the arc itself runs several seconds), so the truck is already sitting on the same
-            // circle TruckNavPoint5 sits on. StraighteningIntoDoor absorbs whatever tiny remainder is
-            // left with its existing smooth translation.
-            BeginStraighteningIntoDoor();
-        }
+        _biT = Mathf.Min(1f, _biT + slowReverseSpeed * Time.deltaTime / Mathf.Max(0.1f, _biLen));
+        _biAxle = QBezier(_biP0, _biP1, _biP2, _biT);
+        Vector3 tan = QBezierTangent(_biP0, _biP1, _biP2, _biT);
+        tan.y = 0f;
+        if (tan.sqrMagnitude > 0.0001f)
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(-tan.normalized), 90f * Time.deltaTime);
+        transform.position = RootFromAxle(_biAxle, transform.rotation);
+        SteerCabReversing();
+        if (_biT >= 1f) _state = TruckState.BackInStraight;
     }
 
-    private void BeginStraighteningIntoDoor()
+    /// <summary>Back straight in, squaring up to the door, then dock.</summary>
+    private void UpdateBackInStraight()
     {
-        _state = TruckState.StraighteningIntoDoor;
-    }
-
-    /// <summary>Final leg of the reversing-pivot maneuver: straight-line backward translation onto
-    /// the door's dock offset while the body eases from the arc's tangent heading to the door's
-    /// real "backed in" rotation (DockRotationFor — facing away from the door, per Tad's spec) and
-    /// the tractor eases back to 0° local. Both finish together right as the truck reaches the
-    /// door, so there's no separate snap/flip like the old dead-simple ToBackup. Once close, hands
-    /// off to Docked/OnDocked exactly like ToBackup always has — opens the trailer doors, ghosts
-    /// the trailer, flags the dock occupied, and lets every other system (offload/load controllers,
-    /// DockScheduleService, etc.) see the truck via _dock/AwaitingOffload the normal way.</summary>
-    private void UpdateStraighteningIntoDoor()
-    {
-        // TruckNavPoint5 IS the correct final docked position (Tad: its 9.25 offset is exactly where
-        // the truck needs to sit to be "perfectly in the door") — NOT DockPositionFor's legacyDockOffset
-        // (3.5), which was the old dead-simple maneuver's resting spot and would drive the truck too
-        // far past where it should actually stop for this maneuver.
-        var nav5 = FindDockWaypoint("TruckNavPoint5");
-        Vector3 target = nav5 != null ? nav5.position : DockPositionFor(_dock);
-        if (nav5 != null) target += DockYardForward(_dock) * dockBackInTrim;   // stop short of the authored marker (Tad, 2026-10-11: backed in ~0.5 too far)
-        // XZ only from the marker — Y always comes from _groundY (the height the truck has tracked
-        // for its entire route), never the marker's own authored Y. Confirmed live: TruckNavPoint5's
-        // Y isn't guaranteed to sit exactly on the ground plane, and snapping straight to its raw
-        // position made docked trucks visibly float/sink depending on that marker's placement.
-        target.y = _groundY;
-        Quaternion desiredRoot = DockRotationFor(_dock);
-
-        // Move along the truck's OWN backward axis, not a beeline straight at `target` — a real
-        // trailer can't slide sideways once it's stopped turning, so this only ever eats the distance
-        // remaining ALONG the way it's already facing (project the vector to target onto -forward).
-        // Any leftover component to the SIDE is left alone rather than steered into, which is exactly
-        // what was reading as an unwanted diagonal slide before BeginReversingArcAroundPivot1's arc
-        // was changed to stop turning as soon as it's squared up with the door in the first place (so
-        // that sideways leftover should now be tiny to begin with).
-        Vector3 backward = -transform.forward;
-        Vector3 toTargetFlat = target - transform.position;
-        toTargetFlat.y = 0f;
-        float remainingDepth = Vector3.Dot(toTargetFlat, backward);
-
-        bool positionArrived = remainingDepth <= arrivedThreshold;
-        bool rotationArrived = Quaternion.Angle(transform.rotation, desiredRoot) <= 0.5f;
-
-        if (!positionArrived)
+        Quaternion dockRot = DockRotationFor(_dock);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, dockRot, 30f * Time.deltaTime);
+        _biAxle = Vector3.MoveTowards(_biAxle, _biAxleTo, slowReverseSpeed * Time.deltaTime);
+        transform.position = RootFromAxle(_biAxle, transform.rotation);
+        SteerCabReversing();
+        if ((_biAxle - _biAxleTo).sqrMagnitude < 0.0001f && Quaternion.Angle(transform.rotation, dockRot) < 0.5f)
         {
-            float step = Mathf.Min(slowReverseSpeed * Time.deltaTime, remainingDepth);
-            transform.position += backward * step;
-        }
-
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, desiredRoot, driveTurnSpeed * Time.deltaTime);
-
-        if (_cab != null)
-            _cab.localRotation = Quaternion.RotateTowards(_cab.localRotation, _cabRest, cabSwivelSpeed * Time.deltaTime);
-
-        if (positionArrived && rotationArrived)
-        {
-            // Snap depth (forward/back) and height exactly, but leave whatever lateral (side-to-side)
-            // offset remains — same "no diagonal slide" reasoning as the movement above. If arcRadius/
-            // dock geometry left a small gap anyway, hand off to Docked/OnDocked right now regardless
-            // (Tad's spec: the loader shouldn't sit there waiting on a barely-visible cosmetic
-            // correction — the door counts as engaged the instant the truck is squared up and at
-            // depth) and ease the tiny remainder out slowly in the background; see the Docked case.
-            Vector3 finalRightAxis = desiredRoot * Vector3.right;
-            float lateralNow = Vector3.Dot(transform.position - target, finalRightAxis);
-            transform.position = target + finalRightAxis * lateralNow;
-            transform.rotation = desiredRoot;
+            transform.SetPositionAndRotation(DockedPosition(), dockRot);
+            _cabYaw = 0f;
             if (_cab != null) _cab.localRotation = _cabRest;
-
-            _dockedSlideTarget = target;
-            _dockedSlideActive = Mathf.Abs(lateralNow) > 0.01f;
-
             _state = TruckState.Docked;
             OnDocked();
         }
+    }
+
+    /// <summary>Cosmetic: while reversing, the tractor angles against the trailer's turn (and straightens as the turn ends).</summary>
+    private void SteerCabReversing()
+    {
+        float curYaw = transform.eulerAngles.y;
+        float dt = Mathf.Max(Time.deltaTime, 1e-4f);
+        float yawRate = Mathf.DeltaAngle(_prevYaw, curYaw) / dt;
+        _prevYaw = curYaw;
+        if (_cab == null) return;
+        float target = Mathf.Clamp(-yawRate * backInCabSteer, -maxCabSteer, maxCabSteer);
+        _cabYaw = Mathf.MoveTowards(_cabYaw, target, 40f * dt);
+        _cab.localRotation = Quaternion.Euler(0f, _cabYaw, 0f) * _cabRest;
     }
 
     public void GuardClearedToEnter()
@@ -3364,7 +2292,7 @@ private DockSlot        _dock;
         if (_gateEnterNoTurn.HasValue)
             SetTarget(TruckState.ToEnterNoTurn, _gateEnterNoTurn.Value);
         else if (_dock != null)
-            SetTarget(TruckState.ToApproach, ApproachPoint());
+            BeginBackIn();
         else
             BeginDoorWait();
     }
@@ -3488,7 +2416,7 @@ private DockSlot        _dock;
         {
             // Reverse straight back out first — can't curve directly to ApproachPoint() from inside the
             // fenced lot the way a generic _doorWaitPoint truck can. Backs up to the Entry marker (per
-            // Tad's spec) and rejoins the backing pipeline at TruckNavPoint0 from there — see
+            // Tad's spec) and backs in to the door from there (BeginBackIn) — see
             // ReversingToSideLotEntry's case body. Falls back to the old all-the-way-through-the-gate
             // retreat for a SideLot placed before the Entry marker existed.
             if (_sideLotSlot.Entry != null)
@@ -3498,9 +2426,7 @@ private DockSlot        _dock;
             return;
         }
 
-        Vector3 ap = ApproachPoint();
-        Vector3 curveDir = ap - transform.position;
-        SetTargetCurved(TruckState.ToApproach, ap, curveDir);
+        BeginBackIn();
     }
 
     /// <summary>Same random-pick-among-free-doors policy as TruckYardManager.FindFreeDock — kept local

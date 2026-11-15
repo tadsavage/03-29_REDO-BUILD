@@ -77,6 +77,14 @@ namespace GameCore.Inventory
                                                 out List<(int door, string lane)> lanes)
         {
             lanes = new List<(int door, string lane)>();
+            // SAME CUSTOMER, ONE LANE (Tad, 2026-11-14): a lane this customer's orders for the same dock door already stage in, with room for
+            // the whole release, comes before any empty lane. HAL releases orders one at a time, so every small order used to open its own
+            // empty lane and one pallet sat at the dock end of every lane (block 57 screenshot), leaving the inbound offload nowhere to go.
+            if (ShareCustomerLanes && TryFindCustomerLane(orderService, inv, dockDoor, customerId, palletsNeeded, plannedLanes, out int cd, out string cl))
+            {
+                lanes.Add((cd, cl));
+                return true;
+            }
             if (TryFindLaneForOrder(orderService, inv, dockDoor, customerId, out int d1, out string l1,
                                     plannedLanes, plannedDoorOwners, palletsNeeded))
             {
@@ -109,6 +117,45 @@ namespace GameCore.Inventory
             return lanes.Count > 0;
         }
 
+        /// <summary>A lane already used by an unloaded, released order of <paramref name="customerId"/> with the same dock door, holding
+        /// nobody else's freight, still pickable, not about to take inbound, with room (free tiers minus promised work) for
+        /// <paramref name="palletsNeeded"/> (at least 1). The lane with the most room wins, so one lane fills before another opens.</summary>
+        /// <summary>Same customer, one lane (block 58). OFF since 2026-11-14: blocks 58-60 jammed once lanes filled to their exit ends;
+        /// switched off to isolate it. Turn on to bring it back.</summary>
+        public static bool ShareCustomerLanes = false;
+
+        public static bool TryFindCustomerLane(OrderService orderService, InventoryService inv, int dockDoor, string customerId,
+                                               int palletsNeeded, ICollection<(int door, string lane)> plannedLanes,
+                                               out int door, out string lane)
+        {
+            door = 0; lane = null;
+            if (orderService == null || inv == null || string.IsNullOrEmpty(customerId)) return false;
+            int need = Mathf.Max(1, palletsNeeded);
+            int bestRoom = -1;
+            foreach (var o in orderService.ActiveOrders)
+            {
+                if (o == null || o.CustomerId != customerId || o.AssignedDoorNumber != dockDoor || !o.ReleasedToFloor) continue;
+                if (!StillOccupiesItsLane(o) || o.Status == OrderData.OrderStatus.Loading) continue;   // a lane being loaded is emptying
+                foreach (var l in o.AllStagingLanes())
+                {
+                    if (l.door <= 0 || string.IsNullOrEmpty(l.lane)) continue;
+                    if (plannedLanes != null && plannedLanes.Contains(l)) continue;
+                    if (!inv.LaneAllowsPicking(l.door, l.lane)) continue;
+                    if (LaneHasInboundStock(inv, l.door, l.lane)) continue;
+                    if (GameCore.Labor.TrailerOffloadController.IsLanePendingInbound(l.door, l.lane)) continue;
+                    if (LanesReservedForInbound(orderService, inv, l.door).Contains(l.lane)) continue;
+                    if (OtherCustomerUses(orderService, l.door, l.lane, customerId)) continue;
+                    int room = orderService.FreeRoom(l.door, l.lane);
+                    if (room < need || room <= bestRoom) continue;
+                    bestRoom = room; door = l.door; lane = l.lane;
+                }
+            }
+            return lane != null;
+        }
+
+        private static bool OtherCustomerUses(OrderService orderService, int door, string lane, string customerId)
+            => orderService.ActiveOrders.Any(o => o != null && o.CustomerId != customerId && o.UsesLane(door, lane) && StillOccupiesItsLane(o));
+
         /// <summary>
         /// Where one selector trip of <paramref name="pallets"/> pallets stages: the order's primary lane or the
         /// next lane of its own door first, then any lane the order already uses (at any door), then the nearest
@@ -130,6 +177,13 @@ namespace GameCore.Inventory
                 if (!inv.LaneAllowsPicking(used.door, used.lane)) continue;
                 if (inv.CountFreeStagingSlotsInLane(used.door, used.lane, order.OrderId) < pallets) continue;
                 door = used.door; lane = used.lane;
+                return true;
+            }
+
+            // Same customer, one lane (Tad, 2026-11-14): another of this customer's lanes for the same dock door before an empty one.
+            if (ShareCustomerLanes && TryFindCustomerLane(orderService, inv, order.AssignedDoorNumber, order.CustomerId, pallets, null, out int cd, out string cl))
+            {
+                door = cd; lane = cl;
                 return true;
             }
 
@@ -314,11 +368,15 @@ namespace GameCore.Inventory
             if (!AutoReserveLanesForInbound) return reserved;
             int pallets = InboundPalletsToCome(door);
             if (pallets <= 0) return reserved;
-            foreach (var (d, lane) in LaneNamingService.AllLanes())
+            // INBOUND FROM THE TOP (Tad, 2026-11-14): a docked inbound trailer takes its door's lanes from the LAST letter down (E, D, C...);
+            // outbound releases take them from A up (EnumerateEmptyLanes). The two ends meet in the middle instead of fighting over lane A.
+            foreach (var (d, lane) in InboundLaneOrder(door))
             {
                 if (d != door) continue;
                 if (inv != null && !inv.LaneAcceptsPutaway(d, lane)) continue;
-                if (orderService != null && GetOwningCustomerId(orderService, d, lane) != null) continue;   // outbound holds it: the offloader skips it too
+                // Outbound holds it: the offloader skips it too - unless the claim is still empty (nothing picked or staged for it).
+                if (orderService != null && GetOwningCustomerId(orderService, d, lane) != null
+                    && (inv == null || inv.LaneHasStagedOutboundPallets(d, lane) || orderService.LaneHasOutboundWorkUnderway(d, lane))) continue;
                 int room = inv != null ? inv.CountFreeStagingSlotsInLane(d, lane) : 1;
                 if (room <= 0) continue;
                 reserved.Add(lane);
@@ -327,6 +385,11 @@ namespace GameCore.Inventory
             }
             return reserved;
         }
+
+        /// <summary>A door's lanes in the order inbound takes them: last letter first (E, D, C, B, A).</summary>
+        public static List<(int door, string lane)> InboundLaneOrder(int door)
+            => LaneNamingService.AllLanes().Where(l => l.door == door)
+                   .OrderByDescending(l => l.lane.Length).ThenByDescending(l => l.lane, System.StringComparer.Ordinal).ToList();
 
         public static bool IsLaneReservedForInbound(OrderService orderService, InventoryService inv, int door, string lane)
             => LanesReservedForInbound(orderService, inv, door).Contains(lane);

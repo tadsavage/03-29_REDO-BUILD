@@ -26,7 +26,7 @@ namespace GameCore.Actors
         public struct Footprint { public float MinX, MaxX, MinZ, MaxZ; }
 
         public const float Skin = 0.10f;               // the outline is shrunk by this so grazing a neighbour lane's pallet doesn't count
-        public const float VehicleSpacingMeters = 1f;
+        public const float VehicleSpacingMeters = 0.5f;   // was 1 m (Tad, 2026-11-14: 0.5 m for all equipment)
         // A pallet jack's fork load: both pallet positions (OrderSelectionTaskDriver.ForkPalletZ -2.00 / -0.95, +/- half a 40"
         // pallet), 48" across. Always part of the outline - the forks are there whether or not they carry anything.
         private const float ForkLoadMinZ = -2.51f, ForkLoadMaxZ = -0.44f, ForkLoadHalfX = 0.61f;
@@ -49,6 +49,7 @@ namespace GameCore.Actors
         {
             s_footprints.Clear(); s_samplePoints.Clear(); s_solidOutlines.Clear(); s_allMachines.Clear(); s_floorPallets.Clear();
             NearMachines.Clear(); NearPallets.Clear();
+            s_passIgnore.Clear();
             s_allMachinesAt = -10f; s_floorPalletsAt = -10f; s_grid = null;
         }
 
@@ -246,6 +247,31 @@ namespace GameCore.Actors
 
         /// <summary>Fills NearMachines / NearPallets with what is within <paramref name="radius"/> of <paramref name="pos"/>
         /// (other than <paramref name="self"/>).</summary>
+        // ── PASSING (Tad, 2026-11-14): a machine passing another in an aisle ignores that one machine's body ──
+        // The passer hugs the far rack and drives straight past; the machine being passed is invisible to every clearance and
+        // spacing test of the passer until the pass ends. Racks, walls, pallets and every OTHER machine still block as usual.
+        private static readonly Dictionary<MHEOperatorSlot, MHEOperatorSlot> s_passIgnore = new Dictionary<MHEOperatorSlot, MHEOperatorSlot>();
+
+        /// <summary>While <paramref name="self"/> passes <paramref name="other"/>, ignore it; null ends the pass.</summary>
+        public static void SetPassIgnore(MHEOperatorSlot self, MHEOperatorSlot other)
+        {
+            if (self == null) return;
+            if (other == null) s_passIgnore.Remove(self); else s_passIgnore[self] = other;
+        }
+
+        /// <summary>Drops every "ignore" that points AT <paramref name="target"/> (it was let go mid-maneuver).</summary>
+        public static void ClearIgnoresOf(MHEOperatorSlot target)
+        {
+            if (target == null || s_passIgnore.Count == 0) return;
+            var drop = new List<MHEOperatorSlot>();
+            foreach (var kv in s_passIgnore) if (kv.Value == target || kv.Key == null) drop.Add(kv.Key);
+            foreach (var k in drop) s_passIgnore.Remove(k);
+        }
+
+        /// <summary>True while <paramref name="self"/> is passing <paramref name="other"/>.</summary>
+        public static bool Ignores(MHEOperatorSlot self, MHEOperatorSlot other)
+            => self != null && other != null && s_passIgnore.TryGetValue(self, out var o) && o == other;
+
         public static void GatherNear(Vector3 pos, float radius, MHEOperatorSlot self)
         {
             RefreshMachines();
@@ -253,7 +279,7 @@ namespace GameCore.Actors
             NearMachines.Clear();
             NearPallets.Clear();
             foreach (var m in s_allMachines)
-                if (m != null && m != self && Flat(m.transform.position - pos).magnitude < radius + 3f) NearMachines.Add(m);
+                if (m != null && m != self && !Ignores(self, m) && Flat(m.transform.position - pos).magnitude < radius + 3f) NearMachines.Add(m);
             foreach (var p in s_floorPallets)
                 if (p != null && Mathf.Abs(p.position.y - pos.y) < 0.8f && Flat(p.position - pos).magnitude < radius + 1f) NearPallets.Add(p);
         }
@@ -340,7 +366,8 @@ namespace GameCore.Actors
             System.Func<MHEOperatorSlot, bool> isRt = o => o.IsOccupied && o.GetComponent<ReachTruckOperator>() != null;
             int next = PenetrationOfKind(m, nextPos, nextRot, buffer, isRt, out _, out truck);
             if (next == 0) return false;
-            return next > PenetrationOfKind(m, m.transform.position, m.transform.rotation, buffer, isRt, out _, out _);
+            if (next <= PenetrationOfKind(m, m.transform.position, m.transform.rotation, buffer, isRt, out _, out _)) return false;
+            return Approaching(m, nextPos, nextRot, truck);   // beside it at a steady gap: not in the way
         }
 
         /// <summary>PALLET JACKS KEEP THEIR DISTANCE (Tad, 2026-11-10: they "stick to each other like glue"). True when this step would bring
@@ -353,7 +380,19 @@ namespace GameCore.Actors
             System.Func<MHEOperatorSlot, bool> manned = o => o.IsPalletJack && o.IsOccupied;
             int next = PenetrationOfKind(m, nextPos, nextRot, buffer, manned, out _, out jack);
             if (next == 0) return false;
-            return next > PenetrationOfKind(m, m.transform.position, m.transform.rotation, buffer, manned, out _, out _);
+            if (next <= PenetrationOfKind(m, m.transform.position, m.transform.rotation, buffer, manned, out _, out _)) return false;
+            return Approaching(m, nextPos, nextRot, jack);   // beside it at a steady gap: not in the way
+        }
+
+        /// <summary>True when moving <paramref name="m"/> to this pose brings its outline closer to <paramref name="other"/>'s (or touching it).
+        /// A step that keeps the same gap - driving along beside it - is not approaching.</summary>
+        public static bool Approaching(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot, MHEOperatorSlot other)
+        {
+            if (m == null || other == null) return false;
+            var fm = FootprintOf(m); var fo = FootprintOf(other);
+            float next = FootprintGap(m, nextPos, nextRot, fm, other, fo);
+            float now = FootprintGap(m, m.transform.position, m.transform.rotation, fm, other, fo);
+            return next <= 0.02f || next < now - 0.005f;
         }
 
         /// <summary>How many of the machine's outline points are inside an inflated outline of a nearby machine matching <paramref name="kind"/>.</summary>
@@ -413,7 +452,7 @@ namespace GameCore.Actors
             float selfRadius = FootprintRadius(selfFootprint, scale);
             foreach (var other in s_allMachines)
             {
-                if (other == null || other == m) continue;
+                if (other == null || other == m || Ignores(m, other)) continue;
                 Footprint otherFootprint = FootprintOf(other);
                 float otherRadius = FootprintRadius(otherFootprint, other.transform.lossyScale);
                 Vector3 centerDelta = other.transform.position - nextPos;
@@ -423,7 +462,10 @@ namespace GameCore.Actors
                 float nextGap = FootprintGap(m, nextPos, nextRot, selfFootprint, other, otherFootprint);
                 if (nextGap >= clearance) continue;
                 float currentGap = FootprintGap(m, m.transform.position, m.transform.rotation, selfFootprint, other, otherFootprint);
-                if (nextGap <= currentGap + 0.01f)
+                // BESIDE IS NOT IN THE WAY (Tad, 2026-11-14, block 69's aisle-02 ring): a jack driving past a reach truck standing 1.5 m to
+                // its side held for ever, because every step "kept it inside the buffer". Only a step that CLOSES the gap (or touches) is
+                // blocked now; driving along beside a vehicle at a steady gap is allowed.
+                if (nextGap <= 0.02f || nextGap < currentGap - 0.005f)
                 {
                     blocker = other;
                     LastMachineHit = other;

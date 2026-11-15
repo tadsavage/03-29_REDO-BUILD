@@ -24,7 +24,7 @@ namespace GameCore.Actors
     /// </summary>
     public static class EquipmentTraffic
     {
-        public const float LaneAhead = 3.6f;            // same reach as the jack queue (JackClearAhead)
+        public const float LaneAhead = 3.1f;            // same reach as the jack queue (JackClearAhead), 0.5 m gap
         public const float LaneSide = 1.4f;
         public const float ExitLookSeconds = 0.5f;       // each "look left / look right" pause at an aisle exit
         public const float ExitZoneHalfLength = 7f;      // cross-traffic window either side of the aisle mouth
@@ -70,6 +70,57 @@ namespace GameCore.Actors
 
         /// <summary>True when <paramref name="self"/> must give way to <paramref name="other"/> (selectors always yield to reach drivers).</summary>
         public static bool Yields(MHEOperatorSlot self, MHEOperatorSlot other) => Priority(self) < Priority(other);
+
+        /// <summary>UNTANGLE, ANY TWO VEHICLES (Tad, 2026-11-14): "pick one and have it back up a little so the other one can get by - the one
+        /// that has the furthest distance still to travel goes, and the other one reverses a meter". True when <paramref name="self"/> is the
+        /// one that reverses: the two hold EACH OTHER (each one's traffic agent names the other), and self has less still to travel. Ties:
+        /// the lower right-of-way priority reverses, then a fixed order by position. Both machines compute the same answer.</summary>
+        public static bool ShouldReverseFor(MHEOperatorSlot self, MHEOperatorSlot other)
+            => ShouldReverse(self, out var from, out _) && from == other;
+
+        /// <summary>UNTANGLE RINGS (Tad, 2026-11-14, block 69: a reach truck waiting on Larry, Larry on Shirley, Shirley on the truck - no pair
+        /// waited on each other, so nobody moved for the rest of the block). Follow "held by" from <paramref name="self"/>; when it comes back
+        /// round to self (a pair is a ring of two), the member with the least still to travel reverses. True when that is self, with
+        /// <paramref name="from"/> = the vehicle self is held by (back away from it) and <paramref name="letBy"/> = the vehicle held by self (let
+        /// it go by). Every member computes the same answer.</summary>
+        public static bool ShouldReverse(MHEOperatorSlot self, out MHEOperatorSlot from, out MHEOperatorSlot letBy)
+        {
+            from = letBy = null;
+            if (self == null) return false;
+            var ring = new List<MHEOperatorSlot> { self };
+            var cur = self;
+            bool closed = false;
+            for (int i = 0; i < 6; i++)
+            {
+                var a = cur.GetComponent<EquipmentTrafficAgent>();
+                var next = a != null ? a.BlockedBy : null;
+                if (next == null || !next.IsOccupied) return false;
+                if (next == self) { closed = true; break; }
+                if (ring.Contains(next)) return false;   // a loop that doesn't pass through self: one of ITS members acts
+                ring.Add(next);
+                cur = next;
+            }
+            if (!closed || ring.Count < 2) return false;
+            var first = ring[0];
+            foreach (var m in ring) if (ReversesBefore(m, first)) first = m;
+            if (first != self) return false;
+            from = ring[1];                     // self is held by the next one round
+            letBy = ring[ring.Count - 1];       // and holds the last one
+            return true;
+        }
+
+        /// <summary>The untangle order: less still to travel reverses first; then the lower right-of-way priority; then a fixed order.</summary>
+        private static bool ReversesBefore(MHEOperatorSlot a, MHEOperatorSlot b)
+        {
+            if (a == b) return false;
+            var aa = a.GetComponent<EquipmentTrafficAgent>(); var ba = b.GetComponent<EquipmentTrafficAgent>();
+            float ra = aa != null ? aa.RemainingDistance : 0f, rb = ba != null ? ba.RemainingDistance : 0f;
+            if (Mathf.Abs(ra - rb) > 0.5f) return ra < rb;
+            int pa = Priority(a), pb = Priority(b);
+            if (pa != pb) return pa < pb;
+            Vector3 p = a.transform.position, q = b.transform.position;
+            return p.x != q.x ? p.x < q.x : p.z < q.z;
+        }
 
         // ── Who is out there ────────────────────────────────────────────────────────────────────────
 
@@ -298,6 +349,18 @@ namespace GameCore.Actors
         public int HonkCount { get; private set; }
         public int RollCount { get; private set; }
         public string ReportedReason { get; private set; }
+        /// <summary>Where this machine's driver is heading right now (zero = nowhere): set by each driver for the untangle rule.</summary>
+        public Vector3 Destination { get; set; }
+        /// <summary>Planar metres still to travel to <see cref="Destination"/> (0 when there is none).</summary>
+        public float RemainingDistance
+        {
+            get
+            {
+                if (Destination.sqrMagnitude < 0.0001f) return 0f;
+                Vector3 d = Destination - transform.position; d.y = 0f;
+                return d.magnitude;
+            }
+        }
         public bool FxShowing => _fx != null && _fx.activeSelf;
         public int FxLineCount => _lines != null ? _lines.Length : 0;
 

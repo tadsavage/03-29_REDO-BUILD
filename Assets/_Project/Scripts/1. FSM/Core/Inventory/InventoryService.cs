@@ -655,6 +655,9 @@ namespace GameCore.Inventory
         /// TryGetNextFreeSlot uses for inbound putaway — slot 1 fills first, e.g. 2A-1 then 2A-2,
         /// 2A-3...) — used once an order has been released to a particular staging lane via the
         /// Work Queue panel. See OrderService.ReleaseOrdersToLane / OrderData.AssignedLane.</summary>
+        /// <summary>Outbound slots only from the exit end (block 59). OFF since 2026-11-14 while isolating blocks 58-60.</summary>
+        public static bool ExitEndSlotsOnly = false;
+
         public bool TryFindStagingSlotInLane(int doorNumber, string lane, out LaneNamingService.LaneSlot slot, string forOrderId = null)
         {
             slot = default;
@@ -667,7 +670,28 @@ namespace GameCore.Inventory
             // AssignedLane before falling back to LanesInStage). That walked the selector straight into
             // the lane the dock stocker was filling instead of overflowing to the next free lane.
             if (StagingLaneAssignmentService.LaneHasInboundStock(this, doorNumber, lane)) return false;
-            return TryGetNextFreeSlot(doorNumber, lane, out slot, forOrderId);
+            if (!TryGetNextFreeSlot(doorNumber, lane, out slot, forOrderId)) return false;
+            if (!ExitEndSlotsOnly) return true;
+
+            // FROM THE EXIT END ONLY (Tad, 2026-11-14): outbound staging (pallet jacks, reach trucks) comes in from the lane's exit end;
+            // the door end is the dock stockers'. The next free slot from the door can sit BEHIND freight (a gap the loader left at the
+            // door end): a jack then came round and staged from the dock side. Take the first slot past the outermost freight instead,
+            // and report no slot when there is none (the lane is full from its exit end).
+            var laneSlots = LaneNamingService.GetLane(doorNumber, lane);
+            int outer = 0;
+            foreach (var s in laneSlots)
+                if (s.Slot > slot.Slot && GameCore.Labor.TrailerOffloadController.StagingDropBaseY(doorNumber, lane, s.Cell, null) > 1.15f + 0.05f)
+                    outer = Mathf.Max(outer, s.Slot);
+            if (outer == 0) return true;
+            foreach (var s in laneSlots)
+            {
+                if (s.Slot != outer + 1) continue;
+                if (IsStagingSlotReserved(s.Cell)) break;
+                slot = s;
+                return true;
+            }
+            slot = default;
+            return false;
         }
 
         /// <summary>

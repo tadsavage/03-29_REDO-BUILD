@@ -18,7 +18,7 @@ public class VehicleThrottleAudio : MonoBehaviour
     [SerializeField] private AudioClip honkClip;
 
     [Header("Backup Alarm Settings")]
-    [Tooltip("Plays once when the truck starts its final backing/pivot maneuver into the dock door (see TruckController.BeginReversingArcAroundPivot1 callers). Assign the truck-backing-up.wav clip.")]
+    [Tooltip("Plays once when the truck starts its final backing/pivot maneuver into the dock door (TruckController.BeginBackInArc). Assign the truck-backing-up.wav clip.")]
     [SerializeField] private AudioClip backupAlarmClip;
     [SerializeField] private float backupAlarmVolume = 0.6f;
 

@@ -204,6 +204,19 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             GoToRandomWaypoint();
         }
     }
+    public const int ReachTruckAvoidance = 10, DockStockerAvoidance = 20, PalletJackAvoidance = 40;
+
+    /// <summary>NavMeshAgent.avoidancePriority for a machine (lower = others give way to it): reach truck 10, dock stocker 20, jack 40.</summary>
+    public static int MachineAvoidancePriority(MHEOperatorSlot m)
+    {
+        switch (GameCore.Actors.EquipmentTraffic.RoleOf(m))
+        {
+            case GameCore.Actors.EquipmentRole.ReachTruck: return ReachTruckAvoidance;
+            case GameCore.Actors.EquipmentRole.DockStocker: return DockStockerAvoidance;
+            default: return PalletJackAvoidance;
+        }
+    }
+
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
@@ -239,9 +252,12 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         if (agent != null)
         {
             agent.updatePosition = false;
-            // Random priority helps resolve "head-on" deadlocks in narrow corridors or
-            // stairwells — the prioritized agent will claim the path while the other yields.
-            agent.avoidancePriority = Random.Range(0, 100);
+            // Machines get a FIXED priority by role (nav review step 3, 2026-11-14): lower = more important in Unity, and the order
+            // is the traffic rules' order, reach truck > dock stocker > pallet jack. It used to be random for every agent, so the
+            // NavMesh's own avoidance picked a different winner every session and ignored "reach trucks first".
+            // Everything else (people, rats, trucks) keeps the random priority, which breaks head-on deadlocks in narrow corridors.
+            var machine = GetComponent<MHEOperatorSlot>();
+            agent.avoidancePriority = machine != null ? MachineAvoidancePriority(machine) : Random.Range(0, 100);
         }
 
         if (footstepClip != null)

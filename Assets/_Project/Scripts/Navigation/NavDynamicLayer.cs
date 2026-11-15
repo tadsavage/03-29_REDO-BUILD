@@ -20,11 +20,14 @@ namespace GameCore.Navigation
         /// (<see cref="MachineClearance.VehicleSpacingMeters"/>) the scripted moves enforce, so a route is planned that the guard will not
         /// then hold. A machine already inside that buffer of <paramref name="self"/> (a jack parked between two others) is NOT grown, or the
         /// machine could never leave its own parking row: the guard lets a vehicle inside the buffer move away.</param>
-        public static int Refresh(NavGrid grid, MHEOperatorSlot self, float machineInflate = 0f)
+        /// <param name="alsoBlock">A MANNED machine to block as well: one the caller has been held behind, standing still, long enough to
+        /// plan round it (a reach truck working a lane end the jack was queued behind - block 66, OG2624's stalls at lane 1B).</param>
+        public static int Refresh(NavGrid grid, MHEOperatorSlot self, float machineInflate = 0f, MHEOperatorSlot alsoBlock = null)
         {
             if (grid == null) return 0;
             grid.ClearDynamic();
             int cells = 0;
+            if (alsoBlock != null && alsoBlock != self) cells += BlockMachine(grid, alsoBlock, machineInflate);
 
             foreach (var m in MachineClearance.AllMachines())
             {

@@ -29,6 +29,15 @@ namespace GameCore.Actors
             else yield return JackNavLeg(target, phase);
         }
 
+        /// <summary>Set around a DriveJackTo whose leg must ARRIVE facing this way (the staging line-up); zero = any heading.</summary>
+        private Vector3 _gridArriveFacing;
+
+        /// <summary>A manned machine standing still that this jack was held behind on open floor: the next grid plan (until
+        /// <see cref="_gridAvoidUntil"/>, unscaled time) routes round it instead of waiting behind it.</summary>
+        private MHEOperatorSlot _gridAvoid;
+        private float _gridAvoidUntil;
+        private const float GridAvoidRealSeconds = 30f;
+
         private IEnumerator JackGridLeg(Vector3 target, string phase)
         {
             _jackLegOk = false;
@@ -55,8 +64,11 @@ namespace GameCore.Actors
                 }
                 float t0 = Time.realtimeSinceStartup;
                 // The floor as it is right now: parked machines and pallets standing on it. Taken at plan time, so a re-plan sees new things.
-                int dynCells = NavDynamicLayer.Refresh(planner.Grid, _jack);
-                var res = planner.PlanNearest(profile, jt.position, NavGrid.HeadingOf(jt.forward), target, -1, GridLegGoalRadius, out float moved);
+                int dynCells = NavDynamicLayer.Refresh(planner.Grid, _jack, 0f, Time.unscaledTime < _gridAvoidUntil ? _gridAvoid : null);
+                // An arrival heading (the staging line-up: facing AWAY from the lane, ready to back in) is planned in, so the jack comes round
+                // on open floor and arrives facing it, instead of spinning 180 degrees in place at the lane mouth (Tad, 2026-11-14).
+                int goalHeading = _gridArriveFacing.sqrMagnitude > 0.0001f ? NavGrid.HeadingOf(_gridArriveFacing) : -1;
+                var res = planner.PlanNearest(profile, jt.position, NavGrid.HeadingOf(jt.forward), target, goalHeading, GridLegGoalRadius, out float moved);
                 float planMs = (Time.realtimeSinceStartup - t0) * 1000f;
                 if (!res.Ok)
                 {
@@ -65,7 +77,7 @@ namespace GameCore.Actors
                     yield break;
                 }
                 Debug.Log($"[GridNav] '{name}' '{phase}': {res.Smoothed.Count - 1} legs, cost {res.Cost:0.0}, goal moved {moved:0.0} m, {dynCells} dynamic cells, {planMs:0.0} ms (grid v{res.GridVersion}).");
-                _legTarget = Flat(target, jt.position.y);
+                SetLegTarget(Flat(target, jt.position.y));
 
                 bool interrupted = false;
                 for (int i = 1; i < res.Smoothed.Count; i++)
@@ -103,9 +115,12 @@ namespace GameCore.Actors
             if (left > 0.5f && left <= GridLegCloseMaxDist)
             {
                 Vector3 to = Flat(target, jt.position.y) - jt.position; to.y = 0f;
-                yield return JackFace(to);
+                // Arriving with a set heading: keep it and slide the last bit (a reverse when the target is behind), never turn round for it.
+                bool keepHeading = _gridArriveFacing.sqrMagnitude > 0.0001f;
+                bool behind = keepHeading && Vector3.Dot(to, jt.forward) < 0f;
+                if (!keepHeading) yield return JackFace(to);
                 if (_jack == null) yield break;
-                yield return JackMoveStraight(target, JackDriveSpeed);
+                yield return JackMoveStraight(target, behind ? JackReverseSpeed : JackDriveSpeed);
                 if (_jack == null) yield break;
                 if (_jackLegQueued) { _jackLegOk = true; yield break; }
             }

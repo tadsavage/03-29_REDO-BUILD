@@ -16,7 +16,12 @@ namespace GameCore.Navigation
             public bool RequireFloor;
             /// <summary>Import rack aisles (cells between racks, their travel direction) from the live racks.</summary>
             public bool ImportAisles;
-            public static Options Default => new Options { ClearanceCost = 0.75f, RequireFloor = true, ImportAisles = true };
+            /// <summary>Extra cost to enter a staging-lane tile, and no smoothing across one (Tad, 2026-11-14): machines go round the lanes,
+            /// not across them - staged freight stands there, dock stockers feed the door end and jacks / reach trucks the exit end.
+            /// Block 58: with lanes filled deep, the planner sent jacks straight across the lanes' exit ends into staged pallets.
+            /// A cost, not a block: a lane is still crossed when there is truly no other way.</summary>
+            public float LaneCost;
+            public static Options Default => new Options { ClearanceCost = 0.75f, RequireFloor = true, ImportAisles = true, LaneCost = 0f };   // 6 = block 59; off while isolating blocks 58-60
         }
 
         /// <summary>A cell is blocked when a REAL (non-buffer) placed object in it is solid by <see cref="MachineClearance.IsSolidData"/>
@@ -49,6 +54,15 @@ namespace GameCore.Navigation
             }
 
             if (opt.ImportAisles) ImportAisles(nav);
+
+            if (opt.LaneCost > 0f)
+                for (int x = 0; x < nav.Width; x++)
+                    for (int z = 0; z < nav.Height; z++)
+                    {
+                        if (nav.IsStaticBlocked(x, z) || !LaneNamingService.TryGetSlot(new Vector2Int(x, z), out _)) continue;
+                        nav.AddCost(x, z, opt.LaneCost);
+                        nav.SetNoSmooth(x, z, true);
+                    }
 
             if (opt.ClearanceCost > 0f)
             {

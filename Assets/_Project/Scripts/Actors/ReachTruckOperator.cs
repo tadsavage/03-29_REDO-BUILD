@@ -2971,6 +2971,8 @@ namespace GameCore.Actors
         // REAL seconds with a warning rather than hanging the truck's task for ever.
         private const float JackWaitGiveUpReal = 30f;
         private const float RecoverAfterReal = 3f;      // held this long behind a stationary machine: try backing up
+        private const float HeadOnClearPast = 2.5f;     // a head-on reverse ends this far past the aisle's last bay (out of the jacks' way)
+        private const float HeadOnMouthBackOff = 3f;    // a truck in the way at an aisle mouth backs this far off it
         private const int MaxRecoveries = 2;
         private float _jackWaitReal;
         private bool _jackWaitLogged;
@@ -3043,26 +3045,29 @@ namespace GameCore.Actors
         private IEnumerator TryPassJack(Vector3 dest, System.Action<bool> done)
         {
             bool ok = false;
-            var jack = _blockingJack;
+            // Whatever is in the way: a jack, another reach truck or a dock stocker (Tad, 2026-11-14).
+            var jack = _lastBlocker != null ? _lastBlocker : _blockingJack;
             string why = null;
             List<Vector3> route = null;
             if (jack != null && GameCore.Actors.AisleTraffic.TryPlanReachPass(_operatorSlot, jack, dest, out route, out why))
             {
-                // The far end must be on the truck's NavMesh, or handing back to the agent would snap it somewhere else.
+                // The far end must be on the truck's NavMesh when the NavMesh leg takes over again (a grid leg re-plans from anywhere).
                 Vector3 end = route[route.Count - 1];
-                if (_vehicleAgent != null && NavSample.OnAgentMesh(_vehicleAgent, end, 0.6f, out _))
+                if (GameCore.Navigation.NavGridService.UseForReachTrucks || (_vehicleAgent != null && NavSample.OnAgentMesh(_vehicleAgent, end, 0.6f, out _)))
                 {
-                    Debug.Log($"[ReachTruckOperator] '{name}' passing pallet jack {jack.name} in the aisle (right of way).");
+                    Debug.Log($"[ReachTruckOperator] '{name}' passing {jack.name} in the aisle along the far rack (right of way).");
                     _lastPassRefusal = null;
-                    SetDriveMode(DriveMode.Manual, "passing a pallet jack");
+                    SetDriveMode(DriveMode.Manual, "passing a vehicle");
                     ok = true;
-                    foreach (var w in route)
+                    GameCore.Actors.MachineClearance.SetPassIgnore(_operatorSlot, jack);   // drive straight past it: its body is ignored
+                    try
                     {
-                        bool reached = false;
-                        yield return PassLeg(w, r => reached = r);
-                        if (!reached) { ok = false; break; }
+                        // Rules and avoidance OFF for the pass (Tad, 2026-11-14): just drive the route.
+                        foreach (var w in route) yield return PassThroughLeg(w);
                     }
+                    finally { GameCore.Actors.MachineClearance.SetPassIgnore(_operatorSlot, null); }
                     if (!ok) Debug.Log($"[ReachTruckOperator] '{name}' stopped its pass round {jack.name} short - something in the way.");
+                    else _jackWaitReal = 0f;
                 }
             }
             else if (why != null && why != _lastPassRefusal)
@@ -3071,6 +3076,31 @@ namespace GameCore.Actors
                 Debug.Log($"[ReachTruckOperator] '{name}' held behind pallet jack {(jack != null ? jack.name : "?")}: {why}.");
             }
             done?.Invoke(ok);
+        }
+
+        /// <summary>One leg of a PASS (Tad, 2026-11-14): turn to face it, drive to it. No clearance, buffer or traffic checks at all - the pass
+        /// line is planned 1.5 m off the passed vehicle on its open side (AisleTraffic.PlanPassAround) and is simply driven.</summary>
+        private IEnumerator PassThroughLeg(Vector3 target)
+        {
+            Transform t = transform;
+            Vector3 flat = new Vector3(target.x, t.position.y, target.z);
+            Vector3 to = flat - t.position; to.y = 0f;
+            if (to.sqrMagnitude > 0.0025f)
+            {
+                Quaternion want = Quaternion.LookRotation(to.normalized);
+                while (Quaternion.Angle(t.rotation, want) > FaceThreshold)
+                {
+                    t.rotation = Quaternion.RotateTowards(t.rotation, want, TurnSpeed * Time.deltaTime);
+                    yield return null;
+                }
+                t.rotation = want;
+            }
+            while (PlanarDist(t.position, flat) > 0.05f)
+            {
+                t.position = Vector3.MoveTowards(t.position, flat, DriveSpeed * Time.deltaTime);
+                yield return null;
+            }
+            t.position = flat;
         }
 
         /// <summary>One straight leg of a pass: face it (backing straight when it lies behind), then drive, never into anything.</summary>
@@ -3177,12 +3207,64 @@ namespace GameCore.Actors
             return true;
         }
 
+        private bool _headOnHandled;
+
+        /// <summary>HEAD-ON WITH A JACK (blocks 59, 60, 65): the jack is in an aisle driving out WITH its traffic and this truck faces it, against
+        /// the traffic - inside the aisle or waiting at its mouth. A jack gives way to a reach truck but never reverses in an aisle, so the truck
+        /// backs off: inside, straight back out through the far end with the traffic; at the mouth, up to 3 m back from it. Sets
+        /// <see cref="_headOnHandled"/> when it applied (moved or reported).</summary>
+        private IEnumerator HeadOnBackOff(MHEOperatorSlot jack, Vector3 heading)
+        {
+            _headOnHandled = false;
+            if (jack == null || !OrderSelectionTaskDriver.TryFindAisleAt(jack.transform.position, 1.5f, out var aisle)) yield break;
+            if (AisleTraffic.AisleDir(heading, aisle.Travel) >= 0 || AisleTraffic.AisleDir(jack.transform.forward, aisle.Travel) <= 0) yield break;
+            if (!EquipmentTraffic.TryBeginManeuver(_operatorSlot)) yield break;
+            _headOnHandled = true;
+            _recoveries = MaxRecoveries;   // one go: the caller re-plans from wherever this ends
+            Vector3 back = -Flat(heading).normalized;
+            bool inside = OrderSelectionTaskDriver.TryFindAisleAt(transform.position, 0.5f, out var mine) && mine.Prefix == aisle.Prefix;
+            float want = inside ? (aisle.AlongMax + HeadOnClearPast) - aisle.Along(transform.position) : HeadOnMouthBackOff;
+            float rev = want > 0.5f
+                ? EquipmentTraffic.PickSafeReverse(_operatorSlot, back, new[] { want, Mathf.Min(want, 4f), Mathf.Min(want, 2f), Mathf.Min(want, 1f) })
+                : 0f;
+            string where = inside ? "in" : "at the mouth of";
+            if (rev > 0f)
+            {
+                Debug.Log($"[ReachTruckOperator] '{name}': head-on with pallet jack {jack.name} {where} aisle {aisle.Prefix.TrimEnd('-')} (it is driving out with the traffic) - backing off {rev:0.0}m.");
+                yield return EquipmentTraffic.ReverseStraight(_operatorSlot, back, rev, 1.2f, _vehicleAgent);
+                _jackWaitReal = 0f;
+            }
+            else EquipmentTraffic.ReportBlockage(_operatorSlot, $"head-on with {jack.name} {where} aisle {aisle.Prefix.TrimEnd('-')} and no room to back off");
+            EquipmentTraffic.EndManeuver(_operatorSlot);
+        }
+
         /// <summary>Held behind a stationary machine for a while: take the maneuver lease and back up (1.5/1.0/0.5 m, whichever is safe),
         /// then the caller re-issues its path. Capped; if there is nowhere safe to go the blockage is reported and the truck stays put.</summary>
         private IEnumerator ReachJamRecovery(Vector3 heading)
         {
-            if (_operatorSlot == null || _jackWaitReal < RecoverAfterReal || _recoveries >= MaxRecoveries) yield break;
+            if (_operatorSlot == null) yield break;
+            // UNTANGLE (Tad, 2026-11-14): held by a vehicle that is held by this truck too - the one with less still to travel reverses a
+            // metre and lets the other by (EquipmentTraffic.ShouldReverseFor; the jack computes the same answer and stays put).
+            // ...also a RING (this truck waits on A, A on B, B on this truck): the member with the least still to travel reverses.
+            if (_jackWaitReal >= 1.5f && EquipmentTraffic.ShouldReverse(_operatorSlot, out var untangleFrom, out var untangleLetBy))
+            {
+                yield return UntangleReverse(untangleLetBy, untangleFrom, heading);
+                yield break;
+            }
+            if (_jackWaitReal < RecoverAfterReal || _recoveries >= MaxRecoveries) yield break;
             var blocker = GameCore.Actors.MachineClearance.LastMachineHit;
+
+            // HEAD-ON WITH A JACK IN AN AISLE (block 59, 2026-11-14): this truck drove AGAINST the aisle's traffic (it was working a rack when
+            // the jacks came in) and met a jack nose to nose. The jack gives way to a reach truck, but a jack never reverses in an aisle and
+            // others queue behind it, so neither moved until both timed out - three jacks and the truck stuck for the rest of the block.
+            // The truck is the one that may reverse and go either way: back out WITH the traffic, through the far end, then re-route.
+            // ...and the same at the MOUTH (block 65): a truck waiting just outside the far end to drive in against the traffic sat in the
+            // way of the jacks driving out, which give way to it and never reverse. Judge by the JACK's aisle: if the jack is in one, heading
+            // out with its traffic, and this truck faces in against it, the truck is in its way and is the one that moves.
+            if (blocker != null && blocker.IsPalletJack && blocker.IsOccupied)
+                yield return HeadOnBackOff(blocker, heading);
+            if (_headOnHandled) { _headOnHandled = false; yield break; }
+
             // Right of way: a lower-priority machine in front backs off or gets driven round first; the truck only reverses if that fails.
             if (blocker != null && EquipmentTraffic.Yields(blocker, _operatorSlot) && _jackWaitReal < GoAroundGiveUpReal) yield break;
             var ba = blocker != null ? blocker.GetComponent<EquipmentTrafficAgent>() : null;
@@ -3198,9 +3280,84 @@ namespace GameCore.Actors
                 EquipmentTraffic.ReportBlockage(_operatorSlot, "still blocked after backing up; not retrying");
         }
 
+        private float _nextUntangleReal;
+
+        /// <summary>Reverse a metre away from <paramref name="other"/> (its body ignored, so an overlap can't pin the truck), then let it by:
+        /// it ignores this truck until it is 6 m clear or 4 real seconds pass, so the two don't snag again.</summary>
+        private IEnumerator UntangleReverse(MHEOperatorSlot other, MHEOperatorSlot from, Vector3 heading)
+        {
+            if (other == null || Time.unscaledTime < _nextUntangleReal || !EquipmentTraffic.TryBeginManeuver(_operatorSlot)) yield break;
+            _nextUntangleReal = Time.unscaledTime + 8f;
+            Vector3 back = -Flat(heading).normalized;
+            MachineClearance.SetPassIgnore(_operatorSlot, from != null ? from : other);   // back away from what holds it
+            float d = EquipmentTraffic.PickSafeReverse(_operatorSlot, back, new[] { 1.0f, 0.5f });
+            Debug.Log($"[ReachTruckOperator] '{name}': tangled with {other.name} - it has further to go, so this truck reverses {d:0.0}m and lets it by.");
+            if (d > 0f) yield return EquipmentTraffic.ReverseStraight(_operatorSlot, back, d, 1.2f, _vehicleAgent);
+            MachineClearance.SetPassIgnore(_operatorSlot, null);
+            EquipmentTraffic.EndManeuver(_operatorSlot);
+            if (!MachineClearance.Ignores(other, _operatorSlot)) MachineClearance.SetPassIgnore(other, _operatorSlot);
+            for (float w = 0f; w < 4f && other != null && PlanarDist(other.transform.position, transform.position) < 6f; w += Time.unscaledDeltaTime)
+                yield return null;
+            if (other != null && MachineClearance.Ignores(other, _operatorSlot)) MachineClearance.SetPassIgnore(other, null);
+            _jackWaitReal = 0f;
+        }
+
+        private float _nextEntryPoll;
+        private string _entryGrantedPrefix;
+        private float _entryGrantedAt;
+
+        /// <summary>RULE 6 (AisleTraffic.MayEnterAisle): this step drives into an aisle from outside - wait at the mouth while a machine
+        /// inside drives the other way. Going in against the aisle's travel direction also stops new jacks entering until it is in.</summary>
+        private IEnumerator ReachAisleEntryGate(Vector3 heading)
+        {
+            if (_operatorSlot == null || Time.unscaledTime < _nextEntryPoll) yield break;
+            _nextEntryPoll = Time.unscaledTime + 0.2f;
+            Vector3 c = transform.position;
+            if (!AisleTraffic.IsAisleEntryStep(c, heading, 1.5f, out var lane)) yield break;
+            if (lane.Prefix == _entryGrantedPrefix && Time.unscaledTime - _entryGrantedAt < AisleTraffic.TokenGrantReal) yield break;
+            int dir = AisleTraffic.AisleDir(heading, lane.Travel);
+            float waited = 0f;
+            bool logged = false, agentStopped = false, backedOff = false;
+            while (_operatorSlot != null && !AisleTraffic.MayEnterAisle(_operatorSlot, lane.Prefix, lane.Travel, dir, out var who))
+            {
+                if (!logged)
+                {
+                    logged = true;
+                    Debug.Log($"[AisleToken] '{name}': waiting at the mouth of aisle {lane.Prefix.TrimEnd('-')} for {(who != null ? who.name : "traffic")} (driving the other way).");
+                }
+                if (!agentStopped && _vehicleAgent != null && _vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh)
+                { _vehicleAgent.isStopped = true; _vehicleAgent.velocity = Vector3.zero; agentStopped = true; }
+                var ta = GetComponent<EquipmentTrafficAgent>();
+                if (ta != null) ta.NoteHeld(who, who == null ? "aisle token" : null);
+                waited += EquipmentTraffic.RealDt();
+                // A jack driving out is held up by THIS truck standing at the mouth: get out of its way (it never reverses in an aisle).
+                if (who != null && who.IsPalletJack && !backedOff)
+                {
+                    var wa = who.GetComponent<EquipmentTrafficAgent>();
+                    if (wa != null && wa.BlockedBy == _operatorSlot)
+                    {
+                        backedOff = true;
+                        yield return HeadOnBackOff(who, heading);
+                        _headOnHandled = false;
+                    }
+                }
+                if (waited >= AisleTraffic.TokenWaitMaxReal)
+                {
+                    ThrottledLog.Warn("aisle-token-" + name, $"[AisleToken] '{name}' waited {AisleTraffic.TokenWaitMaxReal:0}s at the mouth of aisle {lane.Prefix.TrimEnd('-')} - going in anyway.", 30f);
+                    AisleTraffic.ReleaseAisleEntry(_operatorSlot);
+                    break;
+                }
+                yield return null;
+            }
+            if (agentStopped && _vehicleAgent != null && _vehicleAgent.isActiveAndEnabled && _vehicleAgent.isOnNavMesh) _vehicleAgent.isStopped = false;
+            if (logged) { var ta = GetComponent<EquipmentTrafficAgent>(); if (ta != null) ta.NoteClear(true); }
+            _entryGrantedPrefix = lane.Prefix; _entryGrantedAt = Time.unscaledTime;
+        }
+
         /// <summary>Stop at the mouth of an aisle, look both ways, wait until the cross aisle is clear (no automatic horn).</summary>
         private IEnumerator ReachAisleExitGate(Vector3 heading)
         {
+            yield return ReachAisleEntryGate(heading);   // rule 6 at the other end of the aisle: going IN
             if (_operatorSlot == null || Time.unscaledTime < _nextExitPoll) yield break;
             _nextExitPoll = Time.unscaledTime + 0.2f;
             Vector3 c = transform.position;

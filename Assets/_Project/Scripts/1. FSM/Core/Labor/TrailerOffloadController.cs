@@ -1023,6 +1023,13 @@ namespace GameCore.Labor
         /// order's pallets are being picked for it and the selector's pallet jack backs in from the open end. Seen
         /// live 2026-10-16: an inbound trailer at door 1 dropped two pallets at 1A-4/1A-5 while an order released
         /// to 1A was mid-pick, and the jack then reversed straight through them to reach 1A-1.</summary>
+        /// <summary>The lane is claimed by an outbound order but nothing outbound is in it or on its way.</summary>
+        private static bool OutboundClaimIsEmpty(InventoryService inv, int door, string lane)
+        {
+            if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null || inv == null) return false;
+            return !inv.LaneHasStagedOutboundPallets(door, lane) && !orders.LaneHasOutboundWorkUnderway(door, lane);
+        }
+
         private static bool LaneClaimedByOutboundOrder(int door, string lane)
         {
             if (!ServiceLocator.TryGet<OrderService>(out var orders) || orders == null) return false;
@@ -1033,11 +1040,16 @@ namespace GameCore.Labor
                                        out int door, out string laneLetter, out Vector2Int cell, out int tier)
         {
             door = 0; laneLetter = null; cell = default; tier = 0;
-            foreach (var (d, lane) in LaneNamingService.AllLanes())
+            // This truck's door's lanes from the last letter down (E, D, C...): inbound fills from the top, outbound from A (Tad, 2026-11-14).
+            var order = doorNumber > 0 ? StagingLaneAssignmentService.InboundLaneOrder(doorNumber) : LaneNamingService.AllLanes();
+            foreach (var (d, lane) in order)
             {
                 if (doorNumber > 0 && d != doorNumber) continue; // only this truck's dock-door lanes
                 if (!inv.LaneAcceptsPutaway(d, lane)) continue;  // Inbound or Both only
-                if (LaneClaimedByOutboundOrder(d, lane)) continue;
+                // A lane an outbound order only CLAIMED (released, nothing picked or staged yet) is fair game for the trailer at its own
+                // door (Tad, 2026-11-14): slot 8 starts with every lane claimed by released Pending orders and no trailer could unload.
+                // That order stages elsewhere when it is ready (the outbound slot finder refuses a lane holding inbound stock).
+                if (LaneClaimedByOutboundOrder(d, lane) && !OutboundClaimIsEmpty(inv, d, lane)) continue;
                 if (!TryFindSlotInLane(inv, queue, d, lane, doorPos, out var chosenCell, out int chosenTier)) continue;
 
                 door = d; laneLetter = lane; cell = chosenCell; tier = chosenTier;

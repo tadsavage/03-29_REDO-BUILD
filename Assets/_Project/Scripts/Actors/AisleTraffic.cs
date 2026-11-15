@@ -16,7 +16,7 @@ namespace GameCore.Actors
     /// </summary>
     public static class AisleTraffic
     {
-        public const float ReachTruckBuffer = 1.0f;    // rule 1: jacks never come closer than this to a manned reach truck
+        public const float ReachTruckBuffer = 0.5f;    // rule 1: jacks never come closer than this to a manned reach truck (was 1 m; Tad 2026-11-14)
         public const float ExitPauseGame = 1.0f;       // rule 3: stop this long (game seconds = Time.deltaTime units) at an aisle end
         public const float ExitWaitMaxReal = 20f;      // ...and never wait longer than this for the cross-aisle to clear (REAL seconds)
         public const float ExitClearRadius = 5f;       // a machine moving within this of the exit zone is cross traffic
@@ -33,7 +33,123 @@ namespace GameCore.Actors
         private static readonly Vector3[] s_corners = new Vector3[4];
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { s_machines.Clear(); s_machinesAt = -10f; s_motion.Clear(); s_exitWaitSince.Clear(); }
+        private static void ResetStatics()
+        {
+            s_machines.Clear(); s_machinesAt = -10f; s_motion.Clear(); s_exitWaitSince.Clear();
+            s_motionDir.Clear(); s_entries.Clear(); s_againstWaiting.Clear();
+        }
+
+        // ── Rule 6 (nav review step 3b, 2026-11-14): ONE DIRECTION PER AISLE ───────────────────────────────────────
+        // An aisle carries traffic one way at a time. Before driving into an aisle a machine asks MayEnterAisle at the mouth:
+        // - it waits while any manned machine inside (or one just granted entry) is DRIVING the other way along the aisle;
+        //   standing / working / sideways machines don't count (the queue, pass and buffer rules already handle those);
+        // - a reach truck / dock stocker waiting to go in AGAINST the aisle's travel direction (jacks only ever drive with it) is
+        //   served first: new jacks wait at the mouth until it is in, so the jacks inside drain and it is never starved;
+        // - never a deadlock: if the machine in the way is itself held up by the one asking, the asker goes (waiting can't help,
+        //   the old rules sort it out), and nobody waits longer than TokenWaitMaxReal.
+        public const float TokenWaitMaxReal = 30f;      // longest wait at a mouth (REAL seconds) before going in anyway, logged
+        public const float TokenGrantReal = 15f;        // an entry granted at the mouth counts as "inside" for this long
+        private const float AgainstWaitFreshReal = 1.0f;
+
+        private static readonly Dictionary<MHEOperatorSlot, Vector3> s_motionDir = new();
+        private static readonly Dictionary<MHEOperatorSlot, (string prefix, int dir, float until)> s_entries = new();
+        private static readonly Dictionary<string, (MHEOperatorSlot who, float at)> s_againstWaiting = new();
+
+        /// <summary>+1 = driving with the aisle's travel direction, -1 = against it, 0 = standing still / sideways.</summary>
+        public static int AisleDir(Vector3 dir, Vector3 travel)
+        {
+            dir.y = 0f; travel.y = 0f;
+            if (dir.sqrMagnitude < 0.0001f || travel.sqrMagnitude < 0.0001f) return 0;
+            float d = Vector3.Dot(dir.normalized, travel.normalized);
+            return d > 0.5f ? 1 : d < -0.5f ? -1 : 0;
+        }
+
+        /// <summary>The way a machine already in an aisle is driving along it: its last movement (0 when it is not moving).</summary>
+        private static int OccupantDir(MHEOperatorSlot m, Vector3 travel)
+        {
+            if (!IsMoving(m)) return 0;
+            return s_motionDir.TryGetValue(m, out var d) ? AisleDir(d, travel) : 0;
+        }
+
+        /// <summary>RULE 6: may <paramref name="self"/> drive into aisle <paramref name="prefix"/> (travel direction <paramref name="travel"/>)
+        /// going <paramref name="myDir"/>? True grants it (the entry counts as inside for <see cref="TokenGrantReal"/>). False names who
+        /// it waits for. Call every frame while waiting at the mouth.</summary>
+        public static bool MayEnterAisle(MHEOperatorSlot self, string prefix, Vector3 travel, int myDir, out MHEOperatorSlot waitFor)
+        {
+            waitFor = null;
+            if (self == null || string.IsNullOrEmpty(prefix)) return true;
+            float now = Time.unscaledTime;
+            bool isJack = self.IsPalletJack;
+
+            // Who is in there, and which way are they going?
+            MHEOperatorSlot against = null;
+            foreach (var m in Machines)
+            {
+                if (m == null || m == self || !m.IsOccupied) continue;
+                bool granted = s_entries.TryGetValue(m, out var e) && e.prefix == prefix && e.until >= now;
+                bool inside = OrderSelectionTaskDriver.TryFindAisleAt(OutlineCentre(m), 0.5f, out var a) && a.Prefix == prefix;
+                if (!granted && !inside) continue;
+                int od = inside && IsMoving(m) ? OccupantDir(m, travel) : granted ? e.dir : 0;
+                if (od == 0 || myDir == 0 || od == myDir) continue;
+                // It waits on me. A JACK asking goes (me waiting too would be a deadlock). A reach truck / dock stocker asking does NOT drive
+                // into it (block 65: that sent a truck nose to nose with a jack driving out); it backs off instead (ReachAisleEntryGate).
+                if (self.IsPalletJack && IsHeldBy(m, self)) continue;
+                against = m;
+                break;
+            }
+            if (against != null)
+            {
+                if (!isJack && myDir < 0) s_againstWaiting[prefix] = (self, now);
+                waitFor = against;
+                return false;
+            }
+
+            // A reach truck / dock stocker queued to go in against the traffic goes first.
+            if (isJack && s_againstWaiting.TryGetValue(prefix, out var w) && w.who != null && w.who != self && now - w.at <= AgainstWaitFreshReal
+                && !IsHeldBy(w.who, self))
+            {
+                waitFor = w.who;
+                return false;
+            }
+
+            if (s_againstWaiting.TryGetValue(prefix, out var mine) && mine.who == self) s_againstWaiting.Remove(prefix);
+            s_entries[self] = (prefix, myDir, now + TokenGrantReal);
+            return true;
+        }
+
+        /// <summary>Forget a grant (the machine gave up on the aisle, or went in anyway after the cap).</summary>
+        public static void ReleaseAisleEntry(MHEOperatorSlot self)
+        {
+            if (self == null) return;
+            s_entries.Remove(self);
+            string drop = null;
+            foreach (var kv in s_againstWaiting) if (kv.Value.who == self) { drop = kv.Key; break; }
+            if (drop != null) s_againstWaiting.Remove(drop);
+        }
+
+        private static Vector3 OutlineCentre(MHEOperatorSlot m)
+        {
+            MachineClearance.WorldCorners(m, s_corners);
+            return (s_corners[0] + s_corners[1] + s_corners[2] + s_corners[3]) * 0.25f;
+        }
+
+        private static bool IsHeldBy(MHEOperatorSlot m, MHEOperatorSlot by)
+        {
+            var ta = m != null ? m.GetComponent<EquipmentTrafficAgent>() : null;
+            return ta != null && ta.BlockedBy == by;
+        }
+
+        /// <summary>A step from <paramref name="p"/> along <paramref name="dir"/> that enters an aisle through one of its ends from outside.</summary>
+        internal static bool IsAisleEntryStep(Vector3 p, Vector3 dir, float look, out OrderSelectionTaskDriver.AisleLane lane)
+        {
+            lane = default;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.0001f) return false;
+            dir.Normalize();
+            if (OrderSelectionTaskDriver.TryFindAisleAt(p, 0f, out _)) return false;
+            if (!OrderSelectionTaskDriver.TryFindAisleAt(p + dir * look, 0f, out lane)) return false;
+            return Mathf.Abs(Vector3.Dot(dir, lane.Travel)) >= 0.5f;
+        }
 
         public static IReadOnlyList<MHEOperatorSlot> Machines
         {
@@ -64,6 +180,7 @@ namespace GameCore.Actors
             Vector3 d = p - s.p; d.y = 0f;
             bool mv = d.magnitude > MovingMinStep;
             s_motion[m] = (p, now, mv);
+            if (mv) s_motionDir[m] = d;
             return mv;
         }
 
@@ -121,86 +238,94 @@ namespace GameCore.Actors
             }
         }
 
-        /// <summary>Waypoints for reach truck <paramref name="rt"/> to drive round pallet jack <paramref name="jack"/> in an aisle, on the side
-        /// with more room, ending clear past it. False (with <paramref name="why"/> for the log) when rule 5 says wait: another manned jack
-        /// within 2 bays of this one, no room beside it, or the truck's stop is beside the jack anyway. <paramref name="why"/> is null when
-        /// the jack is not in an aisle (open floor: NavMesh avoidance handles it).</summary>
-        public static bool TryPlanReachPass(MHEOperatorSlot rt, MHEOperatorSlot jack, Vector3 dest, out List<Vector3> route, out string why)
+        /// <summary>The passer's root drives this far to the side of the passed vehicle's root (Tad, 2026-11-14).</summary>
+        public const float PassOffsetFromVehicle = 1.5f;
+        private const float PassRoomProbe = 4f;   // how far to each side of the passed vehicle the open space is measured
+
+        /// <summary>PASSING, ANYWHERE (Tad, 2026-11-14): "1.5 from the center of the VEHICLE we are passing, on the side of the vehicle that
+        /// has the most space, then we turn off rules or other avoidance and just pass through." Nothing here depends on aisles, so it works on
+        /// any map: the side with more open floor (racks / walls / solids only; machines don't count) is chosen, the passer's root drives the
+        /// line PassOffsetFromVehicle from the passed vehicle's root on that side, from where it swings over (at most PassAngleDeg) to a
+        /// passer length past the vehicle's far end (or the destination, if that comes first). In an aisle the pass runs parallel to it.
+        /// The caller drives this route with every clearance / traffic check OFF (and the passed vehicle ignored).</summary>
+        public static bool PlanPassAround(MHEOperatorSlot passer, MHEOperatorSlot blocker, Vector3 dest, out List<Vector3> route)
         {
-            route = null; why = null;
-            if (rt == null || jack == null) return false;
-            Vector3 jc = jack.transform.position - jack.transform.forward * 1.0f;
-            if (!OrderSelectionTaskDriver.TryFindAisleAt(jc, 0.5f, out var lane)) return false;
+            route = null;
+            if (passer == null || blocker == null) return false;
+            Vector3 pc = passer.transform.position, bc = blocker.transform.position;
+            Vector3 f = bc - pc; f.y = 0f;
+            if (f.sqrMagnitude < 0.01f) { f = passer.transform.forward; f.y = 0f; }
+            f.Normalize();
+            // In an aisle, pass parallel to it (whichever way along it the blocker lies).
+            if (OrderSelectionTaskDriver.TryFindAisleAt(bc, 1.5f, out var lane))
+                f = Vector3.Dot(lane.Travel, f) >= 0f ? lane.Travel : -lane.Travel;
+            Vector3 right = Vector3.Cross(Vector3.up, f);
 
-            float rtAlong = lane.Along(rt.transform.position);
-            Span(lane, jack, out float jRear, out float jFront, out float jLatMin, out float jLatMax);
-            float jMid = (jRear + jFront) * 0.5f;
-            float dir = jMid >= rtAlong ? 1f : -1f;            // which way along the aisle the truck is driving past it
-            float pitch = lane.BayPitch > 0.5f ? lane.BayPitch : 2.65f;
+            float side = FreeRoom(bc, right) >= FreeRoom(bc, -right) ? 1f : -1f;
+            Vector3 offset = right * side * PassOffsetFromVehicle;
 
-            // Rule 5: another jack within 2 bays (front or rear) of the one ahead -> wait for safety.
-            float guard = ReachPassJackGapBays * pitch;
-            foreach (var o in Machines)
+            // The passed vehicle's far end along the pass, and the passer's length.
+            MachineClearance.WorldCorners(blocker, s_corners);
+            float bFar = float.MinValue;
+            foreach (var c in s_corners) bFar = Mathf.Max(bFar, Vector3.Dot(c - bc, f));
+            var pf = MachineClearance.FootprintOf(passer);
+            float pLen = pf.MaxZ - pf.MinZ;
+
+            float pAlong = Vector3.Dot(pc - bc, f);
+            float pLat = Vector3.Dot(pc - bc, right * side);
+            float run = Mathf.Max(1.5f, Mathf.Abs(PassOffsetFromVehicle - pLat) / Mathf.Tan(PassAngleDeg * Mathf.Deg2Rad));
+            float a1 = pAlong + run;                       // on the pass line
+            // Clear past it - and past any vehicle lined up right after it on the same line (a jack pulling back in behind the first one
+            // drove straight into the second: one pass for the whole queue).
+            for (int g = 0; g < 6; g++)
             {
-                if (o == null || o == jack || o == rt || !o.IsPalletJack || !o.IsOccupied) continue;
-                Vector3 oc = o.transform.position - o.transform.forward * 1.0f;
-                if (!OrderSelectionTaskDriver.TryFindAisleAt(oc, 1.5f, out var oa) || oa.Prefix != lane.Prefix) continue;
-                Span(lane, o, out float oRear, out float oFront, out _, out _);
-                if (oFront >= jRear - guard && oRear <= jFront + guard)
+                bool grew = false;
+                foreach (var o in Machines)
                 {
-                    why = $"another pallet jack ({o.name}) is within {ReachPassJackGapBays:0} bays of {jack.name} - waiting, not passing";
-                    return false;
+                    if (o == null || o == passer || o == blocker) continue;
+                    Vector3 oc = o.transform.position - bc;
+                    if (Mathf.Abs(Vector3.Dot(oc, right)) > 1.0f) continue;          // not on the passed vehicle's line
+                    if (Vector3.Dot(oc, f) <= 0f) continue;                         // behind it
+                    // Its NEAREST end (a jack's forks trail 2.8 m behind its root): a gap shorter than a passer length + margin is no room
+                    // to pull back in, so it is part of the same queue.
+                    MachineClearance.WorldCorners(o, s_corners);
+                    float oNear = float.MaxValue, oFar = float.MinValue;
+                    foreach (var c in s_corners) { float a = Vector3.Dot(c - bc, f); oNear = Mathf.Min(oNear, a); oFar = Mathf.Max(oFar, a); }
+                    if (oNear > bFar + pLen + 1.5f) continue;                       // a clear gap: pull back in before it
+                    if (oFar > bFar) { bFar = oFar; grew = true; }
                 }
+                if (!grew) break;
             }
-
-            // Room beside it: the aisle's clear band runs between the rack faces (slot centre lines minus the rack's half depth).
-            var rf = MachineClearance.FootprintOf(rt);
-            float rtHalf = Mathf.Max(-rf.MinX, rf.MaxX);
-            float rtLen = rf.MaxZ - rf.MinZ;
-            float band = lane.Half - 0.75f;
-            const float SideGap = 0.25f;
-            float roomLeft = jLatMin - (-band), roomRight = band - jLatMax;
-            float need = 2f * rtHalf + SideGap;
-            bool goLeft = roomLeft >= roomRight;
-            float room = goLeft ? roomLeft : roomRight;
-            if (room < need)
-            {
-                why = $"no room beside {jack.name} to pass ({room:0.00}m, needs {need:0.00}m) - waiting";
-                return false;
-            }
-            float lat = goLeft ? jLatMin - SideGap - rtHalf : jLatMax + SideGap + rtHalf;
-
-            // Along: out to the passing line before reaching the jack, past it by a truck length, then the NavMesh takes over.
-            float near = dir > 0f ? jRear : jFront, far = dir > 0f ? jFront : jRear;
-            float sDest = dir * lane.Along(dest), sFar = dir * far;
-            if (sDest < sFar + 1f)
-            {
-                why = $"its stop is beside {jack.name} - waiting for the jack to move";
-                return false;
-            }
-            // The lane change is finished (at no more than PassAngle off the aisle) by the time the truck's nose reaches the jack. Held
-            // right behind it, there isn't that much room: back straight up first (reach trucks may drive either way).
-            Span(lane, rt, out float rRear, out float rFront, out _, out _);
-            float nose = dir > 0f ? rFront : rRear;
-            float gap = dir * (near - nose) - 0.3f;
-            float curLat = lane.Lateral(rt.transform.position);
-            float runNeeded = Mathf.Abs(lat - curLat) / Mathf.Tan(PassAngleDeg * Mathf.Deg2Rad);
-            float backUp = Mathf.Max(0f, runNeeded - Mathf.Max(0f, gap));
-            if (backUp > MaxBackUp)
-            {
-                why = $"too close behind {jack.name} to pull out and no room to back up - waiting";
-                return false;
-            }
-            float outAt = rtAlong + dir * Mathf.Max(0f, gap);
-            float endAt = far + dir * (rtLen + 0.5f);
-            if (dir * endAt > sDest) endAt = dir * sDest;
-            float y = rt.transform.position.y;
-            Vector3 P(float along, float l) { Vector3 p = lane.Centre + lane.Travel * along + lane.Right * l; p.y = y; return p; }
+            float a2 = bFar + pLen + 0.5f;                 // clear past it (them)
+            float dAlong = Vector3.Dot(dest - bc, f);
+            if (dAlong > pAlong && dAlong < a2) a2 = Mathf.Max(dAlong, a1);   // the destination comes first: pass only that far
+            float y = pc.y;
+            Vector3 P(float along) { Vector3 p = bc + f * along + offset; p.y = y; return p; }
             route = new List<Vector3>();
-            if (backUp > 0.05f) route.Add(P(rtAlong - dir * backUp, curLat));
-            route.Add(P(outAt, lat));
-            route.Add(P(endAt, lat));
+            if (a2 - a1 > 0.3f) route.Add(P(a1));
+            route.Add(P(a2));
             return true;
+        }
+
+        /// <summary>Open floor from <paramref name="from"/> in <paramref name="dir"/> before the first solid (rack, wall, ...), up to PassRoomProbe.</summary>
+        private static float FreeRoom(Vector3 from, Vector3 dir)
+        {
+            for (float d = 0.5f; d <= PassRoomProbe; d += 0.25f)
+                if (MachineClearance.SolidAt(from + dir * d, out _)) return d;
+            return PassRoomProbe;
+        }
+
+        /// <summary>Reach trucks: the same pass (kept as the old entry point). <paramref name="why"/> is always null now: nothing refuses.</summary>
+        public static bool TryPlanReachPass(MHEOperatorSlot rt, MHEOperatorSlot blocker, Vector3 dest, out List<Vector3> route, out string why)
+        {
+            why = null;
+            return PlanPassAround(rt, blocker, dest, out route);
+        }
+
+        private static Vector3 FootprintCentre(MHEOperatorSlot m)
+        {
+            var f = MachineClearance.FootprintOf(m);
+            return m.transform.TransformPoint(new Vector3((f.MinX + f.MaxX) * 0.5f, 0f, (f.MinZ + f.MaxZ) * 0.5f));
         }
     }
 }
