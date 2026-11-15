@@ -1078,7 +1078,10 @@ namespace GameCore.Labor
             foreach (var (d, lane) in LaneNamingService.AllLanes())
             {
                 if (!inv.LaneAcceptsPutaway(d, lane)) continue;
-                if (LaneClaimedByOutboundOrder(d, lane)) continue;
+                // Same rule as the truck's own door (Tad, 2026-11-15: door 1 full, door 2 had empty lanes, the trailer sat): a lane an
+                // outbound order only CLAIMED, with nothing outbound in it or on its way, is free. Skipping every claimed lane here meant
+                // "no room anywhere" whenever released orders had claimed the lanes, which is most of the time.
+                if (LaneClaimedByOutboundOrder(d, lane) && !OutboundClaimIsEmpty(inv, d, lane)) continue;
                 if (!TryFindSlotInLane(inv, queue, d, lane, doorPos, out var candCell, out int candTier)) continue;
 
                 float distSqr = (_grid.GetCellCenter(candCell) - doorPos).sqrMagnitude;

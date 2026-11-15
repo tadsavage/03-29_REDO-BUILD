@@ -349,10 +349,18 @@ namespace GameCore.Inventory
             foreach (var truck in Object.FindObjectsByType<TruckController>())
             {
                 if (truck == null || truck.IsOutbound || truck.DockedAt == null || truck.DockedAt.DoorNumber != door) continue;
+                // INBOUND FIRST (Tad, 2026-11-15): the pallets physically still on the trailer count too. A trailer paused for lane space
+                // with pallets aboard could count 0 from its PO lines, so a lane added at its door went to an outbound order instead.
+                var load = truck.LoadContainer;
+                int aboard = load != null ? load.childCount : 0;
+                int fromPo = 0;
                 var po = truck.AssignedShipment;
-                if (po == null) { total += 1; continue; }
-                foreach (var li in po.LineItems)
-                    if (li != null && !li.Dropped && li.ReceivedQuantity < li.Quantity) total++;
+                if (po == null) fromPo = 1;
+                else
+                    foreach (var li in po.LineItems)
+                        if (li != null && !li.Dropped && li.ReceivedQuantity < li.Quantity) fromPo++;
+                if (truck.OffloadComplete) continue;
+                total += Mathf.Max(aboard, fromPo);
             }
             return total;
         }

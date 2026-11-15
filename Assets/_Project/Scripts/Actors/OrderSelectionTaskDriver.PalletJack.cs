@@ -2475,13 +2475,25 @@ namespace GameCore.Actors
             Transform jt = _jack.transform;
             _jackLegOk = false;
             _jackLegQueued = false;
+            _inAisleTurn = false;   // a turn that ended early (old way in) must not block picking for good
             yield return RightInAisle("before a bay leg");   // turned round / sideways in an aisle: righted before it moves
             if (_jack == null) yield break;
+
+            // AISLE TO AISLE (Tad, 2026-11-15): from the aisle next door, through the turn built for that rack end (OrderSelectionTaskDriver.AisleTurns.cs).
+            if (!InsideAisle(lane, JackCentre(jt)) && TryGetTurnInto(lane, out var turnFrom, out var turn))
+            {
+                var keepLane = _lane;
+                _lane = turnFrom;   // overtaking on the way to the scrimmage line is judged against the aisle being left
+                yield return DriveAisleTurn(turnFrom, lane, turn);
+                _lane = keepLane;
+                if (_jack == null || _jackLegQueued) yield break;
+            }
 
             if (!InsideAisle(lane, JackCentre(jt)))
             {
                 if (!lane.HasMin) { yield return DriveJackTo(park, heading, phase, allowReverse); yield break; }
                 Vector3 entry = lane.Lane(lane.AlongMin - AisleEntryLead); entry.y = park.y;
+                bool turnedIn = false;   // came into the aisle through a built turn (AisleTurns): the mouth / door steps below are skipped
 
                 // On the far side of the low end (block 1090 log: every "aisle entry" stall): the plain NavMesh route to the entry runs
                 // back through an aisle the WRONG way, head-on into its traffic. Loop round like traffic does: up an aisle whose
@@ -2499,12 +2511,22 @@ namespace GameCore.Actors
                         {
                             if (!InsideAisle(via, JackCentre(jt))) yield return JackWaitForAisle(via);   // rule 6: one direction per aisle
                             if (_jack == null) yield break;
-                            Vector3 vOut = via.Lane(via.AlongMax + AisleEntryLead); vOut.y = park.y;
-                            yield return LaneDriveTo(via, vOut);
+                            // Up the loop aisle and round the rack end through its built turn (Tad, 2026-11-15: this branch drove out of
+                            // the far end to the wall and never used the turn); without one, out of the far end as before.
+                            if (TryGetTurn(via, lane, via.Travel, out var loopTurn))
+                            {
+                                yield return DriveAisleTurn(via, lane, loopTurn);
+                                turnedIn = _jackLegOk && _jack != null && InsideAisle(lane, JackCentre(jt));
+                            }
+                            else
+                            {
+                                Vector3 vOut = via.Lane(via.AlongMax + AisleEntryLead); vOut.y = park.y;
+                                yield return LaneDriveTo(via, vOut);
+                            }
                         }
                         _lane = keep;
                         if (_jackLegQueued || _jack == null) yield break;
-                        _jackLegOk = false;
+                        _jackLegOk = turnedIn;
                     }
                     else
                     {
@@ -2516,7 +2538,7 @@ namespace GameCore.Actors
                 // DOOR BYPASS (Tad, 2026-11-10, fix B of JackTraffic_2026-11-10.md): a jack parked in the doorway (picking the first
                 // bays) shut the only entrance; jacks bound further in queued outside it, where passing isn't allowed. With the
                 // passing lane clear, line up on it at the mouth, drive in past the parked jack and pull back in to the rack lane.
-                bool bypass = DoorBlocked(lane, park, out var doorJack, out float clearIn, out bool stayOut, out float approachAlong);
+                bool bypass = DoorBlocked(lane, park, out var doorJack, out float clearIn, out bool stayOut, out float approachAlong) && !turnedIn;
                 if (bypass)
                 {
                     Debug.Log($"[OrderSelectionTaskDriver] '{name}': {doorJack.name} is parked in the door of aisle {lane.Prefix.TrimEnd('-')} - going in on the passing lane.");
@@ -2550,7 +2572,7 @@ namespace GameCore.Actors
                     }
                     finally { _passing = false; }
                 }
-                else
+                else if (!turnedIn)
                 {
                     yield return DriveToAisleMouth(lane, phase + " (aisle entry)");
                     if (_jackLegOk && !_jackLegQueued && _jack != null) yield return JackWaitForAisle(lane);   // rule 6: one direction per aisle
@@ -2640,18 +2662,25 @@ namespace GameCore.Actors
                 // Drive on until the forks are clear of the rack end, then steer round (the forks follow inside the turn), line up in front of
                 // the mouth and drive into it. Every step is guarded; a blocked step backs off a metre and tries again once.
                 Vector3 fwd = Flat(jt.forward, 0f).normalized;
-                Vector3 clear = jt.position + fwd * RackEndClearance;
-                Vector3 lineUp = mouth - lane.Travel * 2f; lineUp.y = mouth.y;
-                Vector3 apex = (clear + lineUp) * 0.5f + fwd * 1.5f; apex.y = mouth.y;
+                Vector3 goal = mouth;
+                Vector3[] route = TightUTurn(lane, jt.position, fwd, mouth, out goal);
+                if (route == null)
+                {
+                    Vector3 clear = jt.position + fwd * RackEndClearance;
+                    Vector3 lineUp = mouth - lane.Travel * 2f; lineUp.y = mouth.y;
+                    Vector3 apex = (clear + lineUp) * 0.5f + fwd * 1.5f; apex.y = mouth.y;
+                    route = new[] { clear, apex, lineUp, mouth };
+                    goal = mouth;
+                }
                 bool ok = true;
-                foreach (var w in new[] { clear, apex, lineUp, mouth })
+                foreach (var w in route)
                 {
                     bool reached = false;
                     yield return SteerToGuarded(w, r => reached = r);
                     if (_jack == null) yield break;
                     if (!reached) { ok = false; break; }
                 }
-                if (ok && PlanarDist(jt.position, mouth) <= 0.8f)
+                if (ok && PlanarDist(jt.position, goal) <= 0.8f)
                 {
                     yield return JackFace(lane.Travel);
                     _jackLegOk = _jack != null;
@@ -2663,6 +2692,54 @@ namespace GameCore.Actors
         }
 
         private const float RackEndClearance = 2.5f;   // drive on this far past the aisle exit before turning: the forks trail 2.8 m behind
+        private const float UTurnPastLastPick = 2.75f;  // the turn starts this far past the centre of the last pick on the turn side (Tad: 2.5-3 m)
+        private const float UTurnCornerRadius = 1.5f;   // each 90 degree corner is rounded to this radius
+
+        /// <summary>TURNING INTO THE NEXT AISLE (Tad, 2026-11-15): "look at where the rack ends [on the turn side] ... find the last center
+        /// transform of the pick on that side and calculate 2.5 to 3 meters further in front of the pallet jack and that is where they will
+        /// turn 90 degrees (but on a rounded curve) then drive forward into the next aisle until they are on the right side". The racks are
+        /// back to back, so the last pick on the turn side of the aisle being left is level with the FIRST pick of <paramref name="lane"/>
+        /// (its AlongMin). The jack drives on to UTurnPastLastPick beyond it, turns 90 degrees on a UTurnCornerRadius curve, drives straight
+        /// across the rack end, turns 90 degrees again onto the target aisle's right-lane line and drives into it. Only for a jack heading OUT
+        /// of the aisle next door (against <paramref name="lane"/>'s travel); null = the old hop.</summary>
+        private static Vector3[] TightUTurn(AisleLane lane, Vector3 pos, Vector3 fwd, Vector3 mouth, out Vector3 goal)
+        {
+            goal = mouth;
+            if (!lane.HasMin || Vector3.Dot(fwd, lane.Travel) > -0.5f) return null;
+            float s = lane.Along(pos);
+            if (s > lane.AlongMin + 1f) return null;                  // still beside the racks: not at the end yet
+            float ls = lane.Lateral(pos);
+            float lm = lane.Lateral(mouth);
+            float span = Mathf.Abs(lm - ls);
+            if (span < 1f) return null;                               // the mouth is straight behind it: the old hop
+            float sign = Mathf.Sign(lm - ls);
+            float rad = Mathf.Min(UTurnCornerRadius, span * 0.5f);
+            float turnAt = Mathf.Min(s, lane.AlongMin - UTurnPastLastPick);   // already further out: turn from where it is
+            var pts = new List<Vector3>();
+            if (s - turnAt > 0.3f) pts.Add(At(lane, turnAt, ls, pos.y));     // drive on out to the turn point
+            const int steps = 4;
+            for (int i = 1; i <= steps; i++)   // first corner: heading out -> heading across the rack end
+            {
+                float t = 0.5f * Mathf.PI * i / steps;
+                pts.Add(At(lane, turnAt - rad * Mathf.Sin(t), ls + sign * rad * (1f - Mathf.Cos(t)), pos.y));
+            }
+            if (span > 2f * rad + 0.3f) pts.Add(At(lane, turnAt - rad, lm - sign * rad, pos.y));   // straight across the rack end
+            for (int i = 1; i <= steps; i++)   // second corner: heading across -> heading into the aisle
+            {
+                float t = 0.5f * Mathf.PI * i / steps;
+                pts.Add(At(lane, turnAt - rad * Mathf.Cos(t), lm - sign * rad * (1f - Mathf.Sin(t)), pos.y));
+            }
+            goal = At(lane, Mathf.Max(turnAt + 1f, lane.Along(mouth)), lm, pos.y);   // on into the aisle on its right-lane line
+            pts.Add(goal);
+            return pts.ToArray();
+        }
+
+        private static Vector3 At(AisleLane lane, float along, float lateral, float y)
+        {
+            Vector3 p = lane.Centre + lane.Travel * along + lane.Right * lateral;
+            p.y = y;
+            return p;
+        }
 
         /// <summary>Steer to <paramref name="target"/> the way a real jack drives (FollowerStep: the forks follow inside the turn), with every
         /// step checked against racks, walls, machines and pallets. Held SolidGiveUpReal: reverse straight back a metre and try once more;
@@ -2767,6 +2844,19 @@ namespace GameCore.Actors
                     if (Mathf.Abs(cur.Lateral(dest)) <= cur.Half && cur.Along(dest) >= myAlong - 0.3f && cur.Along(dest) <= cur.AlongMax + 1.5f)
                         yield break;   // the destination is ahead in this aisle: the caller drives it
                     _lane = cur; _laneValid = true;
+                    // The far end is a dead end (the west wall in "three doors"): round the rack end through the built turn into the
+                    // next aisle and leave by ITS far end instead (Tad, 2026-11-15 screenshot: a loaded jack stuck in the corner).
+                    for (int t = 0; t < 3 && _jack != null && DeadEndAhead(cur) && TryTurnOutOf(cur, out var turnTo, out var turnOut); t++)
+                    {
+                        Debug.Log($"[AisleTurns] '{name}': aisle {cur.Prefix.TrimEnd('-')} ends at a wall - leaving through the turn into aisle {turnTo.Prefix.TrimEnd('-')} on the way to '{phase}'.");
+                        yield return RightInAisle("leaving the aisle");
+                        if (_jack == null) yield break;
+                        yield return DriveAisleTurn(cur, turnTo, turnOut);
+                        if (_jack == null || !_jackLegOk) break;
+                        cur = turnTo; _lane = cur;
+                        if (Mathf.Abs(cur.Lateral(dest)) <= cur.Half && cur.Along(dest) >= cur.Along(jt.position) - 0.3f && cur.Along(dest) <= cur.AlongMax + 1.5f)
+                            yield break;   // the destination is ahead in this aisle: the caller drives it
+                    }
                     Vector3 exit = cur.Lane(cur.AlongMax + AisleEntryLead); exit.y = jt.position.y;
                     Debug.Log($"[OrderSelectionTaskDriver] '{name}': leaving aisle {cur.Prefix.TrimEnd('-')} forward, out of its far end, on the way to '{phase}'.");
                     yield return RightInAisle("leaving the aisle");

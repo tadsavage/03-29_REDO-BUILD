@@ -31,8 +31,16 @@ namespace GameCore.Actors
         private readonly List<MHEOperatorSlot> _rtAvoid = new List<MHEOperatorSlot>();
         private readonly HashSet<MHEOperatorSlot> _rtTried = new HashSet<MHEOperatorSlot>();
 
-        /// <summary>Dispatch point: the flag decides which backend carries the leg. Same signature and contract as SeekViaNavMesh.</summary>
+        /// <summary>Every reach-truck travel leg: into and out of aisles through the aisle gates (ReachTruckOperator.AisleGates.cs), then
+        /// the leg itself.</summary>
         private IEnumerator RtLeg(Vector3 target, string phase, System.Action<bool> onDone)
+        {
+            yield return RtThroughAisleGates(target, phase);
+            yield return RtLegCore(target, phase, onDone);
+        }
+
+        /// <summary>Dispatch point: the flag decides which backend carries the leg. Same signature and contract as SeekViaNavMesh.</summary>
+        private IEnumerator RtLegCore(Vector3 target, string phase, System.Action<bool> onDone)
         {
             var ta = _operatorSlot != null ? _operatorSlot.GetComponent<EquipmentTrafficAgent>() : null;
             if (ta != null) ta.Destination = target;   // for the untangle rule (EquipmentTraffic.ShouldReverseFor)

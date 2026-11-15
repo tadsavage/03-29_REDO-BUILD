@@ -381,6 +381,9 @@ public class AisleInitializer : MonoBehaviour
         // Delete all chevrons for this aisle
         _chevronSpawner.DeleteAllChevrons(collectionsToInitialize.ToArray());
 
+        // Pallet-jack turn points round this aisle's rack ends are rebuilt before the next turn (Tad, 2026-11-15).
+        GameCore.Actors.AisleTurns.MarkDirty();
+
         // Reset selection
         _selectedChevron = null;
 
@@ -402,6 +405,7 @@ public class AisleInitializer : MonoBehaviour
             AisleRegistry.Unregister(editData.previousAisleNumber);
         AisleRegistry.Register(editData.newAisleNumber, editData.levelDesignations);
 
+        GameCore.Actors.AisleTurns.MarkDirty();
         int updated = AisleRenameService.Rename(
             editData.previousAisleNumber, editData.newAisleNumber, editData.levelDesignations);
 

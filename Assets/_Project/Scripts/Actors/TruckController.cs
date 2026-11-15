@@ -275,7 +275,9 @@ public class TruckController : MonoBehaviour
     {
         _offloadClaimed = true;
         _metOffloadT = OpsMetrics.Now;
-        TotalPalletsAtDock = LoadContainer != null ? LoadContainer.childCount : 0;
+        // Keep the highest count of this visit (Tad, 2026-11-15): an offload that paused ("no room") and was claimed again re-counted
+        // from what was LEFT on the trailer, so the bar read 0 off with 1 of 6 already in the lane.
+        TotalPalletsAtDock = Mathf.Max(TotalPalletsAtDock, LoadContainer != null ? LoadContainer.childCount : 0);
     }
 
     /// <summary>Called by the offload controller once every pallet is off — lets the truck depart.</summary>
@@ -1622,11 +1624,15 @@ private DockSlot        _dock;
         int onTrailer = load != null ? load.childCount : 0;
         if (!_isOutbound)
         {
-            if (!_offloadClaimed && !_offloadComplete) return;   // the inbound dwell countdown is still showing
+            // A paused offload (no room, re-queued) has pallets off already: keep showing its progress, not the arrival countdown.
+            bool started = TotalPalletsAtDock > 0 && onTrailer < TotalPalletsAtDock;
+            if (!_offloadClaimed && !_offloadComplete && !started) return;   // the inbound dwell countdown is still showing
             int total = Mathf.Max(TotalPalletsAtDock, onTrailer);
             int off = Mathf.Max(0, total - onTrailer);
-            _doorWaitBar.ShowDockProgress(total > 0 ? off / (float)total : 1f,
-                _offloadComplete ? $"Unloaded at Door {_dock.DoorNumber}" : $"Unloading at Door {_dock.DoorNumber} - {off}/{total} pallets off");
+            string what = _offloadComplete ? $"Unloaded at Door {_dock.DoorNumber}"
+                        : !_offloadClaimed ? $"Unloading paused at Door {_dock.DoorNumber} - {off}/{total} pallets off (waiting for lane space)"
+                        : $"Unloading at Door {_dock.DoorNumber} - {off}/{total} pallets off";
+            _doorWaitBar.ShowDockProgress(total > 0 ? off / (float)total : 1f, what);
         }
         else
         {
@@ -2585,6 +2591,7 @@ private DockSlot        _dock;
         // was swinging shut mid-unload. See RollupDoorController.SetForcedOpen.
         _dock.SetDoorForcedOpen(true);
 
+        TotalPalletsAtDock = 0;   // a new visit: ClaimForOffload counts the load (and keeps the highest count across pauses)
         Debug.Log($"[TruckController] {name} docked at door {_dock.DoorNumber}. Awaiting {(_isOutbound ? "load" : "offload")}.");
     }
 

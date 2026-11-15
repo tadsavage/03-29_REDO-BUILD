@@ -539,6 +539,7 @@ namespace GameCore.Actors
         {
             walk = null;
             if (_jack == null || location == null || _pallets.Count == 0) return false;
+            if (_inAisleTurn || InTurnZone(_jack.transform.position)) return false;   // never pick from the middle of a turn (Tad, 2026-11-15)
             var pallet = _pallets[_pallets.Count - 1];
             if (pallet == null) return false;
             if (!TryGetPickGeometry(location, out Vector3 slotFlat, out Vector3 toAisle)) return false;
