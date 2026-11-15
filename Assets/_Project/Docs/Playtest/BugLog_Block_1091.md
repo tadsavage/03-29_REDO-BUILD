@@ -1964,3 +1964,158 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 2 22:37 | **WARN** | [InventoryService] Lane 1A lock was held for over 120s by reach truck RT_Full(Clone) (Amanda Dixon, PalletPick) - treating it as leaked and taking it over.
 - day 2 23:25 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 14 task(s) it could take wait
 - day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:10 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 08:27 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (4.28, 1.17, 49.60) — walking out to (4.28, 1.11, 36.89) (12.00m to mesh).
+- day 1 08:30 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (1.83, 1.16, 58.61) — walking out to (12.92, 1.12, 52.11) (12.00m to mesh).
+- day 1 08:32 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-4.08, 1.14, 58.20) — walking out to (-5.53, 1.22, 45.21) (12.08m to mesh).
+- day 1 08:33 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (1.62, 1.16, 58.25) — walking out to (-5.42, 1.24, 46.99) (12.00m to mesh).
+- day 1 08:34 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.62, 1.16, 58.25) — walking out to (-5.42, 1.24, 46.99) (12.00m to mesh).
+- day 1 10:08 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 60a769fa-22d5-42a2-9146-52e7d7adfef1 but the employee is 6.0m away (max 4.5m) — refusing to start receiving.
+- day 1 10:09 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 72742ccb-3fc6-4e8d-a8a0-3c8de430e2b2 but the employee is 5.8m away (max 4.5m) — refusing to start receiving.
+- day 1 10:11 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 6/248.
+- day 1 11:32 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-0.55, 1.13, 56.83) — walking out to (-7.05, 1.16, 45.57) (12.00m to mesh).
+- day 1 11:41 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet add37490-65fa-4bce-ae80-bd8ab7c1ea46 but the employee is 19.5m away (max 4.5m) — refusing to start receiving.
+- day 1 11:45 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (1.83, 1.16, 58.88) — walking out to (12.92, 1.12, 52.38) (12.00m to mesh).
+- day 1 11:45 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 31/248 case(s).
+- day 1 12:01 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet d11814be-5251-47a3-8553-5fb337ff4cf5 but the employee is 4.6m away (max 4.5m) — refusing to start receiving.
+- day 1 12:07 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 49/248.
+- day 1 12:14 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet defcfae5-352f-444a-ae73-995fcc4544e2 but the employee is 12.8m away (max 4.5m) — refusing to start receiving.
+- day 1 12:34 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 83d25e08-4942-46ac-8d65-42e17a9df157 but the employee is 4.9m away (max 4.5m) — refusing to start receiving.
+- day 1 13:08 | **ERROR** | [OrderSelectionTaskDriver] Pallet jack never got within 3m of 'staging lane 1B wait' (7.6m short) - giving up on this stop.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<DriveJackTo>d__227:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.PalletJack.cs:1810)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 13:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 38 task(s) it could take wait
+- day 1 14:46 | **ERROR** | [OrderSelectionTaskDriver] Pallet jack never got within 3m of 'staging lane 1B line-up' (5.1m short) - giving up on this stop.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<DriveJackTo>d__227:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.PalletJack.cs:1810)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 14:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 3 task(s) it could take wait
+- day 1 14:56 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet ab3eb9d7-b4e6-4576-9dc1-bbb16c641253 but the employee is 6.4m away (max 4.5m) — refusing to start receiving.
+- day 1 15:02 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 69/248.
+- day 1 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 44 task(s) it could take wait
+- day 1 17:29 | **ERROR** | [OrderSelectionTaskDriver] Pallet jack never got within 3m of 'pallet jack parking' (5.5m short) - giving up on this stop.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<DriveJackTo>d__227:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.PalletJack.cs:1810)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 17:35 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.25, 1.16, 58.28) — walking out to (1.34, 1.20, 45.28) (12.00m to mesh).
+- day 1 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 48 task(s) it could take wait
+- day 1 18:02 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (1.62, 1.16, 58.25) — walking out to (-5.42, 1.24, 46.99) (12.00m to mesh).
+- day 1 18:05 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (7.30, 1.14, 56.56) — walking out to (-3.96, 1.16, 50.06) (12.00m to mesh).
+- day 1 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 49 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 49 task(s) it could take wait
+- day 1 21:55 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 1 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 49 task(s) it could take wait
+- day 2 01:25 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 2 01:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 49 task(s) it could take wait
+- day 2 03:15 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (1.83, 1.16, 58.61) — walking out to (12.92, 1.12, 52.11) (12.00m to mesh).
+- day 2 03:25 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 2 03:35 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' cross-door load: to trailer: NO NAVMESH PATH to (7.99, 1.18, 38.89) from (6.18, 1.11, 39.63) (elapsed 30.0s).
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__103:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:1222)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 03:35 | **ERROR** | [TrailerLoad] Cross-door NavMesh leg to the trailer failed with a pallet on the forks — falling back to a straight slide to the shipping-door pivot.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<PlaceCarriedInTrailer>d__97:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:981)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 03:49 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 2C: never arrived at (-2.04, 1.19, 39.19) (elapsed 30.0s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=8.8, reissues=0, lastSeekCancelledBy=[at GameCore.Labor.TrailerLoadController+<SeekViaNavMesh>d__32.MoveNext () [0x00249] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\1. FSM\Core\Labor\TrailerLoadController.DigOut.cs:701 < at UnityEngine.SetupCoroutine.InvokeMoveNext (System.Collections.IEnumerator enumerator, System.IntPtr returnValueAddress) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < at UnityEngine.MonoBehaviour.StartCoroutineManaged2_Injected (System.IntPtr , System.Collections.IEnumerator ) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < ] 30.1s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 03:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 47 task(s) it could take wait
+- day 2 04:29 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 1A: never arrived at (-12.64, 1.19, 39.19) (elapsed 30.0s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=9.5, reissues=0, lastSeekCancelledBy=[at GameCore.Labor.TrailerLoadController+<SeekViaNavMesh>d__32.MoveNext () [0x00249] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\1. FSM\Core\Labor\TrailerLoadController.DigOut.cs:701 < at UnityEngine.SetupCoroutine.InvokeMoveNext (System.Collections.IEnumerator enumerator, System.IntPtr returnValueAddress) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < at UnityEngine.MonoBehaviour.StartCoroutineManaged2_Injected (System.IntPtr , System.Collections.IEnumerator ) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < ] 30.1s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 04:46 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 2C: never arrived at (-2.04, 1.19, 39.19) (elapsed 30.0s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=4.6, reissues=0, lastSeekCancelledBy=[at AiNavigation.Update () [0x00352] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1284 < ] 40.2s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 05:14 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-7.59, 1.11, 41.74) — walking out to (-7.01, 1.23, 40.35) (13.48m to mesh).
+- day 2 05:25 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 2 05:34 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' cross-door load: to trailer: NO NAVMESH PATH to (6.49, 1.18, 38.89) from (-0.17, 1.23, 40.49) (elapsed 30.4s).
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__103:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:1222)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 05:34 | **ERROR** | [TrailerLoad] Cross-door NavMesh leg to the trailer failed with a pallet on the forks — falling back to a straight slide to the shipping-door pivot.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<PlaceCarriedInTrailer>d__97:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:981)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 05:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 43 task(s) it could take wait
+- day 2 05:56 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 2C: never arrived at (-2.04, 1.19, 39.19) (elapsed 30.0s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=10.0, reissues=0, lastSeekCancelledBy=[at AiNavigation.Update () [0x00352] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1284 < ] 39.0s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 06:01 | **REPEATING** | x25 and counting: [EquipmentTraffic] 'RT_Full(Clone)' is blocked at (-27.21, 1.11, 49.16): blocked by RT_Full(Clone) for 30s with no safe way round. No safe way to move - staying put.
+- day 2 06:26 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 2C: never arrived at (-2.04, 1.19, 39.19) (elapsed 30.0s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=7.8, reissues=0, lastSeekCancelledBy=[at GameCore.Labor.TrailerLoadController+<SeekViaNavMesh>d__32.MoveNext () [0x00249] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\1. FSM\Core\Labor\TrailerLoadController.DigOut.cs:701 < at UnityEngine.SetupCoroutine.InvokeMoveNext (System.Collections.IEnumerator enumerator, System.IntPtr returnValueAddress) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < at UnityEngine.MonoBehaviour.StartCoroutineManaged2_Injected (System.IntPtr , System.Collections.IEnumerator ) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < ] 30.0s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 06:37 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 1A: never arrived at (-12.64, 1.19, 39.19) (elapsed 30.0s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=18.4, reissues=0, lastSeekCancelledBy=[at GameCore.Labor.TrailerLoadController+<SeekViaNavMesh>d__32.MoveNext () [0x00249] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\1. FSM\Core\Labor\TrailerLoadController.DigOut.cs:701 < at UnityEngine.SetupCoroutine.InvokeMoveNext (System.Collections.IEnumerator enumerator, System.IntPtr returnValueAddress) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < at UnityEngine.MonoBehaviour.StartCoroutineManaged2_Injected (System.IntPtr , System.Collections.IEnumerator ) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < ] 30.0s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 07:25 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 2 07:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 38 task(s) it could take wait
+- day 2 07:59 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 1A: never arrived at (-12.64, 1.19, 39.19) (elapsed 30.0s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=9.6, reissues=0, lastSeekCancelledBy=[at AiNavigation.Update () [0x00352] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\Actors\AiNavigation.cs:1284 < ] 38.4s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 08:58 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' cross-door load: to trailer: NO NAVMESH PATH to (6.49, 1.18, 38.89) from (-12.85, 1.11, 39.82) (elapsed 30.0s).
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__103:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:1222)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 08:58 | **ERROR** | [TrailerLoad] Cross-door NavMesh leg to the trailer failed with a pallet on the forks — falling back to a straight slide to the shipping-door pivot.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<PlaceCarriedInTrailer>d__97:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:981)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 09:25 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 2 09:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 33 task(s) it could take wait
+- day 2 11:25 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 2 11:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 33 task(s) it could take wait
+- day 2 13:25 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 2 13:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 33 task(s) it could take wait
+- day 2 15:25 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 2 15:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 33 task(s) it could take wait
+- day 2 17:25 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 2 17:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 33 task(s) it could take wait
+- day 2 19:25 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 2 task(s) it could take wait
+- day 2 19:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 33 task(s) it could take wait
+- day 2 20:33 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-11.58, 1.16, 58.08) — walking out to (-22.81, 1.12, 50.87) (12.35m to mesh).
+- day 2 21:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 33 task(s) it could take wait
+- day 2 23:55 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 33 task(s) it could take wait

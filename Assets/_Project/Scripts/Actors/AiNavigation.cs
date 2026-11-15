@@ -10,6 +10,10 @@ using UnityEngine.AI;
 public class AiNavigation : MonoBehaviour
 {
     public enum AgentRole { Worker, Forklift }
+    /// <summary>NavMesh area of the staging-lane floor tiles (ProjectSettings/NavMeshAreas "Staging Lane"; Flr-ShipLane navArea).</summary>
+    public const int StagingLaneArea = 6;
+    /// <summary>A staging lane costs a machine this many times its plain floor (area 0).</summary>
+    public const float StagingLaneCostFactor = 3f;   // 6x (block 72) sent jacks round through the strip between the racks and the lanes
     public AgentRole role;
 
     [Header("Footsteps")]
@@ -463,6 +467,11 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     {
         if (agent == null || !agent.isActiveAndEnabled) { onArrived?.Invoke(); return; }
         if (_seekingTask) return; // already seeking a task position
+
+        // Staging lanes cost a machine 6x its plain floor on EVERY leg (2026-11-15): ApplyAgentCosts only runs when the agent first starts on
+        // the mesh, so machines restored from a save or toggled by their drive mode never got it (block 72 check: reach trucks at cost 1 everywhere).
+        if (role == AgentRole.Forklift && agent.isOnNavMesh)
+            agent.SetAreaCost(StagingLaneArea, Mathf.Max(1f, agent.GetAreaCost(0)) * StagingLaneCostFactor);
 
         // DOCK STOCKERS STAY OUT OF THE AISLES (Tad, 2026-11-08: "stick to the MHE waypoints or just not move at all and stay out of the
         // way"). A route that runs down an aisle is refused: no destination is set and the seek never starts, so the caller's leg fails
@@ -1023,6 +1032,10 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             agent.SetAreaCost(0, 25.0f); // Walkable (generic) — expensive
             agent.SetAreaCost(3, 1.0f);  // MHE lane   — strongly prefer
             agent.SetAreaCost(4, 80.0f); // Ped lane   — strongly avoid
+            // Staging lanes (Tad, 2026-11-15): were area 3 with the forklift lanes, so a lane was 25x CHEAPER to drive across than bare
+            // floor and every leg cut straight through them. Now their own area, and the most expensive floor there is: a machine only
+            // drives a staging lane when the lane is where it is going (staging back-ins and the dock stockers' lane work are scripted).
+            agent.SetAreaCost(StagingLaneArea, 25.0f * StagingLaneCostFactor);   // StagingLaneCostFactor x plain floor
             agent.stoppingDistance = 1.0f;
         }
         // Note: area costs take effect on the next SetDestination call — no need to reset
@@ -1156,6 +1169,14 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
     private void Update()
     {
+        // Staging-lane cost, kept on: re-enabling an agent (drive-mode switches) resets its area costs, and some legs set their destination
+        // directly rather than through SeekPosition (2026-11-15 check: a reach truck leg at cost 1).
+        if (role == AgentRole.Forklift && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            float want = Mathf.Max(1f, agent.GetAreaCost(0)) * StagingLaneCostFactor;
+            if (!Mathf.Approximately(agent.GetAreaCost(StagingLaneArea), want)) agent.SetAreaCost(StagingLaneArea, want);
+        }
+
         // ── Parked forklift: no driver, no movement ──────────────────────────────
         // Stop the agent and kill the animation rather than let an empty vehicle
         // keep wandering the warehouse on its own. Flipped via SetParked().

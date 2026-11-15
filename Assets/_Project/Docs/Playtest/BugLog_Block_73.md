@@ -1,0 +1,45 @@
+# Bug log - block 73
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 08:51 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-19.33, 1.16, 56.33) — walking out to (-20.72, 1.16, 56.33) (12.00m to mesh).
+- day 1 09:13 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-1.93, 1.12, 59.25) — walking out to (4.57, 1.18, 47.99) (12.00m to mesh).
+- day 1 11:18 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (3.84, 1.20, 41.28) — walking out to (-7.42, 1.08, 35.17) (12.00m to mesh).
+- day 1 17:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 34 task(s) it could take wait
+- day 1 17:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 22 task(s) it could take wait
+- day 1 18:07 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-23.44, 1.12, 43.43) — walking out to (-12.18, 1.16, 49.93) (12.00m to mesh).
+- day 1 19:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 35 task(s) it could take wait
+- day 1 19:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 1 20:40 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 22 task(s) it could take wait
+- day 1 20:48 | **WARN** | [AiNavigation] Employee_Larry Morgan: stuck at (-26.53, 1.12, 43.17) — walking out to (-13.53, 1.19, 43.17) (12.00m to mesh).
+- day 1 21:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 36 task(s) it could take wait
+- day 1 22:40 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 22 task(s) it could take wait
+- day 1 23:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 36 task(s) it could take wait
+- day 2 00:02 | **WARN** | [OrderSelectionTaskDriver] Order 2371db5b-4ba1-4c6f-a5fb-dbdcbd441229 (Pony Express Oats) has no reachable pick location for its remaining line item(s) — staging short at 43/59.
+- day 2 00:40 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 01:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 36 task(s) it could take wait
+- day 2 02:40 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 03:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 36 task(s) it could take wait
+- day 2 04:40 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 05:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 36 task(s) it could take wait
+- day 2 07:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 36 task(s) it could take wait
+- day 2 07:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 09:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 36 task(s) it could take wait
+- day 2 09:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 11:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 36 task(s) it could take wait
+- day 2 11:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 13:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 36 task(s) it could take wait
+- day 2 13:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 14:49 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-9.11, 1.12, 59.25) — walking out to (-2.61, 1.18, 47.99) (12.00m to mesh).
+- day 2 14:50 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-9.10, 1.12, 59.25) — walking out to (-2.60, 1.18, 47.99) (12.00m to mesh).
+- day 2 15:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 36 task(s) it could take wait
+- day 2 15:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 17:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 27 task(s) it could take wait
+- day 2 17:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 19:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 27 task(s) it could take wait
+- day 2 19:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 20:26 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-28.89, 1.12, 41.80) — walking out to (-40.14, 1.08, 35.17) (12.17m to mesh).
+- day 2 21:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 27 task(s) it could take wait
+- day 2 21:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
+- day 2 23:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 360s while 27 task(s) it could take wait
+- day 2 23:10 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 360s while 21 task(s) it could take wait
