@@ -435,8 +435,29 @@ namespace GameCore.Actors
             int now = PenetrationAt(m, m.transform.position, m.transform.rotation, out _);
             LastMachineHit = hitMachine;
             if (next > now) return true;
+            if (ApronBlocked(m, nextPos, nextRot)) { what = "the dock apron (dock stockers only)"; return true; }
             return VehicleSpacingBlocked(m, nextPos, nextRot, VehicleSpacingMeters, out hitMachine)
                    && SetMachineBlocker(hitMachine, out what);
+        }
+
+        /// <summary>DOCK APRON (Tad, 2026-11-15): pallet jacks and reach trucks never drive INTO the floor in front of a shipping door
+        /// (<see cref="DockApron"/>); only dock stockers work there. A machine already on it may move about and leave.</summary>
+        private static bool ApronBlocked(MHEOperatorSlot m, Vector3 nextPos, Quaternion nextRot)
+        {
+            if (!DockApron.Any) return false;
+            if (!m.IsPalletJack && m.GetComponent<ReachTruckOperator>() == null) return false;
+            var grid = Grid();
+            if (grid == null) return false;
+            var pts = SamplePointsOf(m);
+            Matrix4x4 nowM = m.transform.localToWorldMatrix;
+            Matrix4x4 nextM = Matrix4x4.TRS(nextPos, nextRot, m.transform.lossyScale);
+            int now = 0, next = 0;
+            foreach (var p in pts)
+            {
+                if (DockApron.ContainsCell(grid.WorldToCell(nowM.MultiplyPoint3x4(p)))) now++;
+                if (DockApron.ContainsCell(grid.WorldToCell(nextM.MultiplyPoint3x4(p)))) next++;
+            }
+            return next > now;
         }
 
         /// <summary>True when a proposed vehicle pose would reduce its footprint gap below <paramref name="clearance"/> without

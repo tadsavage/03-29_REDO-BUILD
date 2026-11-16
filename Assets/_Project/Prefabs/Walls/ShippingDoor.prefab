@@ -2000,6 +2000,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5fa0892971d373b4fb735db5ebecd5ce, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4350987187947004110}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5fa0892971d373b4fb735db5ebecd5ce, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6195115909773065641}
     - targetCorrespondingSourceObject: {fileID: 5092708244707826562, guid: 5fa0892971d373b4fb735db5ebecd5ce, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5808296696818934618}
@@ -2169,6 +2172,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6d4e71bcb5d5f4b4ca3507445673bf0b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DockLightController
+--- !u!114 &6195115909773065641
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4926578325478168106}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0fd6ebae923ae6f439383aae7a300834, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameCore.Simulation::DockApron
+  widthCells: 6
+  depthCells: 5
 --- !u!4 &5154079766222337621 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8135426111661466322, guid: 5fa0892971d373b4fb735db5ebecd5ce, type: 3}

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PlaytestBotSettings
   m_EditorClassIdentifier: GameCore.Simulation:GameCore.Diagnostics:PlaytestBotSettings
   gameSpeed: 5
-  daysPerBlock: 2
+  daysPerBlock: 7
   pauseAtBlockEnd: 1
   saveAtBlockEnd: 1
   pauseOnBug: 0
@@ -47,10 +47,10 @@ MonoBehaviour:
   maxPendingPOs: 3
   coverRushOrders: 0
   maxDailySpendFraction: 1
-  maxRushPerDay: 1
+  maxRushPerDay: 0
   bailoutCash: 0
-  healthCheckIntervalMinutes: 30
-  stationarySeconds: 300
+  healthCheckIntervalMinutes: 15
+  stationarySeconds: 180
   reportFolder: Assets/_Project/Docs/Playtest
   wOnTime: 10
   wFill: 10

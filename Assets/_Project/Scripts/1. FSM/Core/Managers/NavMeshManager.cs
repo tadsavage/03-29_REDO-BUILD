@@ -178,6 +178,7 @@ public class NavMeshManager : MonoBehaviour
             AddFloorNavMeshSources(sources, surface.defaultArea);
             AddStairRampSources(sources);
             AddDockTopNavMeshSources(sources, surface.defaultArea);
+            AddDockApronSources(sources);
 
             var settings = surface.GetBuildSettings();
             var newData = NavMeshBuilder.BuildNavMeshData(settings, sources, worldBounds, surface.transform.position, surface.transform.rotation);
@@ -538,6 +539,27 @@ public class NavMeshManager : MonoBehaviour
         //Debug.Log($"[NavMesh]    AddFloorNavMeshSources COMPLETE: {(Time.realtimeSinceStartup - floorStartTime) * 1000:F2}ms");
     }
 
+    /// <summary>DOCK APRON (Tad, 2026-11-15): a modifier box per apron cell marks the floor in front of each shipping door as area
+    /// DockApron.NavArea, which the pallet jack and reach truck agents cannot walk (dock stockers and people can). A box source of the
+    /// floor's area lost to the floor tiles' own NavMeshModifier, so this overrides it the way a NavMeshModifierVolume would.</summary>
+    private void AddDockApronSources(List<NavMeshBuildSource> sources)
+    {
+        if (_grid == null || !DockApron.Any) return;
+        DockApron.MarkDirty();
+        float cs = _grid.CellSize;
+        foreach (var c in DockApron.Cells)
+        {
+            Vector3 w = _grid.GetCellCenter(c);
+            sources.Add(new NavMeshBuildSource
+            {
+                transform = Matrix4x4.TRS(new Vector3(w.x, w.y + 1.5f, w.z), Quaternion.identity, Vector3.one),
+                shape = NavMeshBuildSourceShape.ModifierBox,
+                area  = DockApron.NavArea,
+                size  = new Vector3(cs, 4f, cs)
+            });
+        }
+    }
+
     private Bounds GetWorldBounds(NavMeshSurface surface)
     {
         if (surface.collectObjects != CollectObjects.All)
@@ -688,6 +710,7 @@ public class NavMeshManager : MonoBehaviour
                 AddFloorNavMeshSources(sources, surface.defaultArea);
                 AddStairRampSources(sources);
                 AddDockTopNavMeshSources(sources, surface.defaultArea);
+                AddDockApronSources(sources);
 
                 AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
                 while (!op.isDone) yield return null;

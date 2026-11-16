@@ -401,6 +401,8 @@ namespace GameCore.Actors
             }
 
             int index = _pallets.Count;
+            // The spare empty on the near fork position becomes this pallet (OrderSelectionTaskDriver.ChepStack.cs).
+            if (index >= 1) DropSpareChep();
             var go = Instantiate(prefab);
             go.name = $"OutboundPallet_{_currentOrder.OrderId}_{index + 1}";
             go.transform.SetParent(transform, false);
