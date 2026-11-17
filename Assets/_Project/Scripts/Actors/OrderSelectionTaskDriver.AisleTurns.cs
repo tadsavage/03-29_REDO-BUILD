@@ -329,13 +329,13 @@ namespace GameCore.Actors
                 yield return JackFace(h);
                 if (_jack == null) yield break;
                 yield return JackMoveStraight(S, JackReverseSpeed);
-                if (_jack == null || _jackLegQueued) yield break;
+                if (_jack == null) yield break;
                 if (Vector3.Dot(Flat(S - jt.position, 0f), h) < -0.8f) { Debug.Log($"[AisleTurns] '{name}': could not back up to the scrimmage line - old way in."); yield break; }
             }
             else if (Vector3.Dot(Flat(S - jt.position, 0f), h) > 0.3f)   // short of the line: drive up to it (a jack already past it, within the turn's depth, turns from where it stands)
             {
-                yield return LaneDriveCore(from, S);
-                if (_jack == null || _jackLegQueued) yield break;
+                yield return DriveJackTo(S, h, "aisle turn: scrimmage line");
+                if (_jack == null) yield break;
                 if (Vector3.Dot(Flat(S - jt.position, 0f), h) > 0.8f) { Debug.Log($"[AisleTurns] '{name}': did not reach the scrimmage line - old way in."); yield break; }
             }
             S = jt.position;
@@ -364,10 +364,10 @@ namespace GameCore.Actors
             Vector3 Ein = E + into * 2.4f; Ein.y = y;     // and in along the next lane
 
             yield return JackMoveStraight(Q1, JackDriveSpeed);
-            if (_jack == null || _jackLegQueued) yield break;
+            if (_jack == null) yield break;
             if (PlanarDist(jt.position, Q1) > 0.6f) { Debug.Log($"[AisleTurns] '{name}': could not drive out to the turn - old way in."); yield break; }
 
-            yield return JackPivotTo(side);
+            yield return JackFace(side);
             if (_jack == null) yield break;
             if (Vector3.Angle(Flat(jt.forward, 0f), side) > 25f) { Debug.Log($"[AisleTurns] '{name}': could not pivot across the rack end - old way in."); yield break; }
 
@@ -376,16 +376,16 @@ namespace GameCore.Actors
             if (_jack == null) yield break;
 
             yield return JackMoveStraight(Q2, JackDriveSpeed);
-            if (_jack == null || _jackLegQueued) yield break;
+            if (_jack == null) yield break;
             if (PlanarDist(jt.position, Q2) > 0.6f) { Debug.Log($"[AisleTurns] '{name}': blocked crossing the rack end - old way in."); yield break; }
 
-            yield return JackPivotTo(into);
+            yield return JackFace(into);
             if (_jack == null) yield break;
             yield return JackMoveStraight(Ein, JackDriveSpeed);
             if (_jack == null) yield break;
             _inAisleTurn = false;   // past the entry line: into the next aisle
             if (PlanarDist(jt.position, Ein) > 0.8f) yield break;
-            yield return JackFaceTraffic(to.Travel);
+            yield return JackFace(to.Travel);
             _jackLegOk = _jack != null;
         }
 
@@ -402,11 +402,9 @@ namespace GameCore.Actors
             bool logged = false;
             while (_jack != null && TurnZoneBusy(o, ax, lat, a0, a1, l0, l1, out var who))
             {
-                NoteHeld(true, who, null);
                 if (!logged) { Debug.Log($"[AisleTurns] '{name}': holding for {who.name} to clear {what}."); logged = true; }
                 yield return null;
             }
-            NoteHeld(false, null, null);
         }
 
         private bool TurnZoneBusy(Vector3 o, Vector3 ax, Vector3 lat, float a0, float a1, float l0, float l1, out MHEOperatorSlot who)

@@ -52,13 +52,6 @@ namespace GameCore.Navigation
             Debug.LogWarning($"[NavGrid] dynamic layer: {n} cells blocked by parked machines and floor pallets (cyan in the overlay).");
         }
 
-        [ContextMenu("Toggle Grid Nav For Jacks")]
-        public void ToggleGridNavForJacks()
-        {
-            NavGridService.UseForJacks = !NavGridService.UseForJacks;
-            Debug.LogWarning($"[NavGrid] pallet jacks now use the {(NavGridService.UseForJacks ? "GRID planner" : "NavMeshAgent")} for open-floor legs.");
-        }
-
         [ContextMenu("Toggle Grid Nav For Dock Stockers")]
         public void ToggleGridNavForDockStockers()
         {

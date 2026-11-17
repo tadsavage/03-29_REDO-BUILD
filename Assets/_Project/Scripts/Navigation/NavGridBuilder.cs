@@ -195,20 +195,11 @@ namespace GameCore.Navigation
         private static PlacementGrid s_placement;
         private static int s_builtCount = -1;
         private static float s_builtAt = -1000f;
-        private const string JackPrefKey = "NavGrid.Jacks";
         /// <summary>The grid is rebuilt when the placed-object count changes or it is this old (real seconds). A rebuild takes ~2 ms.</summary>
         public const float MaxAgeSeconds = 30f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics() { Grid = null; Planner = null; s_placement = null; s_builtCount = -1; s_builtAt = -1000f; }
-
-        /// <summary>FLAG (default off): drive the pallet jack's open-floor legs on the grid planner instead of the jack's NavMeshAgent.
-        /// Persisted in PlayerPrefs so it survives Play sessions; flip it with the NavGridDebug context menu or from code.</summary>
-        public static bool UseForJacks
-        {
-            get { try { return PlayerPrefs.GetInt(JackPrefKey, 0) == 1; } catch { return false; } }
-            set { try { PlayerPrefs.SetInt(JackPrefKey, value ? 1 : 0); } catch { } }
-        }
 
         private const string DsPrefKey = "NavGrid.DS";
         /// <summary>FLAG (default off): drive the dock stocker's cross-dock travel legs on the grid planner instead of its NavMeshAgent.</summary>
@@ -229,7 +220,7 @@ namespace GameCore.Navigation
         /// <summary>One line saying which machines drive on the grid and which on the NavMesh, for block logs: a playtest block is only
         /// comparable with another if you know which nav it ran on.</summary>
         public static string FlagSummary()
-            => $"nav: jacks={(UseForJacks ? "GRID" : "navmesh")}, reach trucks={(UseForReachTrucks ? "GRID" : "navmesh")}, dock stockers={(UseForDockStockers ? "GRID" : "navmesh")}";
+            => $"nav: jacks=navmesh, reach trucks={(UseForReachTrucks ? "GRID" : "navmesh")}, dock stockers={(UseForDockStockers ? "GRID" : "navmesh")}";
 
         public static NavGrid Rebuild(PlacementGrid placement, NavGridBuilder.Options? options = null)
         {

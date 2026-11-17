@@ -201,7 +201,10 @@ public class EquipmentBattery : MonoBehaviour
         EquipmentBatteryPanels.Ensure();
         if (_po != null)   // placed machines only (not build-menu ghosts)
         {
-            MheAvoidanceObstacle.Ensure(gameObject);
+            // Pallet jacks drive on their own NavMeshAgent with no personal-space obstacle (the avoidance-obstacle modifier was scrapped
+            // for jacks, 2026-11-16). Other machines keep theirs.
+            var slot = GetComponent<MHEOperatorSlot>();
+            if (slot == null || !slot.IsPalletJack) MheAvoidanceObstacle.Ensure(gameObject);
             GameCore.Actors.EquipmentTrafficAgent.Ensure(gameObject);
         }
     }
@@ -886,15 +889,19 @@ public class EquipmentBattery : MonoBehaviour
                 continue;
             }
             // The approach point can sit off the mesh (a rack or another bay in the way), so the agent stopped at the nearest mesh point,
-            // which may be 4-6 m from the bay. Navigate to the bay itself before the short hand-driven finish.
-            if (Flat(transform.position - park).magnitude > MaxHandDriveMeters - 0.5f)
+            // which may be 4-6 m from the bay. Navigate to the bay itself before the short hand-driven finish. Up to twice: a jack
+            // that is still outside the hand-drive reach after one leg gets a second leg, not a refusal.
+            for (int navTry = 0; navTry < 2 && Flat(transform.position - park).magnitude > MaxHandDriveMeters - 0.5f; navTry++)
             {
                 bool okBay = false;
                 yield return NavTo(park, r => okBay = r);
             }
             yield return Face(fwd);
             yield return MoveStraight(park);
-            if (Flat(transform.position - park).magnitude > 1.5f)
+            // BAY CENTRE (Tad, 2026-11-16: "line up good"): the hand-driven finish lands exactly on the bay's park pose, so anything
+            // more than a few tenths of a metre out means the slide was refused. Refuse the bay too, rather than count a jack
+            // parked 1.5 m off centre as charging.
+            if (Flat(transform.position - park).magnitude > BayCentreTolerance)
             {
                 // The hand-driven finish refused (too far): the navigation step had not really arrived. Wait a little longer each time
                 // (this logged 25+ warnings in a block when it retried every second) and go round again.
@@ -1351,6 +1358,7 @@ public class EquipmentBattery : MonoBehaviour
     /// progress ... treating as arrived"), a long MoveStraight slid the whole machine across the dock like a hockey puck, with no path and
     /// no turning (Tad, 2026-10-31). Beyond this distance the slide is refused and the trip simply tries its navigation again.</summary>
     private const float MaxHandDriveMeters = 4.5f;
+    private const float BayCentreTolerance = 0.3f;   // metres: a charging jack must sit this close to its bay's park pose
 
     private IEnumerator MoveStraight(Vector3 target)
     {

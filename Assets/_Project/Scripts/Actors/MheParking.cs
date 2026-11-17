@@ -109,7 +109,10 @@ public static class MheParking
         spot = default;
         if (who == null || who.Slot == null) return false;
 
-        if (bay != null)
+        // ONE JACK PER STATION (Tad, 2026-11-16): a pallet jack is only ever parked IN a bay (the charging one). Its left / right / front
+        // spots are not offered, so a second jack never parks beside a charger. Other machines keep their side spots.
+        bool jack = who.Slot.IsPalletJack;
+        if (bay != null && !jack)
             foreach (var s in StationLocations(who, bay))
                 if (IsClear(who, s.Pos, s.Forward)) { spot = s; return true; }
 
@@ -121,6 +124,9 @@ public static class MheParking
 
     /// <summary>How far from its charger a charged, unused machine may be parked.</summary>
     public const float ParkRadius = 20f;
+
+    /// <summary>A parked pallet jack keeps this far (metres) from any charging station's centre.</summary>
+    private const float JackStationClearance = 4.5f;
 
     /// <summary>Like <see cref="TryFindIdleSpot"/> but only plain floor within <paramref name="radius"/> metres of <paramref name="origin"/>, nearest first.</summary>
     public static bool TryFindIdleSpotNear(EquipmentBattery who, Vector3 origin, float radius, out Spot spot, bool relaxed)
@@ -156,7 +162,12 @@ public static class MheParking
             Vector3 pos = grid.GetCellCenter(cell);
             pos.y = who.transform.position.y;
             Vector3 fwd = dirs[Random.Range(0, dirs.Length)];
-            if (who.Slot != null && who.Slot.IsPalletJack) pos += fwd * JackBodyCenterOffset;
+            if (who.Slot != null && who.Slot.IsPalletJack)
+            {
+                // A jack parked on the floor never sits within a station's reach: the station area is for the one charging jack.
+                if (PalletJackParkingSpot.StationWithin(pos, JackStationClearance) != null) continue;
+                pos += fwd * JackBodyCenterOffset;
+            }
             if (!IsClear(who, pos, fwd)) continue;
 
             spot = new Spot { Pos = pos, Forward = fwd, Name = $"PARK {cell.x},{cell.y}" };

@@ -196,29 +196,6 @@ public class EquipmentTrafficTests
         }
     }
 
-    // ── Step 3 (2026-11-14): one right-of-way order ──
-
-    [Test]
-    public void JackGoesFirst_IsAntisymmetric_SoTwoJacksNeverDisagree()
-    {
-        var a = new GameObject("DriverA").AddComponent<OrderSelectionTaskDriver>();
-        var b = new GameObject("DriverB").AddComponent<OrderSelectionTaskDriver>();
-        try
-        {
-            bool ab = OrderSelectionTaskDriver.JackGoesFirst(a, b);
-            bool ba = OrderSelectionTaskDriver.JackGoesFirst(b, a);
-            Assert.AreNotEqual(ab, ba, "exactly one of two jacks goes first");
-            Assert.AreEqual(ab, OrderSelectionTaskDriver.JackGoesFirst(a, b), "the answer is stable");
-            Assert.IsTrue(OrderSelectionTaskDriver.JackGoesFirst(a, null));
-            Assert.IsFalse(OrderSelectionTaskDriver.JackGoesFirst(null, a));
-        }
-        finally
-        {
-            UnityEngine.Object.DestroyImmediate(a.gameObject);
-            UnityEngine.Object.DestroyImmediate(b.gameObject);
-        }
-    }
-
     [Test]
     public void AvoidancePriority_AllMachinesEqual()
     {

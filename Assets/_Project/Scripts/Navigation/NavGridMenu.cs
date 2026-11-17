@@ -13,11 +13,6 @@ namespace GameCore.Navigation
     {
         private const string Root = "Tools/Navigation/";
 
-        [MenuItem(Root + "Grid legs - Pallet Jacks")]
-        static void ToggleJacks() { NavGridService.UseForJacks = !NavGridService.UseForJacks; Report(); }
-        [MenuItem(Root + "Grid legs - Pallet Jacks", true)]
-        static bool ValidateJacks() { Menu.SetChecked(Root + "Grid legs - Pallet Jacks", NavGridService.UseForJacks); return true; }
-
         [MenuItem(Root + "Grid legs - Reach Trucks")]
         static void ToggleRt() { NavGridService.UseForReachTrucks = !NavGridService.UseForReachTrucks; Report(); }
         [MenuItem(Root + "Grid legs - Reach Trucks", true)]
@@ -31,7 +26,7 @@ namespace GameCore.Navigation
         [MenuItem(Root + "All back to NavMesh")]
         static void AllOff()
         {
-            NavGridService.UseForJacks = false; NavGridService.UseForReachTrucks = false; NavGridService.UseForDockStockers = false;
+            NavGridService.UseForReachTrucks = false; NavGridService.UseForDockStockers = false;
             Report();
         }
 
