@@ -220,10 +220,12 @@ public class EquipmentTrafficTests
     }
 
     [Test]
-    public void AvoidancePriority_FollowsRightOfWay_LowerIsMoreImportant()
+    public void AvoidancePriority_AllMachinesEqual()
     {
-        Assert.Less(AiNavigation.ReachTruckAvoidance, AiNavigation.DockStockerAvoidance);
-        Assert.Less(AiNavigation.DockStockerAvoidance, AiNavigation.PalletJackAvoidance);
+        // Tad, 2026-11-16: every machine role is priority 50, so none outranks another.
+        Assert.AreEqual(50, AiNavigation.ReachTruckAvoidance);
+        Assert.AreEqual(AiNavigation.ReachTruckAvoidance, AiNavigation.DockStockerAvoidance);
+        Assert.AreEqual(AiNavigation.DockStockerAvoidance, AiNavigation.PalletJackAvoidance);
         // A machine that is neither a jack nor a reach truck is a dock stocker.
         Assert.AreEqual(AiNavigation.DockStockerAvoidance, AiNavigation.MachineAvoidancePriority(_blocker));
     }

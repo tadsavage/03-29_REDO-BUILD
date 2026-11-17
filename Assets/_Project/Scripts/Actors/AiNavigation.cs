@@ -208,9 +208,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             GoToRandomWaypoint();
         }
     }
-    public const int ReachTruckAvoidance = 10, DockStockerAvoidance = 20, PalletJackAvoidance = 40;
+    public const int ReachTruckAvoidance = 50, DockStockerAvoidance = 50, PalletJackAvoidance = 50;
 
-    /// <summary>NavMeshAgent.avoidancePriority for a machine (lower = others give way to it): reach truck 10, dock stocker 20, jack 40.</summary>
+    /// <summary>NavMeshAgent.avoidancePriority for a machine (lower = others give way to it): all machines 50 (Tad, 2026-11-16) so none outranks another.</summary>
     public static int MachineAvoidancePriority(MHEOperatorSlot m)
     {
         switch (GameCore.Actors.EquipmentTraffic.RoleOf(m))

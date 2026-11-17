@@ -57,7 +57,7 @@ namespace NavTest
             {
                 // Rides standing on the back of the jack.
                 _picker = sim.MakePerson($"{name} picker");
-                _rideLocal = new Vector3(0f, sim.jackSize.y + 0.05f, -sim.jackSize.z * 0.5f + 0.35f);
+                _rideLocal = new Vector3(0f, 0.12f, -sim.jackSize.z * 0.5f + 0.35f);   // standing on the platform at the back
                 Mount();
             }
             else
@@ -65,7 +65,7 @@ namespace NavTest
                 // A seated driver on the reach truck, for looks only.
                 var driver = sim.MakePerson($"{name} driver");
                 driver.transform.SetParent(transform, false);
-                driver.transform.localPosition = new Vector3(0f, sim.reachSize.y + 0.05f, -sim.reachSize.z * 0.5f + 0.4f);
+                driver.transform.localPosition = new Vector3(0f, 0.75f, -sim.reachSize.z * 0.5f + 0.4f);
                 driver.transform.localScale = Vector3.one * 0.85f;
             }
         }
@@ -81,8 +81,22 @@ namespace NavTest
             }
         }
 
+        // Reach truck fork carriage (slides up the mast) and the cases on the forks.
+        private Transform _carriage;
+        private GameObject _load;
+        private float _forkTarget = NavTestSim.ForkEmptyY;
+        private const float ForkSpeed = 0.8f;   // m/s up and down
+
+        public void SetReachParts(Transform carriage, GameObject load) { _carriage = carriage; _load = load; }
+
         private void Update()
         {
+            if (_carriage != null)
+            {
+                var p = _carriage.localPosition;
+                p.y = Mathf.MoveTowards(p.y, _forkTarget, ForkSpeed * Time.deltaTime);
+                _carriage.localPosition = p;
+            }
             bool jack = MachineRole == Role.Jack;
             _agent.speed = jack ? _sim.jackSpeed : _sim.reachSpeed;
             _agent.radius = jack ? _sim.jackRadius : _sim.reachRadius;
@@ -151,17 +165,27 @@ namespace NavTest
         {
             var rng = _sim.Rng;
             int lane = rng.Next(_sim.laneExits.Length);
+            _forkTarget = NavTestSim.ForkEmptyY;
+            if (_load != null) _load.SetActive(false);
             yield return GoTo(_sim.laneExits[lane], $"to lane L{lane + 1}");
-            if (_lastArrived) yield return Dwell(_sim.stageSeconds, "forks in");
+            if (_lastArrived)
+            {
+                yield return Dwell(_sim.stageSeconds, "forks in");
+                if (_load != null) _load.SetActive(true);   // the pallet's cases ride on the forks
+            }
+            _forkTarget = NavTestSim.ForkTravelY;
 
             int bay = rng.Next(_sim.reachPicks.Length);
             yield return GoTo(_sim.reachPicks[bay], $"to bay a{_sim.reachPickAisle[bay] + 1}");
             if (_lastArrived)
             {
                 if (_sim.reachFacesRack) yield return Face(_sim.WDir(rng.Next(2) == 0 ? Vector3.forward : Vector3.back));
+                _forkTarget = NavTestSim.ForkLiftY;
                 yield return Dwell(_sim.liftSeconds, "lifting");
+                if (_load != null) _load.SetActive(false);   // set down in the rack
                 Picks++;
             }
+            _forkTarget = NavTestSim.ForkEmptyY;
             Trips++;
         }
 

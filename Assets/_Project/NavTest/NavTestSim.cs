@@ -81,7 +81,7 @@ namespace NavTest
 
         [Header("Materials (Build Graybox makes them if empty)")]
         public Material floorMat, rackMat, wallMat, laneMat, jackMat, reachMat;
-        public Material personMat, skinMat, trailerMat, cabMat;
+        public Material personMat, skinMat, trailerMat, cabMat, caseMat, caseBaseMat, steelMat;
 
         [Header("Points (local space, written by Build Graybox; edit freely)")]
         public Vector3[] jackPicks;
@@ -191,7 +191,59 @@ namespace NavTest
             skinMat    = skinMat    ? skinMat    : MakeMat("NavTest Skin",    new Color(0.85f, 0.68f, 0.55f));
             trailerMat = trailerMat ? trailerMat : MakeMat("NavTest Trailer", new Color(0.92f, 0.92f, 0.94f));
             cabMat     = cabMat     ? cabMat     : MakeMat("NavTest Cab",     new Color(0.80f, 0.35f, 0.32f));
+            caseMat     = caseMat     ? caseMat     : MakeMat("NavTest Case",      new Color(0.78f, 0.62f, 0.40f));   // cardboard
+            caseBaseMat = caseBaseMat ? caseBaseMat : MakeMat("NavTest Case Base", new Color(0.15f, 0.30f, 0.80f));   // blue "pallet" strip
+            steelMat    = steelMat    ? steelMat    : MakeMat("NavTest Steel",     new Color(0.32f, 0.33f, 0.36f));
         }
+
+        // ── Machine looks (graybox, but shaped like the real prefabs: flat jack forks, a reach truck with a mast, carriage and forks) ──
+
+        /// <summary>Jack: two flat forks out the front, a low power head, a standing platform at the back and a tiller bar.</summary>
+        public void BuildJackVisual(Transform root, Vector3 size)
+        {
+            float h = size.z * 0.5f;
+            Box("ForkL", root, new Vector3(-0.28f, 0.085f, h - 0.65f), new Vector3(0.18f, 0.07f, 1.3f), steelMat, false);
+            Box("ForkR", root, new Vector3( 0.28f, 0.085f, h - 0.65f), new Vector3(0.18f, 0.07f, 1.3f), steelMat, false);
+            Box("PowerHead", root, new Vector3(0f, 0.32f, h - 1.3f), new Vector3(size.x * 0.62f, 0.5f, 0.5f), jackMat, false);
+            Box("Platform", root, new Vector3(0f, 0.09f, -h + 0.35f), new Vector3(size.x * 0.5f, 0.06f, 0.45f), steelMat, false);
+            Box("Tiller", root, new Vector3(0f, 0.8f, -h + 0.6f), new Vector3(size.x * 0.5f, 0.06f, 0.06f), wallMat, false);
+        }
+
+        /// <summary>Reach truck: low chassis, two mast uprights, and a carriage with two forks that slides up the mast.
+        /// Returns the carriage (move its local y) and the load (cases on blue bases, off until a pallet is on the forks).</summary>
+        public void BuildReachVisual(Transform root, Vector3 size, out Transform carriage, out GameObject load)
+        {
+            float h = size.z * 0.5f;
+            Box("Chassis", root, new Vector3(0f, 0.4f, 0f), new Vector3(size.x, 0.7f, size.z), reachMat, false);
+            float mastZ = h - 0.1f, mastH = 2.6f;
+            Box("MastL", root, new Vector3(-0.34f, mastH * 0.5f + 0.05f, mastZ), new Vector3(0.08f, mastH, 0.1f), steelMat, false);
+            Box("MastR", root, new Vector3( 0.34f, mastH * 0.5f + 0.05f, mastZ), new Vector3(0.08f, mastH, 0.1f), steelMat, false);
+            Box("Guard", root, new Vector3(0f, 1.55f, -h + 0.2f), new Vector3(size.x * 0.9f, 0.05f, 0.5f), wallMat, false);
+
+            var car = new GameObject("Carriage").transform;
+            car.SetParent(root, false);
+            car.localPosition = new Vector3(0f, ForkEmptyY, h + 0.02f);
+            Box("Backplate", car, new Vector3(0f, 0.3f, 0f), new Vector3(0.8f, 0.55f, 0.05f), steelMat, false);
+            Box("ForkL", car, new Vector3(-0.27f, 0.03f, 0.56f), new Vector3(0.12f, 0.06f, 1.1f), steelMat, false);
+            Box("ForkR", car, new Vector3( 0.27f, 0.03f, 0.56f), new Vector3(0.12f, 0.06f, 1.1f), steelMat, false);
+
+            // Load: 2 x 2 cases per layer, 2 layers, each case sitting on its own blue base strip.
+            var l = new GameObject("Load").transform;
+            l.SetParent(car, false);
+            l.localPosition = new Vector3(0f, 0.06f, 0.56f);
+            for (int layer = 0; layer < 2; layer++)
+                for (int cx = 0; cx < 2; cx++)
+                    for (int cz = 0; cz < 2; cz++)
+                    {
+                        var c = new Vector3((cx - 0.5f) * 0.4f, layer * 0.36f, (cz - 0.5f) * 0.5f);
+                        Box("CaseBase", l, c + new Vector3(0f, 0.03f, 0f), new Vector3(0.38f, 0.06f, 0.48f), caseBaseMat, false);
+                        Box("Case", l, c + new Vector3(0f, 0.21f, 0f), new Vector3(0.38f, 0.30f, 0.48f), caseMat, false);
+                    }
+            l.gameObject.SetActive(false);
+            carriage = car; load = l.gameObject;
+        }
+
+        public const float ForkEmptyY = 0.05f, ForkTravelY = 0.3f, ForkLiftY = 1.7f;
 
         public static Material MakeMat(string name, Color c)
         {
@@ -297,10 +349,11 @@ namespace NavTest
             go.transform.rotation = transform.rotation * Quaternion.Euler(0f, jack ? -90f : 0f, 0f);
 
             var body = Box("Body", go.transform, new Vector3(0f, size.y * 0.5f + 0.05f, 0f), size, jack ? jackMat : reachMat, true);
-            // A dark bar across the front so the heading is visible.
-            Box("Front", go.transform, new Vector3(0f, size.y + 0.11f, size.z * 0.5f - 0.12f), new Vector3(size.x * 0.9f, 0.12f, 0.18f), wallMat, false);
-            // Reach trucks get a mast so they read differently from the jacks.
-            if (!jack) Box("Mast", go.transform, new Vector3(0f, size.y + 0.9f, size.z * 0.5f - 0.1f), new Vector3(size.x * 0.8f, 1.8f, 0.12f), wallMat, false);
+            // The Body box stays as the invisible collider (the overlap tally measures it); the visible machine is built from parts.
+            body.GetComponent<Renderer>().enabled = false;
+            Transform carriage = null; GameObject load = null;
+            if (jack) BuildJackVisual(go.transform, size);
+            else BuildReachVisual(go.transform, size, out carriage, out load);
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.agentTypeID = MachineAgentType;
@@ -316,6 +369,7 @@ namespace NavTest
 
             var m = go.AddComponent<NavTestMachine>();
             m.Init(this, role, agent, body.GetComponent<BoxCollider>(), index);
+            m.SetReachParts(carriage, load);
             Machines.Add(m);
             go.SetActive(true);
         }
