@@ -43,11 +43,39 @@ namespace GameCore.Actors
 
             foreach (var g in gates)
             {
+                if (g == entry) yield return WaitForJackCrowd(g, phase);
                 yield return WaitForRtGate(g, set.rtGateOccupancyRadius, phase);
                 bool ok = false;
                 yield return RtLegCore(g.point, $"{phase} (via {g.Label})", r => ok = r);
                 if (!ok) Debug.LogWarning($"[ReachTruckOperator] '{name}' {phase}: could not reach {g.Label} at {g.point:F1} - driving the leg from here.");
             }
+        }
+
+        private const int   RtCrowdJacks      = 2;     // this many manned jacks in / queued at an aisle = a group the truck does not drive into
+        private const float RtCrowdMouthRadius = 7f;    // ...a jack within this of the gate counts as queued at it
+        private const float RtCrowdWaitMaxReal = 25f;   // never wait longer than this (REAL seconds): the old rules sort out what is left
+
+        /// <summary>DON'T REPLENISH INTO A CROWD (Tad, 2026-11-16: a reach truck going into the middle of a group of jacks started the pile-ups).
+        /// Before going IN through an aisle's gate: while two or more manned pallet jacks are working that aisle or queued at its mouth, hold
+        /// RtGateHoldBack m short of the gate (outside the group, like a driver waiting for the aisle to clear) until it thins out.</summary>
+        private IEnumerator WaitForJackCrowd(RtAisleGate g, string phase)
+        {
+            if (OrderSelectionTaskDriver.JacksCrowdingAisle(g.aisle, g.point, RtCrowdMouthRadius) < RtCrowdJacks) yield break;
+            if (PlanarDist(transform.position, g.point) > RtGateHoldBack + 1f)
+            {
+                Vector3 back = transform.position - g.point; back.y = 0f;
+                Vector3 hold = g.point + (back.sqrMagnitude > 0.01f ? back.normalized : -g.outward) * (RtGateHoldBack + 2f);
+                hold.y = transform.position.y;
+                Debug.Log($"[ReachTruckOperator] '{name}': aisle {g.aisle:00} has a group of jacks in it - waiting {RtGateHoldBack + 2f:0} m short of {g.Label} before going in.");
+                yield return RtLegCore(hold, $"{phase} (wait for jacks in aisle {g.aisle:00})", null);
+            }
+            float waited = 0f;
+            while (waited < RtCrowdWaitMaxReal && OrderSelectionTaskDriver.JacksCrowdingAisle(g.aisle, g.point, RtCrowdMouthRadius) >= RtCrowdJacks)
+            {
+                waited += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            if (waited >= RtCrowdWaitMaxReal) Debug.Log($"[ReachTruckOperator] '{name}': aisle {g.aisle:00} still busy after {RtCrowdWaitMaxReal:0} s - going in anyway.");
         }
 
         /// <summary>ONE TRUCK PER GATE: while another reach truck is within <paramref name="radius"/> of the gate, wait - from

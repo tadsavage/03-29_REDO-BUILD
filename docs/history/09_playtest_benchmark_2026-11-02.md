@@ -114,3 +114,11 @@ cross-aisle is 2.83m clear / 1.83m walkable — deliberately matched to the X ai
   over so you can save the result as a baseline.
 - Editing any `.cs` while in Play mode triggers a domain reload that kills the running block (and
   strands reach trucks mid-carry). Stop the bot first.
+
+## 2026-11-16 - jacks restarting the whole loop after an interruption
+Editor.log: a jack stalled 4.9 m short of the aisle 02 entry ("loop in (line up)", held by a reach truck, AiNavigation 10 s backstop, 6 re-issues), the bay leg gave up and
+`DriveBayLeg` re-decided from scratch: a jack already round the rack end still read as "past the low end", `TryFindLoopAisle` picked aisle 01's far mouth, and the jack drove
+21 m back west to loop again. Fix (`OrderSelectionTaskDriver.PalletJack.cs`, `alreadyRound`): out on open floor within `MouthHopMax` of the entry = carry on to the mouth,
+never loop again. Log line: "already round the rack end - carrying on to it, not looping again". NOT yet proven in a played block.
+Prefab change same day: PltJack_FULL / -TEST agent radius 0.5 -> 0.9, priority 20 -> 40 (matches the runtime value); a 0.9 m circle may refuse to squeeze past a stopped
+reach truck in a 1.83 m walkable aisle mouth - if jacks sit with vel 0 and desiredVel > 0 in a [JackStall] line, lower it to ~0.7.

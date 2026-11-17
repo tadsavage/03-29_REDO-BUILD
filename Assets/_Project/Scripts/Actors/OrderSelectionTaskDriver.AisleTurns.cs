@@ -232,10 +232,28 @@ namespace GameCore.Actors
         private bool TryGetTurnInto(AisleLane target, out AisleLane from, out AisleTurn turn)
         {
             from = default; turn = null;
-            if (_jack == null || target.Prefix == null || !int.TryParse(target.Prefix.Substring(0, 2), out int to)) return false;
+            if (_jack == null || target.Prefix == null || !int.TryParse(target.Prefix.Substring(0, 2), out int toNo)) return false;
             Transform jt = _jack.transform;
-            if (!TryFindAisleAt(JackCentre(jt), AisleEntryLead, out from) || from.Prefix == target.Prefix) return false;
-            return TryGetTurn(from, target, Flat(jt.forward, 0f).normalized, out turn);
+            if (TryFindAisleAt(JackCentre(jt), AisleEntryLead, out from) && from.Prefix != target.Prefix
+                && TryGetTurn(from, target, Flat(jt.forward, 0f).normalized, out turn)) return true;
+            turn = null;
+
+            // JUST OUT OF THE AISLE'S END (Tad, 2026-11-16: the turn went wide of the red markers). A jack that has driven on past the far end of
+            // the aisle it was in (beyond AisleEntryLead, so it no longer counts as "in" it) used to fall through to the old rack-end hop, which
+            // ignores the markers and steers waypoint to waypoint. If it stands on open floor just past a built turn's scrimmage line, on that
+            // aisle's exit lane, into the aisle it wants, it takes THE TURN: DriveAisleTurn backs it up to the line if it is a little past it.
+            foreach (var t in EnsureAisleTurns().turns)
+            {
+                if (t.toAisle != toNo || !t.withTraffic) continue;
+                Vector3 q = Flat(jt.position - t.start, 0f);
+                float al = Vector3.Dot(q, t.heading);
+                if (al < -0.3f || al >= TurnMaxBackUp) continue;
+                if ((q - t.heading * al).magnitude > 2f) continue;     // on the exit lane of the aisle being left
+                if (!TryLaneOfAisle(t.fromAisle, out from)) continue;
+                turn = t;
+                return true;
+            }
+            return false;
         }
 
         /// <summary>The built turn from <paramref name="from"/> into <paramref name="to"/> at the end this jack is heading for (no check of
@@ -302,7 +320,7 @@ namespace GameCore.Actors
 
             // 1. Up the lane to the scrimmage line.
             Vector3 S = jt.position + h * Vector3.Dot(Flat(t.start - jt.position, 0f), h); S.y = y;
-            if (Vector3.Dot(Flat(S - jt.position, 0f), h) < -0.3f)
+            if (Vector3.Dot(Flat(S - jt.position, 0f), h) < -(off + 1.5f))
             {
                 // Already past the line (Tad, 2026-11-15: Christopher Lewis passed a jack at the west end of aisle 01, ended up by the wall
                 // past the line, the old hop hit the wall and he ended up in aisle 02 facing against its traffic). Back straight up to it:
@@ -314,7 +332,7 @@ namespace GameCore.Actors
                 if (_jack == null || _jackLegQueued) yield break;
                 if (Vector3.Dot(Flat(S - jt.position, 0f), h) < -0.8f) { Debug.Log($"[AisleTurns] '{name}': could not back up to the scrimmage line - old way in."); yield break; }
             }
-            else if (Vector3.Dot(Flat(S - jt.position, 0f), h) > 0.3f)
+            else if (Vector3.Dot(Flat(S - jt.position, 0f), h) > 0.3f)   // short of the line: drive up to it (a jack already past it, within the turn's depth, turns from where it stands)
             {
                 yield return LaneDriveCore(from, S);
                 if (_jack == null || _jackLegQueued) yield break;
@@ -330,46 +348,50 @@ namespace GameCore.Actors
             yield return WaitTurnClear(S, h, side, -0.2f, off + 1.5f, -1.2f, latMid + 1.0f, "the turn into aisle " + to.Prefix.TrimEnd('-'));
             if (_jack == null) yield break;
 
-            // 3. Curve to the midpoint: a quarter ellipse, leaving along the lane, arriving square across the rack end.
-            Vector3 c1 = S + side * Vector3.Dot(M - S, side);
-            float a1 = Vector3.Dot(M - S, h), b1 = Vector3.Dot(M - S, side);
-            for (int i = 1; i <= 4; i++)
-            {
-                float k = 0.5f * Mathf.PI * i / 4f;
-                Vector3 w = c1 + h * (a1 * Mathf.Sin(k)) - side * (b1 * Mathf.Cos(k)); w.y = y;
-                bool reached = false;
-                yield return SteerToGuarded(w, r => reached = r);
-                if (_jack == null) yield break;
-                if (!reached) { Debug.Log($"[AisleTurns] '{name}': blocked on the way to the turn midpoint - old way in."); yield break; }
-            }
-
-            // 4. Hold until the entry of the next aisle is clear.
+            // 3-5. PIVOT TURN (Tad, 2026-11-16: "why can't we just turn until we match the angle that the racks are at and have it drive forward?").
+            // Every attempt to steer a curve ran wide, because the load wheels trail the heading. A pallet jack pivots on the spot, and that is
+            // exactly how a real one takes a rack end: drive straight out to the apex line, pivot 90 degrees to face across the rack end,
+            // drive straight across (through the Mid marker), pivot 90 degrees to face along the next lane, drive straight in. The root only
+            // ever travels on straight lines between the markers' lines, so it cannot run wide or cross the lane line, and it is exactly parallel
+            // when it enters. Each straight move and each pivot goes through the clearance guard (JackMoveStraight / JackFace).
             Vector3 into = -h;
+            // Depth is measured from the scrimmage line. A jack that already drove a little past it (leaving the aisle) pivots at the depth it is
+            // at, if that is beyond the Mid marker's depth, instead of backing up; otherwise it drives out to the Mid marker's depth.
+            float depthNow = Vector3.Dot(Flat(jt.position - t.start, 0f), h);
+            float apex = Mathf.Max(off, depthNow);
+            Vector3 Q1 = jt.position + h * (apex - depthNow); Q1.y = y;   // straight out of the aisle to the pivot depth
+            Vector3 Q2 = E + h * apex; Q2.y = y;                          // across the rack end (the Mid marker is on this line) to the next lane's line
+            Vector3 Ein = E + into * 2.4f; Ein.y = y;     // and in along the next lane
+
+            yield return JackMoveStraight(Q1, JackDriveSpeed);
+            if (_jack == null || _jackLegQueued) yield break;
+            if (PlanarDist(jt.position, Q1) > 0.6f) { Debug.Log($"[AisleTurns] '{name}': could not drive out to the turn - old way in."); yield break; }
+
+            yield return JackPivotTo(side);
+            if (_jack == null) yield break;
+            if (Vector3.Angle(Flat(jt.forward, 0f), side) > 25f) { Debug.Log($"[AisleTurns] '{name}': could not pivot across the rack end - old way in."); yield break; }
+
+            // 4. Hold at the apex until the entry of the next aisle is clear.
             yield return WaitTurnClear(E, into, side, -1.5f, 5f, -1.3f, 1.3f, "the entry of aisle " + to.Prefix.TrimEnd('-'));
             if (_jack == null) yield break;
 
-            // 5. Curve onto the next aisle's right lane and on into it.
-            Vector3 p0 = jt.position; p0.y = y;
-            Vector3 c2 = E + side * Vector3.Dot(p0 - E, side);   // level with the scrimmage line, across from where the jack stopped
-            float a2 = Vector3.Dot(p0 - E, h), b2 = Vector3.Dot(E - p0, side);
-            for (int i = 1; i <= 4; i++)
-            {
-                float k = 0.5f * Mathf.PI * i / 4f;
-                Vector3 w = c2 + h * (a2 * Mathf.Cos(k)) + side * (b2 * Mathf.Sin(k)); w.y = y;
-                bool reached = false;
-                yield return SteerToGuarded(w, r => reached = r);
-                if (_jack == null) yield break;
-                if (!reached) { Debug.Log($"[AisleTurns] '{name}': blocked turning into aisle {to.Prefix.TrimEnd('-')} - old way in."); yield break; }
-            }
-            Vector3 inPt = E + into * 1.5f; inPt.y = y;
-            bool ok = false;
-            yield return SteerToGuarded(inPt, r => ok = r);
+            yield return JackMoveStraight(Q2, JackDriveSpeed);
+            if (_jack == null || _jackLegQueued) yield break;
+            if (PlanarDist(jt.position, Q2) > 0.6f) { Debug.Log($"[AisleTurns] '{name}': blocked crossing the rack end - old way in."); yield break; }
+
+            yield return JackPivotTo(into);
+            if (_jack == null) yield break;
+            yield return JackMoveStraight(Ein, JackDriveSpeed);
             if (_jack == null) yield break;
             _inAisleTurn = false;   // past the entry line: into the next aisle
-            if (!ok) yield break;
-            yield return JackFace(to.Travel);
+            if (PlanarDist(jt.position, Ein) > 0.8f) yield break;
+            yield return JackFaceTraffic(to.Travel);
             _jackLegOk = _jack != null;
         }
+
+        private const float TurnExitHandle = 1.2f;    // cubic turn: out-handle from the scrimmage line, x the Mid marker depth (apex lands on the marker)
+        private const float TurnEntryHandle = 1.57f;   // ...and the handle along the next lane line, further out, so the jack reaches the line already straight
+        private const int TurnCurveSteps = 16;   // points per quarter-turn (~0.3 m apart): the jack follows the curve between the red markers
 
         private bool _inAisleTurn;   // between a turn's two scrimmage lines (DriveAisleTurn): the selector may not step off to pick
 

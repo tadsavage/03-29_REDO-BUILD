@@ -2042,7 +2042,10 @@ namespace GameCore.Actors
             }
             Quaternion goal = Quaternion.LookRotation(dir);
             float sign = 0f, blockedFor = 0f;
-            bool flipped = false;
+            // A blocked turn used to swing the OTHER way round: a quarter turn became a 270 degree spin (Tad, 2026-11-16). Only a near-U-turn
+            // (where either way is about as short) may flip; anything under 100 degrees is never turned the long way.
+            Vector3 startFwd = jt.forward; startFwd.y = 0f;
+            bool flipped = Mathf.Abs(Vector3.SignedAngle(startFwd, dir, Vector3.up)) < 100f;
             while (_jack != null && Quaternion.Angle(jt.rotation, goal) > 0.5f)
             {
                 Vector3 fwd = jt.forward; fwd.y = 0f;
@@ -2246,6 +2249,37 @@ namespace GameCore.Actors
             Vector3 driveTarget = Flat(target, jt.position.y);
             if (NavSample.OnAgentMesh(_jackAgent, driveTarget, 4f, out var hit)) driveTarget = hit.position;
             SetLegTarget(driveTarget);
+
+            // NEVER AGAINST THE TRAFFIC, EVER (Tad, 2026-11-16: a jack bound for the front of aisle 01 drove west up aisle 02 and east up aisle 01, both
+            // the wrong way, because the direct way was blocked and the NavMesh found a path through the aisles). The NavMesh knows nothing about lanes
+            // or flow, so a leg whose path runs through an aisle interior is not driven: wait (the blocker moves, the path changes) and look again.
+            // Step 2 of ExitAisleTowards has already routed through the aisles that ARE legal; whatever is left must keep out of them.
+            float aisleWait = 0f, aisleLook = 0f;
+            bool aisleLogged = false;
+            while (_jack != null && aisleWait < AislePathWaitMaxReal)
+            {
+                aisleLook -= Time.unscaledDeltaTime;
+                if (aisleLook > 0f) { aisleWait += Time.unscaledDeltaTime; yield return null; continue; }
+                aisleLook = 0.5f;
+                if (!FirstAisleOnPath(jt.position, driveTarget, out var wrongAisle) || DestInAisleOrFront(wrongAisle, driveTarget) || InsideAisle(wrongAisle, JackCentre(jt))) break;
+                if (!aisleLogged)
+                {
+                    aisleLogged = true;
+                    Debug.Log($"[OrderSelectionTaskDriver] '{name}': the way to '{phase}' runs through aisle {wrongAisle.Prefix.TrimEnd('-')} - not driving against the traffic; waiting for a clear way round.");
+                }
+                NoteHeld(true, null, null);   // waiting on purpose: the no-progress watchdog must not take the selector off
+                aisleWait += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            if (aisleLogged) ClearHeld();
+            if (_jack == null) yield break;
+            if (aisleWait >= AislePathWaitMaxReal)
+            {
+                // Never drive it anyway: fail the leg. The callers wait and try again (bay legs: BayLegRetries), the jack stays where it is.
+                ThrottledLog.Warn("jack-aislepath-" + name, $"[OrderSelectionTaskDriver] '{name}': still no way to '{phase}' that keeps out of the aisles after {AislePathWaitMaxReal:0} s - NOT driving against the traffic; leg failed, will try again.", 30f);
+                SetJackDrive(false, phase);
+                yield break;
+            }
 
             _jackNav.CancelSeekPosition();
             _jackAgent.Warp(jt.position);
@@ -2566,6 +2600,24 @@ namespace GameCore.Actors
             => Mathf.Abs(lane.Lateral(p)) <= lane.Half - AisleInsideMargin && (!lane.HasMin || lane.Along(p) >= lane.AlongMin - 1.5f)
                && (!lane.HasMax || lane.Along(p) <= lane.AlongMax + 1.5f);
 
+        /// <summary>NOSE AGAINST SOMETHING (Tad, 2026-11-16: a jack oversteered at a rack end and sat facing the rack): a jack on open floor whose
+        /// next 0.6 m ahead is blocked (rack end, machine, pallet) backs straight out up to 3 m, guarded, before it plans a way into an aisle -
+        /// every turn and hop starts from a pose with room to swing.</summary>
+        private IEnumerator BackOffIfNoseBlocked()
+        {
+            if (_jack == null) yield break;
+            Transform jt = _jack.transform;
+            if (TryFindAisleAt(JackCentre(jt), 0.5f, out _)) yield break;   // inside an aisle the aisle rules apply
+            Vector3 f = Flat(jt.forward, 0f).normalized;
+            if (!StepBlocked(jt.position + f * 0.6f, jt.rotation, out string what)) yield break;
+            Debug.Log($"[OrderSelectionTaskDriver] '{name}': nose against {what} - backing out before turning.");
+            for (int i = 0; i < 2 && _jack != null; i++)
+            {
+                yield return JackMoveStraight(jt.position - f * 1.5f, JackReverseSpeed);
+                if (_jack == null || !StepBlocked(jt.position + f * 0.6f, jt.rotation, out _)) yield break;
+            }
+        }
+
         /// <summary>A bay leg in an aisle (see ComputeBayPark). Outside the aisle: drive to its low-numbered end first and enter facing
         /// the traffic direction. Inside: straight up the right lane, overtaking a parked jack in the left lane. A stop BEHIND the jack
         /// is not driven to (the selector walks) unless <paramref name="allowReverse"/>, when it backs straight down the lane.
@@ -2578,6 +2630,8 @@ namespace GameCore.Actors
             _jackLegOk = false;
             _jackLegQueued = false;
             _inAisleTurn = false;   // a turn that ended early (old way in) must not block picking for good
+            yield return BackOffIfNoseBlocked();
+            if (_jack == null) yield break;
             yield return RightInAisle("before a bay leg");   // turned round / sideways in an aisle: righted before it moves
             if (_jack == null) yield break;
 
@@ -2600,7 +2654,15 @@ namespace GameCore.Actors
                 // On the far side of the low end (block 1090 log: every "aisle entry" stall): the plain NavMesh route to the entry runs
                 // back through an aisle the WRONG way, head-on into its traffic. Loop round like traffic does: up an aisle whose
                 // travel runs back toward this aisle's low end, out of its far end, then in here.
-                if (lane.Along(jt.position) > lane.AlongMin - AisleEntryLead + 1f)
+                // NEVER START THE LOOP OVER (Tad, 2026-11-16: "every time they get interrupted they decide they need to start all over again,
+                // they should just continue on to their destination"). A leg that stalled or gave up (held by a reach truck, a tangle, 6 re-issues)
+                // is re-decided from the jack's position, and a jack that had ALREADY looped round and stood a few metres from the entry read as
+                // "far side of the low end" again: it drove back to the cheapest loop aisle's far mouth and round the whole circuit a second time.
+                // Out on open floor and within a mouth hop of the entry = it is already round: carry on to the mouth, never back through an aisle.
+                bool alreadyRound = PlanarDist(jt.position, entry) <= MouthHopMax && !TryFindAisleAt(JackCentre(jt), 1.5f, out _);
+                if (alreadyRound && lane.Along(jt.position) > lane.AlongMin - AisleEntryLead + 1f)
+                    Debug.Log($"[OrderSelectionTaskDriver] '{name}': {PlanarDist(jt.position, entry):0.0}m from the entry of aisle {lane.Prefix.TrimEnd('-')} and already round the rack end - carrying on to it, not looping again.");
+                if (!alreadyRound && lane.Along(jt.position) > lane.AlongMin - AisleEntryLead + 1f)
                 {
                     if (TryFindLoopAisle(lane, jt.position, entry, out var via))
                     {
@@ -2682,8 +2744,11 @@ namespace GameCore.Actors
                 if (_jackLegQueued || _jack == null) yield break;
                 if (!_jackLegOk)
                 {
-                    ThrottledLog.Warn("jack-entry-" + name, $"[OrderSelectionTaskDriver] '{name}': could not reach the low end of the aisle for '{phase}' - driving straight to the stop instead.");
-                    yield return DriveJackTo(park, heading, phase, allowReverse);
+                    // ENTER AT AN ENTRANCE, NEVER AT AN EXIT (Tad, 2026-11-16, screenshot: a selector picked up aisle 02 from its far end). The old
+                    // fallback here drove the NavMesh straight to the stop, which goes in by whichever end is nearer - the exit. Fail the leg
+                    // instead: the pick loop waits and tries the way in again (BayLegRetries), and gives up the trip rather than go in wrong.
+                    ThrottledLog.Warn("jack-entry-" + name, $"[OrderSelectionTaskDriver] '{name}': could not reach the low end of aisle {lane.Prefix.TrimEnd('-')} for '{phase}' - NOT going in by the far end; waiting and trying the entrance again.");
+                    _jackLegOk = false;
                     yield break;
                 }
             }
@@ -2733,6 +2798,28 @@ namespace GameCore.Actors
             return true;
         }
 
+        /// <summary>The point is inside the aisle, or in its front zone (from the line-up point, AisleEntryLead + 3 m before the first bay, to the last bay).</summary>
+        private static bool DestInAisleOrFront(AisleLane a, Vector3 d)
+            => a.HasMin && Mathf.Abs(a.Lateral(d)) <= a.Half + 1.5f && a.Along(d) >= a.AlongMin - AisleEntryLead - 3f && a.Along(d) <= a.AlongMax + 1.5f;
+
+        private const float AislePathWaitMaxReal = 30f;   // JackNavLeg waits this long (REAL s) for a way that does not run through an aisle
+
+        /// <summary>REACH TRUCK DEFERRAL (Tad, 2026-11-16): how many manned pallet jacks are working aisle <paramref name="aisleNo"/> or queued at
+        /// its mouth (within <paramref name="mouthRadius"/> of <paramref name="gatePoint"/>). A truck about to go in to replenish waits outside
+        /// while this is 2 or more, instead of driving into the middle of the group.</summary>
+        internal static int JacksCrowdingAisle(int aisleNo, Vector3 gatePoint, float mouthRadius)
+        {
+            int n = 0;
+            string want = aisleNo.ToString("00") + "-";
+            foreach (var m in MachineClearance.AllMachines())
+            {
+                if (m == null || !m.isActiveAndEnabled || !m.IsPalletJack || !m.IsOccupied) continue;
+                Vector3 c = m.transform.position;
+                if ((TryFindAisleAt(c, 3f, out var a) && a.Prefix == want) || PlanarDist(c, gatePoint) <= mouthRadius) n++;
+            }
+            return n;
+        }
+
         /// <summary>True when <paramref name="p"/> stands inside an aisle (between its racks, first bay to last); names it.</summary>
         internal static bool InAnyAisle(Vector3 p, out string aisle)
         {
@@ -2752,6 +2839,18 @@ namespace GameCore.Actors
         {
             if (_jack == null) yield break;
             Transform jt = _jack.transform;
+            // ROUND THE RACK END = THE BUILT TURN (Tad, 2026-11-16: "still turning too wide" - the jacks in his screenshots were loaded and leaving
+            // the aisle for staging, which comes through here, ExitAisleTowards -> DriveToAisleMouth, and never touched the turn the red markers
+            // mark). A jack that has just come out of the end of the aisle next door takes that turn: drive out, pivot, across, pivot, in.
+            if (!passLane && float.IsNaN(alongOverride) && TryGetTurnInto(lane, out var hopFrom, out var hopTurn))
+            {
+                var keepLane = _lane;
+                _lane = hopFrom;
+                yield return DriveAisleTurn(hopFrom, lane, hopTurn);
+                _lane = keepLane;
+                if (_jack == null || _jackLegQueued) yield break;
+                if (_jackLegOk) yield break;   // in the aisle's mouth, facing the traffic: done
+            }
             float at = float.IsNaN(alongOverride) ? lane.AlongMin - AisleEntryLead : alongOverride;
             Vector3 mouth = passLane ? lane.OtherLane(at) : lane.Lane(at);
             mouth.y = jt.position.y;
@@ -2790,7 +2889,7 @@ namespace GameCore.Actors
                     }
                     if (ok && PlanarDist(jt.position, goal) <= 0.8f)
                     {
-                        yield return JackFace(lane.Travel);
+                        yield return JackFaceTraffic(lane.Travel);
                         if (_jack == null) yield break;
                         if (FacesTraffic(lane)) { _jackLegOk = true; yield break; }
                     }
@@ -2803,6 +2902,62 @@ namespace GameCore.Actors
         private const int   MouthHopAttempts   = 3;
         private const float MouthHopRetryWait   = 1.5f;   // real seconds between tries of a blocked rack-end hop
         private const float MouthLineUpBack     = 1.5f;   // the NavMesh line-up point sits this much further out than the mouth
+
+        /// <summary>PIVOT THE SHORT WAY ONLY (Tad, 2026-11-16: "why are you turning past 180 degrees ... just get to 90 turned at midpoint and another
+        /// 90 after that and STOP ROTATING"). Turns the jack in place straight to <paramref name="dir"/> by the shortest arc (RotateTowards never
+        /// goes the long way, never overshoots) and stops there. If the swing is blocked (the forks would hit something) it waits, backs up a metre
+        /// once, tries again, and then simply stops where it is - it NEVER swings the other way round, which JackFace does when blocked
+        /// (that was the 270 degree spin).</summary>
+        private IEnumerator JackPivotTo(Vector3 dir)
+        {
+            dir.y = 0f;
+            if (_jack == null || dir.sqrMagnitude < 0.0001f) yield break;
+            Transform jt = _jack.transform;
+            Quaternion goal = Quaternion.LookRotation(dir.normalized);
+            float blockedFor = 0f;
+            bool backed = false;
+            while (_jack != null && Quaternion.Angle(jt.rotation, goal) > 0.5f)
+            {
+                Quaternion next = Quaternion.RotateTowards(jt.rotation, goal, JackTurnSpeed * Time.deltaTime);
+                if (StepBlocked(jt.position, next, out _))
+                {
+                    blockedFor += RealDt;
+                    if (blockedFor >= TurnBlockedGiveUpReal)
+                    {
+                        if (backed) yield break;
+                        backed = true; blockedFor = 0f;
+                        yield return JackMoveStraight(jt.position - Flat(jt.forward, 0f).normalized * 1f, JackReverseSpeed);
+                        continue;
+                    }
+                    yield return null;
+                    continue;
+                }
+                blockedFor = 0f;
+                jt.rotation = next;
+                yield return null;
+            }
+            if (_jack != null && Quaternion.Angle(jt.rotation, goal) <= 1f) jt.rotation = goal;
+        }
+
+        /// <summary>FACE THE TRAFFIC, BACKING OUT IF THE TURN WON'T GO (Tad, 2026-11-16: jacks turned from aisle 1 into aisle 2, ended facing the
+        /// rack end and sat there: the swing was refused / blocked, "could not turn to face into aisle 02 at its mouth", and every retry
+        /// started from the same pose). Any aisle-mouth or turn-exit square-up goes through here: turn; if the jack still is not within
+        /// 20 degrees (forks would hit the rack end or a machine), back straight out along its own axis a metre and a half (guarded, so it
+        /// never reverses into anything) to where the swing is clear, and turn again - up to three times.</summary>
+        private IEnumerator JackFaceTraffic(Vector3 dir)
+        {
+            for (int attempt = 0; attempt < 3 && _jack != null; attempt++)
+            {
+                yield return JackFace(dir);
+                if (_jack == null) yield break;
+                Vector3 f = Flat(_jack.transform.forward, 0f);
+                if (f.sqrMagnitude < 0.0001f || Vector3.Angle(f, Flat(dir, 0f)) <= 20f) yield break;
+                if (attempt == 2) break;
+                Vector3 back = _jack.transform.position - f.normalized * 1.5f;
+                Debug.Log($"[OrderSelectionTaskDriver] '{name}': could not swing round to face the traffic ({Vector3.Angle(f, Flat(dir, 0f)):0} degrees off) - backing out a little and trying again ({attempt + 1}/2).");
+                yield return JackMoveStraight(back, JackReverseSpeed);
+            }
+        }
 
         /// <summary>The jack's heading is within 20 degrees of the aisle's traffic direction.</summary>
         private bool FacesTraffic(AisleLane lane)
@@ -2858,7 +3013,7 @@ namespace GameCore.Actors
                     }
                     if (ok && PlanarDist(jt.position, goal) <= 0.8f)
                     {
-                        yield return JackFace(lane.Travel);
+                        yield return JackFaceTraffic(lane.Travel);
                         if (_jack == null) yield break;
                         if (FacesTraffic(lane)) { _jackLegOk = true; yield break; }
                     }
@@ -2866,7 +3021,7 @@ namespace GameCore.Actors
             }
             yield return DriveJackTo(lineUp, lane.Travel, phase + " (line up)");
             if (_jack == null || _jackLegQueued || !_jackLegOk) yield break;
-            yield return JackFace(lane.Travel);
+            yield return JackFaceTraffic(lane.Travel);
             if (_jack == null) yield break;
             if (!FacesTraffic(lane))
             {
@@ -3020,6 +3175,65 @@ namespace GameCore.Actors
             done?.Invoke(false);
         }
 
+        private const float CurveLookAhead = 0.6f;   // FollowCurveGuarded aims at the curve this far ahead of the jack
+
+        /// <summary>Follow a dense curve (points ~0.3 m apart) the way a real jack drives: ONE steering state for the whole curve (FollowerStep),
+        /// aiming <see cref="CurveLookAhead"/> ahead on it, so the turn is a smooth arc and not a kink at every point (SteerToGuarded resets the
+        /// steer wheel at each call). Same clearance / reach-truck / traffic checks as SteerToGuarded; held SolidGiveUpReal by a solid it backs up
+        /// a metre once and carries on, held again it gives up (done(false)).</summary>
+        private IEnumerator FollowCurveGuarded(List<Vector3> pts, System.Action<bool> done)
+        {
+            if (_jack == null || pts == null || pts.Count == 0) { done?.Invoke(false); yield break; }
+            Transform jt = _jack.transform;
+            Vector3 steer = Flat(jt.forward, 0f).normalized;
+            int n = pts.Count, idx = 0;
+            Vector3 last = pts[n - 1];
+            Vector3 endDir = n > 1 ? Flat(pts[n - 1] - pts[n - 2], 0f).normalized : Flat(last - jt.position, 0f).normalized;
+            float held = 0f, guard = 0f;
+            bool retried = false;
+            while (_jack != null)
+            {
+                Vector3 p = jt.position;
+                while (idx + 1 < n && Flat(pts[idx + 1] - p, 0f).sqrMagnitude <= Flat(pts[idx] - p, 0f).sqrMagnitude) idx++;   // nearest point, never backwards
+                if (Flat(last - p, 0f).magnitude < 0.3f || (idx >= n - 1 && Vector3.Dot(Flat(p - last, 0f), endDir) >= 0f)) { EndTravel(); done?.Invoke(true); yield break; }
+                guard += Time.deltaTime;
+                if (guard > 60f) break;
+                int j = idx;
+                while (j < n - 1 && Flat(pts[j] - p, 0f).magnitude < CurveLookAhead) j++;
+                Vector3 want = Flat(pts[j] - p, 0f);
+                if (want.sqrMagnitude < 0.0001f) want = steer;
+                FollowerStep(jt, ref steer, want.normalized, out Vector3 next, out Quaternion nextRot);
+                _travelDir = steer;
+                bool hold = JackAhead(steer, out var blocker);
+                string what = null;
+                if (!hold && MachineClearance.ReachTruckBufferBlocked(_jack, next, nextRot, AisleTraffic.ReachTruckBuffer, out var truck)) { hold = true; blocker = truck; WarnYield(truck); }
+                if (!hold && StepBlocked(next, nextRot, out what)) hold = true;
+                if (hold)
+                {
+                    NoteHeld(true, blocker, what);
+                    held += RealDt;
+                    if (held >= SolidGiveUpReal)
+                    {
+                        if (retried || blocker != null) break;
+                        retried = true; held = 0f;
+                        ThrottledLog.Warn("jack-steer-backoff-" + name, $"[OrderSelectionTaskDriver] '{name}': turning round the rack end was blocked by {what} - backing up 1 m and trying again.", 30f);
+                        yield return JackMoveStraight(jt.position - Flat(jt.forward, 0f).normalized * 1f, JackReverseSpeed);
+                        steer = Flat(jt.forward, 0f).normalized;
+                        continue;
+                    }
+                    yield return null;
+                    continue;
+                }
+                NoteHeld(false, null, null);
+                held = 0f;
+                jt.position = next;
+                jt.rotation = nextRot;
+                yield return null;
+            }
+            EndTravel();
+            done?.Invoke(false);
+        }
+
         /// <summary>The aisle <paramref name="p"/> stands in, between its first and last bay (with a little slack at each end).</summary>
         private static bool TryFindAisleAt(Vector3 p, out AisleLane lane) => TryFindAisleAt(p, 1.5f, out lane);
 
@@ -3097,8 +3311,8 @@ namespace GameCore.Actors
                 for (int hop = 0; hop < 4 && _jack != null; hop++)
                 {
                     if (!FirstAisleOnPath(jt.position, dest, out var crossed)) yield break;   // the rest of the way stays out of the aisles
-                    if (Mathf.Abs(crossed.Lateral(dest)) <= crossed.Half && crossed.Along(dest) >= crossed.AlongMin - 1.5f && crossed.Along(dest) <= crossed.AlongMax + 1.5f)
-                        yield break;   // the destination is in that aisle: the caller's bay leg enters it properly
+                    if (DestInAisleOrFront(crossed, dest))
+                        yield break;   // the destination is in that aisle (or at its front): the caller's bay leg enters it properly
 
                     AisleLane use = crossed;
                     if (Vector3.Dot(crossed.Travel, Flat(dest - jt.position, 0f)) <= 0f && !TryFindLoopAisle(crossed, jt.position, dest, out use))
@@ -3106,6 +3320,10 @@ namespace GameCore.Actors
                         ThrottledLog.Warn("jack-noroute-" + name, $"[OrderSelectionTaskDriver] '{name}': the way to '{phase}' runs down aisle {crossed.Prefix.TrimEnd('-')} the wrong way and no aisle runs the right way - driving the shortest path.");
                         yield break;
                     }
+                    // NEVER ROUTE THROUGH THE AISLE WE ARE GOING TO (Tad, 2026-11-16, screenshots of the red route round the back): a leg to the FRONT of
+                    // an aisle was sent up that very aisle (or its neighbour) the wrong way round. The front is driven straight to; whether to come
+                    // round first is the bay leg's call.
+                    if (DestInAisleOrFront(use, dest)) yield break;
                     if (use.Prefix == lastUsed) yield break;   // already drove it: don't go round in circles
                     lastUsed = use.Prefix;
 
@@ -3510,6 +3728,8 @@ namespace GameCore.Actors
         }
 
         private const float SteerLookAhead = 2.2f;    // aims at the rack-lane line this far ahead: bigger = gentler pull-in (3.0 took ~10 m)
+        private const float AisleTurnSteerBoost = 2.5f;   // steer-wheel turn rate multiplier while turning between aisles
+        private const float AisleTurnSpeedScale = 0.6f;   // fraction of drive speed while turning between aisles
         private const float SteerTurnRate  = 40f;     // deg per game second while driving (a jack turning in place does 110)
         private float _passStopAlong = float.MaxValue;   // the stop being driven to: a pull-in ends there, never past it
         private float _lastPassFront = float.NaN;         // along-front of the jack (group) the current pass goes round
@@ -3567,12 +3787,16 @@ namespace GameCore.Actors
         /// the far rack while a passing jack steered back into its lane.</summary>
         private void FollowerStep(Transform jt, ref Vector3 steer, Vector3 want, out Vector3 next, out Quaternion nextRot)
         {
-            float maxStep = SteerTurnRate * 2f * JackSpeedMul * Time.deltaTime;   // the steer wheel turns quicker than the body follows
+            // Between aisles the steer wheel turns faster (Tad, 2026-11-16: "make the turn tighter"): the Mid->End curve has a ~0.8 m radius, and at the
+            // normal rate the root could only turn at ~1.3 m, so it ran wide of the End marker and finished angled. A pallet jack pivots on the spot.
+            float maxStep = SteerTurnRate * 2f * (_inAisleTurn ? AisleTurnSteerBoost : 1f) * JackSpeedMul * Time.deltaTime;   // the steer wheel turns quicker than the body follows
             steer = Vector3.RotateTowards(steer, Flat(want, 0f).normalized, maxStep * Mathf.Deg2Rad, 0f);
             Vector3 p = jt.position;
             Vector3 bodyFwd = Flat(jt.forward, 0f).normalized;
             Vector3 rear = p - bodyFwd * JackWheelBase;
-            next = p + steer * (JackDriveSpeed * Time.deltaTime);
+            // Through an aisle turn the jack slows (a real jack does): at full speed the steer wheel is near its limit on the tight curve
+            // between the markers and the jack swings wide past them (Tad, 2026-11-16).
+            next = p + steer * (JackDriveSpeed * (_inAisleTurn ? AisleTurnSpeedScale : 1f) * Time.deltaTime);
             Vector3 newFwd = Flat(next - rear, 0f);
             nextRot = newFwd.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(newFwd.normalized) : jt.rotation;
         }

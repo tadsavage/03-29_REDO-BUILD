@@ -41,7 +41,7 @@ namespace GameCore.Actors
     public class AisleTurnSet : ScriptableObject
     {
         [Tooltip("How far past the scrimmage line (last pick centre + half its width) the turn's midpoint is, in metres.")]
-        public float turnMidpointOffset = 3.5f;   // Tad, 2026-11-15: 2 m -> 3.5 m
+        public float turnMidpointOffset = 2.5f;   // Tad, 2026-11-15: 2 m -> 3.5 m; 2026-11-16: -1 m (turning too wide). Simulated: 2.5 m starts to brush the rack-end corner with the trailing forks, 1.5 m clips it.
         [Tooltip("Height of the ground the turn points sit on.")]
         public float groundY = 1.06f;
         [Tooltip("Width of one pick location along the rack (its local X).")]
