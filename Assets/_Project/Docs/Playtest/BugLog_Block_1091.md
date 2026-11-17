@@ -4661,3 +4661,84 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 1 13:38 | **WARN** | [OrderSelectionTaskDriver] Order f8fbf252-5061-4d63-9efa-b97581e03097 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 59/503.
 - day 1 13:38 | **WARN** | [OrderSelectionTaskDriver] Order f8fbf252-5061-4d63-9efa-b97581e03097 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 59/503.
 - day 1 13:49 | **WARN** | [OrderSelectionTaskDriver] Order 8c5d8f26-475b-46a1-9191-7759c62f2f25 (Twisted Twine Pasta) has no reachable pick location for its remaining line item(s) — staging short at 103/281.
+- day 4 07:01 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 4 07:03 | **WARN** | [AiNavigation] RT_Full(Clone): stuck in aisle 01 - walking out forward along the right lane to (-40.81, 1.11, 42.34).
+- day 4 07:03 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-39.01, 1.11, 39.52) — walking out to (-40.81, 1.11, 42.34) (3.35m to mesh).
+- day 4 07:35 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (5.94, 1.12, 61.07) — walking out to (-0.56, 1.17, 49.81) (12.00m to mesh).
+- day 4 08:31 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 225s while 2 task(s) it could take wait
+- day 4 09:16 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 225s while 6 task(s) it could take wait
+- day 1 08:10 | **GHOST-SLOT** | SLOT 02-03-01 names 189fd370 - no object
+- day 1 08:10 | **GHOST-SLOT** | SLOT 01-16-B1 names ba012877 - no object
+- day 1 10:15 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 10/248.
+- day 1 10:37 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-7.41, 1.19, 43.67) — walking out to (5.06, 1.13, 36.59) (13.34m to mesh).
+- day 1 10:38 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 501d2a67-ba10-443e-a336-682e8d087f9e but the employee is 6.2m away (max 4.5m) — refusing to start receiving.
+- day 1 10:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 4214904d-95a2-4e42-b2e0-93bbc522ea5b but the employee is 11.6m away (max 4.5m) — refusing to start receiving.
+- day 1 10:54 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-9.77, 1.19, 47.81) — walking out to (-3.28, 1.11, 36.21) (12.29m to mesh).
+- day 1 10:59 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 0f805576-d8ce-4cf4-a15d-d2bc82b6711c but the employee is 9.9m away (max 4.5m) — refusing to start receiving.
+- day 1 11:40 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-7.45, 1.12, 58.61) — walking out to (-7.45, 1.17, 45.61) (12.00m to mesh).
+- day 1 12:45 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-11.61, 1.19, 47.84) — walking out to (-4.57, 1.11, 36.23) (12.58m to mesh).
+- day 1 12:49 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 5824197a-4ba2-4362-bd22-ef18237c2cbf but the employee is 9.0m away (max 4.5m) — refusing to start receiving.
+- day 1 12:51 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 11c76af6-499a-4202-b176-2d6f4705c802 but the employee is 12.1m away (max 4.5m) — refusing to start receiving.
+- day 1 13:50 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (11.10, 1.18, 43.01) — walking out to (11.10, 1.13, 56.01) (12.00m to mesh).
+- day 1 14:58 | **WARN** | [ReachTruckOperator] 'RT_Full(Clone)' waited 45s for lane 3C and it never freed up (held by reach truck RT_Full(Clone) (Justin Waller, PalletPick) for 74s) — giving up and re-queueing.
+- day 1 15:26 | **WARN** | [AiNavigation] Employee_Douglas Garcia: stuck at (-0.79, 1.19, 47.81) — walking out to (-12.85, 1.16, 40.34) (13.19m to mesh).
+- day 1 15:29 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 77/248.
+- day 1 15:40 | **ERROR** | [TrailerOffload] 'DS_FULL(Clone)' cross-door offload → 2B: NO NAVMESH PATH. anchor=(-3.36, 1.11, 39.69) → driveTarget=(-3.36, 1.22, 39.69), from=(-7.18, 1.11, 38.88), elapsed=31.3s, timedOut=True, agentOnMesh=False, pathStatus=n/a. Refusing to straight-line through obstacles — aborting this leg.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerOffloadController/<SeekViaNavMesh>d__61:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerOffloadController.cs:1239)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 15:47 | **WARN** | [InventoryService] Lane 2A lock was held for over 120s by reach truck RT_Full(Clone) (Amanda Dixon, PalletPick) - treating it as leaked and taking it over.
+- day 1 16:30 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-3.93, 1.11, 40.68) — walking out to (-3.35, 1.25, 42.07) (12.03m to mesh).
+- day 1 16:33 | **WARN** | [OrderSelectionTaskDriver] 'Employee_Larry Morgan': could not reach the low end of aisle 01 for 'bay 01-02' - NOT going in by the far end; waiting and trying the entrance again.
+- day 1 17:29 | **WARN** | [AiNavigation] RT_Full(Clone): task target (-0.71, 1.24, 48.99) is not reachable — the partial path ends 15.04m short of it. Handing the task back.
+- day 1 18:12 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (-7.59, 1.11, 40.87) — walking out to (-7.01, 1.25, 42.26) (12.00m to mesh).
+- day 1 18:48 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' cross-door load: to trailer: NO NAVMESH PATH to (7.99, 1.20, 38.89) from (0.26, 1.21, 39.12) (elapsed 30.0s).
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__103:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:1222)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 18:48 | **ERROR** | [TrailerLoad] Cross-door NavMesh leg to the trailer failed with a pallet on the forks — falling back to a straight slide to the shipping-door pivot.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<PlaceCarriedInTrailer>d__97:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.cs:981)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 1 20:36 | **WARN** | [OrderSelectionTaskDriver] 'Employee_Shirley Edwards': could not reach the low end of aisle 01 for 'bay 01-08' - NOT going in by the far end; waiting and trying the entrance again.
+- day 1 21:40 | **WARN** | [OrderSelectionTaskDriver] Order 2ff95990-3f7a-4243-b742-4654c4a30315 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 471/542.
+- day 1 22:54 | **WARN** | [OrderSelectionTaskDriver] Order 2ff95990-3f7a-4243-b742-4654c4a30315 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 478/542.
+- day 1 23:00 | **WARN** | [OrderSelectionTaskDriver] Order 95f611a8-c14a-4643-822c-612a34c4b950 (Twisted Twine Pasta) has no reachable pick location for its remaining line item(s) — staging short at 920/1160.
+- day 1 23:58 | **WARN** | [OrderService] Order OG3889 closed with a IN TRANSIT pallet (5 cs) that never made the trailer - not billed, returning it to stock.
+- day 2 00:49 | **WARN** | [OrderSelectionTaskDriver] Order a99ac8a2-18bc-4ec5-861d-a92b572e82ae (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 242/248.
+- day 2 01:40 | **STALE-ASSIGNED** | STALE-ASSIGNED Putaway Putaway pallet [7832625683] left over from a finished order at STG2E-1 245s
+- day 2 01:48 | **ERROR** | [OrderSelectionTaskDriver] Pallet jack never got within 3m of 'bay 01-05 (aisle entry) (line up)' (28.3m short) - giving up on this stop.
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Actors.OrderSelectionTaskDriver/<DriveJackTo>d__270:MoveNext () (at Assets/_Project/Scripts/Actors/OrderSelectionTaskDriver.PalletJack.cs:1912)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 01:48 | **WARN** | [OrderSelectionTaskDriver] 'Employee_Larry Morgan': could not reach the low end of aisle 01 for 'bay 01-05' - NOT going in by the far end; waiting and trying the entrance again.
+- day 2 02:20 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-43.47, 1.10, 39.81) — walking out to (-32.23, 1.18, 47.08) (12.38m to mesh).
+- day 2 02:36 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-42.87, 1.11, 39.21) — walking out to (-41.49, 1.13, 39.78) (12.86m to mesh).
+- day 2 02:49 | **WARN** | [AiNavigation] PltJack_FULL(Clone) cannot reach task position at (-6.30, 1.17, 57.59) (path invalid) — abandoning the walk and handing the task back.
+- day 2 03:10 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 225s while 12 task(s) it could take wait
+- day 2 03:29 | **ERROR** | [TrailerLoad] 'DS_FULL(Clone)' dig: → source lane 1D: never arrived at (-8.66, 1.21, 39.19) (elapsed 30.0s) — refusing to straight-line through pallets. [seekingTask=True, onMesh=True, pathStatus=PathComplete, remaining=2.3, reissues=0, lastSeekCancelledBy=[at GameCore.Labor.TrailerLoadController+<SeekViaNavMesh>d__32.MoveNext () [0x00249] in C:\Users\MURILLO\Documents\GitHub\03-29-26 REDO\Assets\_Project\Scripts\1. FSM\Core\Labor\TrailerLoadController.DigOut.cs:701 < at UnityEngine.SetupCoroutine.InvokeMoveNext (System.Collections.IEnumerator enumerator, System.IntPtr returnValueAddress) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < at UnityEngine.MonoBehaviour.StartCoroutineManaged2_Injected (System.IntPtr , System.Collections.IEnumerator ) [0x00000] in <d5ea965f39d74501b56f4006ef80da34>:0 < ] 30.1s ago]
+  ```
+  UnityEngine.Debug:LogError (object)
+  GameCore.Labor.TrailerLoadController/<SeekViaNavMesh>d__32:MoveNext () (at Assets/_Project/Scripts/1. FSM/Core/Labor/TrailerLoadController.DigOut.cs:756)
+  UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+  ```
+- day 2 03:40 | **VEHICLE-STATIONARY** | PltJack_FULL(Clone) has a driver, hasn't moved in 180s while 2 task(s) it could take wait
+- day 2 04:25 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 225s while 11 task(s) it could take wait
+- day 2 04:34 | **WARN** | [OrderSelectionTaskDriver] 'Employee_Mark Peterson': could not reach the low end of aisle 01 for 'bay 01-02' - NOT going in by the far end; waiting and trying the entrance again.
+- day 2 05:25 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 180s while 6 task(s) it could take wait
+- day 2 05:57 | **WARN** | [OrderSelectionTaskDriver] 'Employee_Shirley Edwards': could not reach the low end of aisle 02 for 'bay 02-01' - NOT going in by the far end; waiting and trying the entrance again.
+- day 2 06:02 | **WARN** | [AiNavigation] Employee_Shirley Edwards: stuck at (-39.23, 1.20, 47.98) — walking out to (-39.23, 0.04, 34.46) (12.52m to mesh).
+- day 2 06:18 | **WARN** | [OrderSelectionTaskDriver] 'Employee_Mark Peterson': could not reach the low end of aisle 01 for 'bay 01-02' - NOT going in by the far end; waiting and trying the entrance again.
+- day 2 06:40 | **VEHICLE-STATIONARY** | RT_Full(Clone) has a driver, hasn't moved in 225s while 4 task(s) it could take wait
+- day 2 07:12 | **WARN** | [OrderSelectionTaskDriver] 'Employee_Mark Peterson': could not reach bay 01-02 after 5 tries with nothing picked - leaving the jack and handing the task back.
+- day 2 07:16 | **WARN** | [AiNavigation] PltJack_FULL(Clone): stuck at (-5.36, 1.11, 59.00) — walking out to (-5.36, 1.25, 46.00) (12.00m to mesh).
+- day 2 07:17 | **WARN** | [AiNavigation] Employee_Mary Young: stuck at (-7.52, 1.12, 58.59) — walking out to (-7.52, 1.18, 45.59) (12.00m to mesh).
+- day 2 07:19 | **WARN** | [AiNavigation] Employee_Mark Peterson: stuck at (-7.70, 1.12, 59.25) — walking out to (-7.70, 1.19, 46.25) (12.00m to mesh).
