@@ -1,6 +1,35 @@
 # CLAUDE.md
 
-## CURRENT WORK — Grid navigation + traffic testing (2026-11-12)
+## CURRENT WORK — Pallet jacks back on the plain NavMeshAgent (2026-11-17, read this first)
+
+Tad scrapped the heavy scripted jack movement (grid planner legs, queue / pass / walk-out traffic code, jack avoidance tuning) because every change
+made behaviour hard to predict. **Pallet jacks now use the NavMeshAgent for everything, and the driver deviates from it at exactly two points.**
+Full description + what is verified: `Assets/_Project/Docs/Playtest/NavProgress_2026-11-17.md`. Short version:
+
+- **Staging a pallet** (`JackStageRoutine`): pick lane + cell + slot, CLAIM the lane (`InventoryService.TryClaimLane`, closes it to every other machine
+  from the moment it is chosen; released after the pivot), NavMesh to the lane's pivot point (`LaneAnchorPoint`, `StageAnchorOut` = 2.5 m out from the open
+  end), turn on the spot to face away, reverse in until the pallet is on the cell centre, lower, raise forks, straight forward to the pivot, nav resumes.
+- **Picking** (`DriveBayLeg`): nav to the aisle mouth (in line), then up the aisle to the pick's anchor (`ComputeBayPark`, jack parallel to the aisle); jack yaw is
+  held within 25 degrees of an aisle's direction during every nav leg (`SteerJackYaw`, `AisleHeadingMaxDeg`); selector steps off, walks to the face, picks every
+  case, walks back; next stop up to 3 bays ahead in the SAME aisle = straight guarded move (`TryStraightHop`), anything else = nav (out of an aisle by its far
+  end, into the next by its low-bay end); a jack found moved off its stop between cases drives back (`RecoverIfMovedFromPark`). `MheAvoidanceObstacle` is on jacks.
+- Pick order = ascending slot name (`OrderPickPath.SequenceKey`: aisle, bay, level, position). `SpreadTripStarts` can start a trip past the lowest slot.
+- `AiNavigation.DriverOwnsMovement` (set while a driver holds a jack) switches off the jack's own patrol / stuck-rebake / walk-out; this was the "bouncing
+  between waypoints" bug. A "selector pallet" holds only the LOOSE cases: full pallets of a line go to reach trucks as pallet picks (`FileReleasedOrderTasks`).
+- Deleted: `OrderSelectionTaskDriver.GridLeg.cs`, `.JackTraffic.cs`, the jack grid switch. Reach trucks and dock stockers still have the grid switches (OFF by default).
+  `OrderSelectionTaskDriver.AisleTurns.cs` (`DriveAisleTurn`, turn markers) is no longer called: dead code, not yet deleted.
+- **Test save:** HAL tab (Dev Console key 1) > TEST SCENARIO > **BUILD 'ORDER SELECTION TEST' SAVE (slot 6)**: stocks every item, 10 unreleased case-pick orders,
+  stops HAL, saves slot 6. Load the "three doors aisle" warehouse first. Book the orders on the Scheduler and release them yourself.
+- **Status:** committed + pushed (`c27176ccc` on `polyperfect-men`). Compiles (Roslyn gate, 0 errors). Tad's first tests: "working better". Not proven: charging-bay
+  lining up / one jack per station, hit recovery, aisle direction vs layout (aisle 2 enters at its low-bay end: confirm that matches the building), the stranded-load
+  cleanup (deletes pallets of finished orders left on a jack), the rider's own `AiNavigation` "stuck... walking out" lines. Diagnostic: a short trip logs
+  "staging short ... Still owed (pick faces with stock): ..." listing each pick face's stock.
+- **TWO COMPUTERS (important):** Tad's Unity runs on `C:\Users\tadsa\Documents\GitHub\03-29_REDO-BUILD`; Claude's sessions have run on `C:\Users\MURILLO\...\03-29-26 REDO`.
+  Same GitHub repo (`tadsavage/03-29_REDO-BUILD`), branch `polyperfect-men`. A Claude session cannot see Tad's Unity, console, logs or saves, and the MCP editor bridge is
+  not connected: changes reach Tad ONLY by commit + push, then he pulls with Unity CLOSED. Ask him to paste console lines or screenshots instead of looking for logs.
+- **Next:** Tad playtests; he sends console lines / screenshots of anything wrong. Then the A/B plan below (jacks on the NavMesh first), then delete the dead aisle-turn code.
+
+## OLDER WORK — Grid navigation + traffic testing (2026-11-12; the JACK parts of this were removed on 2026-11-16/17, see above)
 
 The MHE navigation (NavMeshAgent + `AiNavigation` seek + scripted moves + avoidance obstacles) is being replaced one role at a time by a grid
 planner. Everything below is committed and pushed on `polyperfect-men`, and **every grid switch is OFF by default**. The 2026-11-02 playtest-benchmark

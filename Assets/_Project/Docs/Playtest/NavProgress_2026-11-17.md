@@ -81,4 +81,5 @@ Second point, PICKING CASES (Tad, 2026-11-17):
 6. Done picking: out of the aisle on navigation, to the lane's pivot point (the staging process above).
 Unused now (kept, not deleted): the scripted aisle-turn code in `OrderSelectionTaskDriver.AisleTurns.cs` (`DriveAisleTurn`, turn markers).
 Pick order: ascending slot name (`OrderPickPath.SequenceKey`: aisle, bay, level, position). Exception: `SpreadTripStarts` moves a trip's first stop past another jack working the same aisle.
-Unverified in Unity: all of the above. The assembly Unity had compiled on 2026-11-17 00:11 predates it.
+Pushed as c27176ccc. Tad's first tests (evening of 2026-11-17, his machine): "working better". Everything above is still unverified in detail; he is playtesting.
+Tad's Unity is on a different Windows account / clone (see CLAUDE.md, TWO COMPUTERS): changes only reach him via push + pull.
