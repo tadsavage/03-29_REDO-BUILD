@@ -195,6 +195,7 @@ namespace GameCore.Actors
             // lane (dock stockers included) queued at the lane mouth behind a lock nobody held any more.
             ReleaseLaneLock();
             ReleaseStagingReservation();
+            ReleaseStagingLaneClaim();
 
             if (!string.IsNullOrEmpty(_activeReservedAddress))
             {
@@ -1877,9 +1878,24 @@ namespace GameCore.Actors
                                                        int palletCases, int door, string lane,
                                                        WorkTask task, NavMeshObstacle obstacle)
         {
-            if (!_inventoryService.TryFindStagingLaneForPallets(door, lane, 1, out string resolvedLane, task?.OrderId) ||
-                !_inventoryService.TryFindStagingSlotInLane(door, resolvedLane, out var slot, task?.OrderId) ||
-                !LaneNamingService.TryGetSlotWorldPos(slot.Cell, out Vector3 slotPos))
+            // Resolve the lane and slot, then CLAIM the lane before anything else (InventoryService.TryClaimLane). The lock at the
+            // mouth alone let two trucks drive to the same lane and only serialise at the last metre. While another machine holds
+            // the lane we wait here, still carrying the pallet, and re-resolve when we can get it (the lane may have changed).
+            string resolvedLane = null;
+            LaneNamingService.LaneSlot slot = default;
+            Vector3 slotPos = default;
+            bool resolved = false;
+            while (true)
+            {
+                resolved = _inventoryService.TryFindStagingLaneForPallets(door, lane, 1, out resolvedLane, task?.OrderId) &&
+                           _inventoryService.TryFindStagingSlotInLane(door, resolvedLane, out slot, task?.OrderId) &&
+                           LaneNamingService.TryGetSlotWorldPos(slot.Cell, out slotPos);
+                if (!resolved || _inventoryService.TryClaimLane(door, resolvedLane, this, LockLabel()))
+                    break;
+                yield return new WaitForSeconds(LaneClaimRetry);
+            }
+            if (resolved) _claimedLane = (door, resolvedLane);
+            if (!resolved)
             {
                 Debug.LogWarning($"[ReachTruckOperator] PalletPick: no free staging slot in Stage {door} " +
                                  $"(started at {door}{lane}). Putting the pallet back and retrying in {NoDestinationBackoff:F0}s.");
@@ -2262,6 +2278,7 @@ namespace GameCore.Actors
             // aborted run doesn't strand a slot nothing can ever stage into again.
             ReleaseStagingReservation();
             ReleaseLaneLock();
+            ReleaseStagingLaneClaim();
 
             // Release the reserved destination. Prefer the LocationData instance (keeps its own
             // serialized _status field in sync) over PutawayLogic.CancelPutaway, which only touches
@@ -2442,6 +2459,19 @@ namespace GameCore.Actors
             _heldLaneLock = null;
         }
 
+        /// <summary>The lane this truck claimed as its staging destination (InventoryService.TryClaimLane), or null.</summary>
+        private (int Door, string Lane)? _claimedLane;
+        private const float LaneClaimRetry = 0.5f;
+
+        /// <summary>Hands back <see cref="_claimedLane"/>. Called from the same two choke points as the slot reservation (success and abort).
+        /// Deliberately NOT called from ReleaseLaneLock: the claim must outlive the NavMesh-leg and stuck-lane releases that drop the lock.</summary>
+        private void ReleaseStagingLaneClaim()
+        {
+            if (_claimedLane == null) return;
+            _inventoryService?.ReleaseLaneClaim(_claimedLane.Value.Door, _claimedLane.Value.Lane, this);
+            _claimedLane = null;
+        }
+
         /// <summary>Waits for exclusive lane entry (see InventoryService.TryEnterLaneForDelivery) but gives up after
         /// LaneWaitSeconds. Without this a truck parked at a lane mouth behind a lock nobody releases sat there with its
         /// navigation off until the 120 s watchdog fired, which is what stranded RT_Full at the lane entry.</summary>
@@ -2537,6 +2567,7 @@ namespace GameCore.Actors
                 OpsMetrics.Record(OpsMetrics.Kind.PalletPick, Time.time - _activeTaskStart);
             ReleaseStagingReservation();
             ReleaseLaneLock();
+            ReleaseStagingLaneClaim();
             SetDriveMode(DriveMode.Ai, "task complete — resuming patrol");
             // A flat battery: no patrol - EquipmentBattery drives it to a charger as soon as _busy clears.
             if (_battery == null) _battery = GetComponent<EquipmentBattery>();

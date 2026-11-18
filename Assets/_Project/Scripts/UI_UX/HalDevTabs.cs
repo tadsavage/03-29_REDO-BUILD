@@ -130,6 +130,17 @@ public static class HalDevTabs
         build.style.marginTop = 10; build.style.alignSelf = Align.FlexStart;
         scen.Add(build);
 
+        // ORDER SELECTION TEST (Tad, 2026-11-17): load the warehouse you want (e.g. "three doors aisle" with its crew), then one click stocks every
+        // item, creates a bunch of unreleased case-pick orders, stops HAL and saves to slot 6 as "Order selection test". Book the orders on the
+        // Scheduler and release them yourself, then watch the jacks pick.
+        var orderTest = BigButton("BUILD 'ORDER SELECTION TEST' SAVE (slot 6)", new Color(0.15f, 0.5f, 0.35f), () =>
+        {
+            var res = HalStressScenario.Build(HalStressScenario.Spec.OrderSelectionTest);
+            UIToast.Show(res.Note ?? "done");
+        });
+        orderTest.style.marginTop = 8; orderTest.style.alignSelf = Align.FlexStart;
+        scen.Add(orderTest);
+
         var lay = Section(root, "SAVE THE WAREHOUSE AS A LAYOUT", Blue);
         lay.Add(Text("Edit the building in the game as you like, then save it here. It appears in the layout list next time.", Small, Dim));
         var nameRow = new VisualElement(); nameRow.style.flexDirection = FlexDirection.Row; nameRow.style.alignItems = Align.Center; nameRow.style.minHeight = RowH;

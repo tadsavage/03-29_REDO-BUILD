@@ -39,6 +39,7 @@ namespace GameCore.Actors
                 _jack = jack;
                 _jackNav = jack.GetComponent<AiNavigation>();
                 _jackAgent = jack.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                if (_jackNav != null) _jackNav.DriverOwnsMovement = true;
                 s_jackClaims[jack] = this;
                 PalletJackParkingSpot.ReleaseJack(jack);
                 _jackRun = StartCoroutine(JackReturnRoutine(task, pallet));
@@ -220,8 +221,7 @@ namespace GameCore.Actors
                            LaneNamingService.TryGetSlotWorldPos((farBlocked ? laneSlots[0] : laneSlots[laneSlots.Count - 1]).Cell, out endSlot);
             if (!haveEnd) endSlot = farBlocked ? geo.EntryPoint : geo.ExitPoint - axis * 2f;
             float y = _jack != null ? _jack.transform.position.y : palletPos.y;
-            Vector3 lineUpPt = Flat(endSlot + forward * (StagingCellPitch * 0.5f + LaneEntryMargin), y);
-            mouth = lineUpPt + forward * LineUpDistance();
+            mouth = LaneAnchorPoint(endSlot, forward, y);   // the lane's pivot point, same as JackStageRoutine
             return true;
         }
 

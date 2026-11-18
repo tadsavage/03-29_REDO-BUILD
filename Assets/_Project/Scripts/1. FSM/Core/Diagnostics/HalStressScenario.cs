@@ -32,9 +32,17 @@ namespace GameCore.Diagnostics
             public bool Release;        // release them to the staging lanes straight away (off by default: HAL releases orders itself, at the right time)
             public bool ClearLanes;     // first un-release every Pending order with nothing picked, so the staging lanes start with no commitments
             public int SaveToSlot;      // 1-8 = save the game there when done, 0 = don't
+            public string SaveName;     // the slot's name in the save window (empty = "HAL stress scenario")
+            public bool StopBot;        // stop the HAL bot before saving, so the save loads quiet (HAL does not start releasing / hiring on its own)
 
-            public static Spec Default => new Spec { PalletsPerSku = 4, Orders = 6, MinLines = 38, MaxLines = 50, MinCases = 4, MaxCases = 9, Release = false, ClearLanes = true, SaveToSlot = 8 };
+            public static Spec Default => new Spec { PalletsPerSku = 4, Orders = 6, MinLines = 38, MaxLines = 50, MinCases = 4, MaxCases = 9, Release = false, ClearLanes = true, SaveToSlot = 8, SaveName = DefaultSaveName, StopBot = false };
+
+            /// <summary>A save for watching order selectors pick (Tad, 2026-11-17): every item stocked, a bunch of mid-sized case-pick orders that are
+            /// NOT released (the player books them on the Scheduler and releases them), HAL stopped, saved to slot 6 as "Order selection test".</summary>
+            public static Spec OrderSelectionTest => new Spec { PalletsPerSku = 6, Orders = 10, MinLines = 15, MaxLines = 25, MinCases = 3, MaxCases = 8, Release = false, ClearLanes = true, SaveToSlot = 6, SaveName = "Order selection test", StopBot = true };
         }
+
+        public const string DefaultSaveName = "HAL stress scenario";
 
         /// <summary>The values the HAL tab's sliders edit.</summary>
         public static Spec Current = Spec.Default;
@@ -149,10 +157,12 @@ namespace GameCore.Diagnostics
 
             // 4. Save to a slot for startFromSlot.
             string saved = "";
+            if (s.StopBot && PlaytestBot.Instance != null) PlaytestBot.Instance.StopBot();   // a bot saved as running restarts a HAL block when the save loads
             if (s.SaveToSlot >= 1 && s.SaveToSlot <= 8 && SaveLoadSystem.SaveManager.Instance != null)
             {
-                SaveLoadSystem.SaveManager.Instance.SaveToSlot(s.SaveToSlot - 1, "HAL stress scenario");
-                saved = $" Saved to slot {s.SaveToSlot} (set \"Start from saved game\" to {s.SaveToSlot}).";
+                string saveName = string.IsNullOrWhiteSpace(s.SaveName) ? DefaultSaveName : s.SaveName.Trim();
+                SaveLoadSystem.SaveManager.Instance.SaveToSlot(s.SaveToSlot - 1, saveName);
+                saved = $" Saved to slot {s.SaveToSlot} as \"{saveName}\" (set \"Start from saved game\" to {s.SaveToSlot} to start HAL from it).";
             }
 
             r.Note = (unreleased > 0 ? $"{unreleased} order(s) un-released (lanes cleared); " : "") +

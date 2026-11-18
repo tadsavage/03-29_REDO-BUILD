@@ -1026,6 +1026,35 @@ namespace GameCore.Actors
             return found;
         }
 
+        /// <summary>What is still owed to a case picker on this order and why it cannot be picked: each line's pick faces with their stock and
+        /// whether the face is behind this trip (ascending-only). Goes into the "staging short" warning so a short trip explains itself.</summary>
+        private string DescribeRemaining(OrderData order)
+        {
+            if (order == null) return "";
+            var sb = new System.Text.StringBuilder();
+            string taskId = _currentTask != null ? _currentTask.TaskId : null;
+            foreach (var li in order.LineItems)
+            {
+                if (li == null || li.IsFullyPicked) continue;
+                int want = _orderService.SelectableRemaining(order, li, taskId);
+                if (want <= 0) continue;
+                sb.Append(li.SkuId).Append(" x").Append(want).Append(" [");
+                bool any = false;
+                foreach (var addr in SlotAssignmentService.GetSlotsForSku(li.SkuId))
+                {
+                    any = true;
+                    if (!LocationRegistry.TryGet(addr, out var loc) || loc == null) { sb.Append(addr).Append(":missing "); continue; }
+                    sb.Append(addr).Append(':').Append(loc.Quantity);
+                    if (OrderPickPath.SequenceKey(addr) < _pickFloorKey) sb.Append("(behind)");
+                    sb.Append(' ');
+                }
+                if (!any) sb.Append("no pick face assigned");
+                sb.Append("] ");
+                if (sb.Length > 700) { sb.Append("..."); break; }
+            }
+            return sb.ToString();
+        }
+
         /// <summary>Fix A switch (dev / A-B testing with JackTrafficRecorder). On by default.</summary>
         public static bool SpreadTripStarts = true;
         private const int SpreadBehindBays = 2;   // a first stop this many bays behind another jack's stop...

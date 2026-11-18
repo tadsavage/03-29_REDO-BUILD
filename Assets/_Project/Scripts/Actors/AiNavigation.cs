@@ -535,6 +535,11 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     /// supposed to be standing still. Callers must clear this when the task ends.</summary>
     public void SetTaskBusy(bool busy) => _taskBusy = busy;
 
+    /// <summary>True while a task driver moves this machine (or its rider) itself, e.g. OrderSelectionTaskDriver on a pallet jack.
+    /// The driver owns the route and its own stuck handling: no stuck rebake / random waypoint, no 12 m walk-out slide, no patrol.
+    /// The driver must clear it when it lets the machine go.</summary>
+    public bool DriverOwnsMovement { get; set; }
+
     /// <summary>True while a task driver (e.g. ReceivingTaskDriver) has claimed this agent for a
     /// stationary task. AgentAnimation's own arrival handler (WaitAtWaypointRoutine) checks this
     /// too — it has an independent "arrived → wander after idleDelay" loop that doesn't go through
@@ -1447,7 +1452,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                     // pallet's NavMeshObstacle carved the floor out from under a standing worker).
                     // Escalate to physically walking out (fix #2).
                     _offMeshSeconds += 30f * Time.deltaTime;
-                    if (_offMeshSeconds >= StuckEscalateSeconds)
+                    if (_offMeshSeconds >= StuckEscalateSeconds && !DriverOwnsMovement)
                         StartCoroutine(UnstickWalkOut());
                 }
             }
@@ -1494,7 +1499,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
         // ── Auto-rebake trigger ───────────────────────────────────────────────────
         // Never rebake while traversing a ledge — it would disrupt the manual climb/jump.
-        if (!_traversingLink) UpdateRebakeTrigger();
+        // A task driver that is moving this machine itself (the pallet jack's NavMesh legs) owns the route: the stuck check here picks a
+        // random waypoint or slides the machine 12 m "out", which dragged a loaded jack away from the staging lane it was driving to.
+        if (!_traversingLink && !DriverOwnsMovement) UpdateRebakeTrigger();
 
         // ── Waypoint progression (for agents without AgentAnimation) ─────────────
         // Only advance on a fully-complete path so a blocked agent at a partial-path
@@ -1507,6 +1514,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             // agent that has been placed on a NavMesh") the moment that happens.
             if (agent.isOnNavMesh
                 && !_taskBusy
+                && !DriverOwnsMovement
                 && !agent.pathPending
                 && agent.remainingDistance <= agent.stoppingDistance + 0.1f
                 && agent.pathStatus == NavMeshPathStatus.PathComplete)
@@ -2082,6 +2090,9 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
     public void GoToRandomWaypoint()
     {
+        // A driver-owned machine never picks its own waypoint: that is how a jack reached the lane mouth, kept going to some
+        // patrol waypoint, then turned round and came back. Every caller (patrol, stuck rebake, rebake recovery) lands here.
+        if (DriverOwnsMovement) return;
         // Always re-scan so newly placed waypoints are picked up immediately.
         FindWaypoints();
 

@@ -435,6 +435,8 @@ namespace GameCore.Inventory
                 Debug.LogWarning($"[InventoryService] Lane {doorNumber}{lane} was still locked by a vehicle that no longer exists ({LaneLockHolderName(key)}) - freeing it.");
                 ReleaseLaneEntry(doorNumber, lane);
             }
+            // A lane another machine has CLAIMED as its destination is closed to everyone else (see TryClaimLane).
+            if (LaneClaimedByOther(key, owner)) return false;
             if (_laneEntryLocks.TryGetValue(key, out float since))
             {
                 if (Time.time - since < LaneLockStaleSeconds) return false;
@@ -448,6 +450,72 @@ namespace GameCore.Inventory
 
         private readonly Dictionary<(int Door, string Lane), Object> _laneLockOwners = new Dictionary<(int, string), Object>();
 
+        // ── Lane claims: a destination, taken BEFORE the drive ────────────────────────────────
+        // A lane lock (above) is only taken once a vehicle is standing at the lane mouth, so two machines could both drive to the same
+        // lane and only be serialised at the last metre. A claim is taken the moment a machine chooses the lane as its destination, and
+        // holds every OTHER machine out of that lane (claim, lock and entry) until the owner releases it after the pallet is set down
+        // or the run is abandoned. The owner itself is never blocked by its own claim.
+        private readonly Dictionary<(int Door, string Lane), (Object Owner, float Since)> _laneClaims = new Dictionary<(int, string), (Object, float)>();
+        private readonly Dictionary<(int Door, string Lane), string> _laneClaimHolders = new Dictionary<(int, string), string>();
+
+        /// <summary>Claims a lane as this machine's destination. False while another machine holds the lane (its lock, or its claim).
+        /// The caller waits and re-resolves. Every successful call MUST be paired with <see cref="ReleaseLaneClaim"/>.</summary>
+        public bool TryClaimLane(int doorNumber, string lane, Object owner, string who = null)
+        {
+            var key = (doorNumber, lane);
+            if (LaneClaimedByOther(key, owner)) return false;
+            if (LaneLockedByOther(key, owner)) return false;
+            if (_laneClaims.TryGetValue(key, out var mine) && mine.Owner == owner) { _laneClaimHolders[key] = who; return true; }
+            _laneClaims[key] = (owner, Time.time);
+            _laneClaimHolders[key] = who;
+            return true;
+        }
+
+        /// <summary>Hands back a claim. Only removes a claim this owner holds (or one whose owner was destroyed).</summary>
+        public void ReleaseLaneClaim(int doorNumber, string lane, Object owner)
+        {
+            var key = (doorNumber, lane);
+            if (!_laneClaims.TryGetValue(key, out var claim)) return;
+            if (claim.Owner != owner && claim.Owner != null) return;
+            _laneClaims.Remove(key);
+            _laneClaimHolders.Remove(key);
+        }
+
+        /// <summary>A claim held by a machine other than <paramref name="owner"/>, live (owner not destroyed, not stale).</summary>
+        private bool LaneClaimedByOther(in (int Door, string Lane) key, Object owner)
+        {
+            if (!_laneClaims.TryGetValue(key, out var claim)) return false;
+            if (claim.Owner == null)                       // the claimant was destroyed (a load respawned it): free
+            {
+                _laneClaims.Remove(key); _laneClaimHolders.Remove(key);
+                return false;
+            }
+            if (claim.Owner == owner) return false;
+            if (Time.time - claim.Since >= LaneLockStaleSeconds)
+            {
+                Debug.LogWarning($"[InventoryService] Lane {key.Door}{key.Lane} claim by {LaneClaimHolderName(key)} was held for over {LaneLockStaleSeconds:F0}s - treating it as leaked.");
+                _laneClaims.Remove(key); _laneClaimHolders.Remove(key);
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>An insertion lock held by a machine other than <paramref name="owner"/>, live (not destroyed, not stale).</summary>
+        private bool LaneLockedByOther(in (int Door, string Lane) key, Object owner)
+        {
+            if (!_laneEntryLocks.TryGetValue(key, out float since)) return false;
+            if (Time.time - since >= LaneLockStaleSeconds) return false;
+            if (_laneLockOwners.TryGetValue(key, out var lockOwner))
+            {
+                if (lockOwner == null) return false;       // destroyed holder: TryEnterLaneForDelivery frees it
+                return lockOwner != owner;
+            }
+            return true;                                   // an ownerless lock is held by someone we cannot see: treat as theirs
+        }
+
+        private string LaneClaimHolderName((int, string) key) =>
+            _laneClaimHolders.TryGetValue(key, out var w) && !string.IsNullOrEmpty(w) ? w : "an unnamed vehicle";
+
         /// <summary>A load destroys and respawns every vehicle, so no lock taken before it can still mean anything (block 1025: the game's
         /// own boot load put trucks to work, the player's F9 replaced them, and their lane locks stayed behind for 1-2 minutes).</summary>
         public void ClearAllLaneLocks()
@@ -456,6 +524,8 @@ namespace GameCore.Inventory
             _laneEntryLocks.Clear();
             _laneLockHolders.Clear();
             _laneLockOwners.Clear();
+            _laneClaims.Clear();
+            _laneClaimHolders.Clear();
             _stagingSlotReservations.Clear();   // same story: reserved by trucks that are gone
         }
 

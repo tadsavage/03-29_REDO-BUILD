@@ -201,10 +201,10 @@ public class EquipmentBattery : MonoBehaviour
         EquipmentBatteryPanels.Ensure();
         if (_po != null)   // placed machines only (not build-menu ghosts)
         {
-            // Pallet jacks drive on their own NavMeshAgent with no personal-space obstacle (the avoidance-obstacle modifier was scrapped
-            // for jacks, 2026-11-16). Other machines keep theirs.
-            var slot = GetComponent<MHEOperatorSlot>();
-            if (slot == null || !slot.IsPalletJack) MheAvoidanceObstacle.Ensure(gameObject);
+            // Every machine keeps its personal-space obstacle, pallet jacks included (Tad, 2026-11-17: reach trucks must never drive into a
+            // parked jack and push it down the aisle). It is non-carving and only live while the machine's OWN agent is off (parked, or
+            // scripted), so it costs the jack's own NavMeshAgent legs nothing - it just lets every other agent see a parked jack.
+            MheAvoidanceObstacle.Ensure(gameObject);
             GameCore.Actors.EquipmentTrafficAgent.Ensure(gameObject);
         }
     }
