@@ -81,6 +81,10 @@ public static class DailyObjectivesHud
     /// <summary>True while the player has the Objectives checklist switched on (the default).</summary>
     public static bool IsShown => !_hiddenByPlayer;
 
+    /// <summary>Set by test benches (GameCore.Actors.MheTestBench): the day's record is still kept, but the recap modal that pauses the
+    /// game is not shown.</summary>
+    public static bool SuppressRecap;
+
     /// <summary>The UI CONTROL > Objectives button: switches the checklist off and on. Applies at once (the once-a-second tick would
     /// otherwise leave it up for a second), remembered across sessions.</summary>
     public static void Toggle()
@@ -243,6 +247,7 @@ public static class DailyObjectivesHud
 
         var bot = PlaytestBot.Instance;
         if (bot != null && bot.Running && !bot.ObserveOnly) return;   // HAL is driving an unattended block: record, never pause it
+        if (SuppressRecap) return;                                     // a test bench run (MheTestBench): record, never pause it
         _pendingRecap = () => ShowRecap(day, rows, rec);
     }
 

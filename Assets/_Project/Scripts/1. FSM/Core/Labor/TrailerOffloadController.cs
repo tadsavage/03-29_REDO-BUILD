@@ -1118,6 +1118,11 @@ namespace GameCore.Labor
         private IEnumerator SeekViaNavMesh(Transform ds, AiNavigation nav, NavMeshAgent agent, Vector3 target,
                                            string phase, System.Action<bool> onDone)
         {
+            // MHE traffic rework (2026-11-18): every dock stocker leg is driven by MheMotor (sensor, right of way, no clipping).
+            yield return GameCore.Actors.MheMotor.Leg(ds, target, phase, onDone);
+            yield break;
+#pragma warning disable CS0162
+
             // Grid backend (flag, default off): plan on the NavGrid and drive it scripted. Same contract: bool callback, no fallback.
             if (GameCore.Navigation.NavGridService.UseForDockStockers && ds != null)
             {
@@ -1244,6 +1249,7 @@ namespace GameCore.Labor
             }
 
             onDone?.Invoke(arrived);
+#pragma warning restore CS0162
         }
 
         /// <summary>The entry-to-far scan shared by TryFindLaneTarget (same-door, first-lane-wins) and

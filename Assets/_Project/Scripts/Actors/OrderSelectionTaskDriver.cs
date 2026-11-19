@@ -1055,8 +1055,10 @@ namespace GameCore.Actors
             return sb.ToString();
         }
 
-        /// <summary>Fix A switch (dev / A-B testing with JackTrafficRecorder). On by default.</summary>
-        public static bool SpreadTripStarts = true;
+        /// <summary>Fix A switch (dev / A-B testing with JackTrafficRecorder). OFF since 2026-11-18: Tad's rule is that a trip ALWAYS starts at
+        /// the lowest aisle (and bay) on its pick list and follows the chevrons from there; a jack behind a slow one now drives round it
+        /// (MhePlanner passing) instead of the trip starting further up the aisle.</summary>
+        public static bool SpreadTripStarts = false;
         private const int SpreadBehindBays = 2;   // a first stop this many bays behind another jack's stop...
         private const int SpreadAheadBays = 3;    // ...up to this many ahead of it (same aisle) is too close: start past it
 

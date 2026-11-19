@@ -35,8 +35,21 @@ namespace GameCore.Actors
         /// the leg itself.</summary>
         private IEnumerator RtLeg(Vector3 target, string phase, System.Action<bool> onDone)
         {
-            yield return RtThroughAisleGates(target, phase);
-            yield return RtLegCore(target, phase, onDone);
+            // MHE traffic rework (2026-11-18): every reach truck travel leg is driven by MheMotor. Open floor on the NavMesh (aisles
+            // excluded), inside an aisle on its lane, in and out by either end; reach trucks have right of way over every other machine.
+            // The old NavMeshAgent leg (SeekViaNavMesh) and the grid leg stay in the file but are no longer called.
+            var motor = MheMotor.Ensure(gameObject);
+            if (_heldLaneLock.HasValue) ReleaseLaneLock();   // an open-floor leg never runs inside a lane
+            SetDriveMode(DriveMode.Manual, $"motor leg → {phase}");
+            if (_vehicleNav != null) _vehicleNav.SetTaskBusy(true);
+            Vector3 t = new Vector3(target.x, transform.position.y, target.z);
+            var goal = MheGoal.To(t, Vector3.zero, phase);
+            goal.Tolerance = 0.5f;
+            bool ok = false; string why = "interrupted";
+            yield return motor.Drive(goal, r => { ok = r.Ok; why = r.Why; });
+            if (_vehicleNav != null) _vehicleNav.SetTaskBusy(false);
+            if (!ok) Debug.LogWarning($"[ReachTruckOperator] '{name}' {phase}: could not drive there - {why} (route: {motor.LastRoute}).");
+            onDone?.Invoke(ok);
         }
 
         /// <summary>Dispatch point: the flag decides which backend carries the leg. Same signature and contract as SeekViaNavMesh.</summary>

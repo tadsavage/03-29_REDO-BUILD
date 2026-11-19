@@ -1,6 +1,36 @@
 # CLAUDE.md
 
-## CURRENT WORK — Pallet jacks back on the plain NavMeshAgent (2026-11-17, read this first)
+## CURRENT WORK — One motor for every machine (MHE traffic rework, 2026-11-18, read this first)
+
+All machine travel (pallet jacks, reach trucks, dock stockers, charge / park trips) now goes through **`MheMotor`**
+(`Assets/_Project/Scripts/Actors/Mhe/`). Machines' NavMeshAgents no longer steer them. Full write-up, rules and test results:
+`Assets/_Project/Docs/Playtest/MheTraffic_2026-11-18.md`. Short version:
+
+- **Planner (`MhePlanner`)**: open floor = `NavMesh.CalculatePath` (MHE agent; new NavMesh area 8 "Rack Aisle", painted by
+  `NavMeshManager.AddAisleSources`, is EXCLUDED), points pushed off walls / pallets for the machine's real size, a straight line-up before a headed
+  goal, a straight "back out" first when starting somewhere tight. Inside an aisle = the aisle's own lane (`MheAisleMap`: faces, ends, travel =
+  higher bays = the chevron), in by an end, gentle lane changes (18 deg, cap 30), out by an end. Jacks: low-bay end in, far end out, never back
+  up more than 1.5 m. Reach trucks: either end, REVERSE along the lane instead of turning round, keep right / go round when traffic comes the other way.
+- **Motor (`MheMotor`)**: pure pursuit on the machine's centre, turns about its centre. Sensor sweeps the full outline (forks, carried pallets)
+  along the route: stops 0.25 m from machines (+0.6 m behind a moving one), 0.2 m from people, short of racks / walls / floor pallets. Right of way
+  RT > DS > jack (a lower rank treats a higher rank's next stretch as occupied). Standoffs: the lower rank / the follower makes way (back off, or
+  pull aside on open floor). Standing machines are driven round. Work spots: a leg's destination is reserved; another machine whose destination
+  clashes and is not the nearer one stops at a holding line until the owner sets off. Aisle entry gate: one direction of moving traffic at a time.
+- **Anti-clip guard** (`MheMotor.LateUpdate`, every machine, every frame): any move by anything (agent, hand-driven RT lane / rack moves) that comes
+  within 0.1 m of another machine is undone. A motor machine that something keeps pushing into gets out of its way.
+- **Jack specifics**: pick stop = parallel to the aisle, facing the chevron, 0.5 m off the face, pallet level with the slot; selector works in the gap
+  and walks round the jack's end. `SpreadTripStarts` is OFF (trips always start at the lowest aisle/bay). Staging pivot: the jack's CENTRE drives
+  onto the pivot point, turns, reverses in. The no-progress watchdog ignores a jack on a motor leg (the motor has its own limits: 2 min traffic,
+  7 s no progress).
+- **Test bench**: HAL tab > TEST SCENARIO > **RUN MHE TRAFFIC TEST (slot 6, 4 orders, 3x)**, or `GameCore.Actors.MheTestBench.Run(6, 4, 3f, 8f)`
+  in Play. `MheTrafficProbe` logs `[MheProbe] CLIP / TOO CLOSE / IN RACK / ANGLE / HELD / FAILED`; `[MheTest]` lines give per-minute summaries.
+  The bench suppresses the day-end recap (`DailyObjectivesHud.SuppressRecap`), which otherwise pauses the game.
+- Old code still in the files but no longer called for travel: `ReachTruckOperator.SeekViaNavMesh` / grid leg / aisle gates, the dock stockers'
+  `SeekViaNavMesh` bodies (now one-line motor calls), `OrderSelectionTaskDriver.AisleTurns.cs`.
+- **This machine**: on 2026-11-18 Unity ran on THIS clone (`C:\Users\MURILLO\...\03-29-26 REDO`) with the UnityMCP bridge live, so tests were run
+  directly. Check `mcpforunity://instances` first; the bridge drops for a few seconds on every Play entry / save load.
+
+## PREVIOUS WORK — Pallet jacks back on the plain NavMeshAgent (2026-11-17; movement superseded by MheMotor above)
 
 Tad scrapped the heavy scripted jack movement (grid planner legs, queue / pass / walk-out traffic code, jack avoidance tuning) because every change
 made behaviour hard to predict. **Pallet jacks now use the NavMeshAgent for everything, and the driver deviates from it at exactly two points.**
@@ -346,6 +376,8 @@ by clicking a rack (`PlacementStateMachine` → `ShowForAisle`).
 - Money: new distinct GL_Line ⇒ add a case in `FinanceCategory.ForGLLine`; one-time costs go through `MoneyService.Deduct`; restoring a balance is `RestoreCapital`, never `SetMoney` (it books a fake expense).
 - Restore anything on load via the existing paths and call `RebuildFromRegistry()` for grid and economy. Don't read `Time.timeScale`-scaled time for UI.
 - MHE navigation: rack approach anchors are at SHELF height — project to floor before NavMesh use. Machines never descend (yard-level NavMesh layer under the building). Parking an operated machine's nav = `GoIdleKeepOperator`, never `GoIdle`. Only `SetDriveMode` may flip the vehicle agent.
+- **Machine travel goes through `MheMotor.Drive` / `MheMotor.Leg` (2026-11-18).** Never re-enable a machine's NavMeshAgent to move it, and never
+  write a new hand-driven travel loop: the motor's sensor, right of way and the anti-clip guard are what keep machines apart.
 - **Machines NEVER drive through racks, walls, barriers, other machines or pallets — NavMesh or not (Tad, 2026-11-07).** "No NavMesh there" is never a licence to slide through. Aisles have no MHE NavMesh, so jacks are scripted in them. Any new scripted machine move (turn, slide, walk-out) must step through `MachineClearance.StepBlocked` (`Actors/MachineClearance.cs`). Rack colliders are only click triggers on the beams, so physics can't see racks; the guard uses PlacementGrid solid cells plus each object's renderer outline. Floor shadow decals (`VehicleShadow_*`) are not part of a machine's footprint.
 - **Pallet jack traffic (2026-11-07, `OrderSelectionTaskDriver.JackTraffic.cs`):** behind a manned jack with no room to pass → WAIT, with no time limit (the old 6 s "go anyway" caused the weaving and driving through). Two jacks blocking each other → the one with more room ahead goes. Queued 5 REAL seconds on the way to a bay → the selector steps off and walks to pick, max 10 m walking distance, routed round racks and jacks. A run resumed from a save must `SetJackDrive(false)` (it didn't, and the jack's own agent patrolled off with the selector).
 - Two NavMesh agent types matter: default 0 is "Rat"; workers use "Human", vehicles "MHE" — query with the agent's own type.

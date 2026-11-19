@@ -179,6 +179,7 @@ public class NavMeshManager : MonoBehaviour
             AddStairRampSources(sources);
             AddDockTopNavMeshSources(sources, surface.defaultArea);
             AddDockApronSources(sources);
+            AddAisleSources(sources);
 
             var settings = surface.GetBuildSettings();
             var newData = NavMeshBuilder.BuildNavMeshData(settings, sources, worldBounds, surface.transform.position, surface.transform.rotation);
@@ -560,6 +561,28 @@ public class NavMeshManager : MonoBehaviour
         }
     }
 
+    /// <summary>RACK AISLES (MHE traffic rework, 2026-11-18): a modifier box over each aisle (between its rack ends and faces) marks it as
+    /// area MheNav.AisleArea. Machines' open-floor routes exclude it (GameCore.Actors.MhePlanner): inside an aisle they drive its own lane,
+    /// entering and leaving only by its ends, so a NavMesh route never cuts down an aisle the wrong way or crosses one sideways.
+    /// People walk it as plain floor.</summary>
+    private void AddAisleSources(List<NavMeshBuildSource> sources)
+    {
+        GameCore.Actors.MheAisleMap.Invalidate();
+        foreach (var a in GameCore.Actors.MheAisleMap.All)
+        {
+            if (a == null) continue;
+            float mid = (a.AlongStart + a.AlongEnd) * 0.5f;
+            Vector3 c = a.Point(mid, (a.LatMin + a.LatMax) * 0.5f);
+            sources.Add(new NavMeshBuildSource
+            {
+                transform = Matrix4x4.TRS(new Vector3(c.x, a.Y + 1.5f, c.z), Quaternion.LookRotation(a.Travel, Vector3.up), Vector3.one),
+                shape = NavMeshBuildSourceShape.ModifierBox,
+                area = GameCore.Actors.MheNav.AisleArea,
+                size = new Vector3(a.LatMax - a.LatMin + 0.2f, 4f, a.AlongEnd - a.AlongStart)
+            });
+        }
+    }
+
     private Bounds GetWorldBounds(NavMeshSurface surface)
     {
         if (surface.collectObjects != CollectObjects.All)
@@ -711,6 +734,7 @@ public class NavMeshManager : MonoBehaviour
                 AddStairRampSources(sources);
                 AddDockTopNavMeshSources(sources, surface.defaultArea);
                 AddDockApronSources(sources);
+                AddAisleSources(sources);
 
                 AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
                 while (!op.isDone) yield return null;

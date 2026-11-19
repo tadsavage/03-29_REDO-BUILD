@@ -1121,6 +1121,11 @@ namespace GameCore.Labor
         /// fallback here: the caller decides what to do when it fails.</summary>
         private IEnumerator SeekViaNavMesh(Transform ds, Vector3 target, string phase, System.Action<bool> onDone)
         {
+            // MHE traffic rework (2026-11-18): every dock stocker leg is driven by MheMotor (sensor, right of way, no clipping).
+            yield return GameCore.Actors.MheMotor.Leg(ds, target, phase, onDone);
+            yield break;
+#pragma warning disable CS0162
+
             // Grid backend (flag, default off): plan on the NavGrid and drive it scripted. Same contract: bool callback, no fallback.
             if (GameCore.Navigation.NavGridService.UseForDockStockers && ds != null)
             {
@@ -1222,6 +1227,7 @@ namespace GameCore.Labor
                 Debug.LogError($"[TrailerLoad] '{ds.name}' {phase}: NO NAVMESH PATH to {driveTarget} from {ds.position} (elapsed {elapsed:F1}s).");
 
             onDone?.Invoke(arrived);
+#pragma warning restore CS0162
         }
 
         // ── Movement primitives (duplicated from TrailerOffloadController) ───────────────────────

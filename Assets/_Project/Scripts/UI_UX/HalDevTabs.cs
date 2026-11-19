@@ -141,6 +141,16 @@ public static class HalDevTabs
         orderTest.style.marginTop = 8; orderTest.style.alignSelf = Align.FlexStart;
         scen.Add(orderTest);
 
+        // MHE TRAFFIC TEST (2026-11-18): loads slot 6, releases the 4 smallest orders, runs at 3x for 8 real minutes with the traffic probe
+        // on; the result ("[MheTest]" / "[MheProbe]" lines) is in the log and the Systems Log toasts.
+        var trafficTest = BigButton("RUN MHE TRAFFIC TEST (slot 6, 4 orders, 3x)", new Color(0.45f, 0.3f, 0.1f), () =>
+        {
+            GameCore.Actors.MheTestBench.Run(6, 4, 3f, 8f);
+            UIToast.Show("MHE traffic test started - see [MheTest] / [MheProbe] lines in the log.");
+        });
+        trafficTest.style.marginTop = 8; trafficTest.style.alignSelf = Align.FlexStart;
+        scen.Add(trafficTest);
+
         var lay = Section(root, "SAVE THE WAREHOUSE AS A LAYOUT", Blue);
         lay.Add(Text("Edit the building in the game as you like, then save it here. It appears in the layout list next time.", Small, Dim));
         var nameRow = new VisualElement(); nameRow.style.flexDirection = FlexDirection.Row; nameRow.style.alignItems = Align.Center; nameRow.style.minHeight = RowH;
