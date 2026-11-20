@@ -240,7 +240,7 @@ namespace GameCore.Actors
                     if (jack && dir < 0 && back > JackReverseInAisleMax)
                     {
                         // Never back up or turn round in an aisle: out of the far end, round, and in again at the low-bay end.
-                        AppendLane(m, path, here, curC, 1, here.AlongEnd + m.EntryClear, here.Lateral(curC), y, out curC);
+                        AppendLane(m, path, here, curC, 1, here.AlongEnd + Mathf.Max(0.4f, FitClear(m, here, -1)), here.Lateral(curC), y, out curC);
                         curH = here.Travel;
                         summary.Append($"out of {Name(here)} (stop is behind), ");
                         here = null;
@@ -291,7 +291,7 @@ namespace GameCore.Actors
                     }
                     bool rev = dir != dirHere;
                     if (rev) { if (path.Pts.Count > 1) route.Segs.Add(path); path = new MheSeg { Kind = MheSegKind.Path, Reverse = true, Heading = curH, Label = g.Label + " (backing out)" }; path.Add(curC, m.ReverseSpeed, true); }
-                    float outAlong = dir > 0 ? here.AlongEnd + m.EntryClear : here.AlongStart - m.EntryClear;
+                    float outAlong = dir > 0 ? here.AlongEnd + Mathf.Max(0.4f, FitClear(m, here, -1)) : here.AlongStart - Mathf.Max(0.4f, FitClear(m, here, 1));
                     // hold the lateral line it is on until it is out (a diagonal at the very end of an aisle swings the forks into the rack end)
                     AppendLane(m, path, here, curC, dir, outAlong, here.Lateral(curC), y, out curC);
                     if (rev)
@@ -341,26 +341,35 @@ namespace GameCore.Actors
                 bool jack = m.Kind == MheKind.Jack;
                 int dir = 1;
                 float aGoal = there.Along(goalC);
-                Vector3 entryLo = there.Point(there.AlongStart - m.EntryClear, 0f), entryHi = there.Point(there.AlongEnd + m.EntryClear, 0f);
+                // How far out from each rack end the machine can really line up, straight, with the whole body clear of walls / racks /
+                // pallets (a wall two metres past the end of aisle 02 left no room for a 3.2 m reach truck to line up there: it backed up
+                // and re-planned for ever). Less than EntryClear means it lines up partly in the aisle mouth and the approach is diagonal.
+                float clearLo = FitClear(m, there, 1), clearHi = FitClear(m, there, -1);
+                Vector3 entryLo = there.Point(there.AlongStart - Mathf.Max(0f, clearLo), 0f), entryHi = there.Point(there.AlongEnd + Mathf.Max(0f, clearHi), 0f);
                 if (!jack)
                 {
-                    float lo = Flat(entryLo - curC).magnitude + (aGoal - there.AlongStart);
-                    float hi = Flat(entryHi - curC).magnitude + (there.AlongEnd - aGoal);
+                    float lo = Flat(entryLo - curC).magnitude + (aGoal - there.AlongStart) + EndPenalty(m, clearLo) + (EndReachable(m, curC, entryLo) ? 0f : 1000f);
+                    float hi = Flat(entryHi - curC).magnitude + (there.AlongEnd - aGoal) + EndPenalty(m, clearHi) + (EndReachable(m, curC, entryHi) ? 0f : 1000f);
                     dir = lo <= hi ? 1 : -1;
                     // not into traffic coming the other way along the stretch it would drive
                     if (OpposingTraffic(m, there, dir, dir > 0 ? there.AlongStart - 1f : there.AlongEnd + 1f, aGoal)
-                        && !OpposingTraffic(m, there, -dir, -dir > 0 ? there.AlongStart - 1f : there.AlongEnd + 1f, aGoal)) dir = -dir;
+                        && !OpposingTraffic(m, there, -dir, -dir > 0 ? there.AlongStart - 1f : there.AlongEnd + 1f, aGoal)
+                        && (dir > 0 ? clearHi : clearLo) >= 0f) dir = -dir;
                     if (!MheNav.Sample(dir > 0 ? entryLo : entryHi, 0.8f, out _)) dir = -dir;
                 }
+                float useClear = dir > 0 ? clearLo : clearHi;
+                if (useClear < 0f)
+                { why = $"no room to line up {(jack ? "a pallet jack " : "")}at the {(dir > 0 ? "low-bay" : "high-bay")} end of {Name(there)} (walls or racks close to its end)"; return null; }
                 // Line up on the side of the mouth that clears anything standing there (a machine holding back at the mouth).
                 {
-                    float eAlong = dir > 0 ? there.AlongStart - m.EntryClear : there.AlongEnd + m.EntryClear;
+                    float eAlong = dir > 0 ? there.AlongStart - useClear : there.AlongEnd + useClear;
                     float hw = m.HalfWidth, minL = there.LatMin + hw + MheTraffic.Gap, maxL = there.LatMax - hw - MheTraffic.Gap;
                     if (minL < maxL)
                     {
-                        float eLat = ChooseCruise(m, there, dir, eAlong, eAlong + dir * (m.EntryClear + 4f), 0f, minL, maxL);
-                        entryLo = there.Point(there.AlongStart - m.EntryClear, eLat);
-                        entryHi = there.Point(there.AlongEnd + m.EntryClear, eLat);
+                        float eLat = ChooseCruise(m, there, dir, eAlong, eAlong + dir * (useClear + 4f), 0f, minL, maxL);
+                        Vector3 cand = there.Point(eAlong, eLat);
+                        // keep the shifted line only if the body still fits there
+                        if (m.PoseClearOfStatics(cand, there.Travel * dir, 0.05f)) { entryLo = there.Point(there.AlongStart - Mathf.Max(0f, clearLo), eLat); entryHi = there.Point(there.AlongEnd + Mathf.Max(0f, clearHi), eLat); }
                     }
                 }
                 Vector3 entry = dir > 0 ? entryLo : entryHi;
@@ -370,7 +379,7 @@ namespace GameCore.Actors
                 entry = Flat(entryOnMesh, y);
                 if (!AppendOpenFloor(m, path, curC, curH, entry, entryHeading, y, out why)) return null;
                 // in through the mouth
-                path.Gates.Add((path.Length - m.HalfLength + m.EntryClear - 0.1f, there, dir));
+                path.Gates.Add((path.Length - m.HalfLength + useClear - 0.1f, there, dir));
                 AppendLane(m, path, there, entry, dir, aGoal, there.Lateral(goalC), y, out curC, goalC);
                 route.Segs.Add(path);
                 FinishHeading(route, goalHeading, g.Label);
@@ -386,6 +395,43 @@ namespace GameCore.Actors
         }
 
         private static string Name(MheAisle a) => "aisle " + a.Prefix.TrimEnd('-');
+
+        /// <summary>The largest distance (up to the machine's EntryClear, down to 0.4 m) out from a rack end at which the machine, lined up
+        /// straight with the aisle on its centre line, has its whole body clear of walls / racks / pallets and is on the machine floor.
+        /// -1 when there is no such spot. <paramref name="dir"/> +1 = the low-bay end, -1 = the high-bay end.</summary>
+        /// <summary>Extra route cost for lining up at an aisle end where the machine does not fully fit: 0 = fits fully, grows as the room
+        /// shrinks (a loaded reach truck squeezed into a 2 m pocket is worth a long detour to the open end), huge = no fit at all.</summary>
+        private static float EndPenalty(MheMotor m, float clear)
+        {
+            if (clear < 0f) return 1000f;
+            float full = m.EntryClear;
+            if (clear >= full - 0.05f) return 0f;
+            float ratio = clear / full;
+            if (ratio >= 0.6f) return 5f;                        // lines up a little way into the mouth: fine
+            return 20f + 80f * (1f - ratio);                      // squeezed into a pocket: a long detour to the open end is better
+        }
+
+        /// <summary>An open-floor route exists from <paramref name="from"/> to the aisle mouth <paramref name="entry"/> (some floor is cut off from
+        /// the rest of the building by the aisles, which machine routes never cross: the strip behind a dead-end aisle, for one).</summary>
+        private static bool EndReachable(MheMotor m, Vector3 from, Vector3 entry)
+        {
+            var f = MheNav.OpenFloorFilter(m.Kind == MheKind.DockStocker);
+            if (!NavMesh.SamplePosition(from, out var a, 3f, f) || !NavMesh.SamplePosition(entry, out var b, 2.5f, f)) return false;
+            var path = new NavMeshPath();
+            if (!NavMesh.CalculatePath(a.position, b.position, f, path)) return false;
+            return path.status == NavMeshPathStatus.PathComplete;
+        }
+
+        public static float FitClear(MheMotor m, MheAisle a, int dir)
+        {
+            for (float c = m.EntryClear; c >= 0.39f; c -= 0.2f)
+            {
+                Vector3 p = a.Point(dir > 0 ? a.AlongStart - c : a.AlongEnd + c, 0f);
+                if (!MheNav.Sample(p, 0.6f, out _, false)) continue;
+                if (m.PoseClearOfStatics(p, a.Travel * dir, 0.05f)) return c;
+            }
+            return -1f;
+        }
 
         /// <summary>Another machine in this aisle, near the stretch <paramref name="a0"/>..<paramref name="a1"/>, on a leg going the other way
         /// along it (driving or held). Driving into it head-on in an aisle is a deadlock waiting to happen.</summary>
