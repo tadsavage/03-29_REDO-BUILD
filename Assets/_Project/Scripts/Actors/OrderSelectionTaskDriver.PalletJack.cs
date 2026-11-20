@@ -1729,6 +1729,11 @@ namespace GameCore.Actors
             var ob = motor.Outline.Inflated(0.32f);
             float y = transform.position.y;
             Vector2 a = new Vector2(transform.position.x, transform.position.z), b = new Vector2(target.x, target.z);
+            // Same side of the jack (a pick on the side the selector stepped off on): walk straight there. The 0.25 m gap by the rack is
+            // inside the jack's inflated outline, which used to send him across the end of the jack to the far side and back (2026-11-19).
+            Vector3 jr = Flat(_jack.transform.right, 0f);
+            float sideA = Vector3.Dot(Flat(transform.position - motor.Centre, 0f), jr), sideB = Vector3.Dot(Flat(target - motor.Centre, 0f), jr);
+            if (sideA * sideB > 0f) { yield return WalkTo(target); yield break; }
             if (!SegmentHitsObb(a, b, ob.Inflated(-0.05f))) { yield return WalkTo(target); yield break; }
             // Round the front (corners 0,1) or the forks (corners 2,3): pick the shorter.
             List<Vector3> best = null; float bestLen = float.MaxValue;
