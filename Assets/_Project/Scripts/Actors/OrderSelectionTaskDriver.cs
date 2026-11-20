@@ -428,7 +428,16 @@ namespace GameCore.Actors
             // Plan this pallet's whole picklist now (what will go on it until it cubes out) so the tooltip can show it
             // from the start. Cases already on this trip's earlier pallets are picked, so they're excluded already.
             string planTaskId = _currentTask != null ? _currentTask.TaskId : null;
-            builder.SetPlannedPicklist(OrderPickPath.PlanPallet(_currentOrder,
+            // A PLANNED pallet (every released case-pick order): its list is the task's own plan, in full, in pick order - the pallet is
+            // done when exactly those cases are on it, whatever the cube says. PlanPallet cuts its list off at 100% cube, which is why the
+            // card read "75 / 75 cases, FULL, all done" while the selector carried on picking the rest of the plan (Tad, 2026-11-19).
+            List<KeyValuePair<string, int>> planList = null;
+            if (_currentTask != null && _currentTask.HasPlan)
+            {
+                planList = _currentTask.PlanLines();
+                planList.Sort((a, b) => FirstFaceKey(a.Key).CompareTo(FirstFaceKey(b.Key)));
+            }
+            builder.SetPlannedPicklist(planList != null && planList.Count > 0 ? planList : OrderPickPath.PlanPallet(_currentOrder,
                 li => _orderService.SelectableRemaining(_currentOrder, li, planTaskId),
                 id => _inventoryService.GetSkuData(id), _pickFloorKey));
             _pallets.Add(builder);
@@ -436,6 +445,18 @@ namespace GameCore.Actors
 
             if (index > 0)
                 Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) pallet #{index + 1} started — pallet #{index} cubed out.");
+        }
+
+        /// <summary>Where a SKU's first pick face falls in the walking order (aisle, bay, level, position); no face sorts last.</summary>
+        private static long FirstFaceKey(string skuId)
+        {
+            long best = long.MaxValue;
+            foreach (var address in SlotAssignmentService.GetSlotsForSku(skuId))
+            {
+                long k = OrderPickPath.SequenceKey(address);
+                if (k < best) best = k;
+            }
+            return best;
         }
 
         /// <summary>Unparents every pallet built for the current order (world-position-preserving)
