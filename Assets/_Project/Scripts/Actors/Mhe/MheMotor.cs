@@ -259,6 +259,7 @@ namespace GameCore.Actors
             Phase = goal.Label;
             _tickFrame = Time.frameCount;
             _legTrafficReal = 0f;
+            _unwedges = 0; _staticReplanCount = 0;
 
             var route = MhePlanner.Plan(this, goal, out string why);
             if (route == null) { Finish(token, MheResult.Fail(why ?? "no route"), done); yield break; }
@@ -472,8 +473,19 @@ namespace GameCore.Actors
                     if (TryBendAhead(seg, s, goal.IgnorePallet)) { L = seg.Length; end = seg.Pts[seg.Pts.Count - 1]; span = 0; }
                     else if (Time.unscaledTime >= _nextStaticReplan)
                     {
-                        // no bend clears it: plan afresh from where the machine now stands (the old route was made from somewhere else)
+                        // no bend clears it: plan afresh from where the machine now stands (the old route was made from somewhere else).
+                        // A second hold at the same spot means the machine is WEDGED (angled against a rack): free it first.
                         _nextStaticReplan = Time.unscaledTime + 3f;
+                        bool sameSpot = _staticReplanCount >= 1 && Flat(Centre - _staticReplanPos).magnitude < 0.6f;
+                        _staticReplanCount++; _staticReplanPos = Centre;
+                        if (sameSpot && _unwedges < 3)
+                        {
+                            _unwedges++;
+                            string phaseWas = Phase;
+                            yield return Unwedge(token, goal);
+                            Phase = phaseWas;
+                            if (token != _token) { _segResult = MheSeg.SegResult.Cancelled; yield break; }
+                        }
                         _segResult = MheSeg.SegResult.Replan;
                         yield break;
                     }
@@ -521,6 +533,17 @@ namespace GameCore.Actors
                     }
                 }
 
+                if (!waitingTraffic && stallReal > 7f && _unwedges < 3)
+                {
+                    _unwedges++;
+                    string phaseWas = Phase;
+                    yield return Unwedge(token, goal);
+                    Phase = phaseWas;
+                    if (token != _token) { _segResult = MheSeg.SegResult.Cancelled; yield break; }
+                    stallReal = 0f; stallAnchor = Centre;
+                    _segResult = MheSeg.SegResult.Replan;
+                    yield break;
+                }
                 if (!waitingTraffic && stallReal > 7f)
                 {
                     _failWhy = $"stuck {stallReal:0} s ({stepWhat ?? blkWhat ?? "no progress"})";
@@ -538,6 +561,133 @@ namespace GameCore.Actors
         }
 
         private float _staticHoldReal, _nextStaticReplan;
+        private int _unwedges, _staticReplanCount;
+        private Vector3 _staticReplanPos;
+
+        // ══════════════════════════════════════════════════════════════════════════════════════════════
+        // UNWEDGE (2026-11-19): a machine left at an angle against a rack (a reach truck's hand-driven fork alignment ended at 45 degrees
+        // across a 4 m aisle) had no way out: every straight move and the on-the-spot turn hit the rack, so it sat for ever with six pallet
+        // picks queued behind it. This searches short sequences of forward / backward arcs and turns on the spot, each pose checked against
+        // racks, walls, pallets and other machines, for one that ends where the normal route works: square on an aisle's centre line, or
+        // (on open floor) with room round it. Then the leg re-plans from there.
+        // ══════════════════════════════════════════════════════════════════════════════════════════════
+
+        private struct UwNode { public float X, Z, Yaw; public int Parent; public sbyte Move; }   // Move: 0 start, 1 fwd, 2 back, 3 turn
+
+        private IEnumerator Unwedge(int token, MheGoal goal)
+        {
+            Phase = goal.Label + " (freeing the machine)";
+            var segs = FindUnwedgePlan(goal.IgnorePallet, out string note);
+            if (segs == null) { Debug.LogWarning($"[MheMotor] '{name}': wedged at {Centre:F1} ({note}) - no short manoeuvre frees it."); yield break; }
+            Debug.LogWarning($"[MheMotor] '{name}': wedged at {Centre:F1} - freeing it in {segs.Count} move(s) ({note}).");
+            foreach (var seg in segs)
+            {
+                if (token != _token) yield break;
+                if (seg.Kind == MheSegKind.Pivot) yield return RunPivot(seg, token);
+                else yield return RunPath(seg, token, goal);
+                if (token != _token) yield break;
+                if (_segResult != MheSeg.SegResult.Ok) yield break;
+            }
+        }
+
+        private bool UwValid(float x, float z, float yaw, Transform ignorePallet)
+        {
+            Vector3 c = new Vector3(x, transform.position.y, z);
+            Vector3 h = new Vector3(Mathf.Sin(yaw * Mathf.Deg2Rad), 0f, Mathf.Cos(yaw * Mathf.Deg2Rad));
+            if (StaticBlocked(c, h, ignorePallet, out _, true)) return false;
+            var mine = OutlineAt(c, h).Inflated(0.1f);
+            foreach (var slot in MachineClearance.AllMachines())
+            {
+                if (slot == null || slot == Slot) continue;
+                var om = slot.GetComponent<MheMotor>();
+                if (mine.Overlaps(om != null ? om.Outline : OutlineOf(slot))) return false;
+            }
+            return MheNav.Sample(c, 0.6f, out _, false);
+        }
+
+        private List<MheSeg> FindUnwedgePlan(Transform ignorePallet, out string note)
+        {
+            note = null;
+            Vector3 C0 = Centre, H0 = Forward;
+            float yaw0 = Mathf.Atan2(H0.x, H0.z) * Mathf.Rad2Deg;
+            float y = transform.position.y;
+            MheAisle aisle = MheAisleMap.At(C0, 3f, 0.6f);
+
+            bool IsGoal(float x, float z, float yaw)
+            {
+                Vector3 c = new Vector3(x, y, z);
+                Vector3 h = new Vector3(Mathf.Sin(yaw * Mathf.Deg2Rad), 0f, Mathf.Cos(yaw * Mathf.Deg2Rad));
+                if (aisle != null)
+                {
+                    float off = Vector3.Angle(h, aisle.Travel); off = Mathf.Min(off, 180f - off);
+                    return off <= 12f && Mathf.Abs(aisle.Lateral(c)) <= 0.45f;
+                }
+                return PoseClearOfStatics(c, h, 0.35f);
+            }
+            if (IsGoal(C0.x, C0.z, yaw0)) { note = "already free"; return null; }
+
+            const float Step = 0.5f, TurnDeg = 15f;
+            var nodes = new List<UwNode> { new UwNode { X = C0.x, Z = C0.z, Yaw = yaw0, Parent = -1, Move = 0 } };
+            var seen = new HashSet<long>();
+            long Key(float x, float z, float yaw) => ((long)Mathf.RoundToInt(x / 0.25f) * 73856093L) ^ ((long)Mathf.RoundToInt(z / 0.25f) * 19349663L) ^ ((long)(Mathf.RoundToInt(Mathf.Repeat(yaw, 360f) / TurnDeg) % 24) * 83492791L);
+            seen.Add(Key(C0.x, C0.z, yaw0));
+            int goalNode = -1;
+            // forward / backward, straight or arcing either way; and a turn on the spot either way
+            var moves = new (sbyte kind, float dir, float turn)[] { (1, 1f, 0f), (2, -1f, 0f), (1, 1f, TurnDeg), (1, 1f, -TurnDeg), (2, -1f, TurnDeg), (2, -1f, -TurnDeg), (3, 0f, TurnDeg), (3, 0f, -TurnDeg) };
+            for (int qi = 0; qi < nodes.Count && qi < 5000 && goalNode < 0; qi++)
+            {
+                var n = nodes[qi];
+                foreach (var mv in moves)
+                {
+                    float nyaw = n.Yaw + mv.turn, nx = n.X, nz = n.Z;
+                    if (mv.kind != 3)
+                    {
+                        float midYaw = n.Yaw + mv.turn * 0.5f;
+                        float mx = n.X + Mathf.Sin(midYaw * Mathf.Deg2Rad) * mv.dir * Step * 0.5f, mz = n.Z + Mathf.Cos(midYaw * Mathf.Deg2Rad) * mv.dir * Step * 0.5f;
+                        if (!UwValid(mx, mz, midYaw, ignorePallet)) continue;
+                        nx = n.X + Mathf.Sin(midYaw * Mathf.Deg2Rad) * mv.dir * Step; nz = n.Z + Mathf.Cos(midYaw * Mathf.Deg2Rad) * mv.dir * Step;
+                    }
+                    else
+                    {
+                        // the swing of a turn on the spot: half way too
+                        if (!UwValid(nx, nz, n.Yaw + mv.turn * 0.5f, ignorePallet)) continue;
+                    }
+                    if ((nx - C0.x) * (nx - C0.x) + (nz - C0.z) * (nz - C0.z) > 36f) continue;   // stay within 6 m of where it is
+                    if (!UwValid(nx, nz, nyaw, ignorePallet)) continue;
+                    if (!seen.Add(Key(nx, nz, nyaw))) continue;
+                    nodes.Add(new UwNode { X = nx, Z = nz, Yaw = nyaw, Parent = qi, Move = mv.kind });
+                    if (IsGoal(nx, nz, nyaw)) { goalNode = nodes.Count - 1; break; }
+                }
+            }
+            if (goalNode < 0) { note = $"searched {nodes.Count} poses"; return null; }
+
+            var chain = new List<int>();
+            for (int i = goalNode; i > 0; i = nodes[i].Parent) chain.Add(i);
+            chain.Reverse();
+            var result = new List<MheSeg>();
+            MheSeg run = null; int runKind = 0;
+            for (int ci = 0; ci < chain.Count; ci++)
+            {
+                var nd = nodes[chain[ci]]; var prev = nodes[nd.Parent];
+                Vector3 ph = new Vector3(Mathf.Sin(prev.Yaw * Mathf.Deg2Rad), 0f, Mathf.Cos(prev.Yaw * Mathf.Deg2Rad));
+                if (nd.Move == 3)
+                {
+                    Vector3 nh = new Vector3(Mathf.Sin(nd.Yaw * Mathf.Deg2Rad), 0f, Mathf.Cos(nd.Yaw * Mathf.Deg2Rad));
+                    if (run != null && runKind == 3) run.Heading = nh;
+                    else { run = new MheSeg { Kind = MheSegKind.Pivot, Heading = nh, Label = "free the machine (turn)" }; runKind = 3; result.Add(run); }
+                    continue;
+                }
+                if (run == null || runKind != nd.Move)
+                {
+                    run = new MheSeg { Kind = MheSegKind.Path, Reverse = nd.Move == 2, Heading = ph, Label = "free the machine" };
+                    run.Add(new Vector3(prev.X, y, prev.Z), 0.7f, false);
+                    runKind = nd.Move; result.Add(run);
+                }
+                run.Add(new Vector3(nd.X, y, nd.Z), 0.7f, false);
+            }
+            note = $"{chain.Count} step(s), searched {nodes.Count} poses";
+            return result;
+        }
 
         /// <summary>Debug: the path being driven, as "(x,z) (x,z) ...".</summary>
         public string DebugPath()
