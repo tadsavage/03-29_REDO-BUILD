@@ -863,9 +863,8 @@ namespace GameCore.Inventory
         }
 
         /// <summary>
-        /// Divides an order's loose (case-picked) cases into pallets, exactly as a selector's pallet fills: every case adds
-        /// 1/(Ti x Hi) of ITS OWN SKU's full pallet and a pallet is full once the sum reaches 1 (the case that crosses the line
-        /// still goes on it). Lines are taken in walking order (the serpentine pick sequence) so a pallet is built along the
+        /// Divides an order's loose (case-picked) cases into pallets by REAL volume: each case adds its cubic feet and a pallet
+        /// holds at most OutboundPalletBuilder.CubeCapCuFt (50); a case that would go over starts the next pallet. Lines are taken in walking order (the serpentine pick sequence) so a pallet is built along the
         /// route. Returns the pallets, each a list of (sku, cases).
         /// </summary>
         public List<List<KeyValuePair<string, int>>> PlanLoosePallets(List<KeyValuePair<string, int>> loose)
@@ -885,19 +884,22 @@ namespace GameCore.Inventory
             foreach (var (kv, _, _) in ordered)
             {
                 var sku = _inventoryService?.GetSkuData(kv.Key);
-                int perPallet = sku != null ? Mathf.Max(1, sku.Ti * sku.Hi) : 48;
-                float cost = 1f / perPallet;
+                // REAL volume (Tad, 2026-11-19): cubic feet of the case / the pallet cap (OutboundPalletBuilder.CubeCapCuFt = 50).
+                float cost = sku != null
+                    ? OutboundPalletBuilder.CaseCuFt(new Vector3(sku.CaseWidth, sku.CaseHeight, sku.CaseLength)) / OutboundPalletBuilder.CubeCapCuFt
+                    : 1f / 48f;
                 int left = kv.Value, onThisPallet = 0;
                 while (left > 0)
                 {
-                    fill += cost; left--; onThisPallet++;
-                    if (fill >= 1f)
+                    // Stop just BELOW the cap: a case that would take the pallet over starts the next one.
+                    if (fill > 0f && fill + cost > 1f + 0.0001f)
                     {
-                        current.Add(new KeyValuePair<string, int>(kv.Key, onThisPallet));
+                        if (onThisPallet > 0) current.Add(new KeyValuePair<string, int>(kv.Key, onThisPallet));
                         pallets.Add(current);
                         current = new List<KeyValuePair<string, int>>();
                         fill = 0f; onThisPallet = 0;
                     }
+                    fill += cost; left--; onThisPallet++;
                 }
                 if (onThisPallet > 0) current.Add(new KeyValuePair<string, int>(kv.Key, onThisPallet));
             }

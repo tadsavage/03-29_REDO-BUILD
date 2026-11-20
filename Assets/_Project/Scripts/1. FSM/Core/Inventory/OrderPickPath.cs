@@ -137,8 +137,8 @@ public static class OrderPickPath
             if (want <= 0) continue;
 
             var sku = getSku != null ? getSku(li.SkuId) : null;
-            int perPallet = sku != null ? Mathf.Max(1, sku.Ti * sku.Hi) : 1;
-            candidates.Add((SequenceKey(slot.Address), li.SkuId, want, 1f / perPallet));
+            float cuFt = sku != null ? OutboundPalletBuilder.CaseCuFt(new Vector3(sku.CaseWidth, sku.CaseHeight, sku.CaseLength)) : 1f;
+            candidates.Add((SequenceKey(slot.Address), li.SkuId, want, cuFt / OutboundPalletBuilder.CubeCapCuFt));
         }
         candidates.Sort((a, b) => a.key.CompareTo(b.key));
 
@@ -146,11 +146,13 @@ public static class OrderPickPath
         foreach (var c in candidates)
         {
             // The case that carries the pallet to 1.0 still goes on it (the driver checks IsCubedOut AFTER adding).
-            int room = Mathf.Max(1, Mathf.CeilToInt((1f - fill) / c.cost - 0.0001f));
-            int take = Mathf.Min(c.want, room);
+            // Stop JUST BELOW the cap (Tad): only whole cases that fit. A pallet always gets at least one case.
+            int room = Mathf.FloorToInt((1f - fill) / c.cost + 0.0001f);
+            if (room < 1 && plan.Count > 0) break;
+            int take = Mathf.Min(c.want, Mathf.Max(1, room));
             plan.Add(new KeyValuePair<string, int>(c.sku, take));
             fill += take * c.cost;
-            if (fill >= 1f - 0.0001f) break;
+            if (fill >= 1f - c.cost) break;   // no room for another case this size; a smaller one later could still fit, but keep the walk order
         }
         return plan;
     }

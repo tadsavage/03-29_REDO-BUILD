@@ -328,7 +328,7 @@ namespace GameCore.Actors
                 lineItem.QuantityPicked++;
                 _metTripCases++;
                 _orderService.NotePickedCase(_currentTask?.TaskId, lineItem.SkuId);
-                var activePallet = _pallets[_pallets.Count - 1];
+                var activePallet = ActivePallet();
                 activePallet.AddCase(lineItem.SkuId, sku.Prefab, caseDim, ti, hi, location.Address);
 
                 // Order-complete takes priority over the cubing cap if both land on the same case —
@@ -367,8 +367,63 @@ namespace GameCore.Actors
         /// <summary>Ensures at least one outbound WIP pallet exists for this order (the first one).</summary>
         private void EnsurePallet()
         {
-            if (_pallets.Count == 0 && AdoptPalletOnJack()) return;
-            if (_pallets.Count == 0) StartNextPallet();
+            if (_pallets.Count == 0) AdoptPalletOnJack();
+            // No pallet on the forks is being built for THIS task: start one on the next FREE fork position (FRONT first, then the second;
+            // a pallet carried over from an earlier task holds its own position, so the new one is never seated inside it).
+            if (!ActivePalletUsable()) StartNextPallet();
+        }
+
+        /// <summary>The pallet this selector adds cases to: the one tagged for the current task (the last one if several), else the last
+        /// pallet on the list (an untagged pallet restored from a save, or the on-foot path).</summary>
+        private OutboundPalletBuilder ActivePallet()
+        {
+            string id = _currentTask != null ? _currentTask.TaskId : null;
+            if (!string.IsNullOrEmpty(id))
+                for (int i = _pallets.Count - 1; i >= 0; i--)
+                    if (_pallets[i] != null && _pallets[i].BuiltForTaskId == id) return _pallets[i];
+            for (int i = _pallets.Count - 1; i >= 0; i--)
+                if (_pallets[i] != null) return _pallets[i];
+            return null;
+        }
+
+        /// <summary>True when ActivePallet() is a pallet this task can keep building: tagged for it, or (an untagged pallet from a save) not yet
+        /// full and not yet bigger than the task's planned pallet.</summary>
+        private bool ActivePalletUsable()
+        {
+            var p = ActivePallet();
+            if (p == null) return false;
+            string id = _currentTask != null ? _currentTask.TaskId : null;
+            if (!string.IsNullOrEmpty(p.BuiltForTaskId)) return p.BuiltForTaskId == id;   // tagged for another task = finished for that task
+            if (p.IsCubedOut) return false;
+            if (_currentTask != null && _currentTask.HasPlan)
+            {
+                int planned = 0;
+                foreach (var kv in _currentTask.PlanLines()) planned += kv.Value;
+                if (p.TotalCases >= planned) return false;
+            }
+            return true;
+        }
+
+        /// <summary>Index (0 = front, at the fork tips; 1 = second) of the fork position a pallet on the jack sits at.</summary>
+        private int ForkIndexOf(OutboundPalletBuilder p)
+        {
+            if (p == null || _jack == null || p.transform.parent != _jack.transform) return -1;
+            float z = p.transform.localPosition.z;
+            int best = 0; float bd = float.MaxValue;
+            for (int i = 0; i < ForkPalletZ.Length; i++) { float d = Mathf.Abs(z - ForkPalletZ[i]); if (d < bd) { bd = d; best = i; } }
+            return bd < 0.35f ? best : -1;
+        }
+
+        /// <summary>First fork position (front first) with no pallet of ours on it; -1 when both are taken.</summary>
+        private int FreeForkIndex()
+        {
+            for (int i = 0; i < ForkPalletZ.Length; i++)
+            {
+                bool taken = false;
+                foreach (var p in _pallets) if (p != null && ForkIndexOf(p) == i) { taken = true; break; }
+                if (!taken) return i;
+            }
+            return -1;
         }
 
         /// <summary>After a reload, the pallet this order was being picked onto can still be riding the jack (save/load puts it back
@@ -376,16 +431,22 @@ namespace GameCore.Actors
         private bool AdoptPalletOnJack()
         {
             if (_jack == null || _currentOrder == null) return false;
+            // Every pallet of this order already on the forks goes into the list, FRONT position first, so each keeps its own fork position and
+            // the next new pallet is seated on a free one (2026-11-19: a new pallet seated at index 0 sat inside the leftover one).
+            var onJack = new List<OutboundPalletBuilder>();
             foreach (var p in _jack.GetComponentsInChildren<OutboundPalletBuilder>(true))
+                if (p != null && p.OrderId == _currentOrder.OrderId && !_pallets.Contains(p)) onJack.Add(p);
+            onJack.Sort((a, b) => a.transform.localPosition.z.CompareTo(b.transform.localPosition.z));
+            foreach (var p in onJack)
             {
-                if (p == null || p.OrderId != _currentOrder.OrderId || _pallets.Contains(p)) continue;
                 _pallets.Add(p);
                 p.SetNavObstacleActive(false);
                 p.Stage = OutboundPalletBuilder.PalletStage.Staged;
-                Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId}: took over the pallet already on the jack ({p.TotalCases} case(s) picked).");
-                return true;
             }
-            return false;
+            bool usable = ActivePalletUsable();
+            foreach (var p in onJack)
+                Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId}: took over the pallet already on the jack ({p.TotalCases} case(s) picked, fork position {ForkIndexOf(p)}, {(p == ActivePallet() && usable ? "keeps building on it" : "rides along")}).");
+            return usable;
         }
 
         /// <summary>Spawns an additional outbound WIP pallet (up to MaxPalletsPerOrder), riding along
@@ -401,8 +462,19 @@ namespace GameCore.Actors
             }
 
             int index = _pallets.Count;
+            // On a jack the pallet goes on the first FREE fork position (front first), whatever the list order is.
+            int seat = index;
+            if (OnJack)
+            {
+                seat = FreeForkIndex();
+                if (seat < 0)
+                {
+                    Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}': both fork positions already carry a pallet - not starting another for order {_currentOrder.OrderId}.");
+                    return;
+                }
+            }
             // The spare empty on the near fork position becomes this pallet (OrderSelectionTaskDriver.ChepStack.cs).
-            if (index >= 1) DropSpareChep();
+            if (seat >= 1) DropSpareChep();
             var go = Instantiate(prefab);
             go.name = $"OutboundPallet_{_currentOrder.OrderId}_{index + 1}";
             go.transform.SetParent(transform, false);
@@ -425,6 +497,7 @@ namespace GameCore.Actors
 
             var builder = go.AddComponent<OutboundPalletBuilder>();
             builder.OrderId = _currentOrder.OrderId;
+            builder.BuiltForTaskId = _currentTask != null ? _currentTask.TaskId : null;
             // Plan this pallet's whole picklist now (what will go on it until it cubes out) so the tooltip can show it
             // from the start. Cases already on this trip's earlier pallets are picked, so they're excluded already.
             string planTaskId = _currentTask != null ? _currentTask.TaskId : null;
@@ -441,10 +514,10 @@ namespace GameCore.Actors
                 li => _orderService.SelectableRemaining(_currentOrder, li, planTaskId),
                 id => _inventoryService.GetSkuData(id), _pickFloorKey));
             _pallets.Add(builder);
-            if (onJack) SeatPalletOnJack(builder, index);
+            if (onJack) SeatPalletOnJack(builder, seat);
 
             if (index > 0)
-                Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) pallet #{index + 1} started — pallet #{index} cubed out.");
+                Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) pallet #{index + 1} started on fork position {seat} - the pallet before it is done.");
         }
 
         /// <summary>Where a SKU's first pick face falls in the walking order (aisle, bay, level, position); no face sorts last.</summary>

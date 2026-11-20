@@ -522,7 +522,9 @@ namespace GameCore.Actors
                     yield break;
                 }
 
-                int palletIndex = Mathf.Clamp(_pallets.Count - 1, 0, ForkPalletZ.Length - 1);
+                // The fork position of the pallet being built (front = 0): the jack parks so THAT pallet is level with the slot.
+                int palletIndex = ForkIndexOf(ActivePallet());
+                if (palletIndex < 0) palletIndex = Mathf.Clamp(_pallets.Count - 1, 0, ForkPalletZ.Length - 1);
                 if (!TryGetPickGeometry(location, out Vector3 slotFlat, out Vector3 toAisle))
                 {
                     yield return AbandonJackOnFoot($"pick slot {location.Address} has no usable position");
@@ -535,8 +537,9 @@ namespace GameCore.Actors
 
                 // Never pick from a slot more than MaxPickReach from the pallet: if the parked jack is too far away, re-park
                 // right in front of THIS slot instead of walking the cases across the warehouse (Tad, 2026-10-21).
-                bool slotTooFar = _offJack && palletIndex < _pallets.Count && _pallets[palletIndex] != null &&
-                                  PlanarDist(_pallets[palletIndex].transform.position, slotFlat) > MaxPickReach;
+                var builtPallet = ActivePallet();
+                bool slotTooFar = _offJack && builtPallet != null &&
+                                  PlanarDist(builtPallet.transform.position, slotFlat) > MaxPickReach;
                 if (slotTooFar)
                     Debug.Log($"[OrderSelectionTaskDriver] '{name}': {location.Address} is more than {MaxPickReach:0}m from the parked jack - re-parking in front of it.");
                 if (slotTooFar || !(_offJack && bayKey == _parkedBay && palletIndex == _parkedPalletIndex))
@@ -583,10 +586,10 @@ namespace GameCore.Actors
                         // VERIFY THE STOP (Tad, 2026-11-03): the first stop of a bay is never run through the reach check above, and DriveJackTo
                         // leaves the jack where it is when the stop is "behind" it (never back up), so the selector walked up to ~10 m with every
                         // case. If the pallet still isn't within reach of the slot, pull up (reversing if need be) in front of the slot itself.
-                        if (!slotTooFar && palletIndex < _pallets.Count && _pallets[palletIndex] != null &&
-                            PlanarDist(_pallets[palletIndex].transform.position, slotFlat) > MaxPickReach)
+                        if (!slotTooFar && builtPallet != null &&
+                            PlanarDist(builtPallet.transform.position, slotFlat) > MaxPickReach)
                         {
-                            Debug.Log($"[OrderSelectionTaskDriver] '{name}': jack stopped {PlanarDist(_pallets[palletIndex].transform.position, slotFlat):0.0}m from {location.Address} - re-parking in front of it.");
+                            Debug.Log($"[OrderSelectionTaskDriver] '{name}': jack stopped {PlanarDist(builtPallet.transform.position, slotFlat):0.0}m from {location.Address} - re-parking in front of it.");
                             ComputeBayPark(slotFlat, toAisle, location, palletIndex, out park, out parkHeading);
                             yield return DriveBayLeg(park, parkHeading, $"bay {bayKey} (reach)", true);
                             if (!_jackLegOk)
@@ -793,7 +796,7 @@ namespace GameCore.Actors
                 SetAnimBool("CarryCase", true);
 
                 // Turn round, carry it to the pallet, set it down.
-                var activePallet = _pallets[_pallets.Count - 1];
+                var activePallet = ActivePallet();
                 if (activePallet == null) { DestroyHeldCase(); yield break; }
                 Vector3 palletPos = activePallet.transform.position;
                 Vector3 palletSide = Flat(palletPos - toAisle * (ParkOffset - PalletSideOff), y);

@@ -96,6 +96,10 @@ public class OutboundPalletBuilder : MonoBehaviour
     /// order a staged pallet belongs to without needing a separate lookup table.</summary>
     public string OrderId { get; set; }
 
+    /// <summary>The work-queue task (one planned pallet) this pallet is being built for. Empty on a pallet restored from a save.
+    /// A selector that takes a loaded jack over builds only on the pallet tagged for ITS task; every other pallet on the forks just rides along.</summary>
+    public string BuiltForTaskId { get; set; }
+
     /// <summary>Where THIS pallet is in the outbound flow. Tracked per pallet (not per order) so the
     /// Work Queue can show one pallet Loading while its siblings are still Staged. Staged = standing in
     /// a lane; Moving = a reach truck is relocating it between lanes; Loading = lifted by the loader and
@@ -156,7 +160,15 @@ public class OutboundPalletBuilder : MonoBehaviour
     /// <summary>True once FillFraction has reached a full reference pallet's worth — the selector
     /// stops adding to this pallet and (per Tad's spec) starts a second one, or finishes the order
     /// if a second pallet isn't available either.</summary>
-    public bool IsCubedOut => FillFraction >= 1f;
+    public bool IsCubedOut => FillFraction >= 1f - 0.0001f;
+
+    /// <summary>A mixed case pallet holds at most this many cubic feet of cases (Tad, 2026-11-19: 50, not 70 - the cases do not stack
+    /// tight, so 70 cu ft of cases looks like ~100). FillFraction = cubic feet of the cases on it / this.</summary>
+    public const float CubeCapCuFt = 50f;
+
+    /// <summary>Cubic feet of one case. Case dimensions on SkuData are metres.</summary>
+    public static float CaseCuFt(Vector3 caseDimMetres)
+        => Mathf.Max(0.0001f, caseDimMetres.x * caseDimMetres.y * caseDimMetres.z / 0.0283168f);
 
     /// <summary>
     /// Adds one case of the given SKU to the pallet, BUILT UP rather than stacked in layers (Tad, 2026-10-16).
@@ -224,7 +236,7 @@ public class OutboundPalletBuilder : MonoBehaviour
         Footprint(slot, caseDim, out Vector2 min, out Vector2 max);
         _placed.Add((min, max, bestBase + caseDim.y));
         TotalCases++;
-        FillFraction += 1f / Mathf.Max(1, ti * hi);
+        FillFraction += CaseCuFt(caseDim) / CubeCapCuFt;
 
         _caseCountBySku.TryGetValue(skuId, out int existing);
         _caseCountBySku[skuId] = existing + 1;
@@ -291,7 +303,7 @@ public class OutboundPalletBuilder : MonoBehaviour
         Footprint((localPos, Mathf.Round(yaw / 90f) * 90f), caseDim, out Vector2 min, out Vector2 max);
         _placed.Add((min, max, localPos.y + caseDim.y));
         TotalCases++;
-        FillFraction += 1f / Mathf.Max(1, ti * hi);
+        FillFraction += CaseCuFt(caseDim) / CubeCapCuFt;
         _caseCountBySku.TryGetValue(skuId ?? "", out int existing);
         _caseCountBySku[skuId ?? ""] = existing + 1;
         _caseSkus.Add(skuId ?? "");
