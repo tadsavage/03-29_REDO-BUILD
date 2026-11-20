@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b7a3f1c2d9e84a6fa1c05d2e7b8c4f31, type: 3}
   m_Name: PlaytestBotSettings
   m_EditorClassIdentifier: GameCore.Simulation:GameCore.Diagnostics:PlaytestBotSettings
-  gameSpeed: 5
-  daysPerBlock: 7
+  gameSpeed: 3
+  daysPerBlock: 3
   pauseAtBlockEnd: 1
   saveAtBlockEnd: 1
   pauseOnBug: 0
   decisionIntervalMinutes: 30
-  startFromSlot: 8
-  layoutName: three doors aisle
+  startFromSlot: 0
+  layoutName: Small_two_door_setup_NavTesting
   startDockStockers: 3
   startReachTruckOps: 2
   startReceivers: 2
