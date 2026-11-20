@@ -679,7 +679,7 @@ namespace GameCore.Actors
                 }
                 if (run == null || runKind != nd.Move)
                 {
-                    run = new MheSeg { Kind = MheSegKind.Path, Reverse = nd.Move == 2, Heading = ph, Label = "free the machine" };
+                    run = new MheSeg { Kind = MheSegKind.Path, Reverse = nd.Move == 2, Heading = ph, Label = "free the machine", StaticsChecked = true };
                     run.Add(new Vector3(prev.X, y, prev.Z), 0.7f, false);
                     runKind = nd.Move; result.Add(run);
                 }
@@ -822,6 +822,10 @@ namespace GameCore.Actors
         private bool YieldsTo(MheMotor other)
         {
             if (other == null) return false;
+            // A machine that just found nowhere to go cannot be the one to give way: the other one (which has room) does.
+            // Rank still wins when the one with room outranks the other: then nobody can help and the leg's own limits apply.
+            bool meBoxed = _noRoomUntil > Time.unscaledTime, otherBoxed = other._noRoomUntil > Time.unscaledTime;
+            if (meBoxed != otherBoxed && Priority == other.Priority) return otherBoxed;
             if (Priority != other.Priority) return Priority < other.Priority;
             Vector3 toOther = Flat(other.Centre - Centre);
             if (toOther.sqrMagnitude > 1e-4f)
@@ -832,6 +836,9 @@ namespace GameCore.Actors
             }
             return _serial > other._serial;
         }
+
+        /// <summary>Set when MakeWay found no room to move: for a few seconds this machine does not count as the one that gives way.</summary>
+        private float _noRoomUntil;
 
         /// <summary>The way the machine wants to move this frame (its route's direction at its position).</summary>
         private Vector3 _intent;
@@ -856,49 +863,57 @@ namespace GameCore.Actors
             bool inAisle = MheAisleMap.At(C, 0.2f, 0.2f) != null;
             Vector3 chosen = C; bool found = false;
             Vector3 moveHeading = H;
-            foreach (float sgn in new[] { awaySign, -awaySign })
+            // Pass 0 keeps out of the other machine's whole planned route. Pass 1 (only after a long standoff, 2026-11-19 five-machine knot)
+            // accepts any clear spot: backing off a little frees the standoff even if the other's route is still near, and the leg re-plans.
+            for (int pass = 0; pass < 2 && !found; pass++)
             {
-                foreach (float d in dists)
+                bool strict = pass == 0;
+                if (!strict && _legTrafficReal <= 20f) break;
+                foreach (float sgn in new[] { awaySign, -awaySign })
                 {
-                    if (inAisle && Kind == MheKind.Jack && sgn < 0f && d > MhePlanner.JackReverseInAisleMax + 1.5f) continue;
-                    Vector3 c2 = C + H * (sgn * d);
-                    if (!StraightClear(C, c2, H, other)) break;
-                    var o2 = OutlineAt(c2, H).Inflated(MheTraffic.Gap);
-                    bool inTheWay = false;
-                    foreach (var f in future) if (f.Overlaps(o2)) { inTheWay = true; break; }
-                    if (inTheWay) continue;
-                    chosen = c2; found = true; break;
-                }
-                if (found) break;
-            }
-            // Open floor: pull aside, off the other machine's line (a diagonal forward or back, either side).
-            if (!found && !inAisle)
-            {
-                Vector3 R = Vector3.Cross(Vector3.up, H);
-                foreach (float side in new[] { 1f, -1f })
-                {
-                    foreach (float fw in new[] { -awaySign * -1.4f, awaySign * -1.4f })
+                    foreach (float d in dists)
                     {
-                        foreach (float lat in new[] { 1.8f, 2.6f })
+                        if (inAisle && Kind == MheKind.Jack && sgn < 0f && d > MhePlanner.JackReverseInAisleMax + 1.5f) continue;
+                        Vector3 c2 = C + H * (sgn * d);
+                        if (!StraightClear(C, c2, H, other)) break;
+                        var o2 = OutlineAt(c2, H).Inflated(MheTraffic.Gap);
+                        bool inTheWay = false;
+                        if (strict) foreach (var f in future) if (f.Overlaps(o2)) { inTheWay = true; break; }
+                        if (inTheWay) continue;
+                        chosen = c2; found = true; break;
+                    }
+                    if (found) break;
+                }
+                // Open floor: pull aside, off the other machine's line (a diagonal forward or back, either side).
+                if (!found && !inAisle)
+                {
+                    Vector3 R = Vector3.Cross(Vector3.up, H);
+                    foreach (float side in new[] { 1f, -1f })
+                    {
+                        foreach (float fw in new[] { -awaySign * -1.4f, awaySign * -1.4f })
                         {
-                            Vector3 c2 = C + H * fw + R * (side * lat);
-                            Vector3 dir = Flat(c2 - C).normalized;
-                            Vector3 faceDuring = fw < 0f ? -dir : dir;
-                            if (!StraightClear(C, c2, faceDuring, other)) continue;
-                            var o2 = OutlineAt(c2, faceDuring).Inflated(MheTraffic.Gap);
-                            bool inTheWay = false;
-                            foreach (var f in future) if (f.Overlaps(o2)) { inTheWay = true; break; }
-                            if (inTheWay) continue;
-                            chosen = c2; moveHeading = faceDuring; found = true; break;
+                            foreach (float lat in new[] { 1.8f, 2.6f })
+                            {
+                                Vector3 c2 = C + H * fw + R * (side * lat);
+                                Vector3 dir = Flat(c2 - C).normalized;
+                                Vector3 faceDuring = fw < 0f ? -dir : dir;
+                                if (!StraightClear(C, c2, faceDuring, other)) continue;
+                                var o2 = OutlineAt(c2, faceDuring).Inflated(MheTraffic.Gap);
+                                bool inTheWay = false;
+                                if (strict) foreach (var f in future) if (f.Overlaps(o2)) { inTheWay = true; break; }
+                                if (inTheWay) continue;
+                                chosen = c2; moveHeading = faceDuring; found = true; break;
+                            }
+                            if (found) break;
                         }
                         if (found) break;
                     }
-                    if (found) break;
                 }
             }
             Phase = $"making way for {other.name}";
             if (!found)
             {
+                _noRoomUntil = Time.unscaledTime + 8f;   // tell the other machine it is the one with room: it makes way instead (YieldsTo)
                 for (float w = 0f; w < 0.6f && token == _token; w += Time.unscaledDeltaTime) { _tickFrame = Time.frameCount; yield return null; }
                 yield break;
             }
@@ -1038,7 +1053,7 @@ namespace GameCore.Actors
                 Vector3 c = d <= 0.001f ? C : seg.PointAt(sd);
                 Vector3 t = seg.TangentAt(sd);
                 Vector3 h = d <= 0.001f ? H : (seg.Reverse ? -t : t);
-                if (SoftBlockedPose(c, h, C, null, out var m, out string what, false) || (d > 0.001f && StaticBlocked(c, h, ignorePallet, out what, true)))
+                if (SoftBlockedPose(c, h, C, null, out var m, out string what, false) || (d > 0.001f && !seg.StaticsChecked && StaticBlocked(c, h, ignorePallet, out what, true)))
                 {
                     float f = Mathf.Max(0f, d - Step);
                     if (f < free || blkWhat == null) { free = Mathf.Min(free, f); blkMotor = m; blkWhat = what; }

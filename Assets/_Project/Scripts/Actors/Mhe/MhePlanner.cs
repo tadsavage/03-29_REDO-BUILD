@@ -18,6 +18,7 @@ namespace GameCore.Actors
         public readonly List<bool> InAisle = new();    // span runs inside an aisle (heading held to the aisle line for jacks)
         public bool Reverse;
         public Vector3 Heading;
+        public bool StaticsChecked;   // an unwedge path: its poses were validated move by move (real headings), so the straight-line sensor skips racks / walls for it
         public bool AboutRoot;   // a Pivot that turns about the machine's root (its own pivot), not its centre: lands exactly on a pad
         public string Label;
         /// <summary>Aisle mouths this path drives in through: arc length where the machine's front reaches the mouth, the aisle and the direction.</summary>
