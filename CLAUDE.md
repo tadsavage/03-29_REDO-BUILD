@@ -1,6 +1,32 @@
 # CLAUDE.md
 
-## CURRENT WORK — One motor for every machine (MHE traffic rework, 2026-11-18, read this first)
+## CURRENT WORK — NavmeshAgentRework: clean slate (2026-11-20, read this first)
+
+Tad scrapped ALL the custom machine traffic code (MheMotor, MhePlanner, MheAisleMap, MheTraffic, the NavGrid / GridPlanner family, aisle turns / gates,
+MheAvoidanceObstacle, test bench) because reach trucks crashed into everyone and jacks stuck on racks, forklifts and the foundation edge. Deleted with `git rm`
+(recoverable from commit `725e4614c`). What exists now:
+
+- **`MheTravel`** (`Actors/MheTravel.cs`) is the ONLY travel code: `Leg` = plain NavMeshAgent (updatePosition stays false, the transform copies `agent.nextPosition`),
+  `Turn`, `Straight`. All machines + people avoidancePriority 50 (`AiNavigation.MachineAvoidancePriority`, `MheTravel.AvoidancePriority`). Callers: the 3 dock stocker
+  `SeekViaNavMesh` bodies, `EquipmentBattery.NavTo/Face/MoveStraight`, `ReachTruckOperator.RtLeg` (`ReachTruckOperator.Travel.cs`), jack `DriveJackTo/JackFace/JackMoveStraight`.
+- **One walkable area.** NavMeshManager no longer paints Dock Apron / Rack Aisle; ObjData `navArea` 3/4/6 and prefab modifier areas 3/4/5 were reset to 0; area names
+  in `ProjectSettings/NavMeshAreas.asset` cleared. Only Walkable (0) and Not Walkable (1, walls/barriers) remain. NavMeshManager still builds the floor / stair /
+  dock-top sources (needed for any walkable surface).
+- **Dock stocker:** scripted choreography (offload/load, `DriveInternal` transforms, agent off while commandeered) UNCHANGED. Idle pockets: `DockStockerHome.WallGap` = 1.325 m.
+- **Traffic code stripped too (2026-11-20, second pass):** deleted `EquipmentTraffic`, `EquipmentTrafficAgent`, `AisleTraffic`, `EquipmentTrafficTests`; removed the reach truck's
+  `SeekViaNavMesh`, pass / go-round / jam-recovery / aisle gate / untangle code and the dock stocker spacing guard + yield-reverse in `AiNavigation`. `DockStockerHome` has no traffic
+  knowledge (a restless stocker keeps still). Still present and still used by scripted moves: `MachineClearance`, `MheParking`, `DockApron`.
+- **PathInvalid fixed (2026-11-20).** Causes found, all in how machines were set up, not the mesh: (1) prefab agent area masks (89 / 217 / 345) excluded the old custom areas, so jacks could
+  not path anywhere near them: `AiNavigation.SetupAgentType` and `MheTravel.Leg` now set `areaMask = AllAreas`; (2) goal snapping used the default (Rat) agent type: now the agent's own;
+  (3) a re-enabled agent keeps its old internal position: `Leg` always `Warp`s it onto the machine; (4) `ReachTruckOperator.Update`'s Manual-phase enforcement switched the agent off every frame
+  (`_inTravelLeg` now exempts a leg); (5) other code (parking, watchdogs) disables an agent mid-leg: `GoIdle*` refuse while `MheTravel.IsTravelling`, and `Leg` re-seats the agent and
+  re-issues the destination (12 times) when it finds it off or its path cleared. A rack anchor in an aisle has no MHE mesh: the leg ends at the nearest mesh point (8 m) and the caller's precise drive finishes.
+  A 2-minute run at 3x: 24 legs, 0 `[MheTravel]` failures.
+- **Dock stocker "fell below the floor" loop FIXED (2026-11-20).** A save loaded with a free dock stocker standing inside a trailer: the apron rule called that "inside", but there is no floor mesh in a trailer, so its agent
+  dropped to the yard layer (y 0) and `MHEBoundary` put it back into the trailer, over and over. `MHEBoundary` now only remembers / restores spots with floor-level mesh under them and falls back to the mesh just inside
+  the nearest dock door. Also: pallets under a machine no longer carve (`BuildingData.OnTransformParentChanged`). Still open: one reach truck task aborts with an empty pallet id (not a travel failure).
+
+## PREVIOUS WORK (superseded 2026-11-20: all of this code is deleted) — One motor for every machine (MHE traffic rework, 2026-11-18, read this first)
 
 All machine travel (pallet jacks, reach trucks, dock stockers, charge / park trips) now goes through **`MheMotor`**
 (`Assets/_Project/Scripts/Actors/Mhe/`). Machines' NavMeshAgents no longer steer them. Full write-up, rules and test results:

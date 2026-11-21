@@ -201,12 +201,6 @@ public class EquipmentBattery : MonoBehaviour
         EquipmentBatteryPanels.Ensure();
         if (_po != null)   // placed machines only (not build-menu ghosts)
         {
-            // Every machine keeps its personal-space obstacle, pallet jacks included (Tad, 2026-11-17: reach trucks must never drive into a
-            // parked jack and push it down the aisle). It is non-carving and only live while the machine's OWN agent is off (parked, or
-            // scripted), so it costs the jack's own NavMeshAgent legs nothing - it just lets every other agent see a parked jack.
-            MheAvoidanceObstacle.Ensure(gameObject);
-            GameCore.Actors.MheMotor.Ensure(gameObject);   // every machine is known to the traffic sensors, driven or not
-            GameCore.Actors.EquipmentTrafficAgent.Ensure(gameObject);
         }
     }
 
@@ -325,24 +319,6 @@ public class EquipmentBattery : MonoBehaviour
             Vector3 next = Vector3.MoveTowards(transform.position, target, TripDriveSpeed * 0.5f * Time.deltaTime);
             if (MachineClearance.StepBlocked(Slot, next, transform.rotation, out _)) yield break;
             transform.position = next;
-            yield return null;
-        }
-    }
-
-    /// <summary>MHE traffic rework (2026-11-18): the charger / bay / pocket finishing moves go through MheMotor like every other machine move,
-    /// so they keep the 0.25 m gap and never swing into another machine (two clips at the station row in block 15 were these hand moves).
-    /// <paramref name="abortIfBusy"/>: stop the moment a job claims the machine.</summary>
-    private IEnumerator MotorStep(GameCore.Actors.MheGoal goal, bool abortIfBusy)
-    {
-        var motor = GameCore.Actors.MheMotor.Ensure(gameObject);
-        if (motor == null) yield break;
-        bool finished = false;
-        var run = StartCoroutine(motor.Drive(goal, r => finished = true));
-        int leg = motor.LegToken;
-        while (!finished && this != null)
-        {
-            if (abortIfBusy && IsBusy) { motor.Stop(); if (run != null) StopCoroutine(run); yield break; }
-            if (motor.LegToken != leg) yield break;
             yield return null;
         }
     }
@@ -1284,86 +1260,17 @@ public class EquipmentBattery : MonoBehaviour
     private IEnumerator NavTo(Vector3 target, System.Action<bool> done, System.Func<bool> abort = null)
     {
         if (Vector3.Distance(Flat(transform.position), Flat(target)) < 1.5f) { done(true); yield break; }
-        // MHE traffic rework (2026-11-18): charge / park trips are driven by MheMotor like every other machine leg (no NavMeshAgent).
-        var motor = GameCore.Actors.MheMotor.Ensure(gameObject);
-        if (motor != null)
-        {
-            if (_nav != null) { _nav.CancelSeekPosition(); _nav.SetTaskBusy(true); }
-            _inNavTo = true;
-            bool ok = false, finished = false;
-            var goal = GameCore.Actors.MheGoal.To(new Vector3(target.x, transform.position.y, target.z), Vector3.zero, "battery trip");
-            goal.Tolerance = 1.8f;   // park / charge spots sit against walls: within this, stopped only by a wall = arrived (MoveStraight finishes it)
-            var run = StartCoroutine(motor.Drive(goal, r => { ok = r.Ok; finished = true; }));
-            int leg = motor.LegToken;
-            while (!finished && this != null)
-            {
-                if (abort != null && abort()) { motor.Stop(); if (run != null) StopCoroutine(run); _inNavTo = false; if (_nav != null) _nav.SetTaskBusy(false); done(false); yield break; }
-                if (motor.LegToken != leg) break;   // another driver took the machine over
-                yield return null;
-            }
-            _inNavTo = false;
-            if (!IsBusy) ParkNav();
-            done(ok && Flat(transform.position - target).magnitude <= 3f);
-            yield break;
-        }
-        if (_nav == null || _agent == null) { done(false); yield break; }
-
-        _nav.enabled = true;
-        _agent.enabled = true;
-        float reg = 0f;
-        while (!_agent.isOnNavMesh && reg < 1f) { _agent.Warp(transform.position); reg += Time.deltaTime; yield return null; }
-        if (!_agent.isOnNavMesh) { ParkNav(); done(false); yield break; }
-        _agent.Warp(transform.position);
-        _nav.SetParked(false);
-        _nav.SetTaskBusy(true);
-        _nav.CancelSeekPosition();
-
-        Vector3 drive = target;
-        if (NavSample.OnAgentMesh(_agent, target, 4f, out var hit)) drive = hit.position;
-        bool arrived = false;
-        _nav.SeekPosition(drive, () => arrived = true);
+        // Charge / park trips: a plain NavMeshAgent leg (2026-11-20 rework). Arrival tolerance 1.8 m: park / charge spots sit against walls
+        // and the hand-driven finish (MoveStraight) covers the last stretch.
+        if (_nav != null) { _nav.CancelSeekPosition(); _nav.SetTaskBusy(true); }
         _inNavTo = true;
-        float t = 0f, lastFix = 0f, noProgress = 0f;
-        float best = Flat(transform.position - drive).magnitude;
-        while (!arrived && t < NavLegTimeout && this != null)
-        {
-            t += Time.deltaTime;
-            if (!_nav.IsSeekingTask && !arrived) break;
-
-            // Backstops (an AiNavigation seek can silently lose its destination to a patrol waypoint, which left trucks at 0%
-            // wandering for minutes): keep the agent pointed at the target, count arrival by distance, give up if it isn't getting closer.
-            float dist = Flat(transform.position - drive).magnitude;
-            if (dist < 1.3f) { arrived = true; break; }
-            if (dist < best - 0.5f) { best = dist; noProgress = 0f; } else noProgress += Time.deltaTime;
-            if (noProgress > 12f) break;
-            if (t - lastFix > 1f)
-            {
-                lastFix = t;
-                _nav.SetTaskBusy(true);
-                if (_agent.isActiveAndEnabled && _agent.isOnNavMesh && Flat(_agent.destination - drive).magnitude > 1.5f)
-                {
-                    _agent.isStopped = false;
-                    _agent.SetDestination(drive);
-                }
-            }
-            if (abort != null && abort())
-            {
-                // Someone else took the machine over (a selector claimed the jack, an operator boarded):
-                // hand its navigation back untouched rather than parking it under them.
-                _nav.CancelSeekPosition();
-                _nav.SetTaskBusy(false);
-                _inNavTo = false;
-                done(false);
-                yield break;
-            }
-            yield return null;
-        }
+        bool ok = false;
+        yield return GameCore.Actors.MheTravel.Leg(transform, target, "battery trip", r => ok = r, 1.8f, abort);
         _inNavTo = false;
-        // AiNavigation fires its arrival callback for a PARTIAL path too ("only partially reachable - treating as arrived"), which left
-        // machines 25-42 m short and then refusing the hand-driven finish over and over (block 1024). That is not an arrival.
-        if (arrived && this != null && Flat(transform.position - drive).magnitude > 3f) arrived = false;
-        if (!IsBusy) ParkNav();   // same reason: never switch navigation off under a job that has just started
-        done(arrived);
+        if (this == null) { done(false); yield break; }
+        if (_nav != null) _nav.SetTaskBusy(false);
+        if (!IsBusy) ParkNav();
+        done(ok && Flat(transform.position - target).magnitude <= 3f);
     }
 
     private bool _inNavTo;
@@ -1400,7 +1307,7 @@ public class EquipmentBattery : MonoBehaviour
             if (this != null) transform.rotation = goal;
             yield break;
         }
-        yield return MotorStep(GameCore.Actors.MheGoal.TurnAboutRoot(dir.normalized, "parking: turn"), false);
+        yield return GameCore.Actors.MheTravel.Turn(transform, dir, TripTurnSpeed);
     }
 
     /// <summary>The longest hop the hand-driven finish may cover. It exists to park the last metre or two exactly on a spot; the
@@ -1428,10 +1335,7 @@ public class EquipmentBattery : MonoBehaviour
             if (this != null) transform.position = target;
             yield break;
         }
-        bool rev = Vector3.Dot(Flat(target - transform.position), Flat(transform.forward)) < 0f;
-        var g = GameCore.Actors.MheGoal.StraightTo(target, rev, "parking: straight");
-        g.SpeedCap = TripDriveSpeed;
-        yield return MotorStep(g, false);
+        yield return GameCore.Actors.MheTravel.Straight(transform, target, TripDriveSpeed);
     }
 
     private static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }

@@ -178,8 +178,6 @@ public class NavMeshManager : MonoBehaviour
             AddFloorNavMeshSources(sources, surface.defaultArea);
             AddStairRampSources(sources);
             AddDockTopNavMeshSources(sources, surface.defaultArea);
-            AddDockApronSources(sources);
-            AddAisleSources(sources);
 
             var settings = surface.GetBuildSettings();
             var newData = NavMeshBuilder.BuildNavMeshData(settings, sources, worldBounds, surface.transform.position, surface.transform.rotation);
@@ -540,49 +538,6 @@ public class NavMeshManager : MonoBehaviour
         //Debug.Log($"[NavMesh]    AddFloorNavMeshSources COMPLETE: {(Time.realtimeSinceStartup - floorStartTime) * 1000:F2}ms");
     }
 
-    /// <summary>DOCK APRON (Tad, 2026-11-15): a modifier box per apron cell marks the floor in front of each shipping door as area
-    /// DockApron.NavArea, which the pallet jack and reach truck agents cannot walk (dock stockers and people can). A box source of the
-    /// floor's area lost to the floor tiles' own NavMeshModifier, so this overrides it the way a NavMeshModifierVolume would.</summary>
-    private void AddDockApronSources(List<NavMeshBuildSource> sources)
-    {
-        if (_grid == null || !DockApron.Any) return;
-        DockApron.MarkDirty();
-        float cs = _grid.CellSize;
-        foreach (var c in DockApron.Cells)
-        {
-            Vector3 w = _grid.GetCellCenter(c);
-            sources.Add(new NavMeshBuildSource
-            {
-                transform = Matrix4x4.TRS(new Vector3(w.x, w.y + 1.5f, w.z), Quaternion.identity, Vector3.one),
-                shape = NavMeshBuildSourceShape.ModifierBox,
-                area  = DockApron.NavArea,
-                size  = new Vector3(cs, 4f, cs)
-            });
-        }
-    }
-
-    /// <summary>RACK AISLES (MHE traffic rework, 2026-11-18): a modifier box over each aisle (between its rack ends and faces) marks it as
-    /// area MheNav.AisleArea. Machines' open-floor routes exclude it (GameCore.Actors.MhePlanner): inside an aisle they drive its own lane,
-    /// entering and leaving only by its ends, so a NavMesh route never cuts down an aisle the wrong way or crosses one sideways.
-    /// People walk it as plain floor.</summary>
-    private void AddAisleSources(List<NavMeshBuildSource> sources)
-    {
-        GameCore.Actors.MheAisleMap.Invalidate();
-        foreach (var a in GameCore.Actors.MheAisleMap.All)
-        {
-            if (a == null) continue;
-            float mid = (a.AlongStart + a.AlongEnd) * 0.5f;
-            Vector3 c = a.Point(mid, (a.LatMin + a.LatMax) * 0.5f);
-            sources.Add(new NavMeshBuildSource
-            {
-                transform = Matrix4x4.TRS(new Vector3(c.x, a.Y + 1.5f, c.z), Quaternion.LookRotation(a.Travel, Vector3.up), Vector3.one),
-                shape = NavMeshBuildSourceShape.ModifierBox,
-                area = GameCore.Actors.MheNav.AisleArea,
-                size = new Vector3(a.LatMax - a.LatMin + 0.2f, 4f, a.AlongEnd - a.AlongStart)
-            });
-        }
-    }
-
     private Bounds GetWorldBounds(NavMeshSurface surface)
     {
         if (surface.collectObjects != CollectObjects.All)
@@ -733,8 +688,6 @@ public class NavMeshManager : MonoBehaviour
                 AddFloorNavMeshSources(sources, surface.defaultArea);
                 AddStairRampSources(sources);
                 AddDockTopNavMeshSources(sources, surface.defaultArea);
-                AddDockApronSources(sources);
-                AddAisleSources(sources);
 
                 AsyncOperation op = NavMeshBuilder.UpdateNavMeshDataAsync(surface.navMeshData, settings, sources, worldBounds);
                 while (!op.isDone) yield return null;

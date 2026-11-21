@@ -20,8 +20,8 @@ public static class DockStockerHome
 {
     /// <summary>Half the trailer opening plus a margin: no pocket body comes closer than this to a door's centre line.</summary>
     public const float DoorHalfOpening = 1.8f;
-    /// <summary>Gap between the wall line (the door's pivot) and the body's near side.</summary>
-    public const float WallGap = 0.75f;
+    /// <summary>Gap between the wall line (the door pivot) and the body near side: one grid cell (1.325 m, Tad 2026-11-20), so a parked stocker is never against the front wall.</summary>
+    public const float WallGap = 1.325f;
 
     private struct Pocket { public Vector3 Centre, Pivot, Forward, Inward; public float CentreOff; public string Name; }
 
@@ -36,7 +36,7 @@ public static class DockStockerHome
     private static void ResetStatics() => s_claims.Clear();
 
     public static bool IsDockStocker(EquipmentBattery b)
-        => b != null && b.Slot != null && !b.Slot.IsPalletJack && EquipmentTraffic.RoleOf(b.Slot) == EquipmentRole.DockStocker;
+        => b != null && b.Slot != null && !b.Slot.IsPalletJack && b.Slot.GetComponent<ReachTruckOperator>() == null;
 
     /// <summary>Forget this machine's pocket (it took a job, or is moving out of someone's way).</summary>
     public static void Release(EquipmentBattery b) { if (b != null) s_claims.Remove(b); }
@@ -172,31 +172,11 @@ public static class DockStockerHome
     /// <summary>The pocket centre this machine has claimed, if any.</summary>
     public static bool TryGetClaim(EquipmentBattery who, out Vector3 centre) => s_claims.TryGetValue(who, out centre);
 
-    /// <summary>A jack or reach truck with a driver, moving, within <paramref name="radius"/> of <paramref name="pos"/>: a restless dock
-    /// stocker keeps still rather than shuffle into its way.</summary>
-    public static bool OtherTrafficNear(EquipmentBattery who, Vector3 pos, float radius)
-    {
-        foreach (var m in AisleTraffic.Machines)
-        {
-            if (m == null || who == null || m == who.Slot || !m.IsOccupied) continue;
-            if (EquipmentTraffic.RoleOf(m) == EquipmentRole.DockStocker) continue;
-            if (Flat(m.transform.position - pos).magnitude < radius && AisleTraffic.IsMoving(m)) return true;
-        }
-        return false;
-    }
+    /// <summary>No traffic knowledge any more (2026-11-20 rework): a restless dock stocker always keeps still.</summary>
+    public static bool OtherTrafficNear(EquipmentBattery who, Vector3 pos, float radius) => true;
 
-    /// <summary>Is any machine held up waiting on <paramref name="who"/> (its traffic agent reports <c>BlockedBy</c> = this machine)?</summary>
-    public static bool SomeoneWaitingOn(EquipmentBattery who, float minHeldReal)
-    {
-        if (who == null || who.Slot == null) return false;
-        foreach (var m in AisleTraffic.Machines)
-        {
-            if (m == null || m == who.Slot) continue;
-            var ta = m.GetComponent<EquipmentTrafficAgent>();
-            if (ta != null && ta.BlockedBy == who.Slot && ta.HeldReal >= minHeldReal) return true;
-        }
-        return false;
-    }
+    /// <summary>No traffic knowledge any more: nobody is ever "waiting on" a parked stocker.</summary>
+    public static bool SomeoneWaitingOn(EquipmentBattery who, float minHeldReal) => false;
 
     private static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
 }

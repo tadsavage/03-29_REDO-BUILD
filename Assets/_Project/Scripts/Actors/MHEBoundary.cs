@@ -53,7 +53,9 @@ public class MHEBoundary : MonoBehaviour
     {
         _grid = FindAnyObjectByType<PlacementGrid>();
         _lastInside = transform.position;
-        _haveLastInside = IsInside(transform.position) && transform.position.y >= MinFloorY;
+        // Only a spot with floor-level NavMesh under it counts: a dock stocker standing inside a trailer (a save loaded mid-offload) is 'inside' by
+        // the apron rule but has no mesh there, so its agent dropped to the yard layer and was put back into the trailer again, for ever (2026-11-20).
+        _haveLastInside = IsInside(transform.position) && transform.position.y >= MinFloorY && OnFloorMesh(transform.position);
     }
 
     private void Update()
@@ -65,10 +67,10 @@ public class MHEBoundary : MonoBehaviour
         Vector3 pos = transform.position;
         if (_slot == null) _slot = GetComponent<MHEOperatorSlot>();
         bool dockWork = GameCore.Labor.DockEquipmentCommandeerRegistry.IsCommandeered(_slot);
-        bool sunk = pos.y < MinFloorY && _haveLastInside;
+        bool sunk = pos.y < MinFloorY;
         if (!sunk && (IsInside(pos) || (dockWork && NearDoor(pos, DockWorkApronMeters))))
         {
-            if (pos.y >= MinFloorY) { _lastInside = pos; _haveLastInside = true; }
+            if (pos.y >= MinFloorY && (!dockWork || OnFloorMesh(pos))) { _lastInside = pos; _haveLastInside = true; }
             _outsideStreak = 0;
             _gaveUp = false;
             return;
@@ -156,13 +158,48 @@ public class MHEBoundary : MonoBehaviour
         return false;
     }
 
+    /// <summary>Is there floor-level NavMesh (this machine's agent type) right under this point?</summary>
+    private bool OnFloorMesh(Vector3 p)
+    {
+        var agent = GetComponent<NavMeshAgent>();
+        if (agent == null) return true;
+        var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = NavMesh.AllAreas };
+        return NavMesh.SamplePosition(p, out NavMeshHit hit, 0.6f, filter) && hit.position.y >= MinFloorY;
+    }
+
+    /// <summary>The floor-level mesh point just inside the nearest dock door: where a machine with no usable "last inside" spot goes.</summary>
+    private bool TryDoorFallback(Vector3 from, out Vector3 spot)
+    {
+        spot = default;
+        var agent = GetComponent<NavMeshAgent>();
+        int type = agent != null ? agent.agentTypeID : 0;
+        var filter = new NavMeshQueryFilter { agentTypeID = type, areaMask = NavMesh.AllAreas };
+        DockSlot best = null; float bestD = float.MaxValue;
+        foreach (var door in DockSlot.All)
+        {
+            if (door == null) continue;
+            Vector3 d = door.transform.position - from; d.y = 0f;
+            if (d.sqrMagnitude < bestD) { bestD = d.sqrMagnitude; best = door; }
+        }
+        if (best == null) return false;
+        Vector3 f = best.transform.forward; f.y = 0f; f.Normalize();
+        for (float dist = 3f; dist <= 8f; dist += 1.5f)
+            if (NavMesh.SamplePosition(best.transform.position + f * dist, out NavMeshHit hit, 1.5f, filter) && hit.position.y >= MinFloorY) { spot = hit.position; return true; }
+        return false;
+    }
+
     private void ReturnToLastInside()
     {
-        if (!_haveLastInside) return;
-        Vector3 back = new Vector3(_lastInside.x, _lastInside.y, _lastInside.z);
+        Vector3 back = _lastInside;
+        // The remembered spot must have floor mesh under it (not the inside of a trailer); otherwise use the dock apron inside the nearest door.
+        if (!_haveLastInside || !OnFloorMesh(back))
+        {
+            if (!TryDoorFallback(transform.position, out back)) return;
+            _lastInside = back; _haveLastInside = true;
+        }
 
         var agent = GetComponent<NavMeshAgent>();
-        if (agent != null && agent.enabled && agent.isOnNavMesh)
+        if (agent != null && agent.enabled)
         {
             // Warp lands on the NEAREST mesh, which under a carved rack or at the building edge is the yard layer a metre below
             // (that is how a machine fell through the floor in the first place). Take a floor-level spot or none.

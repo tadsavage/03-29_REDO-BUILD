@@ -179,6 +179,17 @@ public class BuildingData : MonoBehaviour
         _obstacle.center = new Vector3(centerX, Data.objHeight * 0.45f, centerZ);
     }
 
+    /// <summary>A pallet riding on a machine (a reach truck's PalletAnchor, a dock stocker's or jack's forks) must not carve the NavMesh: with
+    /// carveOnlyStationary it cut a hole under the machine every time it stood still. Several pickup paths never switched the obstacle off
+    /// (dock stocker pickups, resumed carries), so this follows the parent instead: under a machine = off, back on the floor / a rack = on.</summary>
+    private void OnTransformParentChanged()
+    {
+        if (objDataSO == null || objDataSO.category != "Inventory") return;
+        var ob = _obstacle != null ? _obstacle : GetComponent<NavMeshObstacle>();
+        if (ob == null) return;
+        ob.enabled = transform.parent == null || transform.GetComponentInParent<MHEOperatorSlot>() == null;
+    }
+
     public void Delete()
     {
         Destroy(gameObject);
