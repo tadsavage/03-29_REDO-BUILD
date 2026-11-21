@@ -71,3 +71,12 @@ difficulty levels, achievements, goals and labor standards.
 ## Status (Tad: "we are almost at 100%")
 Everything above is committed except the 2026-10-28 metrics split (uncommitted at the time of writing). Nothing from "Block 15" onward has been play-tested. First thing to do: open Unity, let it compile
 (check `Logs/Editor.log` for `error CS`), start HAL block 15, and read `Block_15.md` / `BugLog_Block_15.md`. Change ONE thing per block.
+
+## Session 2026-11-20 - truck fit (compiled? NO, not compiled or play-tested) - PC CHANGE HANDOFF
+Context: CLAUDE.md top section "NavmeshAgentRework: clean slate (2026-11-20)" is the current navigation state (all custom MHE traffic code was deleted; `MheTravel` is the only travel code). Read it first.
+Tad's ask (from Unity Inspector screenshots), applied WITHOUT opening Unity, so verify in the Editor:
+1. `TruckController.cs` (`Actors/`): the generated `TrailerFloorSolid` object is placed at local Y -0.3.
+2. Trailer doors: `TrailerDoor.Driver` local pos (-1.1, 2.413, -5.8), `TrailerDoor.Pass` (1.25, 2.371, -5.801), both local scale (1, 1.12, 1). They live inside `Truck_SavageDev.fbx`, so they are applied in code right after `FindDeepChild` in the door lookup (not as prefab overrides). If Tad prefers prefab overrides, set them in Unity and delete those two lines.
+3. Docking: `dockBackInTrim` 0.5 -> -0.07 (code default and `Truck_SavageDev.prefab` line ~1360). Docked root = `TruckNavPoint5` (door local z -7.96) + yard-forward * trim. Goal: truck root Z = 28.5 at door 2 (X -2.0375). My arithmetic assumed door Z 36.39, so CHECK where the truck really stops and nudge only that number if off. `truck_Savage_DevblendNEW.prefab` still has 0.5 (probably unused).
+First thing to do on the new PC: pull with Unity CLOSED, open Unity, let it compile (check `Logs/Editor.log` for `error CS`), dock a truck at door 2 and read its Position Z in the Inspector.
+Not committed on purpose: `Metrics/bot_metrics.json` / `player_metrics.json` (editor mirrors of the OpsMetrics data, rewritten on every Play; huge diffs) - decide whether to git-ignore them.

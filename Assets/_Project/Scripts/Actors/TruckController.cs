@@ -393,7 +393,7 @@ public class TruckController : MonoBehaviour
     [Tooltip("How far out from the wall the truck center sits when fully docked. Was DockSlot.dockOffset.")]
     [SerializeField] private float legacyDockOffset = 3.5f;
     [Tooltip("Metres to stop SHORT of the TruckNavPoint5 marker when backing into a door (positive = further from the wall). Tune if the trailer sits too far in/out.")]
-    [SerializeField] private float dockBackInTrim = 0.5f;
+    [SerializeField] private float dockBackInTrim = -0.07f;
     [Tooltip("Straight-out distance from the door into the yard for Xform 2 (_drApproach-DepartPoint). Was DockSlot.approachDepartDepth.")]
     [SerializeField] private float legacyApproachDepartDepth = 9.5f;
     [Tooltip("Xform 2 sideways offset from the door center along the wall. Was DockSlot.approachDepartSide.")]
@@ -536,6 +536,11 @@ private DockSlot        _dock;
 
         _passDoor = FindDeepChild(transform, "TrailerDoor.Pass");
         if (_passDoor == null) _passDoor = FindDeepChild(transform, "TrailerDoor.001");
+
+        // Door fit (Tad, 2026-11-20): the doors sit slightly taller (Y scale 1.12) and a hair off the trailer's rear edge. They live inside the
+        // Truck_SavageDev FBX, so the values are applied here instead of through a prefab override.
+        if (_driverDoor != null) { _driverDoor.localPosition = new Vector3(-1.1f, 2.413f, -5.8f); _driverDoor.localScale = new Vector3(1f, 1.12f, 1f); }
+        if (_passDoor != null)   { _passDoor.localPosition   = new Vector3(1.25f, 2.371f, -5.801f); _passDoor.localScale   = new Vector3(1f, 1.12f, 1f); }
 
         _cab = FindDeepChild(transform, cabChildName);
         if (_cab != null) _cabRest = _cab.localRotation;
@@ -3191,6 +3196,7 @@ private DockSlot        _dock;
 
         var go = new GameObject("TrailerFloorSolid");
         go.transform.SetParent(r.transform, false);
+        go.transform.localPosition = new Vector3(0f, -0.3f, 0f);   // Tad 2026-11-20: the solid floor sits 0.3 m lower
         go.AddComponent<MeshFilter>().sharedMesh = split.floor;
         var fr = go.AddComponent<MeshRenderer>();
         fr.sharedMaterials = r.sharedMaterials;
