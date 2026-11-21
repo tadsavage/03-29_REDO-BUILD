@@ -388,6 +388,7 @@ GameObject:
   - component: {fileID: 3972582223790366199}
   - component: {fileID: 3769956370802025769}
   - component: {fileID: -2809056225464826133}
+  - component: {fileID: 234811403769676753}
   m_Layer: 0
   m_Name: PltJack_FULL
   m_TagString: Untagged
@@ -487,7 +488,7 @@ NavMeshAgent:
   m_Radius: 1.25
   m_Speed: 2.5
   m_Acceleration: 6
-  avoidancePriority: 40
+  avoidancePriority: 50
   m_AngularSpeed: 100
   m_StoppingDistance: 1
   m_AutoTraverseOffMeshLink: 0
@@ -811,7 +812,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7153508595185007600}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1e3fdca004f2d45fe8abbed571a8abd5, type: 3}
   m_Name: 
@@ -824,6 +825,25 @@ MonoBehaviour:
   m_IgnoreFromBuild: 1
   m_ApplyToChildren: 1
   m_AffectedAgents: ffffffffi
+--- !u!114 &234811403769676753
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7153508595185007600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9b3b9e29f9727440abb52245c9fc723, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameCore.Simulation::NavAgentGuidance
+  showGuidanceLine: 1
+  colorType: 5
+  lineWidth: 0.1
+  isDashed: 0
+  pointsPerSegment: 10
+  verticalOffset: 0.05
+  guidanceMaterial: {fileID: -876546973899608171, guid: dea41a882d6ef87489402d2409c08094, type: 3}
 --- !u!1 &9082778493978011103
 GameObject:
   m_ObjectHideFlags: 0
