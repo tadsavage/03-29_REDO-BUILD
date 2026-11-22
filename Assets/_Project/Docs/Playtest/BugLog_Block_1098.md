@@ -302,3 +302,11 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 2 21:31 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (-16.54, 1.10, 64.38) — walking out to (-3.54, 1.15, 64.38) (12.00m to mesh).
 - day 2 21:31 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (-16.54, 1.10, 64.38) — walking out to (-3.54, 1.15, 64.38) (12.00m to mesh).
 - day 2 21:31 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (-16.54, 1.10, 64.38) — walking out to (-3.54, 1.15, 64.38) (12.00m to mesh).
+- day 1 10:01 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 11:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 11:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 10:01 | **REPEATING** | x25 and counting: [DockSchedule] Healed: order OG3973 was on door 0 but its appointment is at door 2.
+- day 1 10:01 | **REPEATING** | x25 and counting: [DockSchedule] Healed: order OG3973 was on door 0 but its appointment is at door 2.
+- day 1 11:53 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 11:53 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 11:53 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
