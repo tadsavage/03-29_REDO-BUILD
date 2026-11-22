@@ -1980,6 +1980,20 @@ private DockSlot        _dock;
     }
 
     // ── Cab steering (articulated tractor) ────────────────────────────────────────
+    /// <summary>
+    /// Yaw rate for the cab, ignoring instant root-rotation snaps (code that sets transform.rotation
+    /// in one frame, e.g. the side-lot squaring-up). A snap used to read as a huge yaw rate and
+    /// swung the cab up to maxCabSteer. Anything faster than snapYawRate deg/s counts as a snap:
+    /// the rate is 0 that frame and the previous yaw is re-seated.
+    /// </summary>
+    private const float snapYawRate = 360f;
+    private float CabYawRate(float curYaw, float dt)
+    {
+        float rate = Mathf.DeltaAngle(_prevYaw, curYaw) / dt;
+        _prevYaw = curYaw;
+        return Mathf.Abs(rate) > snapYawRate ? 0f : rate;
+    }
+
     private void UpdateCabSteering()
     {
         if (!articulateCab || _cab == null) return;
@@ -2001,8 +2015,7 @@ private DockSlot        _dock;
         }
 
         float dt      = Mathf.Max(Time.deltaTime, 1e-4f);
-        float yawRate = Mathf.DeltaAngle(_prevYaw, curYaw) / dt;
-        _prevYaw      = curYaw;
+        float yawRate = CabYawRate(curYaw, dt);
 
         float steerTarget = Mathf.Clamp(yawRate * cabSteerGain, -maxCabSteer, maxCabSteer);
         _cabYaw           = Mathf.MoveTowards(_cabYaw, steerTarget, cabSteerSlew * dt);
@@ -2248,8 +2261,7 @@ private DockSlot        _dock;
     {
         float curYaw = transform.eulerAngles.y;
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
-        float yawRate = Mathf.DeltaAngle(_prevYaw, curYaw) / dt;
-        _prevYaw = curYaw;
+        float yawRate = CabYawRate(curYaw, dt);
         if (_cab == null) return;
         float target = Mathf.Clamp(-yawRate * backInCabSteer, -maxCabSteer, maxCabSteer);
         _cabYaw = Mathf.MoveTowards(_cabYaw, target, 40f * dt);
