@@ -310,3 +310,17 @@ Every incident as it happened. Format: day hour:minute | category | what.
 - day 1 11:53 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
 - day 1 11:53 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
 - day 1 11:53 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
+- day 1 10:01 | **REPEATING** | x25 and counting: [DockSchedule] Healed: order OG3973 was on door 0 but its appointment is at door 2.
+- day 1 14:58 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (34.25, 1.16, 49.84) — walking out to (27.75, 1.21, 61.12) (12.02m to mesh).
+- day 1 14:58 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (34.25, 1.16, 49.84) — walking out to (27.75, 1.21, 61.12) (12.02m to mesh).
+- day 1 14:58 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (34.25, 1.16, 49.84) — walking out to (27.75, 1.21, 61.12) (12.02m to mesh).
+- day 1 14:58 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (34.25, 1.16, 49.84) — walking out to (27.75, 1.21, 61.12) (12.02m to mesh).
+- day 1 19:43 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (34.02, 1.16, 52.08) — walking out to (34.02, 0.04, 38.44) (12.65m to mesh).
+- day 1 19:43 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (34.02, 1.16, 52.08) — walking out to (34.02, 0.04, 38.44) (12.65m to mesh).
+- day 1 19:43 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (34.02, 1.16, 52.08) — walking out to (34.02, 0.04, 38.44) (12.65m to mesh).
+- day 1 19:43 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (34.02, 1.16, 52.08) — walking out to (34.02, 0.04, 38.44) (12.65m to mesh).
+- day 1 19:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 91846df9-790a-461c-acd7-ad5f80feb57d but the employee is 7.9m away (max 4.5m) — refusing to start receiving.
+- day 1 19:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 91846df9-790a-461c-acd7-ad5f80feb57d but the employee is 7.9m away (max 4.5m) — refusing to start receiving.
+- day 1 19:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 91846df9-790a-461c-acd7-ad5f80feb57d but the employee is 7.9m away (max 4.5m) — refusing to start receiving.
+- day 1 19:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 91846df9-790a-461c-acd7-ad5f80feb57d but the employee is 7.9m away (max 4.5m) — refusing to start receiving.
+- day 1 10:01 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
