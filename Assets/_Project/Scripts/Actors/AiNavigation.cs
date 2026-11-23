@@ -254,6 +254,12 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             // Everything else (people, rats, trucks) keeps the random priority, which breaks head-on deadlocks in narrow corridors.
             var machine = GetComponent<MHEOperatorSlot>();
             agent.avoidancePriority = machine != null ? MachineAvoidancePriority(machine) : 50;   // everyone equal for now (Tad, 2026-11-20)
+            // A machine with its agent off must still be seen by the agents that are moving (2026-11-22): see MheStandingObstacle.
+            if (machine != null && GetComponent<GameCore.Actors.MheStandingObstacle>() == null)
+                gameObject.AddComponent<GameCore.Actors.MheStandingObstacle>();
+            // And no machine may roll into another while its agent is off (scripted moves): see MheClipGuard.
+            if (machine != null && GetComponent<GameCore.Actors.MheClipGuard>() == null)
+                gameObject.AddComponent<GameCore.Actors.MheClipGuard>();
         }
 
         if (footstepClip != null)
@@ -334,6 +340,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         _operatorIdentity = operatorIdentity;
         _parked = false;
         enabled = true;
+        GameCore.Actors.MheStandingObstacle.Suspend(this);
         if (agent != null) agent.enabled = true;
 
         // The VEHICLE's own bubble is the only one active while occupied — MHEOperatorSlot.
@@ -1430,7 +1437,17 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
             _rb.MovePosition(np);
         // Rotation is owned by AgentAnimation.LateUpdate() — do not set _rb.rotation
         // here, as it fires before AgentAnimation's LateUpdate and would overwrite it.
+        // MACHINES have no AgentAnimation (only people do), so nothing turned them: a reach truck on its own agent glided sideways
+        // "as if on ice" (Tad, 2026-11-22). Turn the cab toward the direction of travel, as MheTravel.Leg does.
+        if (_isMachine.Value && agent.updateRotation == false && _agentAnimation == null)
+        {
+            Vector3 v = agent.velocity; v.y = 0f;
+            if (v.sqrMagnitude > 0.04f)
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(v.normalized), MachineTurnDegPerSec * Time.deltaTime);
+        }
     }
+
+    private const float MachineTurnDegPerSec = 140f;
 
     private const float MachineMinFloorY = 0.9f;   // the building / dock floor is ~1.1; the yard layer underneath is ~0.1
     private Vector3 _lastMachineFloorPos;

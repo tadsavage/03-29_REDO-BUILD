@@ -1966,6 +1966,7 @@ namespace GameCore.Actors
             while (!_inventoryService.TryEnterLaneForDelivery(door, resolvedLane, LockLabel(), this))
                 yield return null;
             _heldLaneLock = (door, resolvedLane);
+            HoldLaneZone(door, resolvedLane);
 
             // Close the last stretch manually and square up on the slot, same reasoning as the rack
             // delivery: the NavMesh leg only guarantees arrival within the agent's stopping distance,
@@ -2400,6 +2401,7 @@ namespace GameCore.Actors
             {
                 if (_vehicleAgent != null)
                 {
+                    GameCore.Actors.MheStandingObstacle.Suspend(_vehicleAgent);
                     _vehicleAgent.enabled = true;
 
                     // ALWAYS Warp — this is a hard resync, not an optimization (do not re-add an
@@ -2454,9 +2456,20 @@ namespace GameCore.Actors
         /// the rest of the session.</summary>
         private void ReleaseLaneLock()
         {
+            GameCore.Actors.MheLaneZone.Release(this);   // the keep-clear zone goes with the lane lock
             if (_heldLaneLock == null) return;
             _inventoryService?.ReleaseLaneEntry(_heldLaneLock.Value.Door, _heldLaneLock.Value.Lane);
             _heldLaneLock = null;
+        }
+
+        /// <summary>While this truck holds a lane's entry lock (driving in, setting down, backing out) the open floor at the lane's exit is
+        /// closed to every other machine: see <see cref="GameCore.Actors.MheLaneZone"/>. Released with the lock in <see cref="ReleaseLaneLock"/>.</summary>
+        private void HoldLaneZone(int door, string lane)
+        {
+            if (!LaneNamingService.TryGetLaneGeometry(door, lane, out var geo)) return;
+            Vector3 d = geo.DepthAxis;
+            if (d.sqrMagnitude < 0.0001f) return;
+            GameCore.Actors.MheLaneZone.Hold(this, geo.ExitPoint, d.normalized, 1.5f, 4.5f, 2.2f);
         }
 
         /// <summary>The lane this truck claimed as its staging destination (InventoryService.TryClaimLane), or null.</summary>
@@ -2497,6 +2510,7 @@ namespace GameCore.Actors
                 yield return null;
             }
             _heldLaneLock = (door, lane);
+            HoldLaneZone(door, lane);
             done(true);
         }
 
@@ -2578,12 +2592,27 @@ namespace GameCore.Actors
             _activeReservedAddress = null;
         }
 
+        /// <summary>A scripted DriveToPoint longer than this goes by NavMeshAgent leg first.</summary>
+        private const float HandDriveMax = 2.5f;
+
         private IEnumerator DriveToPoint(Transform t, Vector3 target, float arriveThreshold = -1f)
         {
             float threshold = arriveThreshold > 0f ? arriveThreshold : ArriveThreshold;
             Vector3 flat = new Vector3(target.x, t.position.y, target.z);
             Vector3 to = flat - t.position; to.y = 0f;
             if (to.magnitude <= threshold) { t.position = flat; yield break; }
+            // TRAVEL BETWEEN POINTS ON THE AI AGENT (Tad, 2026-11-22: scripted moves slid the truck sideways "as if on ice"): any longer drive
+            // goes by NavMeshAgent leg (cab leads, turns as it goes). The short hand drive below only finishes the last metres (and is the
+            // fallback if the leg cannot be done). Not while holding a lane lock: inside a lane there is no mesh to path on.
+            if (to.magnitude > HandDriveMax && t == transform && !_heldLaneLock.HasValue && _vehicleAgent != null)
+            {
+                bool legOk = false;
+                _inTravelLeg = true;
+                yield return MheTravel.Leg(t, flat, "reach truck drive", r => legOk = r, Mathf.Max(threshold, 0.5f));
+                _inTravelLeg = false;
+                to = flat - t.position; to.y = 0f;
+                if (to.magnitude <= threshold) { t.position = flat; yield break; }
+            }
             yield return RotateTo(t, to);
             while (PlanarDist(t.position, target) > threshold)
             {

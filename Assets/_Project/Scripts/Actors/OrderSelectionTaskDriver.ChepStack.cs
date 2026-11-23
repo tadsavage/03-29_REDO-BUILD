@@ -23,7 +23,7 @@ namespace GameCore.Actors
         private const float ChepWalkInset         = 0.98f;  // the selector walks this far from the fork centre line, on the stack side
         private const float ChepForkCentreBack    = 1.5f;   // the fork load centre is this far behind the jack's root
 
-        private GameObject _spareChep;   // the empty pallet riding the near fork position until the order needs a second pallet
+        private GameObject _spareChep;   // the empty pallet riding the TIP fork position until the order needs a second pallet (fill order: near-operator first)
         private static PlacementGrid s_chepGrid;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -56,14 +56,15 @@ namespace GameCore.Actors
             yield return StepOut(stack.position);
             if (_jack == null) { done?.Invoke(false); yield break; }
             _offJack = true;
+            // FILL ORDER (Tad, 2026-11-22): the order's pallet is the one next to the operator (near position), the spare rides the tip.
             yield return WalkTo(Beside(ForkPalletZ[1]));
             if (_jack == null) { done?.Invoke(false); yield break; }
             yield return FaceDir(stack.position - transform.position);
-            SpawnSpareChep();
+            EnsurePallet();
             yield return WalkTo(Beside(ForkPalletZ[0]));
             if (_jack == null) { done?.Invoke(false); yield break; }
             yield return FaceDir(stack.position - transform.position);
-            EnsurePallet();
+            SpawnSpareChep();
             yield return new WaitForSeconds(0.2f);
 
             // Back on.
@@ -146,7 +147,7 @@ namespace GameCore.Actors
                 if (c is PalletBuilder || c is PlacedObject || c is BuildingData || c is BuildingHighlighter) { c.enabled = false; Destroy(c); }
             foreach (var col in go.GetComponentsInChildren<Collider>()) col.enabled = false;
             go.transform.SetParent(_jack.transform, false);
-            go.transform.localPosition = new Vector3(0f, _forkY, ForkPalletZ[1]);
+            go.transform.localPosition = new Vector3(0f, _forkY, ForkPalletZ[0]);
             go.transform.localRotation = Quaternion.identity;
             _spareChep = go;
         }

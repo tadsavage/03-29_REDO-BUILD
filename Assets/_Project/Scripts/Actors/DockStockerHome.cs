@@ -19,9 +19,9 @@ using GameCore.Actors;
 public static class DockStockerHome
 {
     /// <summary>Half the trailer opening plus a margin: no pocket body comes closer than this to a door's centre line.</summary>
-    public const float DoorHalfOpening = 1.8f;
+    public const float DoorHalfOpening = 1.6f;
     /// <summary>Gap between the wall line (the door pivot) and the body near side: one grid cell (1.325 m, Tad 2026-11-20), so a parked stocker is never against the front wall.</summary>
-    public const float WallGap = 1.325f;
+    public const float WallGap = 0.9f;
 
     private struct Pocket { public Vector3 Centre, Pivot, Forward, Inward; public float CentreOff; public string Name; }
 
@@ -37,6 +37,16 @@ public static class DockStockerHome
 
     public static bool IsDockStocker(EquipmentBattery b)
         => b != null && b.Slot != null && !b.Slot.IsPalletJack && b.Slot.GetComponent<ReachTruckOperator>() == null;
+
+    /// <summary>A parked stocker's "DOOR n-F" pocket is in front of a door that now has a trailer at it: it must move off the work strip.</summary>
+    public static bool FrontDoorInUse(string pocketName)
+    {
+        if (string.IsNullOrEmpty(pocketName) || !pocketName.StartsWith("DOOR ") || !pocketName.EndsWith("-F")) return false;
+        string num = pocketName.Substring(5, pocketName.Length - 7);
+        foreach (var d in DockSlot.All)
+            if (d != null && d.IsOccupied && d.DoorNumber.ToString() == num) return true;
+        return false;
+    }
 
     /// <summary>Forget this machine's pocket (it took a job, or is moving out of someone's way).</summary>
     public static void Release(EquipmentBattery b) { if (b != null) s_claims.Remove(b); }
@@ -92,6 +102,14 @@ public static class DockStockerHome
                 if (along < 0f && -along < bestL) { bestL = -along; left = b; }
             }
 
+            // RIGHT IN FRONT OF THE DOOR (Tad, 2026-11-22): lying along the wall, centred on the opening, set back WallGap. First choice: the
+            // stocker is where its door's work happens and out of the other doors' way. A trailer docking here does not need this strip.
+            // Not while a trailer is docked / claimed at this door: that strip is where the stockers drive in and out of it.
+            if (!a.IsOccupied)
+            {
+                Vector3 front = pa + inward; front.y = pa.y;
+                Add(front, t, $"DOOR {a.DoorNumber}-F");
+            }
             // Between this door and its right-hand neighbour (each gap once): one machine, if its body fits clear of both openings.
             if (right != null && bestR - 2f * DoorHalfOpening >= 2f * halfL)
             {
@@ -111,11 +129,12 @@ public static class DockStockerHome
                 Add(c, t, $"DOOR {a.DoorNumber}-R");
             }
         }
-        // Gap pockets first (they are between two doors, off every through-route), then by distance.
+        // In front of a door first, then the gaps between two doors, then the end fallbacks; each by distance.
+        int Rank(string n) => n.EndsWith("-F") ? 0 : n.Contains("|") ? 1 : 2;
         list.Sort((x, y) =>
         {
-            bool gx = x.p.Name.Contains("|"), gy = y.p.Name.Contains("|");
-            if (gx != gy) return gx ? -1 : 1;
+            int rx = Rank(x.p.Name), ry = Rank(y.p.Name);
+            if (rx != ry) return rx.CompareTo(ry);
             return x.dist.CompareTo(y.dist);
         });
         var res = new List<Pocket>(list.Count);

@@ -225,7 +225,7 @@ public class EquipmentBattery : MonoBehaviour
         IsDoingLap = true;
         _nav.SetTaskBusy(false);
         _nav.GoActive(op);   // the vehicle's own patrol along the waypoints
-        float duration = Random.Range(2f, 5f);          // game minutes
+        float duration = DockStockerHome.IsDockStocker(this) ? Random.Range(6f, 10f) : Random.Range(2f, 5f);   // game minutes (a dock stocker's drive round the warehouse is a bit longer)
         float t = 0f;
         while (this != null && t < duration && !IsBusy && !WantsStation && Slot != null && Slot.IsOccupied)
         {
@@ -240,15 +240,16 @@ public class EquipmentBattery : MonoBehaviour
         _lap = null;
     }
     // ── Dock stocker restlessness (Tad, 2026-11-14): parked in its door pocket it turns round or shuffles along the wall every 20-40 s ──
-    private const float RestlessMinSeconds = 20f;      // Time.deltaTime seconds (scaled by the speed buttons, like any movement)
-    private const float RestlessMaxSeconds = 40f;
-    private const float RestlessShuffle = 0.8f;        // never further than this along the wall from the pocket centre
-    private const float RestlessWiggleDeg = 10f;       // heading eased at most this far off the wall line (a full turn doesn't fit the apron)
+    private const float RestlessMinSeconds = 60f;      // Time.deltaTime seconds (scaled by the speed buttons, like any movement)
+    private const float RestlessMaxSeconds = 120f;
+    private const float RestlessShuffle = 1.2f;        // never further than this along the wall from the pocket centre
+    private const float RestlessWiggleDeg = 20f;       // heading eased at most this far off the wall line (a full turn doesn't fit the apron)
     private const float RestlessTrafficRadius = 4f;    // a moving jack / reach truck this close: keep still
     private const float MakeWayAfterReal = 1.0f;       // another machine held behind this one this long (REAL s): move out of its way
     private float _restlessT, _restlessAfter = 30f, _makeWayCheckT;
     private Vector3 _restlessHome, _restlessAxis;
     private Vector3? _avoidPocket;
+    private float _dsLapT, _dsLapAfter = 300f;
 
     private bool InDoorPocket => !string.IsNullOrEmpty(_idleName) && _idleName.StartsWith("DOOR ");
 
@@ -270,11 +271,15 @@ public class EquipmentBattery : MonoBehaviour
         if (axis.sqrMagnitude < 0.0001f) { axis = transform.forward; axis.y = 0f; }
         if (axis.sqrMagnitude < 0.0001f) { _lap = null; yield break; }
         axis.Normalize();
-        if (Random.value < 0.5f)
+        // Turned away from the wall line by an earlier pivot: turn back first.
+        if (Vector3.Angle(transform.forward, axis) > 30f && Vector3.Angle(transform.forward, -axis) > 30f)
         {
-            // Ease the heading a few degrees either side of the wall line. A full turn round does not fit: the body runs ~2.6 m behind
-            // the pivot and the apron is ~4.6 m deep between the wall and the lane pallets.
-            yield return GuardedFace(Quaternion.Euler(0f, Random.Range(-RestlessWiggleDeg, RestlessWiggleDeg), 0f) * axis);
+            yield return GuardedFace(axis);
+        }
+        else if (Random.value < 0.6f)
+        {
+            // PIVOT about 90 degrees (Tad, 2026-11-22): nose toward the door or toward the lanes. GuardedFace stops if something is in the way.
+            yield return GuardedFace(Quaternion.Euler(0f, Random.value < 0.5f ? 90f : -90f, 0f) * axis);
         }
         else
         {
@@ -611,7 +616,7 @@ public class EquipmentBattery : MonoBehaviour
                 if (InDoorPocket && _makeWayCheckT >= 0.5f)
                 {
                     _makeWayCheckT = 0f;
-                    if (DockStockerHome.SomeoneWaitingOn(this, MakeWayAfterReal))
+                    if (DockStockerHome.SomeoneWaitingOn(this, MakeWayAfterReal) || DockStockerHome.FrontDoorInUse(_idleName))
                     {
                         if (DockStockerHome.TryGetClaim(this, out var mine)) _avoidPocket = mine;
                         DockStockerHome.Release(this);
@@ -620,7 +625,17 @@ public class EquipmentBattery : MonoBehaviour
                     }
                 }
                 _restlessT += Time.deltaTime;
-                if (_restlessT >= _restlessAfter) { _restlessT = 0f; _lap = StartCoroutine(RestlessRoutine()); }
+                // Every ~5 minutes of having nothing to do: a drive round the warehouse for realism (never while it has a job: this whole
+                // block only runs when it is not busy and has no trip).
+                _dsLapT += Time.deltaTime;
+                if (_dsLapT >= _dsLapAfter)
+                {
+                    _dsLapT = 0f; _dsLapAfter = Random.Range(240f, 360f);
+                    DockStockerHome.Release(this);
+                    _idleName = null;
+                    _lap = StartCoroutine(LapRoutine());
+                }
+                else if (_restlessT >= _restlessAfter) { _restlessT = 0f; _lap = StartCoroutine(RestlessRoutine()); }
             }
             else if (parkedAtSpot && !wantsCharge)
             {

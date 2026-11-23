@@ -314,7 +314,11 @@ namespace GameCore.Actors
                 }
                 // Last pallet built goes first, mirroring the pick order.
                 for (int i = _pallets.Count - 1; i >= 0 && _jack != null; i--)
-                    if (_pallets[i] != null) yield return ReverseCasesOnJack(_pallets[i], Mathf.Min(i, ForkPalletZ.Length - 1));
+                    if (_pallets[i] != null)
+                    {
+                        int fi = ForkIndexOf(_pallets[i]);   // the pallet's real fork position (the near-operator one is filled first, so list order != fork order)
+                        yield return ReverseCasesOnJack(_pallets[i], fi >= 0 ? fi : Mathf.Min(i, ForkPalletZ.Length - 1));
+                    }
             }
             else
             {

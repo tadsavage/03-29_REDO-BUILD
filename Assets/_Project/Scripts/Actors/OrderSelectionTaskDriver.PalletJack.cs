@@ -481,6 +481,22 @@ namespace GameCore.Actors
                 if (_currentOrder.IsFullyPicked)
                 {
                     if (HelperNotNeeded()) break;   // nothing of ours aboard: JackStageRoutine just parks + finishes
+                    // Say WHY the trip ended when this pallet's own pick list still owes cases (Tad, 2026-11-22: a selector "walked away with
+                    // 3 cases left" - the order total was reached, so the leftover plan lines were credited to another pallet / selector).
+                    if (_currentTask != null && _currentTask.HasPlan && !_orderService.PlanComplete(_currentTask))
+                    {
+                        var owed = new System.Text.StringBuilder();
+                        foreach (var kv in _currentTask.PlanLines())
+                        {
+                            int rem = _orderService.PlanRemaining(_currentTask, kv.Key);
+                            if (rem > 0) owed.Append(kv.Key).Append(" x").Append(rem).Append(' ');
+                        }
+                        var lines = new System.Text.StringBuilder();
+                        foreach (var li in _currentOrder.LineItems)
+                            if (li != null) lines.Append(li.SkuId).Append(' ').Append(li.QuantityPicked).Append("/").Append(li.QuantityNeeded).Append("  ");
+                        Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}': order {_currentOrder.OrderNumber} is fully picked by line totals, but this pallet's pick list still owes: {owed}" +
+                                         $"(the order's lines picked/ordered: {lines}) - the order total was reached through other pallets / selectors, so nothing more is taken.");
+                    }
                     Debug.Log($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) fully picked on the pallet jack — {TotalCasesOnPallets()} case(s). Driving to staging.");
                     _orderService.MarkOrderFulfilled(_currentOrder.OrderId);
                     break;
@@ -919,6 +935,8 @@ namespace GameCore.Actors
             Vector3 mouth = LaneAnchorPoint(endSlot, forward, driveY);
 
             s_stagingClaims[this] = mouth;
+            // Close the lane mouth to every other machine from now until this jack has pulled out to the pivot again (MheLaneZone).
+            MheLaneZone.Hold(_jack, mouth, forward);
 
             // BACK IN, NEVER NOSE IN (Tad, 2026-11-14, block 57 screenshot): the jack must arrive at the line-up facing AWAY from the lane.
             // Then it is checked, and a jack still pointing into the lane goes round again rather
@@ -971,6 +989,7 @@ namespace GameCore.Actors
             if (!_jackLegOk || !linedUp)
             {
                 s_stagingClaims.Remove(this);
+                MheLaneZone.Release(_jack);
                 yield return AbandonJackOnFoot(linedUp ? $"could not drive the jack to staging lane {door}{resolvedLane}"
                                                        : $"could not line the jack up facing out of staging lane {door}{resolvedLane}", completion);
                 yield break;
@@ -1002,6 +1021,7 @@ namespace GameCore.Actors
             yield return JackMoveStraight(mouth, JackDriveSpeed);
             ReleaseJackLaneLock();
             s_stagingClaims.Remove(this);
+            MheLaneZone.Release(_jack);   // pulled out to the pivot: the mouth is open again
 
             Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) staged in {door}{resolvedLane} by pallet jack.");
 
@@ -1116,6 +1136,7 @@ namespace GameCore.Actors
             }
             Debug.LogWarning($"[OrderSelectionTaskDriver] '{name}' leaving the pallet jack ({reason}) - its {TotalCasesOnPallets()} case(s) stay on the jack " +
                              $"for the next free selector to take over (order {_currentOrder?.OrderNumber}).");
+            yield return ClearJackOffLaneMouth();
             ReleaseJack();   // pallets stay parented to the jack
             if (_currentTask != null)
             {
@@ -1129,6 +1150,17 @@ namespace GameCore.Actors
             _taskInProgress = false;
             _nav.SetTaskBusy(false);
             _nav.Patrol();
+        }
+
+        /// <summary>A jack about to be left behind that is standing on a staging lane mouth drives clear of it first, so the next machine
+        /// working that lane never finds it parked on the pivot (the pivot standoff of 2026-11-22). Best effort: one leg, no retry.</summary>
+        private IEnumerator ClearJackOffLaneMouth()
+        {
+            if (_jack == null) yield break;
+            MheLaneZone.Release(_jack);   // our own claim must not make the mouth look closed to us
+            if (!MheLaneZone.TryClearPoint(_jack.transform.position, out var clear)) yield break;
+            Debug.Log($"[OrderSelectionTaskDriver] '{name}': moving the pallet jack off a staging lane mouth before leaving it.");
+            yield return DriveJackTo(clear, Vector3.zero, "clearing a lane mouth");
         }
 
         /// <summary>A jack trip that never picked a case and can't get to its first bay: get off, leave the jack, throw the empty pallet
@@ -1168,6 +1200,7 @@ namespace GameCore.Actors
             {
                 if (_jack.CurrentOperator == identity) { _jack.VacateOperator(); _footScripted = false; }
                 s_jackClaims.Remove(_jack);
+                MheLaneZone.Release(_jack);
             }
             EndScriptedFoot();   // walked by script but never mounted (e.g. the jack vanished mid step-in)
             if (_jackNav != null) { _jackNav.HeldInQueue = false; _jackNav.DriverOwnsMovement = false; }
@@ -1584,6 +1617,7 @@ namespace GameCore.Actors
             var agent = GetComponent<NavMeshAgent>();
             if (agent != null)
             {
+                MheStandingObstacle.Suspend(agent);
                 agent.enabled = true;
                 agent.Warp(transform.position);
             }
@@ -1801,6 +1835,7 @@ namespace GameCore.Actors
             {
                 if (_jackAgent != null)
                 {
+                    MheStandingObstacle.Suspend(_jack);
                     _jackAgent.enabled = true;
                     _jackAgent.Warp(_jack.transform.position);
                     if (_jackAgent.isActiveAndEnabled && _jackAgent.isOnNavMesh) _jackAgent.isStopped = false;

@@ -414,10 +414,11 @@ namespace GameCore.Actors
             return bd < 0.35f ? best : -1;
         }
 
-        /// <summary>First fork position (front first) with no pallet of ours on it; -1 when both are taken.</summary>
+        /// <summary>First free fork position with no pallet of ours on it; -1 when both are taken. FILL ORDER (Tad, 2026-11-22): the pallet
+        /// NEXT TO THE OPERATOR (the highest index, nearest the jack body) is built first, then the one at the fork tips.</summary>
         private int FreeForkIndex()
         {
-            for (int i = 0; i < ForkPalletZ.Length; i++)
+            for (int i = ForkPalletZ.Length - 1; i >= 0; i--)
             {
                 bool taken = false;
                 foreach (var p in _pallets) if (p != null && ForkIndexOf(p) == i) { taken = true; break; }
@@ -431,12 +432,13 @@ namespace GameCore.Actors
         private bool AdoptPalletOnJack()
         {
             if (_jack == null || _currentOrder == null) return false;
-            // Every pallet of this order already on the forks goes into the list, FRONT position first, so each keeps its own fork position and
+            // Every pallet of this order already on the forks goes into the list, next-to-operator position first, so each keeps its own fork position and
             // the next new pallet is seated on a free one (2026-11-19: a new pallet seated at index 0 sat inside the leftover one).
             var onJack = new List<OutboundPalletBuilder>();
             foreach (var p in _jack.GetComponentsInChildren<OutboundPalletBuilder>(true))
                 if (p != null && p.OrderId == _currentOrder.OrderId && !_pallets.Contains(p)) onJack.Add(p);
-            onJack.Sort((a, b) => a.transform.localPosition.z.CompareTo(b.transform.localPosition.z));
+            // Fill order: the pallet next to the operator (higher z) is the first one, the tip pallet the second.
+            onJack.Sort((a, b) => b.transform.localPosition.z.CompareTo(a.transform.localPosition.z));
             foreach (var p in onJack)
             {
                 _pallets.Add(p);
@@ -462,7 +464,7 @@ namespace GameCore.Actors
             }
 
             int index = _pallets.Count;
-            // On a jack the pallet goes on the first FREE fork position (front first), whatever the list order is.
+            // On a jack the pallet goes on the first FREE fork position (next to the operator first, then the tips), whatever the list order is.
             int seat = index;
             if (OnJack)
             {
@@ -473,8 +475,8 @@ namespace GameCore.Actors
                     return;
                 }
             }
-            // The spare empty on the near fork position becomes this pallet (OrderSelectionTaskDriver.ChepStack.cs).
-            if (seat >= 1) DropSpareChep();
+            // The spare empty (it rides the tip position, OrderSelectionTaskDriver.ChepStack.cs) becomes this pallet.
+            if (seat == 0) DropSpareChep();
             var go = Instantiate(prefab);
             go.name = $"OutboundPallet_{_currentOrder.OrderId}_{index + 1}";
             go.transform.SetParent(transform, false);
@@ -735,9 +737,22 @@ namespace GameCore.Actors
             // be order.AssignedLane unconditionally, so an overflowed trip was dropped back into the full primary lane.
             if (door <= 0 || string.IsNullOrEmpty(lane)) { door = order != null ? order.EffectiveStagingDoor : 0; lane = order?.AssignedLane; }
 
-            for (int i = 0; i < _pallets.Count; i++)
+            // The pallet at the fork TIPS goes into the lane first (deepest slot), the one next to the operator after it: the jack reverses
+            // in tip-first. The fill order is the other way round, so sort by fork position here (before anything is unparented).
+            // Stable: pallets without a fork position (on-foot path) keep their list order.
+            var keyed = new List<KeyValuePair<int, OutboundPalletBuilder>>();
+            for (int k = 0; k < _pallets.Count; k++)
             {
-                var pallet = _pallets[i];
+                int fi = _pallets[k] != null ? ForkIndexOf(_pallets[k]) : -1;
+                keyed.Add(new KeyValuePair<int, OutboundPalletBuilder>((fi < 0 ? 1000 : fi * 100) + k, _pallets[k]));
+            }
+            keyed.Sort((a, b) => a.Key.CompareTo(b.Key));
+            var placeOrder = new List<OutboundPalletBuilder>();
+            foreach (var kv in keyed) placeOrder.Add(kv.Value);
+
+            for (int i = 0; i < placeOrder.Count; i++)
+            {
+                var pallet = placeOrder[i];
                 if (pallet == null) continue;
 
                 Vector3 pos = fallbackBasePos + axis * (i * 1.4f);

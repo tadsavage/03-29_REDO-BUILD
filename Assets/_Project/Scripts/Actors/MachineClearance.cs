@@ -166,6 +166,37 @@ namespace GameCore.Actors
             return false;
         }
 
+        private static readonly Vector2[] s_ringDirs =
+        {
+            new Vector2(1f, 0f), new Vector2(0.7071f, 0.7071f), new Vector2(0f, 1f), new Vector2(-0.7071f, 0.7071f),
+            new Vector2(-1f, 0f), new Vector2(-0.7071f, -0.7071f), new Vector2(0f, -1f), new Vector2(0.7071f, -0.7071f)
+        };
+
+        /// <summary>Moves <paramref name="pos"/> (flat) away from racks / walls / barriers so its centre is at least <paramref name="radius"/>
+        /// from every solid outline. The NavMesh agents hug rack legs (racks are not carved out of the MHE mesh), which left jacks with their
+        /// side level with the rack face (Tad, 2026-11-22). Returns the point unchanged when nothing is closer than the radius.</summary>
+        public static Vector3 KeepOffSolids(Vector3 pos, float radius, int passes = 3)
+        {
+            for (int pass = 0; pass < passes; pass++)
+            {
+                Vector2 push = Vector2.zero;
+                for (int i = 0; i < s_ringDirs.Length; i++)
+                {
+                    Vector2 d = s_ringDirs[i];
+                    for (float r = 0.1f; r <= radius; r += 0.1f)
+                    {
+                        if (!SolidAt(new Vector3(pos.x + d.x * r, pos.y, pos.z + d.y * r), out _)) continue;
+                        push -= d * (radius - r);
+                        break;
+                    }
+                }
+                if (push.sqrMagnitude < 0.0004f) break;
+                if (push.magnitude > radius) push = push.normalized * radius;
+                pos += new Vector3(push.x, 0f, push.y) * 0.6f;
+            }
+            return pos;
+        }
+
         private static bool InsideSolidOutline(GameObject go, Vector3 wp, float cellSize)
         {
             if (!s_solidOutlines.TryGetValue(go, out var c) || (Time.unscaledTime - c.at > 30f || Time.unscaledTime < c.at))   // re-read now and then: the player can move things
