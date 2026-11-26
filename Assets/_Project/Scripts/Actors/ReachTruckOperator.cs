@@ -434,6 +434,17 @@ namespace GameCore.Actors
                 return; // this operator's assigned pallet has no rack space yet — wait out the backoff
             }
 
+            // A PalletPick can be Assigned with no source pallet (a save load clears PalletId, a stale claim keeps the
+            // assignment). The normal claim path binds the source after claiming; this resume path skipped that, so the
+            // routine started with an empty pallet id and no reserve address and aborted ("missing pallet"). Bind first.
+            if (alreadyAssigned != null && alreadyAssigned.Type == WorkTaskType.PalletPick &&
+                string.IsNullOrEmpty(alreadyAssigned.PalletId) && !TryBindPalletPickSource(alreadyAssigned))
+            {
+                alreadyAssigned.Status = WorkTaskStatus.Available;
+                alreadyAssigned.AssignedToEmployeeGuid = null;
+                return;
+            }
+
             if (alreadyAssigned != null)
             {
                 Debug.Log($"[ReachTruckOperator] '{name}' resuming already assigned task {alreadyAssigned.TaskId}");
