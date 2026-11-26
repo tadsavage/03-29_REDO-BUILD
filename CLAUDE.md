@@ -4,6 +4,19 @@
 
 Branch `polyperfect-men`, everything below is committed and pushed. Pull with Unity CLOSED, then open Unity.
 
+**NEXT STEPS, in order (Tad, 2026-11-26: "make a note of next steps for my next session on another PC"):**
+1. `git pull` with Unity closed; open Unity; wait for the compile; check `Logs/Editor.log` for `error CS` (expect 0). Confirm the UnityMCP bridge with `mcpforunity://instances`.
+2. **Catch the intermittent receiver navigation failure** (details under OPEN below). Run a new-company HAL block as in "How to run the test", and BEFORE the failures start install the
+   `Application.logMessageReceived` diagnostic hook via `execute_code`. When the first `is not reachable` / `cannot reach task position` warning appears, dump the reachability grid from
+   that employee's position (both agent types) and the carving-obstacle count around them, WITHOUT stopping Play. Then fix the root cause (suspects: lane-mouth carving from floor pallets,
+   a navmesh rebake in progress, an employee on the yard layer under the building).
+3. Run at 3x, not 8x, for any result you intend to trust (8x steps are 0.33 s per frame and can cause their own travel failures).
+4. Small fixes after that: the 0.2 m arrival-vs-receiving-range near-miss in `ReceiverReceivingWorkflow` (4.7 m vs max 4.5 m); the jack stall 1.4 m short of rack bay 01-03; the
+   "no reachable pick location ... staging short" warnings on big Seafood orders.
+5. Then the step 1 gate: three consecutive clean blocks (>=80% on time, no deadlocked doors, no REPEATING bugs), ideally 7-day. Throughput (0-2 pallets vs target 36) is an economy /
+   bot-demand problem, NOT travel: keep it out of the navigation work.
+6. Do NOT start the tutorial (roadmap step 2) or anything from `FUTURE_IDEAS.md` until the loop closes. Never commit the bot's report / metrics files with a code change.
+
 **Fixed today (3 commits, all compiled clean):**
 1. `4a601bb45` `ReachTruckOperator`: the "resume already assigned task" path started `PalletPickRoutine` without `TryBindPalletPickSource`, so a PalletPick with no PalletId
    (cleared on save load) ran with an empty pallet id and aborted "missing pallet". It now binds first (or hands the task back).
