@@ -1171,7 +1171,12 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 // never learned the walk was over: its task stayed in progress and its pallets stayed
                 // parented, forever, with only this one line in the console. Hand control back so the
                 // driver can finish (its own fallback drops the load where the agent stands).
-                Debug.LogWarning($"[AiNavigation] {name} cannot reach task position at {_taskTargetPosition} (path invalid) — abandoning the walk and handing the task back.");
+                // An agent standing ON its target (a seek re-issued to where it already stands) reports PathInvalid: that is an arrival, not a
+                // failure. Block 76 logged "cannot reach task position" for an employee exactly on the target, a false bug incident each time.
+                // Same 1 m radius as the arrival branch above, flat (the target's height can differ a few cm from the agent's).
+                Vector3 toTarget = _taskTargetPosition - transform.position; toTarget.y = 0f;
+                if (toTarget.sqrMagnitude > 1.0f)
+                    Debug.LogWarning($"[AiNavigation] {name} cannot reach task position at {_taskTargetPosition} (path invalid) — abandoning the walk and handing the task back.");
                 var callback = _onTaskArrived;
                 CancelSeekPosition();
                 callback?.Invoke();
