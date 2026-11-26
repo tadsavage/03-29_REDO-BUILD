@@ -116,7 +116,11 @@ namespace GameCore.Actors
                     var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
                     // Rack aisles and lane slots have no MHE mesh: the leg ends at the nearest mesh point (the aisle mouth) and the caller's own
                     // precise drive covers the rest, as every old leg did.
+                    Vector3 requested = goal;
                     if (NavMesh.SamplePosition(goal, out var hit, 8f, filter)) goal = hit.position;
+                    // DIAGNOSTIC (2026-11-26): MHEBoundary kept dragging a jack back from a spot outside the building. Which leg sends it there?
+                    if (!MHEBoundary.IsInside(goal))
+                        Debug.LogWarning($"[MheTravel] '{machine.name}' {phase}: GOAL OUTSIDE BUILDING - asked for {requested}, snapped to {goal} ({Vector3.Distance(requested, goal):0.0} m), from {machine.position}.");
                     agent.isStopped = false;
                     agent.ResetPath();
                     if (!agent.SetDestination(goal))
@@ -134,6 +138,21 @@ namespace GameCore.Actors
                             yield return null;
                             if (machine == null) break;
                             if (abort != null && abort()) break;
+                            // The agent itself got there. A long frame (low fps / fast game speed: a reach truck covers 1-2 m a frame) can step
+                            // the agent from outside the arrive radius straight onto the goal, where it consumes its path (hasPath false). The
+                            // "lost" check below read that as a cleared path, re-seated the agent one frame BEHIND the machine and re-issued the
+                            // destination, until the re-assert limit failed the leg 0.7-2.4 m short (block 74: 134 failures). Arrival is judged
+                            // on the agent first, and the machine follows it.
+                            if (agent.enabled && agent.isOnNavMesh && !agent.pathPending)
+                            {
+                                Vector3 an = agent.nextPosition;
+                                if (new Vector2(an.x - goal.x, an.z - goal.z).magnitude <= arrive)
+                                {
+                                    machine.position = new Vector3(an.x, machine.position.y, an.z);
+                                    ok = true;
+                                    break;
+                                }
+                            }
                             // Other code sometimes switches this machine's agent off, or clears its path, in the middle of a leg (drive-mode
                             // switches, parking, watchdogs). Put it back and re-issue the destination instead of giving the leg up.
                             bool lost = !agent.enabled || !agent.isOnNavMesh
