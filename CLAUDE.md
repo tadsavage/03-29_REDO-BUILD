@@ -1,6 +1,49 @@
 # CLAUDE.md
 
-## HANDOFF — Happy Thanksgiving (2026-11-26, read this FIRST; pick up on the other PC)
+## LATEST — Receiver navigation failure FIXED (2026-11-26 afternoon, `C:\Users\tadsa\Documents\GitHub\03-29_REDO-BUILD`; read this FIRST)
+
+The "OPEN" receiver bug in the Thanksgiving handoff below is fixed. It was not one bug but a chain, caught live with probes (method at the end).
+All fixes compiled clean and are committed + pushed on `polyperfect-men`. Verified in HAL runs at **3x**, new company, `Small_two_door_setup_NavTesting`.
+
+**Root causes and fixes:**
+1. **Doorways cut off from the building (the "is not reachable ... 9-17 m short" failure).** `NavMeshManager.UpdateRoutine` reused its NavMeshModifier list for up to
+   5 s. `BuildingData` adds each wall/door's `ignoreFromBuild` modifier when it is PLACED, so a bake inside that window (HAL builds in seconds) baked the newest walls
+   and shipping doors as solid geometry. A door panel down at bake time left a ~0.5 m strip with NO mesh at z 38.0-38.4 across both doors: the door strip (z <= 37.8)
+   was its own island, and a receiver standing there reached no lane. Fix: every bake reads `NavMeshModifier.activeModifiers` (the package's live list).
+2. **Rebake storm.** `AiNavigation.UpdateRebakeTrigger` forced a whole-warehouse rebake every 25 scaled seconds while any employee showed the no-waypoint "?" (a
+   HAL-built company has ZERO `Waypoint`s): 183 rebakes in one block. This storm usually re-healed fix 1's cut, which is why the bug looked intermittent.
+   Fix: re-scan for waypoints every 10 s instead (a rebake cannot create waypoints). Now 4 rebakes per block, all at startup.
+3. **False arrival on a wiped path.** Every rebake toggles the surfaces, wiping agent paths; for a frame the agent reads `hasPath=false, PathComplete, remainingDistance 0`,
+   which the task-seek (and equipment-seek) arrival test took as "arrived" (caught: 56.5 m and 19.5 m from target). Fix: with no path, arrived only if really on the
+   target; otherwise re-issue the destination.
+4. **Walk-out stranded receivers on a sealed island.** `UnstickWalkOut` (a straight slide that ignores walls for people) escaped to "any mesh the agent can't reach",
+   which included a sealed strip outside the east wall (z ~55, x 11-16). Fix: `TryFindEscapePoint` also requires a complete path to >= 20% of up to 24 floor-tile
+   anchors at the agent's level (`CollectEscapeAnchors` / `ReachesAnAnchor`; waypoints are useless as anchors, there are none).
+5. **Walk-out fired on congestion.** Two receivers on one stacked lane slot blocked each other; the walled-in escalation slid each ~12 m across the building every 3 s.
+   Fix: escalate only when the path is NOT complete. And `SeekPosition` on an agent disabled by a walk-out no longer reports arrival instantly (it produced bursts of
+   12 refusals at 4.8 -> 14.4 m); the seek is stored and resumed after the slide. Instant arrival is KEPT for other disabled agents (a selector riding a jack relies on it).
+6. **Receiver stand position (handoff item 4).** `ReceivingTaskDriver.GetStandPosition` stood on the pallet's left/right, which inside a lane is the next lane, where the
+   dock stocker drops the next pallet (boxed in -> walk-out). Now: never on a lane cell; beside the pallet only where that is open floor (an edge lane), else just past the
+   lane's open end (+`DepthAxis`); two receivers never share a stand spot (`s_standSpots`, reset in a `SubsystemRegistration` hook). Pallets not on a lane: old rule.
+   Receive range = the stand spot's real distance + 1.25 m, min 3 m, **cap 6 m** (was 3 m, relaxed to 4.5 m). **Tad to confirm 6 m is acceptable** ("receiving from a
+   mile away is a bug"); the alternative is to receive deep pallets only after the outer ones are put away.
+
+**Results (3x, same new-company build):** before: receivers refused 18-300x per block, "not reachable" ~25x per receiver. Run 7 (all fixes) at day 1 17:39:
+11 received, 0 refusals, 0 walk-outs, 0 not-reachable, 0 no-progress, 0 far seek endings, 4 rebakes, both doorways `PathComplete`. Receiving went idle because no more
+inbound arrived (the known bot demand cap). A full 3-day block was NOT completed with all fixes; that is the next check.
+
+**Next:** (1) run full 3-day blocks at 3x and confirm the receiver numbers hold and no new REPEATING bug appears; (2) then the Thanksgiving list below from item 4 on
+(jack stall at 01-03, "no reachable pick location ... staging short"); (3) the step 1 gate. The stuck walk-out is still a straight slide that ignores walls for
+people: rarer now, but worth replacing with a clearance-checked move if it shows up again.
+
+**How the bug was caught (reuse this):** `execute_code` installs `Application.logMessageReceived` / `EditorApplication.update` hooks that persist into Play (Domain
+Reload is off for Play entry, but any compile wipes them: reinstall after every compile). They write to `Logs/NavProbe*.txt`, never the console, so the bot does not count
+them. The decisive tools were: a per-frame "seek ended far from its target" watcher (state the frame before), a door-strip -> lanes `CalculatePath` check, a
+`SamplePosition` profile along a line (found the 0.5 m gap), and `NavMeshBuilder.CollectSources` with the manager's own markups (showed door/wall meshes being baked).
+Also learned: after a forced compile, Unity can recompile AGAIN at the first asset refresh in Play (portraits written by hiring), which kills the run: use
+`refresh_unity` with scope all / mode force BEFORE Play so the import and compile happen together.
+
+## HANDOFF — Happy Thanksgiving (2026-11-26, morning; the receiver "OPEN" item below is FIXED, see LATEST above)
 
 Branch `polyperfect-men`, everything below is committed and pushed. Pull with Unity CLOSED, then open Unity.
 
