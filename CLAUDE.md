@@ -1,6 +1,61 @@
 # CLAUDE.md
 
-## CURRENT WORK — NavmeshAgentRework: clean slate (2026-11-20, read this first)
+## HANDOFF — Happy Thanksgiving (2026-11-26, read this FIRST; pick up on the other PC)
+
+Branch `polyperfect-men`, everything below is committed and pushed. Pull with Unity CLOSED, then open Unity.
+
+**Fixed today (3 commits, all compiled clean):**
+1. `4a601bb45` `ReachTruckOperator`: the "resume already assigned task" path started `PalletPickRoutine` without `TryBindPalletPickSource`, so a PalletPick with no PalletId
+   (cleared on save load) ran with an empty pallet id and aborted "missing pallet". It now binds first (or hands the task back).
+2. `b7c4f033b` `MheTravel.Leg`: the "lost path" check ran BEFORE the arrival check. A long frame (low fps / 8x: a reach truck moves 1-2 m a frame) steps the agent straight onto
+   the goal, it consumes its path (hasPath false), the leg read that as lost, re-seated the agent a frame behind the machine and failed after 12 re-asserts, 0.7-2.4 m short.
+   Arrival is now judged on the agent first. Also logs a warning "GOAL OUTSIDE BUILDING" if a leg's snapped goal fails `MHEBoundary.IsInside` (never fired yet).
+   `[MheTravel]` failures per 3-day block at 8x: **134 -> 4 -> 2 -> 2**.
+3. `41f43b54d` `AiNavigation`: no false "cannot reach task position (path invalid)" warning when the employee is already within 1 m of the target (it was a false bug incident).
+
+**HAL blocks (new company, 3 days, 8x, `Small_two_door_setup_NavTesting`, bot planner off, no code change between 75/76/77):**
+| Block | Score | Reliability | Shipped | `[MheTravel]` fails | Notes |
+|---|---|---|---|---|---|
+| 74 (before fix 2) | 28.2 | 36 | 0 | 134 | |
+| 75 | 44.4 | 21 | 2 | 4 | receiver flood (below) |
+| 76 | 60.2 | 67 | 2 | 2 | clean, 6 bug incidents |
+| 77 | 20.2 | 20 | 0 | 2 | receiver flood again: 274 unreachable-target events, 303 refused receiving |
+
+**OPEN, the next thing to do: intermittent human-receiver navigation failure.** In blocks 75 and 77 (not 74/76) two receivers (75: Ann Peterson / Ruth Murphy; 77: Joshua Ramirez /
+Jonathan Scott) log `[AiNavigation] ... task target (...) is not reachable - the partial path ends 12-17 m short` ~25x each (REPEATING), then `[ReceiverReceivingWorkflow] Arrival callback
+fired ... employee is N m away (max 4.5m) - refusing to start receiving`, `receive workflow cancelled (out of range)`. Targets are staging-lane slots (x -8..-3 and +4.6..5.6, z 43-49).
+Block 77 also had a reach truck `PathPartial` 22.7 m short of lane 2A (0.61, 50.31) from (-21.67, 54.59) (static `NavMesh.CalculatePath` also said PathPartial).
+- What was ruled out: a PERMANENT gap. In block 76 a grid of floor points (x -30..12, z 38..58) was reachable from the yard spawn (-15.3, 0.04, 18.5) AND from inside (7.7, 47) in both
+  directions. Idle employees at the yard spawn are selectors waiting for work (normal). A one-off `PathInvalid` from the yard to (5.6, 1.14, 48.1) at day 1 10:25 (block 76) was
+  gone minutes later, so the cut is TRANSIENT or crew/state dependent.
+- Prime suspects (not tested): carving `NavMeshObstacle`s on floor pallets / lane contents closing a lane mouth or aisle; a navmesh rebake in progress; an employee on the yard-level
+  layer (y ~0.03) under the building footprint (a `stuck ... (12.00m to mesh)` line at y 0.0-0.3 inside x 11-13, z 43-45).
+- How to catch it next time (this was tried once and Play ended before it fired): BEFORE the failures, install a hook with `execute_code`
+  (`Application.logMessageReceived`; on a warning containing "is not reachable" / "cannot reach task position": find the employee `GameObject`, record position, `agent.isOnNavMesh`,
+  `NavMesh.CalculatePath` status + end point to the target, `SamplePosition` of the target, count of carving obstacles within 3 m of the agent and the target). The moment a failure
+  appears, ALSO dump a reachability grid like the one above from the failing employee's position (B reachable / . not) for BOTH agent types. Do not stop Play first.
+- Smaller things: "arrival callback ... 4.7 m away (max 4.5 m)" is a 0.2 m tolerance near-miss in `ReceiverReceivingWorkflow`; "no reachable pick location ... staging short" on the big
+  Seafood orders (pick faces `(behind)` other stock); one jack stall 1.4 m short of rack bay 01-03; one jack kept being dragged back by `MHEBoundary` near (3, 48.5) in an early block-75 run.
+- The economy side is weak and separate from travel: 0-2 pallets shipped vs target 36, bot releases only 0-4 orders per block (see the demand cap notes below). Step 1 gate = three
+  consecutive 7-day blocks (>=80% on time, no deadlocked doors, no REPEATING bugs); today's 3-day blocks at 8x are a regression check only.
+
+**How to run the test (UnityMCP bridge, Unity focused, `Logs/Editor.log` is the evidence):**
+1. `mcpforunity://instances` then `set_active_instance`. Check `Library/ScriptAssemblies/GameCore.Simulation.dll` is newer than the edited `.cs` and `Logs/Editor.log` has no `error CS`.
+2. `execute_code` (edit mode): `var s = Resources.Load<GameCore.Diagnostics.PlaytestBotSettings>("PlaytestBotSettings"); s.startFromSlot = 0; s.buildOnly = false; s.gameSpeed = 8;`
+   `s.pauseAtBlockEnd = true;` then `GameCore.Diagnostics.HalBuilder.SetLaunchPrefs();` then `manage_editor play`. HAL builds a new company, hires, buys, books and runs a 3-day block.
+   These settings are changed IN MEMORY only (the asset on disk still says buildOnly 1, gameSpeed 3, startFromSlot 0). A domain reload resets them: set them again before each Play.
+   (`startFromSlot = 1` instead loads slot 0 "FreshPlaytest 11-12" but that save has no crew / POs and does nothing: do not use it for a soak.)
+3. Watch `Logs/Editor.log` by line number, NOT by text: it is cumulative across Play sessions and old "Block N started" / "BLOCK N DONE" lines match forever. Note `wc -l` before Play.
+   The `Block N started` line proves the run began; then check the clock advances (`SimulationTimeService` in `GameCore.Economy`, `.Day/.Hour/.Minute`).
+4. A script compile fired right after Play started once ("Requested script compilation ... Reloading assemblies"), which wipes the services (clock null, timeScale 0, editor looks hung).
+   If the clock is null, stop Play and start again. Never edit scripts during a run.
+5. 8x gives ~2.5 game-minutes per real second (the editor only manages 7-13 fps; each frame is capped at `maximumDeltaTime` 0.33 s), so a 3-day block is ~25-30 real minutes. Coarse steps
+   can themselves cause travel failures: re-check anything odd at 3x. A WRITTEN `Block_N.md` (in `Assets/_Project/Docs/Playtest`) has the score, bug table and stack traces; the bot also
+   rewrites `BugLog_*`, `Scoreboard.md`, `builds.csv`, `Metrics/*.json` (uncommitted noise: do not commit them with a code change).
+
+**This clone:** today ran on `C:\dev\03-29_REDO-BUILD` (UnityMCP bridge live). The other PC is `C:\Users\tadsa\Documents\GitHub\03-29_REDO-BUILD`; same repo and branch.
+
+## CURRENT WORK — NavmeshAgentRework: clean slate (2026-11-20)
 
 Tad scrapped ALL the custom machine traffic code (MheMotor, MhePlanner, MheAisleMap, MheTraffic, the NavGrid / GridPlanner family, aisle turns / gates,
 MheAvoidanceObstacle, test bench) because reach trucks crashed into everyone and jacks stuck on racks, forklifts and the foundation edge. Deleted with `git rm`
