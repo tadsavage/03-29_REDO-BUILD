@@ -1748,7 +1748,10 @@ private void ShowLocation(LocationData location)
                         int pallets = Mathf.Max(1, Mathf.CeilToInt(li.QuantityNeeded / (float)casesPerPallet));
                         totalPallets += pallets;
 
-                        int existingIdx = items.FindIndex(it => it.desc == desc);
+                        // Merge by SKU, never by description: two different SKUs can share a name (two "Tea"s). Merged by name, the row kept ONE
+                        // SKU id but summed both quantities, so its loaded count (looked up by that one id) could never reach the total and the
+                        // truck showed "1plt @ 1cs" of Tea still to load with both Teas aboard (OG3147, 2026-11-27).
+                        int existingIdx = items.FindIndex(it => it.skuId == li.SkuId);
                         if (existingIdx >= 0)
                         {
                             var e = items[existingIdx];
@@ -1898,12 +1901,12 @@ private void ShowLocation(LocationData location)
                         int toPick = (selects.Count - assignedSel) + Mathf.Max(0, assignedSel - building) + picksLeft;
                         int total = loadedPallets + waiting + toPick;
                         // Pallets still being built are already part of the still-to-pick work, so don't list them as staged too.
-                        outboundPalletText = BuildOutboundStatus(loadedPallets, Mathf.Max(0, waiting - building), picksLeft, cpRemainingCases);
+                        outboundPalletText = BuildOutboundStatus(loadedPallets, Mathf.Max(0, waiting - building), picksLeft, cpRemainingCases, building);
                         totalPalletCount = total;
                         goto planDone;
                     }
                 }
-                outboundPalletText = BuildOutboundStatus(loadedPallets, waiting, picksLeft, cpRemainingCases);
+                outboundPalletText = BuildOutboundStatus(loadedPallets, staged, picksLeft, cpRemainingCases, onForks);
             planDone:;
             }
             else
@@ -2168,9 +2171,10 @@ private void ShowLocation(LocationData location)
         }
     }
 
-    private static string BuildOutboundStatus(int loaded, int staged, int palletPicks, int casePicks) =>
+    private static string BuildOutboundStatus(int loaded, int staged, int palletPicks, int casePicks, int onForks = 0) =>
         $"Pallets loaded: {loaded}" + System.Environment.NewLine +
         $"Staged but not loaded: {staged}" + System.Environment.NewLine +
+        (onForks > 0 ? $"On a jack / forks, not in the lane yet: {onForks}" + System.Environment.NewLine : "") +
         $"Still to pick: {palletPicks} pallet picks and {casePicks} case picks";
 
     /// <summary>Flips a truck popup (hover or pinned) to visible. Split out of RenderTruck because

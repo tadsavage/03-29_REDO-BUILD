@@ -283,7 +283,11 @@ public class OrderPalletCard : MonoBehaviour
         _title.text = order.CustomerName;
         _orderLabel.text = string.IsNullOrEmpty(order.OrderNumber) ? "Order" : $"Order {order.OrderNumber}";
         string lane = !string.IsNullOrEmpty(order.AssignedLane) ? $"  |  Lane {order.EffectiveStagingDoor}{order.AssignedLane}" : "";
-        string stage = _pallet != null ? _pallet.Stage.ToString() : "";
+        // A pallet still on a jack's forks reads "Staged" (the enum default from the moment it is created) although it is not in the
+        // lane yet: say where it really is, so the card matches what the player sees on the floor and the trailer card's counts.
+        string stage = _pallet == null ? ""
+                     : _pallet.Stage == OutboundPalletBuilder.PalletStage.Staged && !_pallet.IsOnFloor ? "On a jack, on its way to staging"
+                     : _pallet.Stage.ToString();
         _stateLabel.text = $"This pallet: {stage}{lane}  |  Order: {order.Status}";
 
         // THIS pallet's picklist only: the items and case counts on it. An order is made of several picklists (one per
