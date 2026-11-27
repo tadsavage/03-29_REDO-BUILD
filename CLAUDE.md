@@ -1,6 +1,44 @@
 # CLAUDE.md
 
-## PASS-OFF — end of day 2026-11-26 (for the next PC; read this FIRST, details in LATEST below)
+## PASS-OFF — 2026-11-27 afternoon (for the next PC; read this FIRST, then the 2026-11-26 section below for start-up steps)
+
+**Where we are.** Branch `polyperfect-men`, everything committed + pushed (last code commit `b5d5a0de7`; this notes commit sits on top). Roadmap step 1 (close the core loop).
+Navigation is clean: blocks 78, 79, 80 (3x, new company, `Small_two_door_setup_NavTesting`) all had **0 bugs**, 0 receiver refusals / walk-outs / unreachable targets.
+The 2026-11-26 NEXT items 1 and 2 (door-end stand spot for receivers; stock-out log lists the whole order) are BUILT and tested (commit `7562d3810`).
+Block 80 = **82.6**: 2 orders shipped, 0 late, but net profit **-$60**, fill 62.9%, throughput 5 plt vs 36. The step 1 gate is NOT met and its count restarts: code changed after block 80
+(below), so the first block that counts is the next one, and three in a row need NO code change between them (>=80% on time, no deadlocked doors, no REPEATING bugs, positive profit, ideally 7-day).
+
+**What happened today (all fixed, pushed):**
+| Block | Score | Shipped / late | What it showed |
+|---|---|---|---|
+| 78 | 60.0 | 0 / 2 | 8 `[MheTravel]` stalls: a reach truck parked in the 1.6 m gap between two charging bays was penned in by the jacks' new 4 m outline boxes (`MheStandingObstacle`). Fix `e93ca1413`: a machine docked at a charging station (`PalletJackParkingSpot.StationWithin(pos, 1.6)`) gets no box. Block 79 = 0 stalls. |
+| 79 | 60.0 | 0 / 2 | Two 50-line Seafood orders picked 0 cases ("every pick face is empty - handing the task back"). Cause: **`slotAssignments` was EMPTY** (HAL's one-shot build-time `AssignPickSlots` gave up silently; blocks 75-76 had assignments, 77-79 none). |
+| 80 | 82.6 | 2 / 0 | After `EnsurePickFaces` (commit `a27679ef0`): "gave 31 item(s) a pick face" on day 1, 8 more d2, 6 more d3. |
+
+**Code changes this session:**
+- `PlaytestBot.EnsurePickFaces` (every `Decide` tick, after `ReleaseOrders`): any SKU owed to an order / inbound / on hand with NO pick face gets the next free pick slot (walking order, `PickFaceFits`). `HalBuilder` no longer assigns pick slots at build (it used up every slot on SKUs nobody ordered).
+  Tad's rule, recorded in the `warehouse-strategy` skill: HAL checks and assigns pick faces EVERY time stock is coming, like a player slotting an item when its trailer arrives.
+- `MheTravel.Leg`: a stall within `NearGoalAccept` (1.2 m) of the goal counts as ARRIVED (caller's precise drive finishes it); a farther stall still fails, and its warning now ends with `Surroundings(...)` (agent velocity / want / stopped / priority + agents and non-carving obstacles within 4 m).
+  Reason: block 80 had 2 jack stalls "0.9 m short" of bay 01-06, path complete, never moved. NOT geometry (an idle jack drives that same leg fine; `stoppingDistance` is already 0 in the leg; the rack clamp is off within 1.5 m of the goal). Cause unknown: something dynamic held it. The next occurrence will say what.
+- Trailer card (`WorldHoverPopupUI`): order lines are merged by **SKU, not by description** (two "Tea" SKUs showed "1plt @ 1cs" Tea still to load all block). New status line "On a jack / forks, not in the lane yet: N". `OrderPalletCard`: a pallet still on a jack reads "On a jack, on its way to staging" instead of "Staged | Lane 1A". Compiled, NOT yet seen in a live block.
+
+**Checked and is NOT a bug:** an order showing "Loaded" while its last pallet is still on a jack. `MarkOrderLoaded` runs when the loader finishes the lane; the late pallet flips the order back to Loading (`TripEndStatus`) when it lands; `AutoCloseLoadedOrders` will not ship while a pallet is in hand / staged in the lane / any pick is live, and the trailer waits (8 h driver patience). Cost = lateness only.
+Still unproven (from older notes): "closed with a STAGED/IN TRANSIT pallet that never made the trailer".
+
+**Next steps, in order:**
+1. Start-up as in the 2026-11-26 section below (pull with Unity closed, 0 `error CS`, DLL newer than the `.cs`, UnityMCP `set_active_instance`, `refresh_unity` force/all/compile before Play, then the `execute_code` settings + `manage_editor play`). Also set `s.plannerEnabled = false`. This session's instance was `03-29_REDO-BUILD@05427db5` on `C:\dev\03-29_REDO-BUILD`.
+2. Run **block 81** (3x, new company, NO code change). Check: `slotAssignments` non-empty in `bot_block_81.json` (`%USERPROFILE%/AppData/LocalLow/SavageDev/Warehouse/Saves`; read the SAVE, not the live static, which is wiped when Play stops); the "gave N item(s) a pick face" action lines; the Tea row and the new "On a jack" line on a trailer card; any `[MheTravel]` stall line (now with the surroundings dump).
+3. Two more clean blocks for the gate. Profit must go positive: net was -$60 at 2 shipped orders, so the economy (below) probably decides it.
+4. Economy (after the loop is stable): throughput 5 vs 36, fill 62.9%, only 2 orders released per block. HAL buys ~46 of a 50-line order's SKUs (4 lines have no stock). Use the `warehouse-strategy` skill first.
+5. Tad: eyeball jacks at pick faces. A STANDING jack is a 1.0 x 4.0 m box (none inside a charging bay now); a MOVING jack is still only its agent radius. If machines still hit a moving jack's rear, give moving machines a rear avoidance body.
+6. Small leftovers: the 0.2 m receiving-range near-miss in `ReceiverReceivingWorkflow`; the door-end receiver rule has no log line of its own (add one if you need proof it fires).
+Do NOT start the tutorial (roadmap step 2) or anything from `FUTURE_IDEAS.md` until step 1 closes.
+
+**Tools/gotchas learned today:** this PC has no Python on PATH (edit CLAUDE.md with the editor tool, not Python/sed); a block paused at its end keeps the scene alive, so `execute_code` can inspect live orders / pallets / agents / obstacles, but any `.cs` edit recompiles on focus and ends that Play;
+use `set_active_instance` again after a bridge drop; `OutboundPalletBuilder` instances carry `OrderId`, `Stage`, `PlannedPicklist`, `CaseCountsBySku`; to test a jack leg by hand set `agent.stoppingDistance = 0` first (the leg does).
+Uncommitted on purpose (bot noise, never commit with code): `Block_78/79/80.md`, `BugLog_*`, `Scoreboard.md`, `scoreboard.json`, `builds.csv`, `Metrics/*.json`.
+
+## PREVIOUS PASS-OFF — end of day 2026-11-26 (start-up steps below still apply; its NEXT items 1-2 are DONE, see above)
 
 **Where we are.** Branch `polyperfect-men`, everything is committed + pushed (last code commit `fa1d08d24`). Roadmap step 1 (close the core loop), navigation half.
 Receivers, doorways, rebakes, ship-short holds and jack outlines are fixed. Block 76 (3x, new company, `Small_two_door_setup_NavTesting`) scored **86.9 with 0 bugs**,
