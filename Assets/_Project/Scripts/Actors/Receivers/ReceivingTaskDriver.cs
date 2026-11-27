@@ -467,7 +467,7 @@ namespace GameCore.Actors
         private const float StandSpotSpacing = 0.9f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { s_standSpots.Clear(); s_deferredLogged.Clear(); }   // Domain Reload is off: statics survive between Play sessions
+        private static void ResetStatics() { s_standSpots.Clear(); s_deferredLogged.Clear(); s_dockedDoors.Clear(); s_nextDockedScan = 0f; }   // Domain Reload is off: statics survive between Play sessions
 
         private bool StandSpotTaken(Vector3 p)
         {
@@ -527,7 +527,59 @@ namespace GameCore.Actors
             return stand;
         }
 
+        /// <summary>A margin so the door end only wins when it is clearly nearer than the spot the older rules found.</summary>
+        private const float DoorEndMargin = 0.25f;
+
+        /// <summary>True when ANY truck (inbound or outbound) is docked at this door. A docked truck means stockers and loaders are driving
+        /// through the door end of every lane at that door, so a receiver must not stand there.</summary>
+        private static bool AnyTruckDockedAt(int door)
+        {
+            // Cached for half a second: this runs for every pending pallet on every claim poll, and the scene is huge.
+            if (Time.unscaledTime >= s_nextDockedScan)
+            {
+                s_nextDockedScan = Time.unscaledTime + 0.5f;
+                s_dockedDoors.Clear();
+                foreach (var truck in FindObjectsByType<TruckController>())
+                    if (truck != null && truck.DockedAt != null) s_dockedDoors.Add(truck.DockedAt.DoorNumber);
+            }
+            return s_dockedDoors.Contains(door);
+        }
+        private static readonly System.Collections.Generic.HashSet<int> s_dockedDoors = new System.Collections.Generic.HashSet<int>();
+        private static float s_nextDockedScan;
+
+        /// <summary>
+        /// Where to stand to receive a pallet (2026-11-27, Tad approved): the stand spot the older rules choose (beside the pallet on open
+        /// floor, else past the lane's OPEN end, else inside an empty lane cell) or the lane's DOOR end, whichever is nearer. A pallet in slot
+        /// 1-2 then receives from about 1.5 m instead of from the far end of the lane. The door end (slot 1 -> past the lane onto the apron) is
+        /// used only while NO truck is docked at that door and nothing more is due to drop in the lane. The receive cap stays 6 m.
+        /// </summary>
         private bool TryLaneAwareStand(Transform palletTransform, out Vector3 stand)
+        {
+            bool haveCore = TryLaneAwareStandCore(palletTransform, out stand);
+            var po = palletTransform != null ? palletTransform.GetComponent<PlacedObject>() : null;
+            if (po == null || !LaneNamingService.TryGetSlot(new Vector2Int(po.gridX, po.gridY), out var slot)) return haveCore;
+            if (!LaneNamingService.TryGetLaneGeometry(slot.DoorNumber, slot.Lane, out var geo)) return haveCore;
+            if (AnyTruckDockedAt(slot.DoorNumber) || TrailerOffloadController.IsLanePendingInbound(slot.DoorNumber, slot.Lane)) return haveCore;
+
+            Vector3 axis = geo.DepthAxis; axis.y = 0f;               // slot 1 (door) -> slot N (open floor)
+            if (axis.sqrMagnitude < 0.0001f) return haveCore;
+            axis.Normalize();
+            Vector3 pallet = palletTransform.position;
+            float cell = _grid != null ? _grid.CellSize : 1.325f;
+            for (int k = 1; k <= geo.SlotCount + 2; k++)
+            {
+                if (IsLaneCell(pallet - axis * (cell * k))) continue;   // still inside the lane: keep walking toward the door
+                Vector3 want = pallet - axis * (cell * (k - 1) + cell * 0.5f + 0.45f);   // 0.45 m past the lane edge, same as the open end
+                if (NavSample.OnAgentMesh(_agentTypeId, _agentAreaMask, want, 0.6f, out var hit) && !IsLaneCell(hit.position) && !StandSpotTaken(hit.position))
+                {
+                    if (!haveCore || Flat(hit.position - pallet) + DoorEndMargin < Flat(stand - pallet)) { stand = hit.position; return true; }
+                }
+                break;   // the door end is not walkable / taken / not nearer: keep what the older rules found
+            }
+            return haveCore;
+        }
+
+        private bool TryLaneAwareStandCore(Transform palletTransform, out Vector3 stand)
         {
             stand = palletTransform.position;
             var po = palletTransform.GetComponent<PlacedObject>();

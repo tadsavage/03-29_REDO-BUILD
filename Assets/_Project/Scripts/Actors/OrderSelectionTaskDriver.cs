@@ -1172,9 +1172,15 @@ namespace GameCore.Actors
             foreach (var li in order.LineItems)
             {
                 if (li == null || li.IsFullyPicked) continue;
-                int want = _orderService.SelectableRemaining(order, li, taskId);
+                // The WHOLE order's remainder, not this task's share: the share leaves out cases other selectors are walking to and the
+                // part of the line this pallet is not planned to carry, so OG2035's stock-out line said "2 SKUs, 9 cs" while 37 cs over
+                // 5 SKUs were cut. Lines held elsewhere are tagged.
+                int want = _orderService.SelectableRemaining(order, li);
                 if (want <= 0) continue;
-                sb.Append(li.SkuId).Append(" x").Append(want).Append(" [");
+                int mine = _orderService.SelectableRemaining(order, li, taskId);
+                sb.Append(li.SkuId).Append(" x").Append(want);
+                if (mine < want) sb.Append(mine <= 0 ? " (all held by other selectors / planned elsewhere)" : $" ({want - mine} held by other selectors / planned elsewhere)");
+                sb.Append(" [");
                 bool any = false;
                 foreach (var addr in SlotAssignmentService.GetSlotsForSku(li.SkuId))
                 {
