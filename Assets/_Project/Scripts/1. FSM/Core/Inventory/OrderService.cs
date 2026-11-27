@@ -3369,6 +3369,20 @@ namespace GameCore.Inventory
         /// <summary>True once the order's outbound driver has waited out the patience window past the booked slot (8 hours) and gives up.</summary>
         private bool DriverGaveUp(OrderData order) => MinutesToDriverGiveUp(order) <= 0;
 
+        /// <summary>True when any SKU this order still owes is on a live inbound shipment (in transit, delayed or being received):
+        /// then holding the loaded trailer for it can pay off. False also when the vendor economy is unavailable.</summary>
+        private bool OwedStockInbound(OrderData order)
+        {
+            if (order == null) return false;
+            if (!ServiceLocator.TryGet<VendorEconomyService>(out var economy) || economy == null) return false;
+            foreach (var li in order.LineItems)
+            {
+                if (li == null || li.IsFullyPicked) continue;
+                if (economy.GetTotalOnOrder(li.SkuId) > 0) return true;
+            }
+            return false;
+        }
+
         /// <summary>Minutes until the order's driver gives up (int.MaxValue with no appointment).</summary>
         private int MinutesToDriverGiveUp(OrderData order)
         {
@@ -3480,8 +3494,11 @@ namespace GameCore.Inventory
             // door until midnight waiting for stock that never came. Once the booked slot is over, the trailer leaves with what is aboard.
             // 2026-11-03: the trailer no longer leaves when the BLOCK ends - it waits until loading is finished, the player releases it,
             // or the driver gives up (8 hours past the slot, DockScheduleService.OutboundDriverPatienceMinutes).
+            // 2026-11-26 (block 74, OG2025): waiting for the driver to give up is only worth it when stock is actually COMING. OG2025 sat
+            // loaded from d2 16:19 to d3 05:23 (8 h past its slot, fined) for five pallet picks of SKUs that were on no inbound shipment at
+            // all. Once the slot is over and nothing owed is inbound, cut straight away: the trailer can still beat its deadline.
             foreach (var stuck in _activeOrders.Where(o => o != null && o.Status == OrderData.OrderStatus.Loaded && o.CancelledCases == 0 &&
-                                                          DriverGaveUp(o)).ToList())
+                                                          (DriverGaveUp(o) || (AppointmentElapsed(o) && !OwedStockInbound(o)))).ToList())
             {
                 var liveTasks = LiveTasksForOrder(stuck.OrderId).ToList();
                 // Nothing left that can actually be done: pallet picks with no source pallet, and loose-case trips with no stock to pick.

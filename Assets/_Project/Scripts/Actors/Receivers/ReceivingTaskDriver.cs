@@ -177,7 +177,7 @@ namespace GameCore.Actors
             _taskInProgress = true;
             _claimedTask = task;
             _nav.SetTaskBusy(true);
-            var standPosition = GetStandPosition(palletTransform);
+            var standPosition = GetStandPosition(palletTransform, out _standRange);
             // The workflow only starts inside this arrival callback, so every way a seek can fail to
             // arrive — AiNavigation.SeekPosition silently no-oping on an already-set _seekingTask, a
             // NavMesh rebake knocking the agent off mid-leg, patrol hijacking the destination — leaves
@@ -201,7 +201,14 @@ namespace GameCore.Actors
         // shipping). Now the receiver walks the last stretch itself, and only after two tries is the range relaxed a little.
         private const int MaxApproachRetries = 2;
         private const float RelaxedReceivingDistance = 4.5f;
-        private const float CloseApproachDistance = 1.5f;
+
+        // The receive range for the current claim: how far the chosen stand spot really is from the pallet, plus slack for the
+        // NavMesh arrival tolerance (2026-11-26). A pallet deep in a lane is received from the lane's open end, which can be several
+        // slots away (exit-first order leaves the outer pallets standing until a reach truck puts them away). Never less than the
+        // workflow's 3 m, never more than ReceivingRangeCap: "receiving from a mile away" is still a bug (Tad).
+        private float _standRange = ReceiverReceivingWorkflow.MaxReceivingDistance;
+        private const float StandRangeSlack = 1.25f;
+        private const float ReceivingRangeCap = 6f;
 
         private void OnArrivedAtStandPosition(WorkTask task, Transform palletTransform, int attempt)
         {
@@ -209,28 +216,25 @@ namespace GameCore.Actors
             if (palletTransform == null) { _workflow.BeginReceivingAt(task, palletTransform); return; }
 
             Vector3 toPallet = palletTransform.position - transform.position; toPallet.y = 0f;
-            if (toPallet.magnitude <= ReceiverReceivingWorkflow.MaxReceivingDistance)
+            if (toPallet.magnitude <= _standRange)
             {
-                _workflow.BeginReceivingAt(task, palletTransform);
+                _workflow.BeginReceivingAt(task, palletTransform, _standRange);
                 return;
             }
 
             if (attempt < MaxApproachRetries)
             {
-                // Closest standing spot to the pallet on the side the receiver is already on.
-                Vector3 side = -toPallet; side.y = 0f;
-                side = side.sqrMagnitude > 0.0001f ? side.normalized : palletTransform.right;
-                Vector3 want = palletTransform.position + side * CloseApproachDistance;
-                if (NavSample.OnAgentMesh(_agentTypeId, _agentAreaMask, want, 1.5f, out var hit))
-                {
-                    _nav.CancelSeekPosition();
-                    _nav.SeekPosition(hit.position, () => OnArrivedAtStandPosition(task, palletTransform, attempt + 1));
-                    return;
-                }
+                // Arrived short of the stand spot (or the lane changed under us): choose it again and walk there. The old retry aimed at
+                // a point 1.5 m from the pallet "on the receiver's side", which inside a staging lane is the NEXT lane cell - exactly
+                // where the dock stocker drops the next pallet, so the receiver got boxed in (four walk-outs in one run, 2026-11-26).
+                Vector3 stand = GetStandPosition(palletTransform, out _standRange);
+                _nav.CancelSeekPosition();
+                _nav.SeekPosition(stand, () => OnArrivedAtStandPosition(task, palletTransform, attempt + 1));
+                return;
             }
 
-            // No nearer standing spot (or out of tries): accept a slightly larger range rather than looping forever.
-            _workflow.BeginReceivingAt(task, palletTransform, RelaxedReceivingDistance);
+            // Out of tries: accept a slightly larger range rather than looping forever (still refused if the receiver is far off).
+            _workflow.BeginReceivingAt(task, palletTransform, Mathf.Max(RelaxedReceivingDistance, _standRange));
         }
 
         /// <summary>
@@ -265,6 +269,14 @@ namespace GameCore.Actors
                 if (link == null)
                 {
                     (orphaned ??= new System.Collections.Generic.List<WorkTask>()).Add(candidate);
+                    continue;
+                }
+
+                // Deep lane pallet that cannot be reached within the receive cap yet: leave it for after the outer pallets go.
+                if (StandTooFar(link.transform))
+                {
+                    if (s_deferredLogged.Add(candidate.PalletId))
+                        Debug.Log($"[ReceivingTaskDriver] Pallet {candidate.PalletId} is too deep in its lane to receive from the lane mouth yet - waiting for the pallets in front of it to be put away.");
                     continue;
                 }
 
@@ -447,11 +459,142 @@ namespace GameCore.Actors
             return false;
         }
 
-        /// <summary>Picks a point on the pallet's local +right or -right side (never its front/back,
-        /// which is where the dock stocker's forks travel) to stand while receiving, preferring
-        /// whichever side has no other tracked pallet nearby. Falls back to the first side whose
-        /// candidate point actually resolves on the NavMesh.</summary>
-        private Vector3 GetStandPosition(Transform palletTransform)
+        private PlacementGrid _grid;
+
+        // Each receiver's current stand spot, so two receivers on one lane (stacked pallets share a cell) do not pick the same spot
+        // and hold each other up (2026-11-26, run 6). An entry only counts while its receiver still has a task in progress.
+        private static readonly System.Collections.Generic.Dictionary<ReceivingTaskDriver, Vector3> s_standSpots = new();
+        private const float StandSpotSpacing = 0.9f;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics() { s_standSpots.Clear(); s_deferredLogged.Clear(); }   // Domain Reload is off: statics survive between Play sessions
+
+        private bool StandSpotTaken(Vector3 p)
+        {
+            foreach (var kv in s_standSpots)
+            {
+                if (kv.Key == null || kv.Key == this || !kv.Key._taskInProgress) continue;
+                if (Flat(kv.Value - p) < StandSpotSpacing) return true;
+            }
+            return false;
+        }
+
+        private bool IsLaneCell(Vector3 worldPos)
+        {
+            if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();   // once per receiver, not per frame
+            return _grid != null && LaneNamingService.TryGetSlot(_grid.WorldToCell(worldPos), out _);
+        }
+
+        private static float Flat(Vector3 v) { v.y = 0f; return v.magnitude; }
+
+        /// <summary>A pallet (Inventory object) occupies the grid cell under this point.</summary>
+        private bool LaneCellHasPallet(Vector3 worldPos)
+        {
+            if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();
+            if (_grid == null) return true;   // unknown: treat as blocked
+            var items = _grid.GetObjectsInCell(_grid.WorldToCell(worldPos));
+            if (items == null) return false;
+            foreach (var po in items)
+                if (po.instance != null && po.data != null && po.data.category == "Inventory") return true;
+            return false;
+        }
+
+        /// <summary>True when the best stand spot for this pallet is still too far to receive from (a deep lane pallet with full
+        /// outer slots): it is left in the queue until the pallets in front of it are put away, instead of being claimed, refused and
+        /// re-claimed in a loop.</summary>
+        private bool StandTooFar(Transform palletTransform)
+        {
+            if (palletTransform == null) return false;
+            if (!TryLaneAwareStand(palletTransform, out var stand)) return false;
+            return Flat(stand - palletTransform.position) + StandRangeSlack > ReceivingRangeCap;
+        }
+
+        private static readonly System.Collections.Generic.HashSet<string> s_deferredLogged = new System.Collections.Generic.HashSet<string>();
+
+        /// <summary>
+        /// Where to stand to receive a pallet, and the receive range that spot needs (see _standRange). A receiver NEVER stands on a
+        /// staging-lane cell (2026-11-26): the old rule stood on the pallet's left or right, which inside a lane is the neighbouring
+        /// lane, where the dock stocker drops the next pallets - the receiver got boxed in by carving pallets ("stuck ... 12 m to mesh",
+        /// a 12 m walk-out each time; in run 3 one walk-out went through the east wall and stranded him). Order: beside the pallet where
+        /// that is open floor (a lane at the edge of its group), else just past the lane's open end. Pallets not in a lane keep the old rule.
+        /// </summary>
+        private Vector3 GetStandPosition(Transform palletTransform, out float range)
+        {
+            Vector3 stand = TryLaneAwareStand(palletTransform, out var laneStand) ? laneStand : GetSideStandPosition(palletTransform);
+            s_standSpots[this] = stand;
+            range = Mathf.Clamp(Flat(stand - palletTransform.position) + StandRangeSlack,
+                                ReceiverReceivingWorkflow.MaxReceivingDistance, ReceivingRangeCap);
+            return stand;
+        }
+
+        private bool TryLaneAwareStand(Transform palletTransform, out Vector3 stand)
+        {
+            stand = palletTransform.position;
+            var po = palletTransform.GetComponent<PlacedObject>();
+            if (po == null || !LaneNamingService.TryGetSlot(new Vector2Int(po.gridX, po.gridY), out var slot)) return false;
+            if (!LaneNamingService.TryGetLaneGeometry(slot.DoorNumber, slot.Lane, out var geo)) return false;
+
+            Vector3 pallet = palletTransform.position;
+            Vector3 axis = geo.DepthAxis; axis.y = 0f;               // slot 1 (door) -> slot N (open floor)
+            if (axis.sqrMagnitude < 0.0001f) return false;
+            axis.Normalize();
+            Vector3 lateral = Vector3.Cross(Vector3.up, axis);
+
+            // 1) Beside the pallet, only where "beside" is open floor rather than the next lane.
+            float best = float.PositiveInfinity;
+            foreach (var dir in new[] { lateral, -lateral })
+            {
+                Vector3 want = pallet + dir * StandoffDistance;
+                if (IsLaneCell(want)) continue;
+                if (!NavSample.OnAgentMesh(_agentTypeId, _agentAreaMask, want, 0.6f, out var hit) || IsLaneCell(hit.position)) continue;
+                if (StandSpotTaken(hit.position)) continue;   // another receiver is working from there: use the other side / the open end
+                float d = Flat(hit.position - pallet);
+                if (d < best) { best = d; stand = hit.position; }
+            }
+            if (best < float.PositiveInfinity) return true;
+
+            // 2) The lane's open end: walk out along the lane past any pallets still standing in it (exit-first receiving leaves the
+            //    outer slots full until putaway) and stand just outside the last lane cell. Stopping short of the full next cell keeps
+            //    the receiver close to the lane mouth instead of out in the reach trucks' approach.
+            //    Block 75 (2026-11-26): a pallet deep in a lane whose outer pallets were still standing put the mouth 5+ m away, past the
+            //    receive cap, and the receiver was refused 16,783 times on one pallet. Once nothing more is due to drop in this lane, an
+            //    EMPTY lane cell on the way out is a fine place to stand (the dock stocker will not drop there), so stop at the first one.
+            float cell = _grid != null ? _grid.CellSize : 1.325f;
+            bool laneSettled = !TrailerOffloadController.IsLanePendingInbound(slot.DoorNumber, slot.Lane);
+            for (int k = 1; k <= geo.SlotCount + 2; k++)
+            {
+                Vector3 probe = pallet + axis * (cell * k);
+                if (IsLaneCell(probe))
+                {
+                    if (laneSettled && !LaneCellHasPallet(probe) &&
+                        NavSample.OnAgentMesh(_agentTypeId, _agentAreaMask, probe, 0.6f, out var inLane) && !StandSpotTaken(inLane.position))
+                    { stand = inLane.position; return true; }
+                    continue;
+                }
+                Vector3 want = pallet + axis * (cell * (k - 1) + cell * 0.5f + 0.45f);   // 0.45 m past the lane edge
+                if (NavSample.OnAgentMesh(_agentTypeId, _agentAreaMask, want, 0.6f, out var hit) && !IsLaneCell(hit.position))
+                {
+                    // Taken by another receiver: step half a cell sideways along the lane mouth (still off the lane cells).
+                    if (StandSpotTaken(hit.position))
+                    {
+                        foreach (var side in new[] { lateral, -lateral })
+                        {
+                            Vector3 alt = hit.position + side * (cell * 0.5f);
+                            if (!IsLaneCell(alt) && !StandSpotTaken(alt) && NavSample.OnAgentMesh(_agentTypeId, _agentAreaMask, alt, 0.4f, out var altHit))
+                            { stand = altHit.position; return true; }
+                        }
+                    }
+                    stand = hit.position; return true;
+                }
+                break;   // the mouth itself is not walkable: let the old rule try
+            }
+            return false;
+        }
+
+        /// <summary>The pre-2026-11-26 rule, kept for pallets that are not on a lane cell: a point on the pallet's local +right or
+        /// -right side (never its front/back, which is where the dock stocker's forks travel), preferring whichever side has no
+        /// other tracked pallet nearby. Falls back to the first side whose candidate point actually resolves on the NavMesh.</summary>
+        private Vector3 GetSideStandPosition(Transform palletTransform)
         {
             Vector3[] sideDirections = { palletTransform.right, -palletTransform.right };
 

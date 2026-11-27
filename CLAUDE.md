@@ -1,6 +1,111 @@
 # CLAUDE.md
 
-## HANDOFF — Happy Thanksgiving (2026-11-26, read this FIRST; pick up on the other PC)
+## PASS-OFF — end of day 2026-11-26 (for the next PC; read this FIRST, details in LATEST below)
+
+**Where we are.** Branch `polyperfect-men`, everything is committed + pushed (last code commit `fa1d08d24`). Roadmap step 1 (close the core loop), navigation half.
+Receivers, doorways, rebakes, ship-short holds and jack outlines are fixed. Block 76 (3x, new company, `Small_two_door_setup_NavTesting`) scored **86.9 with 0 bugs**,
+the first zero-bug block: 34 pallets received, 0 refusals, 0 walk-outs, 0 not-reachable, 0 `[MheTravel]` failures, 2 orders shipped, 0 late.
+What is still weak is the ECONOMY, not travel: throughput 6 pallets vs target 36, fill rate 61%, because HAL releases orders for SKUs it never bought.
+Uncommitted on purpose (bot noise, never commit with code): `Block_7x.md`, `BugLog_*`, `Scoreboard.md`, `scoreboard.json`, `builds.csv`, `Metrics/*.json`.
+
+**Start-up on the next PC:**
+1. Close Unity, `git pull` on `polyperfect-men`, open Unity, wait for the compile. `Logs/Editor.log` must have 0 `error CS`, and
+   `Library/ScriptAssemblies/GameCore.Simulation.dll` must be newer than the pulled `.cs` files.
+2. UnityMCP: read `mcpforunity://instances`, then `set_active_instance`.
+3. Before EVERY Play: `refresh_unity` (mode force, scope all, compile request) so no second compile kills the run. Then `execute_code` (action "execute"):
+   `var s = UnityEngine.Resources.Load<GameCore.Diagnostics.PlaytestBotSettings>("PlaytestBotSettings"); s.startFromSlot = 0; s.buildOnly = false; s.gameSpeed = 3;`
+   `s.pauseAtBlockEnd = true; GameCore.Diagnostics.HalBuilder.SetLaunchPrefs();` then `manage_editor play`.
+4. A 3-day block at 3x takes about 70-75 real minutes (~1 game hour per real minute). Note `wc -l Logs/Editor.log` first and read only NEW lines.
+   `tail -f` watches delivered nothing on this Windows box: poll by line count instead. The report is `Assets/_Project/Docs/Playtest/Block_N.md`.
+
+**Next steps, in order:**
+1. **Door-end stand spot for receivers** (Tad approved, NOT built). `ReceivingTaskDriver.TryLaneAwareStand`: also try the lane's dock-door end (step along -`DepthAxis`
+   past slot 1, onto the apron) and use whichever end is closer. Door end only while NO truck at all is docked at that door (inbound or outbound: check every
+   `TruckController.DockedAt`; `HasInboundTruckDocked` checks inbound only) and `TrailerOffloadController.IsLanePendingInbound` is false. The 6 m cap stays (Tad confirmed).
+2. **Stock-out log line lists the whole order** (Tad approved, NOT built). `OrderSelectionTaskDriver.DescribeRemaining` uses `SelectableRemaining(order, li, taskId)`,
+   which leaves out cases held by other selectors (OG2035 said 9 cs owed, 37 were cut). Use `SelectableRemaining(order, li)` and tag lines held elsewhere.
+3. Test 1+2 together in ONE 3x block (separate log lines). Pass = still 0 REPEATING bugs, receiver refusals ~0, no "too deep in its lane" pallet stuck all block.
+4. **Tad: look at jacks at pick faces.** A STANDING jack is now a 1.0 x 4.0 m box to other machines (`MheStandingObstacle`). A MOVING jack is still only its agent
+   radius; if machines still hit the rear of a moving jack, give moving machines a rear avoidance body too.
+5. Step 1 gate: three consecutive clean blocks (>=80% on time, no deadlocked doors, no REPEATING bugs, positive profit), ideally 7-day.
+6. Then the economy: HAL must buy what its released orders need (fill rate) and grow demand (throughput 6 vs 36). Use the `warehouse-strategy` skill first.
+   Do NOT start the tutorial (step 2) or anything from `FUTURE_IDEAS.md` until step 1 closes.
+
+**Rules that bit today:** never edit scripts during Play (the compile kills the block); `execute_code` needs `action: "execute"` and fully qualified names;
+when editing CLAUDE.md from a shell, use a Python script file (sed/inline Python mangled backslashes in Windows paths).
+
+## LATEST — Receivers fixed, first 0-bug block (block 76 = 86.9) (2026-11-26 evening, `C:\Users\tadsa\Documents\GitHub\03-29_REDO-BUILD`; read this FIRST, NEXT list at the end of this section)
+
+The "OPEN" receiver bug in the Thanksgiving handoff below is fixed. It was not one bug but a chain, caught live with probes (method at the end).
+All fixes compiled clean and are committed + pushed on `polyperfect-men`. Verified in HAL runs at **3x**, new company, `Small_two_door_setup_NavTesting`.
+
+**Root causes and fixes:**
+1. **Doorways cut off from the building (the "is not reachable ... 9-17 m short" failure).** `NavMeshManager.UpdateRoutine` reused its NavMeshModifier list for up to
+   5 s. `BuildingData` adds each wall/door's `ignoreFromBuild` modifier when it is PLACED, so a bake inside that window (HAL builds in seconds) baked the newest walls
+   and shipping doors as solid geometry. A door panel down at bake time left a ~0.5 m strip with NO mesh at z 38.0-38.4 across both doors: the door strip (z <= 37.8)
+   was its own island, and a receiver standing there reached no lane. Fix: every bake reads `NavMeshModifier.activeModifiers` (the package's live list).
+2. **Rebake storm.** `AiNavigation.UpdateRebakeTrigger` forced a whole-warehouse rebake every 25 scaled seconds while any employee showed the no-waypoint "?" (a
+   HAL-built company has ZERO `Waypoint`s): 183 rebakes in one block. This storm usually re-healed fix 1's cut, which is why the bug looked intermittent.
+   Fix: re-scan for waypoints every 10 s instead (a rebake cannot create waypoints). Now 4 rebakes per block, all at startup.
+3. **False arrival on a wiped path.** Every rebake toggles the surfaces, wiping agent paths; for a frame the agent reads `hasPath=false, PathComplete, remainingDistance 0`,
+   which the task-seek (and equipment-seek) arrival test took as "arrived" (caught: 56.5 m and 19.5 m from target). Fix: with no path, arrived only if really on the
+   target; otherwise re-issue the destination.
+4. **Walk-out stranded receivers on a sealed island.** `UnstickWalkOut` (a straight slide that ignores walls for people) escaped to "any mesh the agent can't reach",
+   which included a sealed strip outside the east wall (z ~55, x 11-16). Fix: `TryFindEscapePoint` also requires a complete path to >= 20% of up to 24 floor-tile
+   anchors at the agent's level (`CollectEscapeAnchors` / `ReachesAnAnchor`; waypoints are useless as anchors, there are none).
+5. **Walk-out fired on congestion.** Two receivers on one stacked lane slot blocked each other; the walled-in escalation slid each ~12 m across the building every 3 s.
+   Fix: escalate only when the path is NOT complete. And `SeekPosition` on an agent disabled by a walk-out no longer reports arrival instantly (it produced bursts of
+   12 refusals at 4.8 -> 14.4 m); the seek is stored and resumed after the slide. Instant arrival is KEPT for other disabled agents (a selector riding a jack relies on it).
+6. **Receiver stand position (handoff item 4).** `ReceivingTaskDriver.GetStandPosition` stood on the pallet's left/right, which inside a lane is the next lane, where the
+   dock stocker drops the next pallet (boxed in -> walk-out). Now: never on a lane cell; beside the pallet only where that is open floor (an edge lane), else just past the
+   lane's open end (+`DepthAxis`); two receivers never share a stand spot (`s_standSpots`, reset in a `SubsystemRegistration` hook). Pallets not on a lane: old rule.
+   Receive range = the stand spot's real distance + 1.25 m, min 3 m, **cap 6 m** (was 3 m, relaxed to 4.5 m). **Tad confirmed 6 m (2026-11-26): keep it.** A pallet
+   whose stand spot is still past the cap is NOT claimed (`StandTooFar`) until the pallets in front of it are put away; then the receiver may stand in an
+   EMPTY lane cell once nothing more is due to drop in that lane (block 75 had 16,783 refusals on one deep pallet before this).
+
+**Evening (2026-11-26) — blocks 74-76 at 3x, new company, `Small_two_door_setup_NavTesting`, all committed + pushed:**
+| Block | Score | Reliability | Shipped / late | Change tested |
+|---|---|---|---|---|
+| 74 | 63.5 | 54.5 | 2 / 1 (OG2025 fined $2,205) | receiver fixes 1-6 above |
+| 75 | 65.4 | 52.2 | 2 / 0 | ship-short valve + stock-out log |
+| 76 | **86.9** | **100 (0 bugs)** | 2 / 0 | deep-lane receiving + jack outline box |
+Block 76: 34 received, 0 refusals, 0 walk-outs, 0 not-reachable, 0 no-progress, 0 `[MheTravel]` failures. FIRST zero-bug block. Throughput still 6 plt vs 36, fill 61%.
+
+7. **Ship-short valve (`OrderService.AutoCloseLoadedOrders` + `OwedStockInbound`).** Block 74's OG2025 sat Loaded from d2 16:19 to d3 05:23 (8 h past its slot, fined) for
+   5 pallet picks of SKUs with NO stock and NOTHING inbound; the valve only cut once the driver gave up (8 h). Now it also cuts once the slot is over if no SKU the order
+   still owes is on a live inbound shipment. Block 75 OG2030: cut at slot end, shipped 17:30, deadline 17:38, not fined.
+8. **"Staging short ... (behind)" was never a path bug:** every listed pick face had qty 0 (stock-out). `OrderSelectionTaskDriver.LogShortTrip`: a face WITH stock this
+   trip couldn't take = the old bug warning; all owed faces empty = a plain `Debug.Log` stock-out line (not counted by the bot).
+9. **Deep-lane receiving (block 75: 16,783 refusals on ONE pallet, receivers 6.2-6.6 m vs the 6 m cap).** `ReceivingTaskDriver.StandTooFar`: a pallet whose stand spot
+   needs more than the cap is not claimed (logged once "too deep in its lane") until the pallets in front are put away; `TryLaneAwareStand` may then stand in an EMPTY
+   lane cell (`LaneCellHasPallet`) when `TrailerOffloadController.IsLanePendingInbound` is false.
+10. **Jack clipping (Tad's screenshot: machines rolling into a jack's 2nd pallet position, reach trucks driving over its back half).** `MheStandingObstacle` was a 0.9 m
+   capsule on the pivot; now a non-carving BOX fitted to the machine's renderers (body, forks, carried pallets; skips `VehicleShadow*` and riders with their own agent),
+   re-fitted every 0.5 s while standing. Measured live: jack 1.0 x 4.0 m, dock stocker 1.4 x 3.2, reach truck 1.3 x 2.9. Non-carving on purpose (carving would cut the
+   selector's spot beside his jack). NOT covered: a MOVING jack is still only its agent radius to others. Not yet confirmed by eye: Tad to watch a busy pick aisle.
+
+**Why fill rate is low (bot, not warehouse):** HAL releases orders for SKUs it never bought. OG2035: 5 of 18 lines (37 cs) had no stock all block (never purchased /
+received) and were cut. Economy/bot-demand work, kept OUT of travel work (see roadmap).
+
+**NEXT (in order):**
+1. **Door-end stand rule for receivers (Tad approved, NOT built).** In `ReceivingTaskDriver.TryLaneAwareStand`, also try the lane's DOOR end (step along -`DepthAxis` past
+   slot 1, onto the apron) and stand at whichever end is closer; door end only while NO truck (inbound OR outbound - check every `TruckController.DockedAt`;
+   `StagingLaneAssignmentService.HasInboundTruckDocked` checks inbound only) is docked at that door and `IsLanePendingInbound` is false. Slot-1 pallets then receive
+   from ~1.5 m; the 6 m cap stays.
+2. **Stock-out log lists only this task's share (Tad approved, NOT built).** `DescribeRemaining` uses `SelectableRemaining(order, li, taskId)`, which subtracts other
+   selectors' reservations, so OG2035's line said "2 SKUs, 9 cs" while 37 cs over 5 SKUs were cut. List the ORDER-wide remainder and tag lines held elsewhere.
+3. Test 1+2 in ONE block (both small, separate log lines), then two more clean blocks toward the step 1 gate (3 consecutive clean blocks, ideally 7-day).
+4. Tad: eyeball jacks at pick faces for clipping; if moving jacks still get hit, give moving machines a rear avoidance body too.
+5. Thanksgiving list leftovers: jack stall 1.4 m short of 01-03 (not seen since). The stuck walk-out is still a straight slide that ignores walls for people.
+
+**How the bug was caught (reuse this):** `execute_code` installs `Application.logMessageReceived` / `EditorApplication.update` hooks that persist into Play (Domain
+Reload is off for Play entry, but any compile wipes them: reinstall after every compile). They write to `Logs/NavProbe*.txt`, never the console, so the bot does not count
+them. The decisive tools were: a per-frame "seek ended far from its target" watcher (state the frame before), a door-strip -> lanes `CalculatePath` check, a
+`SamplePosition` profile along a line (found the 0.5 m gap), and `NavMeshBuilder.CollectSources` with the manager's own markups (showed door/wall meshes being baked).
+Also learned: after a forced compile, Unity can recompile AGAIN at the first asset refresh in Play (portraits written by hiring), which kills the run: use
+`refresh_unity` with scope all / mode force BEFORE Play so the import and compile happen together.
+
+## HANDOFF — Happy Thanksgiving (2026-11-26, morning; the receiver "OPEN" item below is FIXED, see LATEST above)
 
 Branch `polyperfect-men`, everything below is committed and pushed. Pull with Unity CLOSED, then open Unity.
 

@@ -514,7 +514,7 @@ namespace GameCore.Actors
                     }
                     if (TotalCasesOnPallets() > 0)
                     {
-                        Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for its remaining line item(s) — staging short at {_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits}. Still owed (pick faces with stock): {DescribeRemaining(_currentOrder)}");
+                        LogShortTrip(_currentOrder);
                         break;
                     }
                     if (_currentTask != null && _currentTask.HasPlan && _currentOrder.TotalUnitsPicked < _currentOrder.TotalUnits)

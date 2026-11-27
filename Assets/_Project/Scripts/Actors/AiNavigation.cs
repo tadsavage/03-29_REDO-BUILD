@@ -80,6 +80,7 @@ public class AiNavigation : MonoBehaviour
     private int     _consecutiveStuckCount;
     private static float s_lastGlobalRebake = float.MinValue;
     private const  float k_RebakeTrigger  = 3.5f;
+    private const  float k_NoWaypointRescanSeconds = 10f;   // scaled seconds (Time.deltaTime) between waypoint re-scans while the "?" shows
     private const  float k_RebakeCooldown = 25f;
 
     // ── Unstick (walk-out) ───────────────────────────────────────────────────────────────────────
@@ -466,7 +467,12 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
 
     public void SeekPosition(Vector3 position, System.Action onArrived)
     {
-        if (agent == null || !agent.isActiveAndEnabled) { onArrived?.Invoke(); return; }
+        if (agent == null) { onArrived?.Invoke(); return; }
+        // A disabled agent reports "arrived" at once (callers such as a selector riding a jack, whose agent is off, rely on that),
+        // EXCEPT while a walk-out has switched it off for its slide (2026-11-26, run 6): then every seek "arrived" in the same frame,
+        // the receiver's two retries did too, and the receive was refused - 12 refusals in a row at 4.8 -> 14.4 m as the walk-out
+        // carried her away. Mid walk-out the seek is stored instead; UnstickWalkOut re-issues it when the agent is back on.
+        if (!agent.isActiveAndEnabled && !(_unsticking && FlatDistance(transform.position, position) > 1f)) { onArrived?.Invoke(); return; }
         if (_seekingTask) return; // already seeking a task position
 
         // Staging lanes cost a machine 6x its plain floor on EVERY leg (2026-11-15): ApplyAgentCosts only runs when the agent first starts on
@@ -703,6 +709,7 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         bool restricted = MHEBoundary.Restricts(gameObject);
         const int Directions = 12;
         Vector3 best = origin; float bestScore = -1f;
+        var anchors = CollectEscapeAnchors(filter, origin.y);
 
         foreach (float radius in k_EscapeRadii)
         {
@@ -727,7 +734,15 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 bool reachable = agent.isOnNavMesh
                                  && NavMesh.CalculatePath(origin, hit.position, filter, path)
                                  && path.status == NavMeshPathStatus.PathComplete;
-                if (!reachable) { point = hit.position; return true; }
+                // ...but only if that other side is the real floor. A sealed sliver of mesh (2026-11-26, NavProbe run 3: a strip at z 55,
+                // x 11-16 outside the east wall) is just as "unreachable" from the pocket, and the walk-out slid a receiver straight through
+                // the wall onto it; nothing paths off it, so he failed every receive task for the rest of the block. The real floor reaches
+                // most of a spread of floor-tile anchors; a sealed island reaches almost none.
+                if (!reachable)
+                {
+                    if (!ReachesAnAnchor(hit.position, anchors, filter, path)) continue;
+                    point = hit.position; return true;
+                }
 
                 // Otherwise keep the furthest reachable point as a fallback — walking there still
                 // gets us clear of a tight spot even if the mesh isn't actually severed.
@@ -736,6 +751,45 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         }
 
         if (bestScore > 0f) { point = best; return true; }
+        return false;
+    }
+
+    private const int   EscapeAnchorCount        = 24;     // floor points spread over the building
+    private const float EscapeAnchorMinReachFrac = 0.2f;   // the real floor reaches most of them, a sealed strip almost none
+
+    /// <summary>
+    /// Floor points at the agent's level, spread evenly over every placed floor tile (a HAL-built company has NO waypoints, so
+    /// waypoints alone judged nothing: 2026-11-26, run 4). Each is snapped onto this agent's mesh.
+    /// </summary>
+    private static System.Collections.Generic.List<Vector3> CollectEscapeAnchors(NavMeshQueryFilter filter, float levelY)
+    {
+        var floors = new System.Collections.Generic.List<Vector3>();
+        foreach (var p in PlacedObjectRegistry.All)   // walk-outs are rare: one registry pass per walk-out
+        {
+            if (p == null || p.data == null || !p.data.isFloor) continue;
+            Vector3 pos = p.transform.position;
+            if (Mathf.Abs(pos.y - levelY) > 0.6f) continue;   // same level only (building floor vs yard)
+            floors.Add(pos);
+        }
+        var anchors = new System.Collections.Generic.List<Vector3>();
+        if (floors.Count == 0) return anchors;
+        floors.Sort((a, b) => a.x != b.x ? a.x.CompareTo(b.x) : a.z.CompareTo(b.z));   // deterministic spread
+        int step = Mathf.Max(1, floors.Count / EscapeAnchorCount);
+        for (int i = 0; i < floors.Count && anchors.Count < EscapeAnchorCount; i += step)
+            if (NavMesh.SamplePosition(floors[i] + Vector3.up * 0.1f, out NavMeshHit h, 0.75f, filter)) anchors.Add(h.position);
+        return anchors;
+    }
+
+    /// <summary>True when p has a complete path to at least a fifth of the anchors (or there are none to judge by).</summary>
+    private static bool ReachesAnAnchor(Vector3 p, System.Collections.Generic.List<Vector3> anchors, NavMeshQueryFilter filter, NavMeshPath path)
+    {
+        if (anchors == null || anchors.Count == 0) return true;
+        int need = Mathf.Max(1, Mathf.CeilToInt(anchors.Count * EscapeAnchorMinReachFrac)), got = 0;
+        for (int i = 0; i < anchors.Count; i++)
+        {
+            if (NavMesh.CalculatePath(p, anchors[i], filter, path) && path.status == NavMeshPathStatus.PathComplete && ++got >= need) return true;
+            if (got + (anchors.Count - 1 - i) < need) return false;   // cannot reach the quota any more
+        }
         return false;
     }
 
@@ -1095,6 +1149,13 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 CancelEquipmentSeeking();
                 FindAndSeekNextAvailableEquipment(previousTarget);
             }
+            // Path wiped by a NavMesh rebake (hasPath false, PathComplete, remainingDistance 0 for a frame): the test below would
+            // "board" from wherever the operator stands. Re-issue the destination unless they really are at the machine (see task seek).
+            else if (!agent.pathPending && !agent.hasPath
+                     && FlatDistance(transform.position, _targetEquipment.transform.position) > 2.5f)
+            {
+                SetDestinationSnapped(_targetEquipment.transform.position);
+            }
             // Check if we've reached the equipment (very generous distance tolerance)
             else if (!agent.pathPending && agent.pathStatus == NavMeshPathStatus.PathComplete
                      && agent.remainingDistance <= 2.0f)  // Increased from 0.5f to account for equipment position offset
@@ -1158,7 +1219,19 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 _seekNoProgressSeconds += Time.deltaTime;
             }
 
-            if (!agent.pathPending && agent.pathStatus == NavMeshPathStatus.PathComplete
+            // A NavMesh rebake (NavMeshManager switches every surface off and on) wipes every agent's path, and for the next frame the
+            // agent reads hasPath=false, PathComplete, remainingDistance 0: exactly what the arrival test below took for "arrived".
+            // Caught live 2026-11-26 (NavProbe, block 74 at 3x): Patrick Cross "arrived" 56.5 m from his target one frame after a rebake,
+            // and Scott Savage's receive was refused at 19.5 m (ReceivingTaskDriver's two closer-approach retries "arrived" the same way).
+            // That is the intermittent receiver failure of blocks 75 / 77. With no path, the seek has arrived only if the agent really
+            // stands on the target; otherwise the destination is issued again (the no-progress backstop below still ends a seek that
+            // never gets a path back).
+            Vector3 flatToTask = _taskTargetPosition - transform.position; flatToTask.y = 0f;
+            if (!agent.pathPending && !agent.hasPath && flatToTask.sqrMagnitude > 1.0f)
+            {
+                SetDestinationSnapped(_taskTargetPosition);
+            }
+            else if (!agent.pathPending && agent.pathStatus == NavMeshPathStatus.PathComplete
                 && agent.remainingDistance <= 1.0f)
             {
                 var callback = _onTaskArrived;
@@ -2035,6 +2108,8 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
     // with radius 2 lands the destination solidly on the correct surface (dock at Y≈1.11),
     // which also makes the ground→dock path correctly Partial so the agent waits at the
     // dock edge instead of false-arriving on the ground.
+    private static float FlatDistance(Vector3 a, Vector3 b) { a.y = 0f; b.y = 0f; return Vector3.Distance(a, b); }
+
     private bool SetDestinationSnapped(Vector3 target)
     {
         if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) return false;
@@ -2050,10 +2125,14 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
         // No-waypoint check: question mark is showing over agent's head
         if (_indicator != null && _indicator.IsShowingIndicator)
         {
+            // Re-scan for waypoints; do NOT rebake (2026-11-26). A rebake cannot create waypoints (placing one already rebakes, and
+            // OnNavMeshBaked re-scans), but this used to force a whole-warehouse rebake every 25 scaled seconds for as long as any
+            // role had no waypoints - 183 rebakes in one HAL block (a HAL-built company has none for some groups). Every rebake
+            // switches the surfaces off and on, wiping every walking agent's path, which is what made task seeks "arrive" far away.
             _noWaypointRebakeTimer += Time.deltaTime;
-            if (_noWaypointRebakeTimer >= k_RebakeTrigger)
+            if (_noWaypointRebakeTimer >= k_NoWaypointRescanSeconds)
             {
-                TryForceRebake("no waypoints");
+                FindWaypoints();
                 _noWaypointRebakeTimer = 0f;
             }
         }
@@ -2101,7 +2180,11 @@ public bool HasWaypoints       => waypoints != null && waypoints.Length > 0;
                 // all — the agent has a path it can never advance along, so it would sit here
                 // re-picking waypoints and re-baking forever. If it still hasn't moved after
                 // StuckEscalateSeconds, physically walk it out.
-                _blockedSeconds += Time.deltaTime;
+                // Only when there really is no route (2026-11-26, run 6): a COMPLETE path that the agent cannot advance along is
+                // congestion - two receivers working the same stacked lane slot held each other up, and every 3 s each was slid
+                // ~12 m across the building (x -3 <-> 7.7) and back. Congestion is left to the replan / no-progress backstop.
+                if (agent.pathStatus == NavMeshPathStatus.PathComplete) _blockedSeconds = 0f;
+                else _blockedSeconds += Time.deltaTime;
                 if (_blockedSeconds >= StuckEscalateSeconds && !_unsticking)
                 {
                     _blockedSeconds = 0f;

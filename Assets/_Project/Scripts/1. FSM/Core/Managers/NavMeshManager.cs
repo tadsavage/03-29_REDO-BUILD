@@ -659,11 +659,16 @@ public class NavMeshManager : MonoBehaviour
             _isDirty = false;
             _isUpdating = true;
 
-            if (Time.realtimeSinceStartup - _lastModifierUpdate > 5f || _modifierCache.Count == 0)
-            {
-                _modifierCache = new List<NavMeshModifier>(Object.FindObjectsByType<NavMeshModifier>());
-                _lastModifierUpdate = Time.realtimeSinceStartup;
-            }
+            // EVERY bake reads the current modifiers (2026-11-26). This list used to be reused for up to 5 s, but BuildingData adds the
+            // "ignore from build" modifier to each wall / door at the moment it is PLACED, so a bake that ran within 5 s of the last refresh
+            // (HAL places a whole building in seconds) baked the newest walls and doors as solid geometry. A shipping door's panel, down at
+            // bake time, then cut the doorway off from the floor: a ~0.5 m strip with no mesh at z 38.0-38.4 across both doors, so a receiver
+            // standing in the door strip could not reach a single lane ("is not reachable ... 9-17 m short", "refusing to start receiving").
+            // The old no-waypoint rebake storm re-baked every few seconds and usually healed it, which is why it looked intermittent.
+            // NavMeshModifier.activeModifiers is the package's own live list (no scene scan), the same one NavMeshSurface uses.
+            _modifierCache.Clear();
+            _modifierCache.AddRange(NavMeshModifier.activeModifiers);
+            _lastModifierUpdate = Time.realtimeSinceStartup;
 
             var markups = BuildMarkups(_modifierCache);
 
