@@ -54,6 +54,9 @@ namespace GameCore.Actors
         {
             if (_obstacle == null) return;
             bool want = _agent == null || !_agent.enabled;
+            // 2026-11-27 (block 78): a machine tucked into a charging bay is out of the traffic, and its 4 m box closed the 1.6 m gap between two
+            // neighbouring jack bays on a reach truck parked there (8 [MheTravel] stalls, one spot). A machine in a bay needs no box.
+            if (want && PalletJackParkingSpot.StationWithin(transform.position, 1.6f) != null) want = false;
             if (want && (!_obstacle.enabled || Time.unscaledTime >= _nextFit))
             {
                 _nextFit = Time.unscaledTime + RefitInterval;
