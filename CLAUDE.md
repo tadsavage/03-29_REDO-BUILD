@@ -1,5 +1,39 @@
 # CLAUDE.md
 
+## PASS-OFF — end of day 2026-11-26 (for the next PC; read this FIRST, details in LATEST below)
+
+**Where we are.** Branch `polyperfect-men`, everything is committed + pushed (last code commit `fa1d08d24`). Roadmap step 1 (close the core loop), navigation half.
+Receivers, doorways, rebakes, ship-short holds and jack outlines are fixed. Block 76 (3x, new company, `Small_two_door_setup_NavTesting`) scored **86.9 with 0 bugs**,
+the first zero-bug block: 34 pallets received, 0 refusals, 0 walk-outs, 0 not-reachable, 0 `[MheTravel]` failures, 2 orders shipped, 0 late.
+What is still weak is the ECONOMY, not travel: throughput 6 pallets vs target 36, fill rate 61%, because HAL releases orders for SKUs it never bought.
+Uncommitted on purpose (bot noise, never commit with code): `Block_7x.md`, `BugLog_*`, `Scoreboard.md`, `scoreboard.json`, `builds.csv`, `Metrics/*.json`.
+
+**Start-up on the next PC:**
+1. Close Unity, `git pull` on `polyperfect-men`, open Unity, wait for the compile. `Logs/Editor.log` must have 0 `error CS`, and
+   `Library/ScriptAssemblies/GameCore.Simulation.dll` must be newer than the pulled `.cs` files.
+2. UnityMCP: read `mcpforunity://instances`, then `set_active_instance`.
+3. Before EVERY Play: `refresh_unity` (mode force, scope all, compile request) so no second compile kills the run. Then `execute_code` (action "execute"):
+   `var s = UnityEngine.Resources.Load<GameCore.Diagnostics.PlaytestBotSettings>("PlaytestBotSettings"); s.startFromSlot = 0; s.buildOnly = false; s.gameSpeed = 3;`
+   `s.pauseAtBlockEnd = true; GameCore.Diagnostics.HalBuilder.SetLaunchPrefs();` then `manage_editor play`.
+4. A 3-day block at 3x takes about 70-75 real minutes (~1 game hour per real minute). Note `wc -l Logs/Editor.log` first and read only NEW lines.
+   `tail -f` watches delivered nothing on this Windows box: poll by line count instead. The report is `Assets/_Project/Docs/Playtest/Block_N.md`.
+
+**Next steps, in order:**
+1. **Door-end stand spot for receivers** (Tad approved, NOT built). `ReceivingTaskDriver.TryLaneAwareStand`: also try the lane's dock-door end (step along -`DepthAxis`
+   past slot 1, onto the apron) and use whichever end is closer. Door end only while NO truck at all is docked at that door (inbound or outbound: check every
+   `TruckController.DockedAt`; `HasInboundTruckDocked` checks inbound only) and `TrailerOffloadController.IsLanePendingInbound` is false. The 6 m cap stays (Tad confirmed).
+2. **Stock-out log line lists the whole order** (Tad approved, NOT built). `OrderSelectionTaskDriver.DescribeRemaining` uses `SelectableRemaining(order, li, taskId)`,
+   which leaves out cases held by other selectors (OG2035 said 9 cs owed, 37 were cut). Use `SelectableRemaining(order, li)` and tag lines held elsewhere.
+3. Test 1+2 together in ONE 3x block (separate log lines). Pass = still 0 REPEATING bugs, receiver refusals ~0, no "too deep in its lane" pallet stuck all block.
+4. **Tad: look at jacks at pick faces.** A STANDING jack is now a 1.0 x 4.0 m box to other machines (`MheStandingObstacle`). A MOVING jack is still only its agent
+   radius; if machines still hit the rear of a moving jack, give moving machines a rear avoidance body too.
+5. Step 1 gate: three consecutive clean blocks (>=80% on time, no deadlocked doors, no REPEATING bugs, positive profit), ideally 7-day.
+6. Then the economy: HAL must buy what its released orders need (fill rate) and grow demand (throughput 6 vs 36). Use the `warehouse-strategy` skill first.
+   Do NOT start the tutorial (step 2) or anything from `FUTURE_IDEAS.md` until step 1 closes.
+
+**Rules that bit today:** never edit scripts during Play (the compile kills the block); `execute_code` needs `action: "execute"` and fully qualified names;
+when editing CLAUDE.md from a shell, use a Python script file (sed/inline Python mangled backslashes in Windows paths).
+
 ## LATEST — Receivers fixed, first 0-bug block (block 76 = 86.9) (2026-11-26 evening, `C:\Users\tadsa\Documents\GitHub\03-29_REDO-BUILD`; read this FIRST, NEXT list at the end of this section)
 
 The "OPEN" receiver bug in the Thanksgiving handoff below is fixed. It was not one bug but a chain, caught live with probes (method at the end).
