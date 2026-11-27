@@ -2,325 +2,40 @@
 
 Every incident as it happened. Format: day hour:minute | category | what.
 
-- day 1 11:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 11:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 11:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 11:32 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (-15.29, 1.11, 64.21) — walking out to (-2.29, 1.14, 64.21) (12.00m to mesh).
-- day 1 11:32 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (-15.29, 1.11, 64.21) — walking out to (-2.29, 1.14, 64.21) (12.00m to mesh).
-- day 1 11:32 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (-15.29, 1.11, 64.21) — walking out to (-2.29, 1.14, 64.21) (12.00m to mesh).
-- day 1 11:53 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (-15.28, 1.10, 64.13) — walking out to (-2.28, 1.14, 64.13) (12.00m to mesh).
-- day 1 11:53 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (-15.28, 1.10, 64.13) — walking out to (-2.28, 1.14, 64.13) (12.00m to mesh).
-- day 1 11:53 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (-15.28, 1.10, 64.13) — walking out to (-2.28, 1.14, 64.13) (12.00m to mesh).
-- day 1 12:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 12:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 12:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 12:03 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (3.26, 1.13, 62.89) — walking out to (16.26, 1.12, 62.89) (12.00m to mesh).
-- day 1 12:03 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (3.26, 1.13, 62.89) — walking out to (16.26, 1.12, 62.89) (12.00m to mesh).
-- day 1 12:03 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (3.26, 1.13, 62.89) — walking out to (16.26, 1.12, 62.89) (12.00m to mesh).
-- day 1 12:49 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.64, 1.14, 62.89) — walking out to (-12.06, 1.14, 64.27) (12.01m to mesh).
-- day 1 12:49 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.64, 1.14, 62.89) — walking out to (-12.06, 1.14, 64.27) (12.01m to mesh).
-- day 1 12:49 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-12.64, 1.14, 62.89) — walking out to (-12.06, 1.14, 64.27) (12.01m to mesh).
-- day 1 13:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 13:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 13:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 13:12 | **WARN** | [AiNavigation] Employee_Edward Stout: stuck at (-3.25, 1.12, 63.38) — walking out to (-9.74, 1.11, 51.87) (12.22m to mesh).
-- day 1 13:12 | **WARN** | [AiNavigation] Employee_Edward Stout: stuck at (-3.25, 1.12, 63.38) — walking out to (-9.74, 1.11, 51.87) (12.22m to mesh).
-- day 1 13:12 | **WARN** | [AiNavigation] Employee_Edward Stout: stuck at (-3.25, 1.12, 63.38) — walking out to (-9.74, 1.11, 51.87) (12.22m to mesh).
-- day 1 14:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 14:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 14:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 15:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 15:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 15:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 16:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 16:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 16:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 16:32 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (3.26, 1.13, 62.89) — walking out to (16.26, 1.12, 62.89) (12.00m to mesh).
-- day 1 16:32 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (3.26, 1.13, 62.89) — walking out to (16.26, 1.12, 62.89) (12.00m to mesh).
-- day 1 16:32 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (3.26, 1.13, 62.89) — walking out to (16.26, 1.12, 62.89) (12.00m to mesh).
-- day 1 18:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 18:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 18:00 | **ERROR** | [TruckYardManager] Truck Prefab not assigned.
-  ```
-  UnityEngine.Debug:LogError (object)
-  TruckYardManager:SpawnNextTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/Gameplay/TruckYardManager.cs:265)
-  GameCore.Inventory.ShipmentService:TrySpawnTruck (GameCore.Inventory.ShipmentData) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:600)
-  GameCore.Inventory.ShipmentService:DispatchDueShipments (int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:159)
-  GameCore.Inventory.ShipmentService:OnHourChanged (string,int) (at Assets/_Project/Scripts/1. FSM/Core/Inventory/ShipmentService.cs:111)
-  GameCore.Events.EventManager:Publish<int> (string,int) (at Assets/_Project/Scripts/1. FSM/1. Services/EventManager.cs:195)
-  GameCore.Economy.SimulationTimeService:DetectTransitions () (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:220)
-  GameCore.Economy.SimulationTimeService:Tick (single) (at Assets/_Project/Scripts/1. FSM/Core/Managers/TimeAndMoney/SimulationTimeService.cs:146)
-  ```
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Edward Stout: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Edward Stout: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Edward Stout: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Edward Stout: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Mark Jones: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Mark Jones: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Mark Jones: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Mark Jones: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Catherine Lewis: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Catherine Lewis: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Catherine Lewis: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Catherine Lewis: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Jerry Wilson: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Jerry Wilson: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Jerry Wilson: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] Employee_Jerry Wilson: timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] DS_FULL(Clone): timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] DS_FULL(Clone): timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] DS_FULL(Clone): timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] DS_FULL(Clone): timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] RT_Full(Clone): timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] RT_Full(Clone): timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] RT_Full(Clone): timed out waiting for NavMesh.
-- day 1 10:09 | **WARN** | [AiNavigation] RT_Full(Clone): timed out waiting for NavMesh.
-- day 1 10:19 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (3.26, 1.16, 62.89) — walking out to (-8.00, 1.12, 56.39) (12.00m to mesh).
-- day 1 10:25 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (-15.29, 1.10, 64.21) — walking out to (-2.29, 1.12, 64.21) (12.00m to mesh).
-- day 1 10:27 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (25.61, 1.16, 43.50) — walking out to (25.61, 1.16, 56.50) (12.00m to mesh).
-- day 1 10:27 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (25.61, 1.16, 43.50) — walking out to (25.61, 1.16, 56.50) (12.00m to mesh).
-- day 1 10:27 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (25.61, 1.16, 43.50) — walking out to (25.61, 1.16, 56.50) (12.00m to mesh).
-- day 1 10:27 | **WARN** | [AiNavigation] DS_FULL(Clone): stuck at (25.61, 1.16, 43.50) — walking out to (25.61, 1.16, 56.50) (12.00m to mesh).
-- day 1 10:36 | **WARN** | [AiNavigation] Employee_Edward Stout: stuck at (3.22, 1.29, 62.75) — walking out to (-8.04, 1.11, 56.25) (12.00m to mesh).
-- day 1 10:36 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (3.22, 1.29, 62.75) — walking out to (-8.04, 1.11, 56.25) (12.00m to mesh).
-- day 1 11:03 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-2.03, 1.16, 65.58) — walking out to (-0.97, 1.16, 65.67) (13.10m to mesh).
-- day 1 18:47 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (-15.29, 1.10, 64.21) — walking out to (-2.29, 1.15, 64.21) (12.00m to mesh).
-- day 2 01:18 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (3.26, 1.37, 62.89) — walking out to (-8.00, 1.11, 56.39) (12.00m to mesh).
-- day 2 11:33 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (28.44, 1.16, 58.91) — walking out to (29.82, 1.16, 59.49) (12.13m to mesh).
-- day 2 11:33 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (28.44, 1.16, 58.91) — walking out to (29.82, 1.16, 59.49) (12.13m to mesh).
-- day 2 11:33 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (28.44, 1.16, 58.91) — walking out to (29.82, 1.16, 59.49) (12.13m to mesh).
-- day 2 11:33 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (28.44, 1.16, 58.91) — walking out to (29.82, 1.16, 59.49) (12.13m to mesh).
-- day 2 18:33 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.94, 1.16, 65.54) — walking out to (-11.44, 1.13, 54.74) (12.00m to mesh).
-- day 2 18:33 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.94, 1.16, 65.54) — walking out to (-11.44, 1.13, 54.74) (12.00m to mesh).
-- day 2 18:33 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.94, 1.16, 65.54) — walking out to (-11.44, 1.13, 54.74) (12.00m to mesh).
-- day 2 18:33 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (-17.94, 1.16, 65.54) — walking out to (-11.44, 1.13, 54.74) (12.00m to mesh).
-- day 2 19:50 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (12.54, 1.11, 49.64) — walking out to (23.80, 1.16, 56.14) (12.00m to mesh).
-- day 2 19:50 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (12.54, 1.11, 49.64) — walking out to (23.80, 1.16, 56.14) (12.00m to mesh).
-- day 2 19:50 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (12.54, 1.11, 49.64) — walking out to (23.80, 1.16, 56.14) (12.00m to mesh).
-- day 2 19:50 | **WARN** | [AiNavigation] RT_Full(Clone): stuck at (12.54, 1.11, 49.64) — walking out to (23.80, 1.16, 56.14) (12.00m to mesh).
-- day 2 21:31 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (-16.54, 1.10, 64.38) — walking out to (-3.54, 1.15, 64.38) (12.00m to mesh).
-- day 2 21:31 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (-16.54, 1.10, 64.38) — walking out to (-3.54, 1.15, 64.38) (12.00m to mesh).
-- day 2 21:31 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (-16.54, 1.10, 64.38) — walking out to (-3.54, 1.15, 64.38) (12.00m to mesh).
-- day 2 21:31 | **WARN** | [AiNavigation] Employee_Mark Jones: stuck at (-16.54, 1.10, 64.38) — walking out to (-3.54, 1.15, 64.38) (12.00m to mesh).
-- day 1 10:01 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
-- day 1 11:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
-- day 1 11:28 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
-- day 1 10:01 | **REPEATING** | x25 and counting: [DockSchedule] Healed: order OG3973 was on door 0 but its appointment is at door 2.
-- day 1 10:01 | **REPEATING** | x25 and counting: [DockSchedule] Healed: order OG3973 was on door 0 but its appointment is at door 2.
-- day 1 11:53 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
-- day 1 11:53 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
-- day 1 11:53 | **REPEATING** | x25 and counting: Attempting to render to a depth only surface with no dummy color attachment
-- day 1 10:01 | **REPEATING** | x25 and counting: [DockSchedule] Healed: order OG3973 was on door 0 but its appointment is at door 2.
-- day 1 14:58 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (34.25, 1.16, 49.84) — walking out to (27.75, 1.21, 61.12) (12.02m to mesh).
-- day 1 14:58 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (34.25, 1.16, 49.84) — walking out to (27.75, 1.21, 61.12) (12.02m to mesh).
-- day 1 14:58 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (34.25, 1.16, 49.84) — walking out to (27.75, 1.21, 61.12) (12.02m to mesh).
-- day 1 14:58 | **WARN** | [AiNavigation] Employee_Catherine Lewis: stuck at (34.25, 1.16, 49.84) — walking out to (27.75, 1.21, 61.12) (12.02m to mesh).
-- day 1 19:43 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (34.02, 1.16, 52.08) — walking out to (34.02, 0.04, 38.44) (12.65m to mesh).
-- day 1 19:43 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (34.02, 1.16, 52.08) — walking out to (34.02, 0.04, 38.44) (12.65m to mesh).
-- day 1 19:43 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (34.02, 1.16, 52.08) — walking out to (34.02, 0.04, 38.44) (12.65m to mesh).
-- day 1 19:43 | **WARN** | [AiNavigation] Employee_Jerry Wilson: stuck at (34.02, 1.16, 52.08) — walking out to (34.02, 0.04, 38.44) (12.65m to mesh).
-- day 1 19:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 91846df9-790a-461c-acd7-ad5f80feb57d but the employee is 7.9m away (max 4.5m) — refusing to start receiving.
-- day 1 19:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 91846df9-790a-461c-acd7-ad5f80feb57d but the employee is 7.9m away (max 4.5m) — refusing to start receiving.
-- day 1 19:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 91846df9-790a-461c-acd7-ad5f80feb57d but the employee is 7.9m away (max 4.5m) — refusing to start receiving.
-- day 1 19:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 91846df9-790a-461c-acd7-ad5f80feb57d but the employee is 7.9m away (max 4.5m) — refusing to start receiving.
-- day 1 10:01 | **REPEATING** | x25 and counting: Failed to create agent because it is not close enough to the NavMesh
+- day 1 09:36 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-15.97, 0.03, 16.50) — walking out to (-22.47, 0.02, 5.24) (12.00m to mesh).
+- day 1 09:55 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 2be56c67-b0c9-48af-a454-c8ac8d50f041 but the employee is 19.1m away (max 4.5m) — refusing to start receiving.
+- day 1 10:05 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 2f0fe8f7-6538-4487-b5c6-5b6086a2cc34 but the employee is 17.1m away (max 4.5m) — refusing to start receiving.
+- day 1 10:08 | **WARN** | [AiNavigation] Employee_Ruth Murphy: stuck at (11.91, 0.05, 44.88) — walking out to (18.41, 1.09, 55.34) (12.04m to mesh).
+- day 1 10:13 | **WARN** | [AiNavigation] Employee_Ruth Murphy: task target (-2.94, 2.50, 48.31) is not reachable — the partial path ends 16.85m short of it. Handing the task back.
+- day 1 10:57 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 695c0469-0e7a-4796-89f3-0f9353b2dd86 but the employee is 17.8m away (max 4.5m) — refusing to start receiving.
+- day 1 11:05 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Ruth Murphy: task target (-2.94, 2.33, 45.66) is not reachable — the partial path ends 16.33m short of it. Handing the task back.
+- day 1 11:40 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ruth Murphy: receive workflow cancelled (out of range) — releasing the task and resuming patrol.
+- day 1 11:48 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 046b1776-1152-4464-a28c-65497198abeb but the employee is 19.3m away (max 4.5m) — refusing to start receiving.
+- day 1 12:33 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-4.21, 1.23, 48.33) — walking out to (7.04, 1.15, 41.67) (12.07m to mesh).
+- day 1 12:43 | **WARN** | [AiNavigation] Employee_Ann Peterson: task target (-7.76, 1.14, 46.99) is not reachable — the partial path ends 16.34m short of it. Handing the task back.
+- day 1 12:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet d8463fc0-08fd-4cfd-a817-e8f72db73f73 but the employee is 14.6m away (max 4.5m) — refusing to start receiving.
+- day 1 13:05 | **WARN** | [AiNavigation] Employee_Ruth Murphy: stuck at (13.12, 0.30, 43.01) — walking out to (6.62, 1.14, 54.27) (12.03m to mesh).
+- day 1 13:07 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Ann Peterson: task target (-7.76, 1.14, 46.99) is not reachable — the partial path ends 15.88m short of it. Handing the task back.
+- day 1 13:41 | **WARN** | [AiNavigation] Employee_Ruth Murphy: task target (-3.86, 1.14, 44.64) is not reachable — the partial path ends 11.91m short of it. Handing the task back.
+- day 1 13:41 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 4d3feafc-ccdf-4176-8f6e-0d3ad550241e but the employee is 14.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:44 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ann Peterson: receive workflow cancelled (out of range) — releasing the task and resuming patrol.
+- day 1 13:46 | **REPEATING** | x25 and counting: [ReceiverReceivingWorkflow] Arrival callback fired for pallet d8463fc0-08fd-4cfd-a817-e8f72db73f73 but the employee is 14.6m away (max 4.5m) — refusing to start receiving.
+- day 1 13:46 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ann Peterson: released Receive task for pallet d8463fc0-08fd-4cfd-a817-e8f72db73f73 back to the queue (employee strayed outside receiving range).
+- day 1 13:55 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-3.86, 1.14, 44.28) — walking out to (-16.86, 1.18, 44.28) (12.00m to mesh).
+- day 1 13:55 | **WARN** | [AiNavigation] Employee_Ruth Murphy cannot reach task position at (-3.86, 1.14, 44.77) (path invalid) — abandoning the walk and handing the task back.
+- day 1 14:32 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 3d9f6d03-800b-4b13-a029-da883f3e9e8a but the employee is 15.2m away (max 4.5m) — refusing to start receiving.
+- day 1 14:53 | **WARN** | [AiNavigation] Employee_Ann Peterson: task target (-4.26, 2.19, 44.34) is not reachable — the partial path ends 18.54m short of it. Handing the task back.
+- day 1 15:22 | **WARN** | [AiNavigation] Employee_Ruth Murphy: task target (2.84, 1.15, 46.99) is not reachable — the partial path ends 11.93m short of it. Handing the task back.
+- day 1 15:24 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 8da8283a-7792-4ea9-adbe-13d00b832b82 but the employee is 9.6m away (max 4.5m) — refusing to start receiving.
+- day 1 15:52 | **REPEATING** | x25 and counting: [ReceiverReceivingWorkflow] Arrival callback fired for pallet 3d9f6d03-800b-4b13-a029-da883f3e9e8a but the employee is 19.1m away (max 4.5m) — refusing to start receiving.
+- day 1 15:52 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ann Peterson: released Receive task for pallet 3d9f6d03-800b-4b13-a029-da883f3e9e8a back to the queue (employee strayed outside receiving range).
+- day 1 16:20 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-4.18, 1.14, 42.18) — walking out to (-17.01, 1.10, 42.18) (12.00m to mesh).
+- day 1 16:57 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 005d9465-b95e-49e6-b4fd-fc47c717f093 but the employee is 6.9m away (max 4.5m) — refusing to start receiving.
+- day 2 03:57 | **WARN** | [OrderSelectionTaskDriver] Order d5490248-c981-4ef8-9d2a-5aefd35bcff5 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 46/442. Still owed (pick faces with stock): 649320 x9 [02-05-01:0(behind) ] 113489 x9 [01-02-00:0(behind) ] 638412 x9 [02-05-00:0(behind) ] 141256 x9 [01-04-01:0(behind) ] 164923 x9 [01-07-00:0(behind) ] 792146 x4 [02-08-00:0(behind) ] 
+- day 2 09:41 | **WARN** | [AiNavigation] Employee_Stephen Stout: stuck at (5.67, 1.37, 55.29) — walking out to (11.81, 1.12, 55.29) (5.15m to mesh).
+- day 2 22:15 | **WARN** | [OrderSelectionTaskDriver] Order d5490248-c981-4ef8-9d2a-5aefd35bcff5 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 309/442. Still owed (pick faces with stock): 649320 x9 [02-05-01:0(behind) ] 113489 x9 [01-02-00:0(behind) ] 638412 x9 [02-05-00:0(behind) ] 141256 x9 [01-04-01:0(behind) ] 164923 x9 [01-07-00:0(behind) ] 732408 x9 [02-07-00:0(behind) ] 172495 x6 [01-07-01:0(behind) ] 189432 x8 [01-09-00:0(behind) ] 983721 x7 [02-12-00:0(behind) ] 276945 x10 [01-13-00:0(behind) ] 129481 x9 [01-03-01:0(behind) ] 347610 x10 [02-01-00:0(behind) ] 564219 x10 [02-04-00:0(behind) ] 209875 x10 [01-11-01:0(behind) ] 134958 x9 [01-04-00:0(behind) ] 
+- day 3 09:07 | **WARN** | [AiNavigation] Employee_Stephen Stout: stuck at (4.29, 1.41, 60.10) — walking out to (12.04, 1.12, 55.08) (8.41m to mesh).
+- day 3 09:10 | **WARN** | [AiNavigation] Employee_Stephen Stout: task target (7.95, 1.11, 58.59) is not reachable — the partial path ends 4.33m short of it. Handing the task back.
+- day 3 13:22 | **WARN** | [OrderSelectionTaskDriver] Order 50008b63-d33c-4b52-a039-c192aefcc666 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 53/77. Still owed (pick faces with stock): 129481 x3 [01-03-01:0(behind) ] 141256 x3 [01-04-01:0(behind) ] 
+- day 3 18:39 | **WARN** | [AiNavigation] Employee_Ann Peterson: task target (7.66, 1.16, 48.31) is not reachable — the partial path ends 14.65m short of it. Handing the task back.
+- day 3 18:40 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 69c50a27-fc8d-41a2-a4ca-94d8a1df9e93 but the employee is 13.9m away (max 4.5m) — refusing to start receiving.

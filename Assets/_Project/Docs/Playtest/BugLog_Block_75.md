@@ -1,0 +1,78 @@
+# Bug log - block 75
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 09:36 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-15.97, 0.03, 16.50) — walking out to (-22.47, 0.02, 5.24) (12.00m to mesh).
+- day 1 09:36 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-15.97, 0.03, 16.50) — walking out to (-22.47, 0.02, 5.24) (12.00m to mesh).
+- day 1 09:55 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 2be56c67-b0c9-48af-a454-c8ac8d50f041 but the employee is 19.1m away (max 4.5m) — refusing to start receiving.
+- day 1 09:55 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 2be56c67-b0c9-48af-a454-c8ac8d50f041 but the employee is 19.1m away (max 4.5m) — refusing to start receiving.
+- day 1 10:05 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 2f0fe8f7-6538-4487-b5c6-5b6086a2cc34 but the employee is 17.1m away (max 4.5m) — refusing to start receiving.
+- day 1 10:05 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 2f0fe8f7-6538-4487-b5c6-5b6086a2cc34 but the employee is 17.1m away (max 4.5m) — refusing to start receiving.
+- day 1 10:08 | **WARN** | [AiNavigation] Employee_Ruth Murphy: stuck at (11.91, 0.05, 44.88) — walking out to (18.41, 1.09, 55.34) (12.04m to mesh).
+- day 1 10:08 | **WARN** | [AiNavigation] Employee_Ruth Murphy: stuck at (11.91, 0.05, 44.88) — walking out to (18.41, 1.09, 55.34) (12.04m to mesh).
+- day 1 10:13 | **WARN** | [AiNavigation] Employee_Ruth Murphy: task target (-2.94, 2.50, 48.31) is not reachable — the partial path ends 16.85m short of it. Handing the task back.
+- day 1 10:13 | **WARN** | [AiNavigation] Employee_Ruth Murphy: task target (-2.94, 2.50, 48.31) is not reachable — the partial path ends 16.85m short of it. Handing the task back.
+- day 1 10:57 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 695c0469-0e7a-4796-89f3-0f9353b2dd86 but the employee is 17.8m away (max 4.5m) — refusing to start receiving.
+- day 1 10:57 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 695c0469-0e7a-4796-89f3-0f9353b2dd86 but the employee is 17.8m away (max 4.5m) — refusing to start receiving.
+- day 1 11:05 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Ruth Murphy: task target (-2.94, 2.33, 45.66) is not reachable — the partial path ends 16.33m short of it. Handing the task back.
+- day 1 11:05 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Ruth Murphy: task target (-2.94, 2.33, 45.66) is not reachable — the partial path ends 16.33m short of it. Handing the task back.
+- day 1 11:40 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ruth Murphy: receive workflow cancelled (out of range) — releasing the task and resuming patrol.
+- day 1 11:40 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ruth Murphy: receive workflow cancelled (out of range) — releasing the task and resuming patrol.
+- day 1 11:48 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 046b1776-1152-4464-a28c-65497198abeb but the employee is 19.3m away (max 4.5m) — refusing to start receiving.
+- day 1 11:48 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 046b1776-1152-4464-a28c-65497198abeb but the employee is 19.3m away (max 4.5m) — refusing to start receiving.
+- day 1 12:33 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-4.21, 1.23, 48.33) — walking out to (7.04, 1.15, 41.67) (12.07m to mesh).
+- day 1 12:33 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-4.21, 1.23, 48.33) — walking out to (7.04, 1.15, 41.67) (12.07m to mesh).
+- day 1 12:43 | **WARN** | [AiNavigation] Employee_Ann Peterson: task target (-7.76, 1.14, 46.99) is not reachable — the partial path ends 16.34m short of it. Handing the task back.
+- day 1 12:43 | **WARN** | [AiNavigation] Employee_Ann Peterson: task target (-7.76, 1.14, 46.99) is not reachable — the partial path ends 16.34m short of it. Handing the task back.
+- day 1 12:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet d8463fc0-08fd-4cfd-a817-e8f72db73f73 but the employee is 14.6m away (max 4.5m) — refusing to start receiving.
+- day 1 12:44 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet d8463fc0-08fd-4cfd-a817-e8f72db73f73 but the employee is 14.6m away (max 4.5m) — refusing to start receiving.
+- day 1 13:05 | **WARN** | [AiNavigation] Employee_Ruth Murphy: stuck at (13.12, 0.30, 43.01) — walking out to (6.62, 1.14, 54.27) (12.03m to mesh).
+- day 1 13:05 | **WARN** | [AiNavigation] Employee_Ruth Murphy: stuck at (13.12, 0.30, 43.01) — walking out to (6.62, 1.14, 54.27) (12.03m to mesh).
+- day 1 13:07 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Ann Peterson: task target (-7.76, 1.14, 46.99) is not reachable — the partial path ends 15.88m short of it. Handing the task back.
+- day 1 13:07 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Ann Peterson: task target (-7.76, 1.14, 46.99) is not reachable — the partial path ends 15.88m short of it. Handing the task back.
+- day 1 13:41 | **WARN** | [AiNavigation] Employee_Ruth Murphy: task target (-3.86, 1.14, 44.64) is not reachable — the partial path ends 11.91m short of it. Handing the task back.
+- day 1 13:41 | **WARN** | [AiNavigation] Employee_Ruth Murphy: task target (-3.86, 1.14, 44.64) is not reachable — the partial path ends 11.91m short of it. Handing the task back.
+- day 1 13:41 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 4d3feafc-ccdf-4176-8f6e-0d3ad550241e but the employee is 14.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:41 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 4d3feafc-ccdf-4176-8f6e-0d3ad550241e but the employee is 14.3m away (max 4.5m) — refusing to start receiving.
+- day 1 13:44 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ann Peterson: receive workflow cancelled (out of range) — releasing the task and resuming patrol.
+- day 1 13:44 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ann Peterson: receive workflow cancelled (out of range) — releasing the task and resuming patrol.
+- day 1 13:46 | **REPEATING** | x25 and counting: [ReceiverReceivingWorkflow] Arrival callback fired for pallet d8463fc0-08fd-4cfd-a817-e8f72db73f73 but the employee is 14.6m away (max 4.5m) — refusing to start receiving.
+- day 1 13:46 | **REPEATING** | x25 and counting: [ReceiverReceivingWorkflow] Arrival callback fired for pallet d8463fc0-08fd-4cfd-a817-e8f72db73f73 but the employee is 14.6m away (max 4.5m) — refusing to start receiving.
+- day 1 13:46 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ann Peterson: released Receive task for pallet d8463fc0-08fd-4cfd-a817-e8f72db73f73 back to the queue (employee strayed outside receiving range).
+- day 1 13:46 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ann Peterson: released Receive task for pallet d8463fc0-08fd-4cfd-a817-e8f72db73f73 back to the queue (employee strayed outside receiving range).
+- day 1 13:55 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-3.86, 1.14, 44.28) — walking out to (-16.86, 1.18, 44.28) (12.00m to mesh).
+- day 1 13:55 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-3.86, 1.14, 44.28) — walking out to (-16.86, 1.18, 44.28) (12.00m to mesh).
+- day 1 13:55 | **WARN** | [AiNavigation] Employee_Ruth Murphy cannot reach task position at (-3.86, 1.14, 44.77) (path invalid) — abandoning the walk and handing the task back.
+- day 1 13:55 | **WARN** | [AiNavigation] Employee_Ruth Murphy cannot reach task position at (-3.86, 1.14, 44.77) (path invalid) — abandoning the walk and handing the task back.
+- day 1 14:32 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 3d9f6d03-800b-4b13-a029-da883f3e9e8a but the employee is 15.2m away (max 4.5m) — refusing to start receiving.
+- day 1 14:32 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 3d9f6d03-800b-4b13-a029-da883f3e9e8a but the employee is 15.2m away (max 4.5m) — refusing to start receiving.
+- day 1 14:53 | **WARN** | [AiNavigation] Employee_Ann Peterson: task target (-4.26, 2.19, 44.34) is not reachable — the partial path ends 18.54m short of it. Handing the task back.
+- day 1 14:53 | **WARN** | [AiNavigation] Employee_Ann Peterson: task target (-4.26, 2.19, 44.34) is not reachable — the partial path ends 18.54m short of it. Handing the task back.
+- day 1 15:22 | **WARN** | [AiNavigation] Employee_Ruth Murphy: task target (2.84, 1.15, 46.99) is not reachable — the partial path ends 11.93m short of it. Handing the task back.
+- day 1 15:22 | **WARN** | [AiNavigation] Employee_Ruth Murphy: task target (2.84, 1.15, 46.99) is not reachable — the partial path ends 11.93m short of it. Handing the task back.
+- day 1 15:24 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 8da8283a-7792-4ea9-adbe-13d00b832b82 but the employee is 9.6m away (max 4.5m) — refusing to start receiving.
+- day 1 15:24 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 8da8283a-7792-4ea9-adbe-13d00b832b82 but the employee is 9.6m away (max 4.5m) — refusing to start receiving.
+- day 1 15:52 | **REPEATING** | x25 and counting: [ReceiverReceivingWorkflow] Arrival callback fired for pallet 3d9f6d03-800b-4b13-a029-da883f3e9e8a but the employee is 19.1m away (max 4.5m) — refusing to start receiving.
+- day 1 15:52 | **REPEATING** | x25 and counting: [ReceiverReceivingWorkflow] Arrival callback fired for pallet 3d9f6d03-800b-4b13-a029-da883f3e9e8a but the employee is 19.1m away (max 4.5m) — refusing to start receiving.
+- day 1 15:52 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ann Peterson: released Receive task for pallet 3d9f6d03-800b-4b13-a029-da883f3e9e8a back to the queue (employee strayed outside receiving range).
+- day 1 15:52 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Ann Peterson: released Receive task for pallet 3d9f6d03-800b-4b13-a029-da883f3e9e8a back to the queue (employee strayed outside receiving range).
+- day 1 16:20 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-4.18, 1.14, 42.18) — walking out to (-17.01, 1.10, 42.18) (12.00m to mesh).
+- day 1 16:20 | **WARN** | [AiNavigation] Employee_Ann Peterson: stuck at (-4.18, 1.14, 42.18) — walking out to (-17.01, 1.10, 42.18) (12.00m to mesh).
+- day 1 16:57 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 005d9465-b95e-49e6-b4fd-fc47c717f093 but the employee is 6.9m away (max 4.5m) — refusing to start receiving.
+- day 1 16:57 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 005d9465-b95e-49e6-b4fd-fc47c717f093 but the employee is 6.9m away (max 4.5m) — refusing to start receiving.
+- day 2 03:57 | **WARN** | [OrderSelectionTaskDriver] Order d5490248-c981-4ef8-9d2a-5aefd35bcff5 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 46/442. Still owed (pick faces with stock): 649320 x9 [02-05-01:0(behind) ] 113489 x9 [01-02-00:0(behind) ] 638412 x9 [02-05-00:0(behind) ] 141256 x9 [01-04-01:0(behind) ] 164923 x9 [01-07-00:0(behind) ] 792146 x4 [02-08-00:0(behind) ] 
+- day 2 03:57 | **WARN** | [OrderSelectionTaskDriver] Order d5490248-c981-4ef8-9d2a-5aefd35bcff5 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 46/442. Still owed (pick faces with stock): 649320 x9 [02-05-01:0(behind) ] 113489 x9 [01-02-00:0(behind) ] 638412 x9 [02-05-00:0(behind) ] 141256 x9 [01-04-01:0(behind) ] 164923 x9 [01-07-00:0(behind) ] 792146 x4 [02-08-00:0(behind) ] 
+- day 2 09:41 | **WARN** | [AiNavigation] Employee_Stephen Stout: stuck at (5.67, 1.37, 55.29) — walking out to (11.81, 1.12, 55.29) (5.15m to mesh).
+- day 2 09:41 | **WARN** | [AiNavigation] Employee_Stephen Stout: stuck at (5.67, 1.37, 55.29) — walking out to (11.81, 1.12, 55.29) (5.15m to mesh).
+- day 2 22:15 | **WARN** | [OrderSelectionTaskDriver] Order d5490248-c981-4ef8-9d2a-5aefd35bcff5 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 309/442. Still owed (pick faces with stock): 649320 x9 [02-05-01:0(behind) ] 113489 x9 [01-02-00:0(behind) ] 638412 x9 [02-05-00:0(behind) ] 141256 x9 [01-04-01:0(behind) ] 164923 x9 [01-07-00:0(behind) ] 732408 x9 [02-07-00:0(behind) ] 172495 x6 [01-07-01:0(behind) ] 189432 x8 [01-09-00:0(behind) ] 983721 x7 [02-12-00:0(behind) ] 276945 x10 [01-13-00:0(behind) ] 129481 x9 [01-03-01:0(behind) ] 347610 x10 [02-01-00:0(behind) ] 564219 x10 [02-04-00:0(behind) ] 209875 x10 [01-11-01:0(behind) ] 134958 x9 [01-04-00:0(behind) ] 
+- day 2 22:15 | **WARN** | [OrderSelectionTaskDriver] Order d5490248-c981-4ef8-9d2a-5aefd35bcff5 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 309/442. Still owed (pick faces with stock): 649320 x9 [02-05-01:0(behind) ] 113489 x9 [01-02-00:0(behind) ] 638412 x9 [02-05-00:0(behind) ] 141256 x9 [01-04-01:0(behind) ] 164923 x9 [01-07-00:0(behind) ] 732408 x9 [02-07-00:0(behind) ] 172495 x6 [01-07-01:0(behind) ] 189432 x8 [01-09-00:0(behind) ] 983721 x7 [02-12-00:0(behind) ] 276945 x10 [01-13-00:0(behind) ] 129481 x9 [01-03-01:0(behind) ] 347610 x10 [02-01-00:0(behind) ] 564219 x10 [02-04-00:0(behind) ] 209875 x10 [01-11-01:0(behind) ] 134958 x9 [01-04-00:0(behind) ] 
+- day 3 09:07 | **WARN** | [AiNavigation] Employee_Stephen Stout: stuck at (4.29, 1.41, 60.10) — walking out to (12.04, 1.12, 55.08) (8.41m to mesh).
+- day 3 09:07 | **WARN** | [AiNavigation] Employee_Stephen Stout: stuck at (4.29, 1.41, 60.10) — walking out to (12.04, 1.12, 55.08) (8.41m to mesh).
+- day 3 09:10 | **WARN** | [AiNavigation] Employee_Stephen Stout: task target (7.95, 1.11, 58.59) is not reachable — the partial path ends 4.33m short of it. Handing the task back.
+- day 3 09:10 | **WARN** | [AiNavigation] Employee_Stephen Stout: task target (7.95, 1.11, 58.59) is not reachable — the partial path ends 4.33m short of it. Handing the task back.
+- day 3 13:22 | **WARN** | [OrderSelectionTaskDriver] Order 50008b63-d33c-4b52-a039-c192aefcc666 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 53/77. Still owed (pick faces with stock): 129481 x3 [01-03-01:0(behind) ] 141256 x3 [01-04-01:0(behind) ] 
+- day 3 13:22 | **WARN** | [OrderSelectionTaskDriver] Order 50008b63-d33c-4b52-a039-c192aefcc666 (Sneaky Pete's Seafood) has no reachable pick location for its remaining line item(s) — staging short at 53/77. Still owed (pick faces with stock): 129481 x3 [01-03-01:0(behind) ] 141256 x3 [01-04-01:0(behind) ] 
+- day 3 18:39 | **WARN** | [AiNavigation] Employee_Ann Peterson: task target (7.66, 1.16, 48.31) is not reachable — the partial path ends 14.65m short of it. Handing the task back.
+- day 3 18:39 | **WARN** | [AiNavigation] Employee_Ann Peterson: task target (7.66, 1.16, 48.31) is not reachable — the partial path ends 14.65m short of it. Handing the task back.
+- day 3 18:40 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 69c50a27-fc8d-41a2-a4ca-94d8a1df9e93 but the employee is 13.9m away (max 4.5m) — refusing to start receiving.
+- day 3 18:40 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 69c50a27-fc8d-41a2-a4ca-94d8a1df9e93 but the employee is 13.9m away (max 4.5m) — refusing to start receiving.

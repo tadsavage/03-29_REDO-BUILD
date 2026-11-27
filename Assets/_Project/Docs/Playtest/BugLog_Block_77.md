@@ -1,0 +1,41 @@
+# Bug log - block 77
+
+Every incident as it happened. Format: day hour:minute | category | what.
+
+- day 1 09:39 | **WARN** | [AiNavigation] Employee_Jonathan Scott: stuck at (-17.00, 0.03, 17.81) — walking out to (-10.50, 0.05, 6.55) (12.00m to mesh).
+- day 1 09:49 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet dc227f94-1ef0-43bf-9f36-225637f0b134 but the employee is 36.7m away (max 4.5m) — refusing to start receiving.
+- day 1 09:58 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 54f40373-5af7-43ac-b521-fa8720f19e3e but the employee is 23.4m away (max 4.5m) — refusing to start receiving.
+- day 1 10:11 | **WARN** | [AiNavigation] Employee_Jonathan Scott: task target (7.20, 1.14, 47.55) only partially reachable — stopped 3.50m short. Treating as arrived.
+- day 1 10:20 | **WARN** | [AiNavigation] Employee_Jonathan Scott: task target (4.16, 1.19, 48.31) is not reachable — the partial path ends 6.73m short of it. Handing the task back.
+- day 1 10:39 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Jonathan Scott: task target (7.40, 1.16, 48.14) only partially reachable — stopped 3.43m short. Treating as arrived.
+- day 1 10:43 | **WARN** | [AiNavigation] Employee_Joshua Ramirez: stuck at (7.66, 1.16, 45.66) — walking out to (11.68, 0.02, 48.00) (3.65m to mesh).
+- day 1 10:47 | **WARN** | [AiNavigation] Employee_Joshua Ramirez: task target (-6.44, 1.14, 48.31) is not reachable — the partial path ends 17.25m short of it. Handing the task back.
+- day 1 10:48 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet e6dceaf7-f6e1-4ba0-bfd7-b5faf3711008 but the employee is 15.5m away (max 4.5m) — refusing to start receiving.
+- day 1 11:10 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Joshua Ramirez: task target (-3.19, 1.14, 48.31) is not reachable — the partial path ends 14.00m short of it. Handing the task back.
+- day 1 11:18 | **REPEATING** | x25 and counting: [ReceiverReceivingWorkflow] Arrival callback fired for pallet 54f40373-5af7-43ac-b521-fa8720f19e3e but the employee is 4.9m away (max 4.5m) — refusing to start receiving.
+- day 1 11:18 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Jonathan Scott: receive workflow cancelled (out of range) — releasing the task and resuming patrol.
+- day 1 11:18 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Jonathan Scott: released Receive task for pallet 54f40373-5af7-43ac-b521-fa8720f19e3e back to the queue (employee strayed outside receiving range).
+- day 1 11:55 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Joshua Ramirez: receive workflow cancelled (out of range) — releasing the task and resuming patrol.
+- day 1 12:05 | **REPEATING** | x25 and counting: [ReceiverReceivingWorkflow] Arrival callback fired for pallet e6dceaf7-f6e1-4ba0-bfd7-b5faf3711008 but the employee is 15.5m away (max 4.5m) — refusing to start receiving.
+- day 1 12:05 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Joshua Ramirez: released Receive task for pallet e6dceaf7-f6e1-4ba0-bfd7-b5faf3711008 back to the queue (employee strayed outside receiving range).
+- day 1 14:17 | **WARN** | [AiNavigation] Employee_Joshua Ramirez cannot reach task position at (-2.94, 1.14, 48.31) (path invalid) — abandoning the walk and handing the task back.
+- day 1 14:24 | **WARN** | [AiNavigation] Employee_Joshua Ramirez: stuck at (10.83, 0.02, 46.99) — walking out to (8.38, 1.14, 50.40) (3.39m to mesh).
+- day 1 16:33 | **WARN** | [AiNavigation] Employee_Jonathan Scott: task target (7.66, 1.16, 48.31) is not reachable — the partial path ends 4.29m short of it. Handing the task back.
+- day 1 17:16 | **WARN** | [AiNavigation] Employee_Joshua Ramirez: stuck at (3.76, 1.18, 43.75) — walking out to (11.68, 0.04, 48.24) (8.11m to mesh).
+- day 1 17:21 | **WARN** | [AiNavigation] Employee_Joshua Ramirez: task target (7.66, 2.19, 44.34) is not reachable — the partial path ends 5.30m short of it. Handing the task back.
+- day 1 17:22 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet cda22540-fcce-4c6c-8ec1-f47973b2831c but the employee is 6.2m away (max 4.5m) — refusing to start receiving.
+- day 1 17:52 | **WARN** | [AiNavigation] Employee_Joshua Ramirez: task target (7.22, 1.13, 45.08) only partially reachable — stopped 3.85m short. Treating as arrived.
+- day 1 18:40 | **REPEATING** | x25 and counting: [ReceiverReceivingWorkflow] Arrival callback fired for pallet cda22540-fcce-4c6c-8ec1-f47973b2831c but the employee is 5.4m away (max 4.5m) — refusing to start receiving.
+- day 1 18:40 | **REPEATING** | x25 and counting: [ReceivingTaskDriver] Employee_Joshua Ramirez: released Receive task for pallet cda22540-fcce-4c6c-8ec1-f47973b2831c back to the queue (employee strayed outside receiving range).
+- day 1 18:48 | **REPEATING** | x25 and counting: [AiNavigation] Employee_Joshua Ramirez: task target (7.66, 2.19, 44.34) only partially reachable — stopped 3.81m short. Treating as arrived.
+- day 1 19:37 | **OVERLAP** | OVERLAP Pallet_00_Slot0_Tier0 & Pallet_04_Slot2_Tier0 @(33, 89)  <<HISTORY: d1 14:55 Receive task Assigned->Complete by WorkQueueSystem.CompleteTask | d1 18:05 Putaway task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d1 18:14 moved (46, 84)->(-1, -1) by InventoryService.MovePallet | d1 18:43 moved (-1, -1)->(34, 89) by InventoryService.MovePallet | d1 18:43 Putaway task Assigned->Complete by WorkQueueSystem.CompleteTask | d1 18:45 Putaway task Complete->Available by ReachTruckOperator.ReleaseTaskWithBackoff>>  <<HISTORY: d1 15:10 Receive task Assigned->Complete by WorkQueueSystem.CompleteTask | d1 18:46 Putaway task Available->Assigned by WorkQueueSystem.TryClaimSpecificTask | d1 18:57 moved (46, 83)->(-1, -1) by InventoryService.MovePallet | d1 19:24 moved (-1, -1)->(34, 89) by InventoryService.MovePallet | d1 19:24 Putaway task Assigned->Complete by WorkQueueSystem.CompleteTask | d1 19:26 Putaway task Complete->Available by ReachTruckOperator.ReleaseTaskWithBackoff>>
+- day 2 18:37 | **WARN** | [AiNavigation] Employee_Jonathan Scott: task target (4.16, 1.16, 48.31) is not reachable — the partial path ends 7.03m short of it. Handing the task back.
+- day 2 18:39 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 8b8de58d-4dc6-4e9a-b5f6-5010fa12b8a1 but the employee is 5.6m away (max 4.5m) — refusing to start receiving.
+- day 2 18:49 | **WARN** | [AiNavigation] Employee_Joshua Ramirez: stuck at (8.87, 1.31, 38.64) — walking out to (5.40, 1.08, 36.64) (3.01m to mesh).
+- day 2 18:52 | **WARN** | [AiNavigation] Employee_Joshua Ramirez: task target (7.66, 2.76, 48.31) is not reachable — the partial path ends 11.30m short of it. Handing the task back.
+- day 2 18:52 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 1a6ad5af-4300-4e3c-8375-337c8976c522 but the employee is 11.2m away (max 4.5m) — refusing to start receiving.
+- day 2 19:00 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet 4ed41a7a-b0cc-46a1-b592-2bdbeb467ba8 but the employee is 9.8m away (max 4.5m) — refusing to start receiving.
+- day 2 23:41 | **WARN** | [AiNavigation] Employee_Jonathan Scott: stuck at (1.51, 1.20, 48.17) — walking out to (-11.49, 1.14, 48.17) (12.00m to mesh).
+- day 2 23:50 | **WARN** | [AiNavigation] Employee_Joshua Ramirez: task target (1.51, 1.14, 46.99) is not reachable — the partial path ends 10.36m short of it. Handing the task back.
+- day 2 23:52 | **WARN** | [ReceiverReceivingWorkflow] Arrival callback fired for pallet b91fb520-7697-490b-918e-0bfc7842bf0b but the employee is 9.9m away (max 4.5m) — refusing to start receiving.
+- day 3 00:03 | **WARN** | [AiNavigation] Employee_Joshua Ramirez: stuck at (4.93, 1.24, 37.21) — walking out to (-8.07, 1.14, 37.79) (12.01m to mesh).
