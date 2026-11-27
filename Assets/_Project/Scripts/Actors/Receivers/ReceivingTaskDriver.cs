@@ -272,6 +272,14 @@ namespace GameCore.Actors
                     continue;
                 }
 
+                // Deep lane pallet that cannot be reached within the receive cap yet: leave it for after the outer pallets go.
+                if (StandTooFar(link.transform))
+                {
+                    if (s_deferredLogged.Add(candidate.PalletId))
+                        Debug.Log($"[ReceivingTaskDriver] Pallet {candidate.PalletId} is too deep in its lane to receive from the lane mouth yet - waiting for the pallets in front of it to be put away.");
+                    continue;
+                }
+
                 var po = link.GetComponent<PlacedObject>();
                 LaneNamingService.LaneSlot slot = default;
                 bool hasSlot = po != null && po.enabled
@@ -459,7 +467,7 @@ namespace GameCore.Actors
         private const float StandSpotSpacing = 0.9f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() => s_standSpots.Clear();   // Domain Reload is off: statics survive between Play sessions
+        private static void ResetStatics() { s_standSpots.Clear(); s_deferredLogged.Clear(); }   // Domain Reload is off: statics survive between Play sessions
 
         private bool StandSpotTaken(Vector3 p)
         {
@@ -478,6 +486,30 @@ namespace GameCore.Actors
         }
 
         private static float Flat(Vector3 v) { v.y = 0f; return v.magnitude; }
+
+        /// <summary>A pallet (Inventory object) occupies the grid cell under this point.</summary>
+        private bool LaneCellHasPallet(Vector3 worldPos)
+        {
+            if (_grid == null) _grid = FindAnyObjectByType<PlacementGrid>();
+            if (_grid == null) return true;   // unknown: treat as blocked
+            var items = _grid.GetObjectsInCell(_grid.WorldToCell(worldPos));
+            if (items == null) return false;
+            foreach (var po in items)
+                if (po.instance != null && po.data != null && po.data.category == "Inventory") return true;
+            return false;
+        }
+
+        /// <summary>True when the best stand spot for this pallet is still too far to receive from (a deep lane pallet with full
+        /// outer slots): it is left in the queue until the pallets in front of it are put away, instead of being claimed, refused and
+        /// re-claimed in a loop.</summary>
+        private bool StandTooFar(Transform palletTransform)
+        {
+            if (palletTransform == null) return false;
+            if (!TryLaneAwareStand(palletTransform, out var stand)) return false;
+            return Flat(stand - palletTransform.position) + StandRangeSlack > ReceivingRangeCap;
+        }
+
+        private static readonly System.Collections.Generic.HashSet<string> s_deferredLogged = new System.Collections.Generic.HashSet<string>();
 
         /// <summary>
         /// Where to stand to receive a pallet, and the receive range that spot needs (see _standRange). A receiver NEVER stands on a
@@ -524,10 +556,21 @@ namespace GameCore.Actors
             // 2) The lane's open end: walk out along the lane past any pallets still standing in it (exit-first receiving leaves the
             //    outer slots full until putaway) and stand just outside the last lane cell. Stopping short of the full next cell keeps
             //    the receiver close to the lane mouth instead of out in the reach trucks' approach.
+            //    Block 75 (2026-11-26): a pallet deep in a lane whose outer pallets were still standing put the mouth 5+ m away, past the
+            //    receive cap, and the receiver was refused 16,783 times on one pallet. Once nothing more is due to drop in this lane, an
+            //    EMPTY lane cell on the way out is a fine place to stand (the dock stocker will not drop there), so stop at the first one.
             float cell = _grid != null ? _grid.CellSize : 1.325f;
+            bool laneSettled = !TrailerOffloadController.IsLanePendingInbound(slot.DoorNumber, slot.Lane);
             for (int k = 1; k <= geo.SlotCount + 2; k++)
             {
-                if (IsLaneCell(pallet + axis * (cell * k))) continue;
+                Vector3 probe = pallet + axis * (cell * k);
+                if (IsLaneCell(probe))
+                {
+                    if (laneSettled && !LaneCellHasPallet(probe) &&
+                        NavSample.OnAgentMesh(_agentTypeId, _agentAreaMask, probe, 0.6f, out var inLane) && !StandSpotTaken(inLane.position))
+                    { stand = inLane.position; return true; }
+                    continue;
+                }
                 Vector3 want = pallet + axis * (cell * (k - 1) + cell * 0.5f + 0.45f);   // 0.45 m past the lane edge
                 if (NavSample.OnAgentMesh(_agentTypeId, _agentAreaMask, want, 0.6f, out var hit) && !IsLaneCell(hit.position))
                 {

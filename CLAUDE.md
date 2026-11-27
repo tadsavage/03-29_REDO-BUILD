@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-## LATEST — Receiver navigation failure FIXED (2026-11-26 afternoon, `C:\Users\tadsa\Documents\GitHub\03-29_REDO-BUILD`; read this FIRST)
+## LATEST — Receivers fixed, first 0-bug block (block 76 = 86.9) (2026-11-26 evening, `C:\Users\tadsa\Documents\GitHub\03-29_REDO-BUILD`; read this FIRST, NEXT list at the end of this section)
 
 The "OPEN" receiver bug in the Thanksgiving handoff below is fixed. It was not one bug but a chain, caught live with probes (method at the end).
 All fixes compiled clean and are committed + pushed on `polyperfect-men`. Verified in HAL runs at **3x**, new company, `Small_two_door_setup_NavTesting`.
@@ -25,16 +25,44 @@ All fixes compiled clean and are committed + pushed on `polyperfect-men`. Verifi
 6. **Receiver stand position (handoff item 4).** `ReceivingTaskDriver.GetStandPosition` stood on the pallet's left/right, which inside a lane is the next lane, where the
    dock stocker drops the next pallet (boxed in -> walk-out). Now: never on a lane cell; beside the pallet only where that is open floor (an edge lane), else just past the
    lane's open end (+`DepthAxis`); two receivers never share a stand spot (`s_standSpots`, reset in a `SubsystemRegistration` hook). Pallets not on a lane: old rule.
-   Receive range = the stand spot's real distance + 1.25 m, min 3 m, **cap 6 m** (was 3 m, relaxed to 4.5 m). **Tad to confirm 6 m is acceptable** ("receiving from a
-   mile away is a bug"); the alternative is to receive deep pallets only after the outer ones are put away.
+   Receive range = the stand spot's real distance + 1.25 m, min 3 m, **cap 6 m** (was 3 m, relaxed to 4.5 m). **Tad confirmed 6 m (2026-11-26): keep it.** A pallet
+   whose stand spot is still past the cap is NOT claimed (`StandTooFar`) until the pallets in front of it are put away; then the receiver may stand in an
+   EMPTY lane cell once nothing more is due to drop in that lane (block 75 had 16,783 refusals on one deep pallet before this).
 
-**Results (3x, same new-company build):** before: receivers refused 18-300x per block, "not reachable" ~25x per receiver. Run 7 (all fixes) at day 1 17:39:
-11 received, 0 refusals, 0 walk-outs, 0 not-reachable, 0 no-progress, 0 far seek endings, 4 rebakes, both doorways `PathComplete`. Receiving went idle because no more
-inbound arrived (the known bot demand cap). A full 3-day block was NOT completed with all fixes; that is the next check.
+**Evening (2026-11-26) — blocks 74-76 at 3x, new company, `Small_two_door_setup_NavTesting`, all committed + pushed:**
+| Block | Score | Reliability | Shipped / late | Change tested |
+|---|---|---|---|---|
+| 74 | 63.5 | 54.5 | 2 / 1 (OG2025 fined $2,205) | receiver fixes 1-6 above |
+| 75 | 65.4 | 52.2 | 2 / 0 | ship-short valve + stock-out log |
+| 76 | **86.9** | **100 (0 bugs)** | 2 / 0 | deep-lane receiving + jack outline box |
+Block 76: 34 received, 0 refusals, 0 walk-outs, 0 not-reachable, 0 no-progress, 0 `[MheTravel]` failures. FIRST zero-bug block. Throughput still 6 plt vs 36, fill 61%.
 
-**Next:** (1) run full 3-day blocks at 3x and confirm the receiver numbers hold and no new REPEATING bug appears; (2) then the Thanksgiving list below from item 4 on
-(jack stall at 01-03, "no reachable pick location ... staging short"); (3) the step 1 gate. The stuck walk-out is still a straight slide that ignores walls for
-people: rarer now, but worth replacing with a clearance-checked move if it shows up again.
+7. **Ship-short valve (`OrderService.AutoCloseLoadedOrders` + `OwedStockInbound`).** Block 74's OG2025 sat Loaded from d2 16:19 to d3 05:23 (8 h past its slot, fined) for
+   5 pallet picks of SKUs with NO stock and NOTHING inbound; the valve only cut once the driver gave up (8 h). Now it also cuts once the slot is over if no SKU the order
+   still owes is on a live inbound shipment. Block 75 OG2030: cut at slot end, shipped 17:30, deadline 17:38, not fined.
+8. **"Staging short ... (behind)" was never a path bug:** every listed pick face had qty 0 (stock-out). `OrderSelectionTaskDriver.LogShortTrip`: a face WITH stock this
+   trip couldn't take = the old bug warning; all owed faces empty = a plain `Debug.Log` stock-out line (not counted by the bot).
+9. **Deep-lane receiving (block 75: 16,783 refusals on ONE pallet, receivers 6.2-6.6 m vs the 6 m cap).** `ReceivingTaskDriver.StandTooFar`: a pallet whose stand spot
+   needs more than the cap is not claimed (logged once "too deep in its lane") until the pallets in front are put away; `TryLaneAwareStand` may then stand in an EMPTY
+   lane cell (`LaneCellHasPallet`) when `TrailerOffloadController.IsLanePendingInbound` is false.
+10. **Jack clipping (Tad's screenshot: machines rolling into a jack's 2nd pallet position, reach trucks driving over its back half).** `MheStandingObstacle` was a 0.9 m
+   capsule on the pivot; now a non-carving BOX fitted to the machine's renderers (body, forks, carried pallets; skips `VehicleShadow*` and riders with their own agent),
+   re-fitted every 0.5 s while standing. Measured live: jack 1.0 x 4.0 m, dock stocker 1.4 x 3.2, reach truck 1.3 x 2.9. Non-carving on purpose (carving would cut the
+   selector's spot beside his jack). NOT covered: a MOVING jack is still only its agent radius to others. Not yet confirmed by eye: Tad to watch a busy pick aisle.
+
+**Why fill rate is low (bot, not warehouse):** HAL releases orders for SKUs it never bought. OG2035: 5 of 18 lines (37 cs) had no stock all block (never purchased /
+received) and were cut. Economy/bot-demand work, kept OUT of travel work (see roadmap).
+
+**NEXT (in order):**
+1. **Door-end stand rule for receivers (Tad approved, NOT built).** In `ReceivingTaskDriver.TryLaneAwareStand`, also try the lane's DOOR end (step along -`DepthAxis` past
+   slot 1, onto the apron) and stand at whichever end is closer; door end only while NO truck (inbound OR outbound - check every `TruckController.DockedAt`;
+   `StagingLaneAssignmentService.HasInboundTruckDocked` checks inbound only) is docked at that door and `IsLanePendingInbound` is false. Slot-1 pallets then receive
+   from ~1.5 m; the 6 m cap stays.
+2. **Stock-out log lists only this task's share (Tad approved, NOT built).** `DescribeRemaining` uses `SelectableRemaining(order, li, taskId)`, which subtracts other
+   selectors' reservations, so OG2035's line said "2 SKUs, 9 cs" while 37 cs over 5 SKUs were cut. List the ORDER-wide remainder and tag lines held elsewhere.
+3. Test 1+2 in ONE block (both small, separate log lines), then two more clean blocks toward the step 1 gate (3 consecutive clean blocks, ideally 7-day).
+4. Tad: eyeball jacks at pick faces for clipping; if moving jacks still get hit, give moving machines a rear avoidance body too.
+5. Thanksgiving list leftovers: jack stall 1.4 m short of 01-03 (not seen since). The stuck walk-out is still a straight slide that ignores walls for people.
 
 **How the bug was caught (reuse this):** `execute_code` installs `Application.logMessageReceived` / `EditorApplication.update` hooks that persist into Play (Domain
 Reload is off for Play entry, but any compile wipes them: reinstall after every compile). They write to `Logs/NavProbe*.txt`, never the console, so the bot does not count

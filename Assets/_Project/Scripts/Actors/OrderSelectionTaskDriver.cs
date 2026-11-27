@@ -206,7 +206,7 @@ namespace GameCore.Actors
                     // made it onto a pallet go to staging exactly like a full order and the shortfall
                     // shows in the Work Queue's Fill Rate column; billing already charges only for
                     // QuantityPicked (see OrderService.ShipOrder), so a 16/23 order bills 16.
-                    Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for its remaining line item(s) — staging short at {_currentOrder.TotalUnitsPicked}/{_currentOrder.TotalUnits} case(s).");
+                    LogShortTrip(_currentOrder);
                     FinishOrder();
                 }
                 else if (_currentTask != null && _currentTask.HasPlan && _currentOrder.TotalUnitsPicked < _currentOrder.TotalUnits)
@@ -1137,6 +1137,33 @@ namespace GameCore.Actors
 
         /// <summary>What is still owed to a case picker on this order and why it cannot be picked: each line's pick faces with their stock and
         /// whether the face is behind this trip (ascending-only). Goes into the "staging short" warning so a short trip explains itself.</summary>
+        /// <summary>A trip that ended with cases still owed: logs WHY. Stock in a pick face this trip could not take is a real problem
+        /// (warning, the bot counts it); every owed face simply empty is a stock-out the order system already reports and cuts (block 74:
+        /// all seven "staging short" sightings were faces at 0, not a navigation or path problem), so that is a plain log line.</summary>
+        private void LogShortTrip(OrderData order)
+        {
+            if (order == null) return;
+            string remaining = DescribeRemaining(order);
+            if (OwedFaceHasStock(order))
+                Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) has no reachable pick location for its remaining line item(s) — staging short at {order.TotalUnitsPicked}/{order.TotalUnits}. Still owed (pick faces with stock): {remaining}");
+            else
+                Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderNumber} ({order.CustomerName}): the pick faces for the rest of the order are empty (stock-out) - staging what is aboard at {order.TotalUnitsPicked}/{order.TotalUnits}. Owed: {remaining}");
+        }
+
+        /// <summary>True when some line still owed to a case picker has a pick face holding stock right now.</summary>
+        private bool OwedFaceHasStock(OrderData order)
+        {
+            string taskId = _currentTask != null ? _currentTask.TaskId : null;
+            foreach (var li in order.LineItems)
+            {
+                if (li == null || li.IsFullyPicked) continue;
+                if (_orderService.SelectableRemaining(order, li, taskId) <= 0) continue;
+                foreach (var addr in SlotAssignmentService.GetSlotsForSku(li.SkuId))
+                    if (LocationRegistry.TryGet(addr, out var loc) && loc != null && loc.Quantity > 0) return true;
+            }
+            return false;
+        }
+
         private string DescribeRemaining(OrderData order)
         {
             if (order == null) return "";
