@@ -417,7 +417,54 @@ namespace GameCore.Diagnostics
             if (arrivals != null) SignContracts(arrivals, money, time);
             if (schedule != null) BookDock(schedule, time);
             if (orders != null && schedule != null) ReleaseOrders(orders, schedule, time);
+            EnsurePickFaces();
             Purchase(money, time, schedule);
+        }
+
+        /// <summary>
+        /// A player slots an item (gives it a pick face) as soon as it is coming: when its trailer is booked or at the gate, not after it is on
+        /// the shelf. HAL does the same every tick: any SKU that is owed to an order, inbound on a PO, or on hand and has NO pick face gets the
+        /// next free pick slot in walking order (one that clears the pallet). Without a face, putaway has nowhere to stage the SKU and a case-pick
+        /// order finds "every pick face is empty" for ever (blocks 77-79: 0 of ~470 cs picked, two orders fined, nothing shipped).
+        /// </summary>
+        void EnsurePickFaces()
+        {
+            if (!ServiceLocator.TryGet<InventoryService>(out var inv) || inv == null) return;
+            var rows = ItemAvailability.Build();
+            var need = rows.Where(r => r.CasesPerPallet > 0 && (r.Pending > 0 || r.Inbound > 0 || r.OnHand > 0)
+                                       && SlotAssignmentService.GetSlotsForSku(r.SkuId).Count == 0)
+                           .OrderByDescending(r => r.Pending > 0).ThenByDescending(r => r.Inbound > 0).ThenBy(r => r.SkuId, StringComparer.OrdinalIgnoreCase).ToList();
+            if (need.Count == 0) return;
+
+            var free = SlotRegistry.PickSlots
+                .Where(s => !SlotAssignmentService.IsAssigned(s.Address)
+                            && LocationStatusRegistry.Get(s.Address) == LocationStatus.Available
+                            && LocationRegistry.TryGet(s.Address, out var loc) && loc != null && string.IsNullOrEmpty(loc.PalletId))
+                .OrderBy(s => OrderPickPath.SequenceKey(s.Address)).ToList();
+
+            int given = 0, noRoom = 0;
+            foreach (var r in need)
+            {
+                float h = r.Sku != null ? r.Sku.PltHeight : 0f;
+                int i = free.FindIndex(s => PickFaceFits(s, h));
+                if (i < 0) { noRoom++; continue; }
+                SlotAssignmentService.Assign(free[i].Address, r.SkuId);
+                free.RemoveAt(i);
+                given++;
+            }
+            if (given > 0) Act($"gave {given} item(s) a pick face{(noRoom > 0 ? $" ({noRoom} more have no free pick slot)" : "")}");
+            else if (noRoom > 0 && Time.unscaledTime >= _nextNoFaceNote) { _nextNoFaceNote = Time.unscaledTime + 300f; Act($"{noRoom} item(s) need a pick face but no free pick slot fits"); }
+        }
+
+        float _nextNoFaceNote;
+
+        /// <summary>Same rule as PutawayLogic.Fits: the pallet must clear the beam above, unless this is the top level of the bay.</summary>
+        static bool PickFaceFits(SlotRegistry.Slot s, float palletHeight)
+        {
+            if (palletHeight <= 0f || s.Rack == null || s.Rack.data == null) return true;
+            int level = s.Rack.rackLevelIndex;
+            bool topLevel = !SlotRegistry.AllSlots.Any(o => o.Rack != null && o.Aisle == s.Aisle && o.Bay == s.Bay && o.Rack.rackLevelIndex > level);
+            return topLevel || palletHeight <= s.Rack.data.objHeight + 0.01f;
         }
 
         // The walk-to-machine order given at hire time sometimes never takes (observed 2026-10-24: both operators patrolled while their

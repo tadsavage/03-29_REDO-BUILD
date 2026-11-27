@@ -139,3 +139,13 @@ changes nothing, and the game speed is the player's. Score, bug monitor and repo
   and book the second outbound later. Implementation sketch: in `BookDock`, allow an extra overlapping outbound only if `TryStockReadyHour` says the
   stock is on hand now (readyHour <= nowHours) for every line, and `nowHours + combined turn hours` (all overlapping orders' picklists divided by selectors)
   is before the earlier trailer's start.
+
+## Slotting: every item gets a pick face when its trailer is coming (Tad, 2026-11-27)
+
+**Rule:** HAL (like a player) checks and assigns pick faces for items EVERY time stock is arriving, not once at setup. An item that is owed to an
+order, inbound on a PO, or on hand with no pick face gets the next free pick slot (walking order, one the pallet fits under). Without a face the
+reach truck has nowhere to put the item for picking and a case-pick order finds "every pick face is empty - handing the task back" for ever.
+**Why:** blocks 77-79 had EMPTY `slotAssignments` (HAL's one-shot build-time assignment gave up silently), so 2 big Seafood orders (~470 cs each)
+picked 0 cases and were fined; blocks 75-76 had assignments and shipped.
+**Code:** `PlaytestBot.EnsurePickFaces` (every `Decide` tick, after `ReleaseOrders`); `HalBuilder` no longer assigns pick slots at build.
+**Check after a block:** `slotAssignments` in `bot_block_N.json` (in `%USERPROFILE%/AppData/LocalLow/SavageDev/Warehouse/Saves`) must not be empty.

@@ -160,7 +160,11 @@ namespace GameCore.Diagnostics
 
             FinishRacking();
             yield return new WaitForSecondsRealtime(1f);
-            AssignPickSlots();
+            // Pick faces are NOT assigned here any more (2026-11-27). The old one-shot blanket assignment ran once, gave up silently when the rack
+            // slots / vendor items were not registered yet (blocks 77-79: no pick face for any SKU, so every case-pick order found "every pick
+            // face is empty" and nothing shipped), and used up every pick slot on SKUs nobody ordered. PlaytestBot.EnsurePickFaces gives each
+            // SKU a face as it is owed, inbound or on hand, like a player slotting an item when its trailer arrives.
+            yield return new WaitForSecondsRealtime(1f);
 
             yield return Hire(s);
 
@@ -295,16 +299,6 @@ namespace GameCore.Diagnostics
             var init = FindAnyObjectByType<AisleInitializer>();
             if (init != null) init.RefreshAllRackLabelsAfterLoad();
             SystemsLogWindow.LogHal($"HAL 9000: aisle 1 commissioned ({applied} rack positions labelled).");
-        }
-
-        void AssignPickSlots()
-        {
-            if (!ServiceLocator.TryGet<InventoryService>(out var inv)) return;
-            var skus = ItemAvailability.Build().Where(r => r.VendorId != null && r.CasesPerPallet > 0).Select(r => r.SkuId).Distinct().ToList();
-            var picks = SlotRegistry.PickSlots.Select(p => p.Address).OrderBy(a => a).ToList();
-            if (skus.Count == 0 || picks.Count == 0) { SystemsLogWindow.LogHal("HAL 9000: no pick slots or SKUs available to assign yet."); return; }
-            for (int i = 0; i < picks.Count; i++) SlotAssignmentService.Assign(picks[i], skus[i % skus.Count]);
-            SystemsLogWindow.LogHal($"HAL 9000: {picks.Count} pick slots assigned across {Mathf.Min(skus.Count, picks.Count)} items.");
         }
 
         // ── crew ──

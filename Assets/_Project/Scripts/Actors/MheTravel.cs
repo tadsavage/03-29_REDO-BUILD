@@ -28,6 +28,8 @@ namespace GameCore.Actors
         private const float RackClearance = 1.15f;
         /// <summary>Within this distance of the leg's goal the rack clamp is off (the caller's precise drive finishes the approach).</summary>
         private const float GoalNoClampMeters = 1.5f;
+        /// <summary>A stalled leg that is this close to its goal counts as arrived (the caller's precise drive does the last bit).</summary>
+        private const float NearGoalAccept = 1.2f;
         public const float TimeoutReal = 180f;
         private const float TurnDegPerSec = 140f;
         private const int MaxReasserts = 12;
@@ -227,7 +229,15 @@ namespace GameCore.Actors
                                 stallAt = Time.time;
                                 if (++stallRounds >= StallGiveUpRounds)
                                 {
-                                    Debug.LogWarning($"[MheTravel] '{machine.name}' {phase}: stalled {StallSeconds * StallGiveUpRounds:0} s, {left:0.0} m short of {goal} - giving the leg up.");
+                                    // Stopped within a metre of the goal (block 80: a jack 0.9 m from its bay anchor, path complete, never moved):
+                                    // the caller's own precise drive finishes the approach anyway, so this is an arrival, not a failure.
+                                    if (left <= NearGoalAccept)
+                                    {
+                                        Debug.Log($"[MheTravel] '{machine.name}' {phase}: stalled {left:0.0} m short of {goal} - close enough, accepted as arrived. {Surroundings(machine, agent)}");
+                                        ok = true;
+                                        break;
+                                    }
+                                    Debug.LogWarning($"[MheTravel] '{machine.name}' {phase}: stalled {StallSeconds * StallGiveUpRounds:0} s, {left:0.0} m short of {goal} - giving the leg up. {Surroundings(machine, agent)}");
                                     break;
                                 }
                                 agent.avoidancePriority = Mathf.Clamp(PriorityFor(machine) + UnityEngine.Random.Range(-6, 7), 1, 99);
@@ -263,6 +273,36 @@ namespace GameCore.Actors
                 }
             }
             onDone?.Invoke(ok);
+        }
+
+        /// <summary>What is around a stalled machine: its agent's own state, other agents and obstacles within 4 m (so the next stall says WHY).</summary>
+        private static string Surroundings(Transform machine, NavMeshAgent agent)
+        {
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                sb.Append($"[vel {agent.velocity.magnitude:0.00}, want {agent.desiredVelocity.magnitude:0.00}, stopped {agent.isStopped}, prio {agent.avoidancePriority}, r {agent.radius:0.00}] near:");
+                Vector3 p = machine.position;
+                int n = 0;
+                foreach (var a in UnityEngine.Object.FindObjectsByType<NavMeshAgent>(FindObjectsSortMode.None))
+                {
+                    if (a == null || a == agent || n >= 6) continue;
+                    float d = new Vector2(a.transform.position.x - p.x, a.transform.position.z - p.z).magnitude;
+                    if (d > 4f) continue;
+                    sb.Append($" agent {a.name}({(a.enabled ? "on" : "off")}) {d:0.0}m r{a.radius:0.00};"); n++;
+                }
+                foreach (var o in UnityEngine.Object.FindObjectsByType<NavMeshObstacle>(FindObjectsSortMode.None))
+                {
+                    if (o == null || !o.enabled || n >= 10 || o.transform.IsChildOf(machine)) continue;
+                    Vector3 c = o.transform.TransformPoint(o.center);
+                    float d = new Vector2(c.x - p.x, c.z - p.z).magnitude;
+                    if (d > 3f || o.carving) continue;   // carving obstacles are already in the mesh; list the ones agents merely avoid
+                    sb.Append($" obstacle {o.name} {d:0.0}m {o.size.x:0.0}x{o.size.z:0.0};"); n++;
+                }
+                if (n == 0) sb.Append(" nothing");
+            }
+            catch (System.Exception e) { sb.Append(" (diagnostic failed: " + e.Message + ")"); }
+            return sb.ToString();
         }
 
         private static string AgentCalc(NavMeshAgent a, Vector3 g) { var p = new NavMeshPath(); bool r = a.CalculatePath(g, p); return r + "/" + p.status; }
