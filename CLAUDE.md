@@ -16,6 +16,15 @@ with no orders drops out, neither = 0. Rule text lives in the `warehouse-strateg
 - Next block, check: the On-time goal row reads "out N% over P plt ... | in N%, X of Y POs at a door on time"; the hover lists late orders; an inbound late
   docking writes "inbound PO got a door late (N min past its due time)" in the report's late-orders list.
 
+**Score box (commit `f765aa55c`, compiled 0 errors, NOT yet seen in game).** `PlayerScoreHud` (the live player score at the top / docked in the tray) now has
+two more lines: a countdown "DAY N OF 3 - 1d 06h 12m left" (game time to midnight ending the last day, `BlockStartDay + daysPerBlock`; orange in the last
+6 game hours) and "HAL's best" + "Your best" (best finished player block from `PlaytestBot.LoadPlayerHistory`, now public; green "NEW BEST PACE" while
+the live score is above it). Box is 300 x 146 floating, 260 x 116 docked. Player blocks are 3 days (`PlaytestBotSettings.asset` daysPerBlock 3, unchanged).
+- **The block stops itself** (Tad asked): `PlaytestBot.Update` checks every frame; at midnight ending day 3 `FinishBlock` scores, writes `Block_N.md` + the
+  player scoreboard, sets `Time.timeScale = 0` and shows the results. Safe to stop Play after that. Stopping Play EARLIER leaves the block unscored unless
+  the game was saved (the block rides in the save and resumes on load).
+- Block 1101 (74.3) never finished, so "Your best" shows 1100's 63.8 unless 1101 was recorded.
+
 ## PASS-OFF — 2026-11-27 night (read this FIRST; the afternoon section below still holds the start-up steps and HAL block plan)
 
 **Where we are.** Branch `polyperfect-men`, all code committed + pushed (last code commit `db4ce0528`). Tad played player blocks 1100-1101 on
