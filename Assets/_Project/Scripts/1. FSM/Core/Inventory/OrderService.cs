@@ -501,7 +501,10 @@ namespace GameCore.Inventory
         {
             if (order == null || _workQueue == null) return false;
             if (order.Status == OrderData.OrderStatus.Shipped || order.Status == OrderData.OrderStatus.Cancelled) return false;
-            if (order.UsesPalletPlan) return false;   // the plan already files every pallet; a short pick becomes SCRATCHES instead
+            // A PLANNED order used to return here ("a short pick becomes SCRATCHES instead"), but SCRATCHES is gone: cases a planned pallet
+            // could not take (its face was empty when the trip passed, or behind it - trips only go forward) were never picked although the
+            // face held stock, and the order shipped short (block 1100: 6 of 13 bug kinds, "Still owed ... (behind)"). Once every planned
+            // pallet is done (no live OrderSelect task, checked next), the stocked remainder gets one ordinary continuation trip like any order.
             if (LiveTasksForOrder(order.OrderId).Any(t => t.Type == WorkTaskType.OrderSelect)) return false;
 
             // Split what is owed into cases a selector can take from a pick face RIGHT NOW and cases whose pick face ran dry but

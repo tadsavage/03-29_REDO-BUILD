@@ -540,7 +540,8 @@ namespace GameCore.Actors
                         break;
                     }
                     // Nothing picked at all: put the jack back and hand the order back to the player.
-                    Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for any line item and nothing was picked — returning it to Open.");
+                    if (WillReallyReturnToOpen())
+                        Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for any line item and nothing was picked — returning it to Open.");
                     DestroyEmptyPallets();
                     ReleaseJack();
                     ReturnOrderToOpen();

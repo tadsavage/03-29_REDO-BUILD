@@ -232,7 +232,10 @@ namespace GameCore.Actors
                     // It returns to Open (unreleased) and RELEASES ITS STAGE, so the door isn't held
                     // hostage by an order that never put a pallet in it. The player then decides —
                     // cancel it, or chase the stock down and release it again.
-                    Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for any line item and nothing was picked — returning it to Open and releasing Stage {_currentOrder.AssignedDoorNumber}.");
+                    // Only a real return to Open is worth a warning: ReturnOrderToOpen ships an order whose earlier trips already staged
+                    // freight, and stands down a helper while others work it (block 1100 logged "returning it to Open" for a 488/504 order).
+                    if (WillReallyReturnToOpen())
+                        Debug.LogWarning($"[OrderSelectionTaskDriver] Order {_currentOrder.OrderId} ({_currentOrder.CustomerName}) has no reachable pick location for any line item and nothing was picked — returning it to Open and releasing Stage {_currentOrder.AssignedDoorNumber}.");
                     ReturnOrderToOpen();
                 }
                 return;
@@ -877,6 +880,11 @@ namespace GameCore.Actors
             return true;
         }
 
+        /// <summary>True when <see cref="ReturnOrderToOpen"/> will actually un-release the order (not stand down a helper or ship staged freight).</summary>
+        private bool WillReallyReturnToOpen()
+            => _currentOrder != null && _currentOrder.TotalUnitsPicked <= 0
+               && !(_orderService.OtherSelectorsOnOrder(_currentOrder, _currentTask) > 0 && _pallets.Sum(p => p != null ? p.TotalCases : 0) == 0);
+
         private void ReturnOrderToOpen()
         {
             var task = _currentTask;
@@ -895,8 +903,9 @@ namespace GameCore.Actors
             {
                 foreach (var p in _pallets) if (p != null) Destroy(p.gameObject);
                 _pallets.Clear();
-                Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderNumber} ({order.CustomerName}) has nothing left to pick " +
-                                 $"on this trip; earlier trips staged {order.TotalUnitsPicked}/{order.TotalUnits} - it ships with that.");
+                // A plain log: FinishOrderCleanup below files a follow-up trip for any owed cases that still have stock.
+                Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderNumber} ({order.CustomerName}) has nothing left to pick " +
+                          $"on this trip; earlier trips staged {order.TotalUnitsPicked}/{order.TotalUnits}.");
                 order.Status = TripEndStatus(order, OrderData.OrderStatus.Staged, task);
                 FinishOrderCleanup(task);
                 return;
@@ -1144,24 +1153,38 @@ namespace GameCore.Actors
         {
             if (order == null) return;
             string remaining = DescribeRemaining(order);
-            if (OwedFaceHasStock(order))
+            if (OwedFaceHasStock(order, out bool aheadOfTrip) && !aheadOfTrip)
+                // Every stocked face still owed is BEHIND this trip (trips only go forward, Tad 2026-10-18) or its cases belong to another selector:
+                // that is the one-way rule working, not a fault. The follow-up trip (FinishOrderCleanup -> FileContinuationSelect) picks them.
+                Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderNumber} ({order.CustomerName}): the rest of the order is behind this trip or held by other selectors - staging what is aboard at {order.TotalUnitsPicked}/{order.TotalUnits}; a follow-up trip picks the rest. Owed: {remaining}");
+            else if (OwedFaceHasStock(order, out _))
                 Debug.LogWarning($"[OrderSelectionTaskDriver] Order {order.OrderId} ({order.CustomerName}) has no reachable pick location for its remaining line item(s) — staging short at {order.TotalUnitsPicked}/{order.TotalUnits}. Still owed (pick faces with stock): {remaining}");
             else
                 Debug.Log($"[OrderSelectionTaskDriver] Order {order.OrderNumber} ({order.CustomerName}): the pick faces for the rest of the order are empty (stock-out) - staging what is aboard at {order.TotalUnitsPicked}/{order.TotalUnits}. Owed: {remaining}");
         }
 
         /// <summary>True when some line still owed to a case picker has a pick face holding stock right now.</summary>
-        private bool OwedFaceHasStock(OrderData order)
+        private bool OwedFaceHasStock(OrderData order) => OwedFaceHasStock(order, out _);
+
+        /// <summary><paramref name="aheadOfTrip"/>: at least one of those stocked faces is still AHEAD of this trip (not behind its
+        /// furthest stop), so the trip could have reached it - a real fault rather than the one-way rule.</summary>
+        private bool OwedFaceHasStock(OrderData order, out bool aheadOfTrip)
         {
+            aheadOfTrip = false;
+            bool any = false;
             string taskId = _currentTask != null ? _currentTask.TaskId : null;
             foreach (var li in order.LineItems)
             {
                 if (li == null || li.IsFullyPicked) continue;
                 if (_orderService.SelectableRemaining(order, li, taskId) <= 0) continue;
                 foreach (var addr in SlotAssignmentService.GetSlotsForSku(li.SkuId))
-                    if (LocationRegistry.TryGet(addr, out var loc) && loc != null && loc.Quantity > 0) return true;
+                {
+                    if (!LocationRegistry.TryGet(addr, out var loc) || loc == null || loc.Quantity <= 0) continue;
+                    any = true;
+                    if (OrderPickPath.SequenceKey(addr) >= _pickFloorKey) { aheadOfTrip = true; return true; }
+                }
             }
-            return false;
+            return any;
         }
 
         private string DescribeRemaining(OrderData order)
