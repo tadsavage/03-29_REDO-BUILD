@@ -1551,7 +1551,8 @@ namespace GameCore.Diagnostics
                         ? t.Type == WorkTaskType.OrderSelect
                         : slot.GetComponent<GameCore.Actors.ReachTruckOperator>() != null
                             ? (t.Type == WorkTaskType.Putaway || t.Type == WorkTaskType.PalletPick || t.Type == WorkTaskType.Replenish)
-                            : t.Type == WorkTaskType.Load));
+                            // A Load task counts only once its trailer is docked: before that no dock stocker can take it (block 1101).
+                            : t.Type == WorkTaskType.Load && TrailerLoadController.LoadTaskHasTrailer(t)));
                     if (mine == 0) { _vehicleTrack.Remove(slot); continue; }
                     var p = slot.transform.position;
                     if (_vehicleTrack.TryGetValue(slot, out var tr) && Vector3.Distance(tr.pos, p) < 0.3f)

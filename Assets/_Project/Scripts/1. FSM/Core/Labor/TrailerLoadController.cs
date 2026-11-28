@@ -414,6 +414,18 @@ namespace GameCore.Labor
             return null;
         }
 
+        /// <summary>True when a dock stocker could start this Load task right now: its trailer is docked and waiting to be loaded.
+        /// The SAME test the poll above uses before it hands a Load task out. A Load task filed before its truck arrives stays
+        /// Available with nothing to do (block 1101: OG7033's task waited from day 6 for a truck gated at d7 08:14, and the bot
+        /// called the idle dock stocker "stationary while work waits" five times).</summary>
+        internal static bool LoadTaskHasTrailer(WorkTask task)
+        {
+            if (task == null || task.Type != WorkTaskType.Load || !TryParseLaneAddress(task.FromLocation, out int door, out _)) return false;
+            int dockDoor = int.TryParse(task.ToLocation, out int dd) && dd > 0 ? dd : door;
+            var truck = !string.IsNullOrEmpty(task.AppointmentId) ? FindTruckForAppointment(task.AppointmentId) : FindDockedOutboundTruck(dockDoor);
+            return truck != null && truck.AwaitingLoad;
+        }
+
         private static TruckController FindDockedOutboundTruck(int doorNumber)
         {
             foreach (var t in TrucksThisFrame())
