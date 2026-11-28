@@ -803,6 +803,21 @@ namespace GameCore.Inventory
         /// OutboundStackTier) and OutboundOccupiedCells claims a whole cell per staged pallet.
         /// 0 if the lane can't be staged into at all.
         /// </summary>
+        /// <summary>Every slot of one outbound lane that still has a free tier for this order, door-outward (slot 1 first). Same gates and
+        /// the same per-cell test as <see cref="TryGetNextFreeSlot"/>; the caller decides which of them a machine can actually reach.</summary>
+        public List<LaneNamingService.LaneSlot> FreeStagingSlotsInLane(int doorNumber, string lane, string forOrderId = null)
+        {
+            var result = new List<LaneNamingService.LaneSlot>();
+            if (string.IsNullOrEmpty(lane) || !LaneAllowsPicking(doorNumber, lane)) return result;
+            if (StagingLaneAssignmentService.LaneHasInboundStock(this, doorNumber, lane)) return result;
+            int maxHeight = Mathf.Max(1, LaneConfigRegistry.Get(doorNumber, lane).MaxStackHeight);
+            var laneSlots = LaneNamingService.GetLane(doorNumber, lane);
+            var outboundByCell = OutboundPalletsByCell(laneSlots);
+            foreach (var s in laneSlots)
+                if (OccupiedTiersAt(s.Cell, outboundByCell, forOrderId) < maxHeight) result.Add(s);
+            return result;
+        }
+
         public int CountFreeStagingSlotsInLane(int doorNumber, string lane, string forOrderId = null)
         {
             if (string.IsNullOrEmpty(lane) || !LaneAllowsPicking(doorNumber, lane)) return 0;

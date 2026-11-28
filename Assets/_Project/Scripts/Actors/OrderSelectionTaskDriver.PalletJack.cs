@@ -883,13 +883,22 @@ namespace GameCore.Actors
                     // 2026-11-27 (OG3016): a slot with freight on BOTH sides (3A-2 between 3A-1 and 3A-3) cannot be backed into from either
                     // end. The selector used to walk off and leave the cases on the jack; now they stay aboard and re-resolve, like a full lane.
                     var tipNow = _pallets.FirstOrDefault(p => p != null)?.gameObject;
-                    int sn = slot.Slot;
-                    if (!StageFromExitEndOnly
-                        && LaneSlotsBlocked(slot.DoorNumber, resolvedLane, s => s > sn, tipNow)
-                        && LaneSlotsBlocked(slot.DoorNumber, resolvedLane, s => s < sn, tipNow))
+                    bool boxed = !StageFromExitEndOnly && SlotBoxedIn(slot.DoorNumber, resolvedLane, slot.Slot, tipNow);
+                    // 2026-11-27 (OG7033): the resolver hands out the FIRST slot with a free tier (lanes stack 2 high), so it kept handing
+                    // back the same boxed slot (1A-3 between 1A-2 and 1A-4) and the jack waited for ever. Take a slot the jack can reach
+                    // instead: same lane first, then another lane this order already stages in.
+                    if (boxed && TryFindReachableStagingSlot(order, slot.DoorNumber, resolvedLane, tipNow, out var altDoor, out var altLane, out var alt, out var altPos))
+                    {
+                        ThrottledLog.Warn("stage-reroute-" + name, $"[OrderSelectionTaskDriver] '{name}': staging slot {slot.Name} for order {order.OrderNumber} has freight on both sides - staging in {alt.Name} instead.", 60f);
+                        resolvedLane = altLane; slot = alt; slotPos = altPos;
+                        if (LaneNamingService.TryGetLaneGeometry(altDoor, altLane, out var altGeo)) depthAxis = altGeo.DepthAxis;
+                        if (!(altDoor == order.EffectiveStagingDoor && altLane == order.AssignedLane)) order.AddOverflowLane(altDoor, altLane);
+                        boxed = false;
+                    }
+                    if (boxed)
                     {
                         fail = $"slot {slot.Name} has freight on both sides";
-                        ThrottledLog.Warn("stage-boxed-" + name, $"[OrderSelectionTaskDriver] '{name}': staging slot {slot.Name} for order {order.OrderNumber} has freight on both sides - waiting on the jack and resolving again.", 60f);
+                        ThrottledLog.Warn("stage-boxed-" + name, $"[OrderSelectionTaskDriver] '{name}': staging slot {slot.Name} for order {order.OrderNumber} has freight on both sides and no reachable slot is free - waiting on the jack and resolving again.", 60f);
                     }
                     // CLAIM the lane now, before the drive to the mouth (InventoryService.TryClaimLane). Nothing yields between the
                     // resolve and this claim, so the slot is still ours. While another machine holds the lane we wait and re-resolve.
@@ -2096,6 +2105,40 @@ namespace GameCore.Actors
         /// stacking code uses: the top of what's there sits above the bare lane surface (1.15).</summary>
         private static bool CellHasFreight(int door, string lane, Vector2Int cell, GameObject self)
             => TrailerOffloadController.StagingDropBaseY(door, lane, cell, self) > 1.15f + 0.05f;
+
+        /// <summary>Freight on both sides of this slot: a jack cannot back into it from either end.</summary>
+        private static bool SlotBoxedIn(int door, string lane, int slotNo, GameObject self)
+            => LaneSlotsBlocked(door, lane, s => s > slotNo, self) && LaneSlotsBlocked(door, lane, s => s < slotNo, self);
+
+        /// <summary>A free staging slot a jack can actually back into (no freight between it and one end of its lane). Tries
+        /// <paramref name="lane"/> first, then every other lane this order already stages in that has room for the whole load.
+        /// Within a lane: the first slot from the door with nothing beyond it (staged from the exit end, keeps the lane dense),
+        /// else the first with nothing between it and the door.</summary>
+        private bool TryFindReachableStagingSlot(OrderData order, int door, string lane, GameObject tip,
+                                                 out int foundDoor, out string foundLane, out LaneNamingService.LaneSlot found, out Vector3 pos)
+        {
+            foundDoor = door; foundLane = lane; found = default; pos = default;
+            var candidates = new List<(int door, string lane)> { (door, lane) };
+            foreach (var l in order.AllStagingLanes())
+                if (!candidates.Contains(l)) candidates.Add(l);
+            int need = Mathf.Max(1, LivePalletCount());
+            foreach (var (d, l) in candidates)
+            {
+                if (string.IsNullOrEmpty(l)) continue;
+                if (!(d == door && l == lane) && _inventoryService.CountFreeStagingSlotsInLane(d, l, order.OrderId) < need) continue;
+                var free = _inventoryService.FreeStagingSlotsInLane(d, l, order.OrderId);
+                foreach (bool fromExit in new[] { true, false })
+                    foreach (var s in free)
+                    {
+                        int n = s.Slot;
+                        if (fromExit ? LaneSlotsBlocked(d, l, x => x > n, tip) : LaneSlotsBlocked(d, l, x => x < n, tip)) continue;
+                        if (!LaneNamingService.TryGetSlotWorldPos(s.Cell, out pos)) continue;
+                        foundDoor = d; foundLane = l; found = s;
+                        return true;
+                    }
+            }
+            return false;
+        }
 
         private static bool LaneSlotsBlocked(int door, string lane, System.Func<int, bool> slotFilter, GameObject self)
         {
