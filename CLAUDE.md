@@ -23,7 +23,23 @@ the live score is above it). Box is 300 x 146 floating, 260 x 116 docked. Player
 - **The block stops itself** (Tad asked): `PlaytestBot.Update` checks every frame; at midnight ending day 3 `FinishBlock` scores, writes `Block_N.md` + the
   player scoreboard, sets `Time.timeScale = 0` and shows the results. Safe to stop Play after that. Stopping Play EARLIER leaves the block unscored unless
   the game was saved (the block rides in the save and resumes on load).
-- Block 1101 (74.3) never finished, so "Your best" shows 1100's 63.8 unless 1101 was recorded.
+- Block 1101 (74.3) never finished, so "Your best" shows 1100's 63.8 unless 1101 was recorded. (Superseded: scores were reset, below.)
+
+**Scores reset + HAL challenge from slot 7 (commits `ed8e2f53d` code, `afe781d30` archive; compiled 0 errors, NOT yet seen in game).**
+- **Reset (Tad asked):** every old `Block_N.md`, `BugLog_Block_N.md`, `scoreboard.json`, `player_scoreboard.json`, `Scoreboard.md`, `changes.json`, `builds.csv`
+  MOVED (not deleted) to `Assets/_Project/Docs/Playtest/Archive_old_scoring_2026-11-28/`. Old bests there: HAL 82.6 (block 80), Tad 63.8 (block 1100).
+  Numbering restarts: HAL's next block is 1, the player's is 1001 (numbers come from the scoreboards). Do NOT move the old files back: new blocks would collide.
+- **Old saved blocks are not resumed:** `BotState.scoringVersion` (`PlaytestBot.ScoringVersion` = 2). A save whose player block is older (e.g. slot 1
+  `Built_Hired` holds block 1091) logs "...from before the 2026-11-28 score reset - not resuming it" and a fresh block starts. Bump `ScoringVersion` on the next reset.
+- **Same conditions for HAL (Tad asked):** a FRESH player block (`StartBlock(true)`, not a resume) saves the game to **slot 7** ("HAL challenge: start of
+  block N", `PlaytestBot.ChallengeSlot`, `SaveChallengeStart`) and logs "your starting point is saved in Slot 7". `PlaytestBotSettings.asset` now has
+  `startFromSlot: 7`, so INITIATE HAL 9000 / NEW COMPANY loads slot 7 and HAL plays its own 3-day block from the same warehouse, stock, crew, cash, orders
+  and clock (HalBuilder `fromSlot` path; its `StartBlock()` overrides the player state in the save). No slot 7 file = builds a new company as before.
+  Slot 7 is overwritten at the start of every fresh player block: never keep a manual save there. Same rules both sides: 3 days, same scoring, planner off.
+  Difference left: HAL runs at `gameSpeed` 3x.
+- **Start-up note change:** the older start-up steps below set `s.startFromSlot = 0` in memory for a NEW-company HAL soak; that still works. For a
+  head-to-head with Tad, leave it at 7 (the asset value).
+- Next: Tad plays a 3-day block (check the slot 7 log line and the save window), then HAL runs from slot 7; compare the two reports.
 
 ## PASS-OFF — 2026-11-27 night (read this FIRST; the afternoon section below still holds the start-up steps and HAL block plan)
 
