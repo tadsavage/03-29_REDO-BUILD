@@ -193,7 +193,7 @@ namespace GameCore.Diagnostics
 
         string PlayerScoreFile() => Path.Combine(Folder(), "player_scoreboard.json");
 
-        List<PlaytestBlockResult> LoadPlayerHistory()
+        public List<PlaytestBlockResult> LoadPlayerHistory()
         {
             var l = new List<PlaytestBlockResult>();
             try { if (File.Exists(PlayerScoreFile())) l.AddRange(JsonUtility.FromJson<PlaytestScoreboard>(File.ReadAllText(PlayerScoreFile())).blocks); } catch { }

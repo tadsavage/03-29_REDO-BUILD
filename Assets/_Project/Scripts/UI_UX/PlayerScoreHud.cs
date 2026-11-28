@@ -18,20 +18,20 @@ using GameCore.Services;
 /// </summary>
 public static class PlayerScoreHud
 {
-    const float HudWidth = 260f, HudHeight = 118f;
+    const float HudWidth = 300f, HudHeight = 146f;
     static readonly Color Gold = new Color(1f, 0.82f, 0.25f), Green = new Color(0.4f, 0.92f, 0.5f), Ink = new Color(0.93f, 0.96f, 1f),
                           Dim = new Color(0.62f, 0.74f, 0.84f), Orange = new Color(0.71f, 0.45f, 0.23f), Purple = new Color(0.72f, 0.40f, 1f), Navy = new Color(0.08f, 0.11f, 0.16f, 0.95f);
 
     static VisualElement _hud, _modal;
-    static Label _title, _score, _sub;
+    static Label _title, _score, _sub, _count, _mine;
     static Label _timeLabel;
-    static float _halBest = -1f; static int _halBestBlock; static int _bestForBlockNo = -1;
+    static float _halBest = -1f, _myBest = -1f; static int _halBestBlock, _myBestBlock; static int _bestForBlockNo = -1;
     static GameObject _driver;
     // Drag-in/drag-out of the bottom tray (2026-11-08): floats at the top centre by default; drag it onto the
     // tray to dock it (RIGHT zone by default), drag it off to float it anywhere.
     static DockableHudCard _card;
     static bool _cardPlaced;
-    const float DockedWidth = 220f, DockedHeight = 100f;
+    const float DockedWidth = 260f, DockedHeight = 116f;
 
     // ── bootstrap ─────────────────────────────────────────────────────────────
 
@@ -159,6 +159,9 @@ public static class PlayerScoreHud
             var hal = bot.LoadHalHistory();
             var best = hal.Count > 0 ? hal.OrderByDescending(b => b.score).First() : null;
             _halBest = best != null ? best.score : -1f; _halBestBlock = best != null ? best.block : 0;
+            var mineH = bot.LoadPlayerHistory();
+            var myBest = mineH.Count > 0 ? mineH.OrderByDescending(b => b.score).First() : null;
+            _myBest = myBest != null ? myBest.score : -1f; _myBestBlock = myBest != null ? myBest.block : 0;
         }
 
         _hud.style.display = DisplayStyle.Flex;
@@ -168,7 +171,21 @@ public static class PlayerScoreHud
         _score.style.color = ahead ? Gold : Color.white;
         _title.text = ahead ? "YOUR SCORE  -  BEATING HAL!" : "YOUR SCORE";
         _title.style.color = ahead ? Gold : Dim;
+        // Countdown to the block's end: it finishes at midnight starting day (start day + days per block). Game time, so it runs at the game speed.
+        int days = Mathf.Max(1, bot.S != null ? bot.S.daysPerBlock : 3);
+        if (ServiceLocator.TryGet<SimulationTimeService>(out var clock) && clock != null)
+        {
+            long left = (long)(bot.BlockStartDay + days) * 1440 - ((long)clock.Day * 1440 + clock.Hour * 60 + clock.Minute);
+            if (left < 0) left = 0;
+            int dayNo = Mathf.Clamp(clock.Day - bot.BlockStartDay + 1, 1, days);
+            _count.text = $"DAY {dayNo} OF {days}   -   {left / 1440}d {left % 1440 / 60:00}h {left % 60:00}m left";
+            _count.style.color = left < 6 * 60 ? Orange : Ink;
+        }
+        else _count.text = "";
         _sub.text = _halBest >= 0f ? $"HAL's best: {_halBest:0.0}  (block {_halBestBlock})" : "HAL has no recorded block yet";
+        bool beatingMine = _myBest >= 0f && s > _myBest;
+        _mine.text = _myBest >= 0f ? $"Your best: {_myBest:0.0}  (block {_myBestBlock})" + (beatingMine ? "  - NEW BEST PACE" : "") : "Your best: no finished block yet";
+        _mine.style.color = beatingMine ? Green : Dim;
         _hud.style.borderTopColor = _hud.style.borderBottomColor = _hud.style.borderLeftColor = _hud.style.borderRightColor = ahead ? Gold : Purple;
         // Follow the Day box only until the player has put the box somewhere themselves.
         if (!_card.Docked && !_card.HasSavedFloatPosition && !_card.Dragger.IsDragging) Place(layer);
@@ -219,8 +236,10 @@ public static class PlayerScoreHud
         _hud.style.alignItems = Align.Center; _hud.style.justifyContent = Justify.Center;
         _title = L(13, Dim, true); _title.style.height = 20;
         _score = L(62, Color.white, true); _score.style.height = 70; _score.style.width = HudWidth - 16;
-        _sub = L(12, Dim, false); _sub.style.height = 18;
-        _hud.Add(_title); _hud.Add(_score); _hud.Add(_sub);
+        _count = L(13, Ink, true); _count.style.height = 18;
+        _sub = L(12, Dim, false); _sub.style.height = 16;
+        _mine = L(12, Dim, false); _mine.style.height = 16;
+        _hud.Add(_title); _hud.Add(_score); _hud.Add(_count); _hud.Add(_sub); _hud.Add(_mine);
         _hud.RegisterCallback<PointerDownEvent>(e => { if (e.button == 0 && e.clickCount == 2) { HalSummaryWindow.Toggle(); e.StopPropagation(); } });
         layer.Add(_hud);
         _hud.BringToFront();
@@ -243,12 +262,14 @@ public static class PlayerScoreHud
         _hud.style.marginRight = docked ? 8 : 0;
         if (_score != null)
         {
-            _score.style.fontSize =             docked ? 44 : 62;
-                        _score.style.height = docked ? 50 : 70;
+            _score.style.fontSize = docked ? 40 : 62;
+            _score.style.height = docked ? 44 : 70;
             _score.style.width = (docked ? DockedWidth : HudWidth) - 16;
         }
         if (_title != null) { _title.style.height = docked ? 16 : 20; _title.style.fontSize = docked ? 10 : 13; }
-        if (_sub != null) { _sub.style.height = docked ? 14 : 18; _sub.style.fontSize = docked ? 10 : 12; }
+        if (_sub != null) { _sub.style.height = docked ? 13 : 16; _sub.style.fontSize = docked ? 10 : 12; }
+        if (_mine != null) { _mine.style.height = docked ? 13 : 16; _mine.style.fontSize = docked ? 10 : 12; }
+        if (_count != null) { _count.style.height = docked ? 14 : 18; _count.style.fontSize = docked ? 11 : 13; }
     }
 
     // ── the results ───────────────────────────────────────────────────────────
