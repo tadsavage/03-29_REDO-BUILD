@@ -423,7 +423,8 @@ public class ToolsWindowController : MonoBehaviour, IUIPanel
         if (!_visible || _window == null) return false;
         var panel = _doc.rootVisualElement.panel;
         if (panel == null) return false;
-        var mousePanel = RuntimePanelUtils.ScreenToPanel(panel, UnityEngine.InputSystem.Mouse.current.position.ReadValue());
+        var raw = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+        var mousePanel = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(raw.x, Screen.height - raw.y));   // Input System y is bottom-up
         return _window.worldBound.Contains(mousePanel);
     }
 

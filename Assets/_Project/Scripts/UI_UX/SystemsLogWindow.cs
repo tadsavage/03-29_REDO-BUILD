@@ -758,7 +758,8 @@ public class SystemsLogWindow : MonoBehaviour
         if (panel == null) return;
 
         Vector2 screenPos = Mouse.current.position.ReadValue();
-        Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(panel, screenPos);
+        // Input System y is up from the bottom; panels count y down from the top.
+        Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(screenPos.x, Screen.height - screenPos.y));
         if (!_panel.worldBound.Contains(panelPos)) return;
 
         float scroll = Mouse.current.scroll.ReadValue().y;

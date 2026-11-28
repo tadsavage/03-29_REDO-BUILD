@@ -43,7 +43,11 @@ public static class UIInputGuard
 
         if (Mouse.current == null) return false;
         RefreshDocs();
-        var screenPos = Mouse.current.position.ReadValue();
+        // Input System screen space has y UP from the bottom; ScreenToPanel wants y DOWN from the top (same flip as BuildMenuUI.TryScreenToPanel).
+        // Unflipped, every UI element blocked the world in a band MIRRORED top-to-bottom: a pallet card in the upper half froze the camera
+        // in an empty patch of floor below it, while the card itself let clicks through (Tad, 2026-11-27).
+        var raw = Mouse.current.position.ReadValue();
+        var screenPos = new Vector2(raw.x, Screen.height - raw.y);
         foreach (var doc in _cachedDocs)
         {
             if (doc == null || doc.rootVisualElement?.panel == null) continue;
