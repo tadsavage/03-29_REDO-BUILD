@@ -238,11 +238,30 @@ namespace GameCore.Diagnostics
                 // The player sets the speed. HAL only watches and scores.
                 SystemsLogWindow.LogHal($"HAL 9000 is watching. Your block {_blockNo - 1000}, day {_startDay}, cash ${_startCash:N0}. {S.daysPerBlock} days. Good luck.");
                 Debug.LogWarning($"[PlaytestBot] PLAYER block {_blockNo} started on day {_startDay}, cash ${_startCash:N0}.");
+                SaveChallengeStart();
                 return;
             }
             Time.timeScale = Mathf.Max(0.1f, S.gameSpeed);
             SystemsLogWindow.LogHal($"HAL 9000 initiated. Block {_blockNo}, day {_startDay}, cash ${_startCash:N0}.");
             Debug.LogWarning($"[PlaytestBot] Block {_blockNo} started on day {_startDay} at {S.gameSpeed}x, cash ${_startCash:N0}.");
+        }
+
+        /// <summary>Save slot (numbered like the save window) that holds the start of the player's latest block (Tad, 2026-11-28): HAL's
+        /// "start from saved game" points here, so HAL plays the same 3 days from the same warehouse, stock, crew, cash and orders.</summary>
+        public const int ChallengeSlot = 7;
+
+        /// <summary>A fresh player block just started: write the game as it is now to <see cref="ChallengeSlot"/>. A resumed block does not
+        /// (ImportState), so the slot keeps the block's true start.</summary>
+        void SaveChallengeStart()
+        {
+            var sm = SaveLoadSystem.SaveManager.Instance;
+            if (sm == null) { Debug.LogWarning("[PlaytestBot] No SaveManager - could not save the block's starting point for HAL."); return; }
+            try
+            {
+                sm.SaveToSlot(ChallengeSlot - 1, $"HAL challenge: start of block {_blockNo}");
+                SystemsLogWindow.LogHal($"HAL 9000: your starting point is saved in Slot {ChallengeSlot}. HAL can play the same {S.daysPerBlock} days from it.");
+            }
+            catch (Exception e) { Debug.LogWarning("[PlaytestBot] Saving the block start to slot " + ChallengeSlot + " failed: " + e.Message); }
         }
 
         public void StopBot() { Running = false; AutoObserveSuppressed = true; _status = "stopped"; Debug.LogWarning("[PlaytestBot] Stopped."); }
@@ -269,6 +288,7 @@ namespace GameCore.Diagnostics
             public List<string> finedIds = new();
             // on-time score (2026-11-28); outWeight 0 in an older save = rebuilt from shipped/late below
             public float outCredit, outWeight; public int inOnTime, inLate;
+            public int scoringVersion;   // 0 = written before the 2026-11-28 score reset: not resumed
             public List<string> inJudged = new(); public List<string> inDuePo = new(); public List<long> inDueAt = new();
             public List<string> otLabel = new(), otNote = new(); public List<bool> otIn = new(); public List<float> otW = new(), otCredit = new();
         }
@@ -282,7 +302,7 @@ namespace GameCore.Diagnostics
                 blockNo = _blockNo, startDay = _startDay, startCash = _startCash, startIncome = _startIncome, startRep = _startRep, startInventory = _startInventory, startBorrowed = _startBorrowed, startBuild = _startBuild,
                 shipped = _shipped, shippedOnTime = _shippedOnTime, late = _late, palletsAtStart = _palletsAtStart, cashDipHours = _cashDipHours, cashSamples = _cashSamples,
                 errors = _errors, startKey = _startKey,
-                outCredit = _outCredit, outWeight = _outWeight, inOnTime = _inOnTime, inLate = _inLate,
+                outCredit = _outCredit, outWeight = _outWeight, inOnTime = _inOnTime, inLate = _inLate, scoringVersion = ScoringVersion,
             };
             st.inJudged.AddRange(_inJudged);
             foreach (var kv in _inDue) { st.inDuePo.Add(kv.Key); st.inDueAt.Add(kv.Value); }
@@ -301,6 +321,13 @@ namespace GameCore.Diagnostics
             BotState st;
             try { st = JsonUtility.FromJson<BotState>(json); } catch (Exception e) { Debug.LogWarning("[PlaytestBot] Couldn't read saved block state: " + e.Message); return; }
             if (st == null) return;
+            if (st.scoringVersion < ScoringVersion)
+            {
+                // The scoreboards were reset on 2026-11-28 with the new on-time score: a block saved before that is from the old series.
+                Debug.LogWarning($"[PlaytestBot] The save holds player block {st.blockNo} from before the 2026-11-28 score reset - not resuming it; a fresh block starts.");
+                DropObserverForLoad();
+                return;
+            }
             S = LoadSettings();
             ObserveOnly = true;
             _blockNo = st.blockNo; _startDay = st.startDay; _startCash = st.startCash; _startIncome = st.startIncome; _startRep = st.startRep; _startInventory = st.startInventory; _startBorrowed = st.startBorrowed; _startBuild = st.startBuild;
@@ -1016,6 +1043,8 @@ namespace GameCore.Diagnostics
         //             or within GateToDoorMinutes of checking in if the vendor's driver came in after the slot started (his lateness is
         //             not ours). A truck still waiting past its due time, or one whose driver gave up, counts late. A no-show never counts.
         public const int OutGraceMinutes = 15, OutZeroMinutes = 240;
+        /// <summary>Bumped when scoring changes and the scoreboards are reset (2 = 2026-11-28). A saved player block from an older version is not resumed.</summary>
+        public const int ScoringVersion = 2;
 
         static float LateCredit(long minutesLate)
             => minutesLate <= OutGraceMinutes ? 1f : Mathf.Clamp01(1f - (float)(minutesLate - OutGraceMinutes) / (OutZeroMinutes - OutGraceMinutes));
