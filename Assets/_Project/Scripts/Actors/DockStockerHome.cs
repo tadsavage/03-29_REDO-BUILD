@@ -194,8 +194,10 @@ public static class DockStockerHome
     /// <summary>No traffic knowledge any more (2026-11-20 rework): a restless dock stocker always keeps still.</summary>
     public static bool OtherTrafficNear(EquipmentBattery who, Vector3 pos, float radius) => true;
 
-    /// <summary>No traffic knowledge any more: nobody is ever "waiting on" a parked stocker.</summary>
-    public static bool SomeoneWaitingOn(EquipmentBattery who, float minHeldReal) => false;
+    /// <summary>A machine's travel leg has stalled behind this parked stocker for at least <paramref name="minHeldReal"/> real seconds
+    /// (<see cref="GameCore.Actors.MheTravel.IsHoldingUp"/>). Was a stub (false) after the 2026-11-20 rework, so a stocker parked across the
+    /// apron never made way (block 1101: 65 battery-trip stalls behind one).</summary>
+    public static bool SomeoneWaitingOn(EquipmentBattery who, float minHeldReal) => GameCore.Actors.MheTravel.IsHoldingUp(who, minHeldReal);
 
     private static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
 }

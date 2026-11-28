@@ -55,7 +55,59 @@ namespace GameCore.Actors
 
         private static readonly HashSet<Transform> s_active = new HashSet<Transform>();
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() => s_active.Clear();
+        private static void ResetStatics() { s_active.Clear(); s_heldBy.Clear(); }
+
+        // ── Who is holding whom up (2026-11-27) ──────────────────────────────────────────────────────────────
+        // Block 1101: a dock stocker's battery trip along the dock apron stalled 65 times, 11 m short, beside a second dock stocker parked in its
+        // door pocket (standing box 1.4 x 3.2 m on a ~4.6 m apron). The parked one has a "make way" rule, but DockStockerHome.SomeoneWaitingOn
+        // was a stub (false) since the traffic rework, so it never moved. A stalled leg now records the standing machine in front of it here.
+        /// <summary>Standing machine -> (the machine stalled behind it, real time it was first seen holding it up).</summary>
+        private static readonly Dictionary<Transform, (Transform waiter, float since)> s_heldBy = new Dictionary<Transform, (Transform, float)>();
+        private const float HeldByLook = 4.5f;
+
+        /// <summary>True when a stalled travel leg has been held up by <paramref name="who"/> (standing in its way) for at least
+        /// <paramref name="minHeldReal"/> real seconds.</summary>
+        public static bool IsHoldingUp(Component who, float minHeldReal)
+        {
+            if (who == null || !s_heldBy.TryGetValue(who.transform, out var h)) return false;
+            if (h.waiter == null || !s_active.Contains(h.waiter)) { s_heldBy.Remove(who.transform); return false; }
+            return Time.realtimeSinceStartup - h.since >= minHeldReal;
+        }
+
+        private static void ClearHeldBy(Transform waiter)
+        {
+            if (s_heldBy.Count == 0) return;
+            List<Transform> drop = null;
+            foreach (var kv in s_heldBy) if (kv.Value.waiter == waiter || kv.Key == null) (drop ??= new List<Transform>()).Add(kv.Key);
+            if (drop != null) foreach (var k in drop) s_heldBy.Remove(k);
+        }
+
+        /// <summary>The nearest STANDING machine (its non-carving standing obstacle is on) ahead of a stalled machine, within HeldByLook m.</summary>
+        private static void NoteHeldBy(Transform machine, NavMeshAgent agent)
+        {
+            Vector3 p = machine.position;
+            Vector3 dir = agent.steeringTarget - p; dir.y = 0f;
+            if (dir.sqrMagnitude < 0.01f) dir = machine.forward;
+            dir.y = 0f; dir.Normalize();
+            Transform best = null; float bestD = float.MaxValue;
+            foreach (var o in UnityEngine.Object.FindObjectsByType<NavMeshObstacle>(FindObjectsSortMode.None))
+            {
+                if (o == null || !o.enabled || o.carving || o.transform.IsChildOf(machine)) continue;
+                var owner = o.GetComponentInParent<EquipmentBattery>();
+                if (owner == null || owner.transform == machine) continue;
+                Vector3 to = o.transform.TransformPoint(o.center) - p; to.y = 0f;
+                float d = to.magnitude;
+                if (d > HeldByLook) continue;
+                if (d > 1.5f && Vector3.Dot(to / d, dir) < 0f) continue;   // behind it: not in the way
+                if (d < bestD) { bestD = d; best = owner.transform; }
+            }
+            if (best == null) return;
+            if (!s_heldBy.TryGetValue(best, out var h) || h.waiter != machine)
+            {
+                s_heldBy[best] = (machine, Time.realtimeSinceStartup);
+                Debug.Log($"[MheTravel] '{machine.name}' is held up by '{best.name}' standing {bestD:0.0} m ahead - asking it to make way.");
+            }
+        }
 
         /// <summary>True while a <see cref="Leg"/> owns this machine's agent: anything that parks / idles / disables the agent must wait.</summary>
         public static bool IsTravelling(Component c) => c != null && s_active.Contains(c.transform);
@@ -223,10 +275,11 @@ namespace GameCore.Actors
                             if (agent.pathStatus == NavMeshPathStatus.PathPartial && !agent.hasPath) break;
 
                             // Stall watchdog (game time, so a paused game never trips it).
-                            if ((machine.position - stallPos).sqrMagnitude > StallMoveMeters * StallMoveMeters) { stallPos = machine.position; stallAt = Time.time; stallRounds = 0; }
+                            if ((machine.position - stallPos).sqrMagnitude > StallMoveMeters * StallMoveMeters) { stallPos = machine.position; stallAt = Time.time; stallRounds = 0; ClearHeldBy(machine); }
                             else if (Time.time - stallAt >= StallSeconds)
                             {
                                 stallAt = Time.time;
+                                NoteHeldBy(machine, agent);   // a standing machine in the way is asked to make way (EquipmentBattery make-way rule)
                                 if (++stallRounds >= StallGiveUpRounds)
                                 {
                                     // Stopped within a metre of the goal (block 80: a jack 0.9 m from its bay anchor, path complete, never moved):
@@ -260,6 +313,7 @@ namespace GameCore.Actors
             finally
             {
                 s_active.Remove(machine);
+                ClearHeldBy(machine);
                 if (machine != null)
                 {
                     if (agent != null)
