@@ -1,5 +1,37 @@
 # CLAUDE.md
 
+## PASS-OFF — 2026-11-27 night (read this FIRST; the afternoon section below still holds the start-up steps and HAL block plan)
+
+**Where we are.** Branch `polyperfect-men`, all code committed + pushed (last code commit `db4ce0528`). Tad played player blocks 1100-1101 on
+`C:\Users\tadsa\Documents\GitHub\03-29_REDO-BUILD` and fixed bugs between them. Block 1100 (days 4-7) = **63.8**; block 1101 was running at **74.3**
+(Tad's best; HAL's best is 82.6, block 80) but has no written report yet. In 1100 everything except bugs scored ~max (on time 86.7, fill 93.5, throughput
+156 vs 36, profit +$191k, reputation 100); the bug score (50% weight) was 31.6 = ~34 of the 36 lost points. **Bugs decide the score now, not the economy.**
+
+**Tonight's commits (all compiled 0 errors; only #3 seen working live):**
+| Commit | Fix | Log line that proves it in the next block |
+|---|---|---|
+| `e432c6b2d` | Jack: a staging slot with freight on both sides -> stay on the jack and re-resolve (was: walk off, leave cases on the jack, OG3016); rescue a loaded jack whose select task was already closed (reopens it); HAL scores an order fined in an earlier block and shipped in this one as late (`BotState.finedIds`) | "…has freight on both sides…", "…its select task was already closed - reopening it…" |
+| `59990aae9` | The slot finder hands out the first slot with a free TIER (lanes stack 2 high), so it re-handed the same boxed slot for ever (OG7033, 1A-3 between 1A-2 and 1A-4). Boxed -> `TryFindReachableStagingSlot` (same lane, then the order's other lanes); new `InventoryService.FreeStagingSlotsInLane` | "…has freight on both sides - staging in 1B-x instead." |
+| `9606a50f1` | `UIInputGuard` passed the Input System mouse (y UP) to `ScreenToPanel` (y DOWN): every window blocked a top-to-bottom MIRRORED patch of the world (camera froze under a pallet card). Same bug fixed in `SystemsLogWindow` wheel scroll and `ToolsWindowController.IsPointerOverWindow`. **Tad confirmed it works.** | - |
+| `721168c8f` | `OrderService.FileContinuationSelect` returned early for pallet-PLAN orders (old SCRATCHES path, removed long ago), so cases in a face that was empty when a one-way trip passed and refilled later were never picked: big orders shipped short (6 of 13 bug kinds in 1100, "Still owed … (behind)"). Plan orders now get one ordinary follow-up trip once every planned pallet is done. "Staging short" warns only if a stocked face was AHEAD of the trip; "returning it to Open" is logged only when it really happens (`WillReallyReturnToOpen`) | "…a follow-up trip picks the rest", then "filed another trip for N case(s)" |
+| `fa55f455a` | HAL's VEHICLE-STATIONARY counted a Load task whose trailer had not arrived (OG7033's task filed d6, truck gated d7 08:14: 5 false reports). New `TrailerLoadController.LoadTaskHasTrailer` (the loader's own test) | no VEHICLE-STATIONARY for a dock stocker with no trailer docked |
+| `db4ce0528` | A dock stocker battery trip stalled 65x, 11 m short, beside another stocker parked in its door pocket (1.4 x 3.2 m box on a ~4.6 m apron). `DockStockerHome.SomeoneWaitingOn` was a stub (false) since the 11-20 rework. A stalled `MheTravel.Leg` now records the standing machine ahead (`NoteHeldBy`, after one 5 s stall round); `MheTravel.IsHoldingUp` feeds `SomeoneWaitingOn` and the existing make-way rule moves the parked one | "…is held up by 'X' standing N m ahead - asking it to make way", then "…moving out of the way" |
+
+**Known limits / still open:**
+- Make-way only moves a MANNED, idle dock stocker parked in a door pocket. "held up by" with no "moving out of the way" = the blocker is unmanned or charging (not handled).
+- Plan-order follow-up trips: if a stocked face is truly unreachable, empty follow-up trips could repeat (same risk small orders always had). Symptom: the same order's "staging short" warning over and over.
+- WHY a gap opened at 1A-3 with pallets beyond it is unknown (suspect a reach-truck pallet pick dropped further down the lane).
+- Block 1101 FLOATING/OVERLAP at 1A-1: two restored outbound pallets adopted into one slot by the save load at d6 10:01 (`OutboundPalletBuilder.AdoptFullPallet` from `PlacementSystem.ApplySaveData`). Not looked at.
+- "could not reach the mouth of lane 3A/3C (try 1/4)" once each; not looked at.
+
+**Next steps:** (1) Tad plays a player block (or HAL block 81 per the afternoon list) and checks the log lines above. (2) The afternoon section's step 1 gate list still applies.
+
+**Tools/gotchas learned tonight:**
+- On THIS PC the running Unity writes `%LOCALAPPDATA%\Unity\Editor\Editor.log`; the project's `Logs/Editor.log` is stale. Read it with `[IO.File]::Open(p,'Open','Read','ReadWrite')`.
+- UnityMCP `execute_code` works here (the `unity-mcp` server did not load; `unityMCP` did). To catch game-view mouse input from it, hook `UnityEngine.InputSystem.InputSystem.onAfterUpdate`; `EditorApplication.update` never saw the presses. Write probe output to `Logs/*.txt`; a recompile removes the hook.
+- `git commit -m` from PowerShell splits a message containing double quotes into pathspecs: write the message to a temp file and use `git commit -F`.
+- The bot's `Note()` incidents are not in Editor.log; they are in `BugLog_Block_N.md` with game timestamps.
+
 ## PASS-OFF — 2026-11-27 afternoon (for the next PC; read this FIRST, then the 2026-11-26 section below for start-up steps)
 
 **Where we are.** Branch `polyperfect-men`, everything committed + pushed (last code commit `b5d5a0de7`; this notes commit sits on top). Roadmap step 1 (close the core loop).
@@ -603,6 +635,7 @@ by clicking a rack (`PlacementStateMachine` → `ShowForAisle`).
 - World-blocking modals (2026-11-08): the pause menu, its settings overlay and the Save/Load window register with `UIModalGuard.PushBlocking(this, stillOpenCheck)` and `Pop` on close. While one is up, and for `UIModalGuard.WorldGraceSeconds` (0.3 s) after, `UIModalGuard.IsBlockingWorld` is true: `UIInputGuard.IsPointerOverUIToolkit` and `RaycastController.CheckIfPointerOverUI` answer true everywhere, `HandleIdleHover` hides the world tooltips, and (via `IsCapturing`) hotkeys, F5/F9 and the camera stand down. Do not rely on a scrim being "pickable" to block the world: the order-pallet cards live in the same HUD root and drew OVER the menu, and a click on the frame the menu hides used to land on the pallets behind it. Use `UIInputGuard.RaiseToFront(el)` to put an overlay above every sibling at every level. Any new full-screen modal that should freeze the world does the same.
 - The HUD renders dark UI colours LIFTED (a dark blue `rgb(46,98,140)` shows as pale cyan, white text on it is hard to read): judge colours in the Game view, not by the number. Unity's Button theme paints focused/hover buttons itself - use `!important` (the base sheet does) to win. `letter-spacing` is the valid USS property, `-unity-text-letter-spacing` is not (do NOT bulk-fix the old uses: that would switch -1px tracking on across the HUD).
 - New hotkey panel: implement `IUIPanel`, call `RegisterUI`, route the key through `UIKeyBindingManager.ToggleUI` — skipping any step fails silently. Sub-popups register as auxiliaries.
+- `RuntimePanelUtils.ScreenToPanel` wants y DOWN from the top; `Mouse.current.position` is y UP from the bottom. Always pass `new Vector2(m.x, Screen.height - m.y)` (see `BuildMenuUI.TryScreenToPanel`). Unflipped, a hit test is mirrored top-to-bottom (2026-11-27: every window blocked the camera in a mirrored patch of floor).
 - A new placeable must be added to **both** `ObjDataRegistry` and the `BuildMenuUI` category list; run `Tools/ObjData/Auto-Assign Unique IDs`.
 
 **Simulation / data**
