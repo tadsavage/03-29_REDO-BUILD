@@ -99,6 +99,18 @@ are idle vehicles, and "no reserve or pick-face pallet ... left" / "found no Ava
 (A role-aware stationary check and a "play issues" list were tried on 2026-10-25 and REVERTED for this reason. If scoring ever must change, version
 it: start a new scoreboard series, do not edit history.)
 
+## On-time score: outbound + inbound, 50/50 (Tad, 2026-11-28 - he asked for this change)
+
+Code: `PlaytestBot` "ON-TIME SCORE" block (`OnTimeRatio`, `OutboundOnTime`, `InboundOnTime`). Blocks scored before 2026-11-28 used shipped-and-never-fined
+/ (that + fined) and are NOT comparable on this component.
+- **Outbound**: each order gets a credit for how late it left: full credit up to 15 game minutes after its deadline (`DockScheduleService.DeadlineMinute`,
+  the same one the fine uses), falling in a straight line to 0 at 4 hours late. Weighted by pallets. An order still unshipped past its deadline is
+  in the average too, and its credit keeps falling while it waits. Outbound % = sum(credit x pallets) / sum(pallets).
+- **Inbound**: simple pass/fail. A PO is on time if its truck backed into a door by the end of its booked slot (or within the 72-min gate-to-door
+  drive of checking in, if the vendor's driver checked in after the slot started: his lateness is not the player's). Still waiting past that, or
+  the driver gave up, = late. A no-show truck is the vendor's and is not counted. Inbound % = on-time POs / POs that came in.
+- **On-time = average of the two halves** (50/50). A half with no orders drops out; neither = 0. The 80% step-1 gate uses this number.
+
 ## Player mode: Tad plays, HAL scores (written 2026-10-25, compiled after block 10)
 
 `PlaytestBot.StartBlock(observeOnly: true)` = HAL only WATCHES. `Decide()` is skipped (no contracts, bookings, releases, buying, boarding), the planner

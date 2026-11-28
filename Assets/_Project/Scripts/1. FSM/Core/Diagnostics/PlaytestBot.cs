@@ -162,6 +162,8 @@ namespace GameCore.Diagnostics
             Application.logMessageReceived += OnLog;
             OrderService.OnOrderShipped += OnShipped;
             OrderService.OnOrderFined += OnFined;
+            TruckController.InboundCheckedIn += OnInboundCheckedIn;
+            TruckController.InboundDocked += OnInboundDocked;
         }
 
         void OnDisable()
@@ -169,6 +171,8 @@ namespace GameCore.Diagnostics
             Application.logMessageReceived -= OnLog;
             OrderService.OnOrderShipped -= OnShipped;
             OrderService.OnOrderFined -= OnFined;
+            TruckController.InboundCheckedIn -= OnInboundCheckedIn;
+            TruckController.InboundDocked -= OnInboundDocked;
         }
 
         /// <summary>True while a human is playing and the bot only WATCHES: it scores the block and logs bugs exactly as it does for itself, but makes no
@@ -217,6 +221,7 @@ namespace GameCore.Diagnostics
             _startIncomeLedger = new Dictionary<string, int>(money.LifetimeIncome); _startExpenseLedger = new Dictionary<string, int>(money.LifetimeExpenses); _ledgerPartial = false;
             _startRep = ServiceLocator.TryGet<ReputationService>(out var rs0) ? rs0.Score : 0;
             _shipped = _shippedOnTime = _late = _movedFines = _cashDipHours = _cashSamples = _purchases = _rushes = _signed = _booked = _released = _errors = 0;
+            _outCredit = _outWeight = 0f; _inOnTime = _inLate = 0; _inJudged.Clear(); _inDue.Clear(); _otEntries.Clear();
             _palletsAtStart = PalletsShippedTotal(0, time.Day);
             HalMetrics.Reset();
             _repeatCounts.Clear(); _spotsSeen.Clear();
@@ -262,6 +267,10 @@ namespace GameCore.Diagnostics
             public List<string> seenKeys = new(); public List<string> seenVals = new();
             public List<string> activeKeys = new();
             public List<string> finedIds = new();
+            // on-time score (2026-11-28); outWeight 0 in an older save = rebuilt from shipped/late below
+            public float outCredit, outWeight; public int inOnTime, inLate;
+            public List<string> inJudged = new(); public List<string> inDuePo = new(); public List<long> inDueAt = new();
+            public List<string> otLabel = new(), otNote = new(); public List<bool> otIn = new(); public List<float> otW = new(), otCredit = new();
         }
 
         /// <summary>JSON of the running player block, or null when no player block is running (HAL's own blocks are not saved).</summary>
@@ -273,7 +282,11 @@ namespace GameCore.Diagnostics
                 blockNo = _blockNo, startDay = _startDay, startCash = _startCash, startIncome = _startIncome, startRep = _startRep, startInventory = _startInventory, startBorrowed = _startBorrowed, startBuild = _startBuild,
                 shipped = _shipped, shippedOnTime = _shippedOnTime, late = _late, palletsAtStart = _palletsAtStart, cashDipHours = _cashDipHours, cashSamples = _cashSamples,
                 errors = _errors, startKey = _startKey,
+                outCredit = _outCredit, outWeight = _outWeight, inOnTime = _inOnTime, inLate = _inLate,
             };
+            st.inJudged.AddRange(_inJudged);
+            foreach (var kv in _inDue) { st.inDuePo.Add(kv.Key); st.inDueAt.Add(kv.Value); }
+            foreach (var e in _otEntries) { st.otLabel.Add(e.label); st.otNote.Add(e.note); st.otIn.Add(e.inbound); st.otW.Add(e.w); st.otCredit.Add(e.credit); }
             foreach (var kv in _incidents) { st.incKeys.Add(kv.Key); st.incCounts.Add(kv.Value); }
             foreach (var kv in _firstSeen) { st.seenKeys.Add(kv.Key); st.seenVals.Add(kv.Value); }
             st.activeKeys.AddRange(_activeBugKeys);
@@ -299,6 +312,15 @@ namespace GameCore.Diagnostics
             _firstSeen.Clear(); for (int i = 0; i < st.seenKeys.Count && i < st.seenVals.Count; i++) _firstSeen[st.seenKeys[i]] = st.seenVals[i];
             _activeBugKeys.Clear(); foreach (var k in st.activeKeys) _activeBugKeys.Add(k);
             _finedThisBlock.Clear(); if (st.finedIds != null) foreach (var k in st.finedIds) _finedThisBlock.Add(k);
+            _outCredit = st.outCredit; _outWeight = st.outWeight;
+            if (_outWeight <= 0f && _shipped > 0) { _outWeight = _shipped; _outCredit = _shippedOnTime; }   // a save from before the new score
+            _inOnTime = st.inOnTime; _inLate = st.inLate;
+            _inJudged.Clear(); if (st.inJudged != null) foreach (var k in st.inJudged) _inJudged.Add(k);
+            _inDue.Clear(); if (st.inDuePo != null && st.inDueAt != null) for (int i = 0; i < st.inDuePo.Count && i < st.inDueAt.Count; i++) _inDue[st.inDuePo[i]] = st.inDueAt[i];
+            _otEntries.Clear();
+            if (st.otLabel != null && st.otNote != null && st.otIn != null && st.otW != null && st.otCredit != null)
+                for (int i = 0; i < st.otLabel.Count && i < st.otNote.Count && i < st.otIn.Count && i < st.otW.Count && i < st.otCredit.Count; i++)
+                    _otEntries.Add(new OnTimeEntry { label = st.otLabel[i], note = st.otNote[i], inbound = st.otIn[i], w = st.otW[i], credit = st.otCredit[i] });
             _actions.Clear(); _vehicleTrack.Clear(); _repeatCounts.Clear(); _spotsSeen.Clear();
             HalMetrics.Reset();
             _recentScore.Clear(); _scoreInit = false;
@@ -961,6 +983,7 @@ namespace GameCore.Diagnostics
         {
             if (!Running) return;
             _shipped++;
+            ScoreShippedOutbound(o);
             if (o == null || !o.HasBeenFined || IsMovedSlotFine(o)) _shippedOnTime++;   // shipped and never fined for lateness
             else if (!_finedThisBlock.Contains(o.OrderId))
             {
@@ -984,11 +1007,213 @@ namespace GameCore.Diagnostics
         readonly HashSet<string> _finedThisBlock = new();
         static bool IsMovedSlotFine(OrderData o) => o != null && o.LastFineWhy != null && o.LastFineWhy.StartsWith("was moved off");
 
-        /// <summary>On-time orders / (on-time orders + orders fined for lateness). A late order that ships afterwards is counted ONCE, as late.</summary>
+        // ── ON-TIME SCORE (Tad, 2026-11-28) ──────────────────────────────────────────────────────────────────────────
+        // Two halves, worked out separately, then averaged 50/50 (a half with no orders yet drops out; none at all = 0):
+        //  OUTBOUND = sum(credit x pallets) / sum(pallets) over every order shipped in the block plus every order still unshipped
+        //             past its deadline. credit = 1 up to OutGraceMinutes late, then falls in a straight line to 0 at OutZeroMinutes late
+        //             (an unshipped order's credit keeps falling while it waits). Deadline = DockScheduleService.DeadlineMinute (the fine's).
+        //  INBOUND  = POs that got a door on time / POs whose truck came in. On time = backed into a door by the end of its booked slot,
+        //             or within GateToDoorMinutes of checking in if the vendor's driver came in after the slot started (his lateness is
+        //             not ours). A truck still waiting past its due time, or one whose driver gave up, counts late. A no-show never counts.
+        public const int OutGraceMinutes = 15, OutZeroMinutes = 240;
+
+        static float LateCredit(long minutesLate)
+            => minutesLate <= OutGraceMinutes ? 1f : Mathf.Clamp01(1f - (float)(minutesLate - OutGraceMinutes) / (OutZeroMinutes - OutGraceMinutes));
+
+        float _outCredit, _outWeight;                                     // shipped orders only; overdue unshipped ones are added live
+        int _inOnTime, _inLate;                                           // docked POs, judged when they docked
+        readonly HashSet<string> _inJudged = new();                       // PO numbers already judged this block
+        readonly Dictionary<string, long> _inDue = new();                 // checked in, not docked yet: PO -> due minute (Key scale)
+
+        static DockAppointment OutboundApptOf(DockScheduleService sched, string orderId)
+        {
+            if (sched == null || string.IsNullOrEmpty(orderId)) return null;
+            DockAppointment best = null;
+            foreach (var a in sched.Appointments)
+                if (a != null && a.Kind != AppointmentKind.Inbound && !a.Parked && a.OrderIds.Contains(orderId) && (best == null || best.ClosedOut)) best = a;
+            return best;
+        }
+
+        long NowKey() => ServiceLocator.TryGet<SimulationTimeService>(out var t) ? Key(t) : 0;
+
+        void ScoreShippedOutbound(OrderData o)
+        {
+            if (o == null) return;
+            ServiceLocator.TryGet<DockScheduleService>(out var sched);
+            var appt = OutboundApptOf(sched, o.OrderId);
+            float credit;
+            if (appt != null) credit = LateCredit(NowKey() - sched.DeadlineMinute(appt));
+            else credit = o.HasBeenFined && !IsMovedSlotFine(o) ? 0f : 1f;   // no booking left to time it by
+            float w = Mathf.Max(1, o.PalletsShipped);
+            _outCredit += credit * w; _outWeight += w;
+            long lateMin = appt != null ? NowKey() - sched.DeadlineMinute(appt) : 0;
+            string note = appt == null ? (credit < 1f ? "fined, no booking left to time it" : "no booking left to time it")
+                        : lateMin <= 0 ? $"shipped {-lateMin} min early" : lateMin <= OutGraceMinutes ? $"{lateMin} min late (inside the {OutGraceMinutes} min grace)" : $"shipped {Dur(lateMin)} late";
+            _otEntries.Add(new OnTimeEntry { label = $"{o.OrderNumber ?? o.OrderId} {o.CustomerName}", inbound = false, w = w, credit = credit, note = note });
+        }
+
+        /// <summary>One judged order for the on-time hover breakdown (Tad, 2026-11-28: "what drove the score").</summary>
+        class OnTimeEntry { public string label, note; public bool inbound; public float w, credit; }
+        readonly List<OnTimeEntry> _otEntries = new();
+
+        static string Dur(long minutes) => minutes >= 60 ? $"{minutes / 60}h {minutes % 60:00}m" : $"{minutes} min";
+
+        /// <summary>The live hover text for the On-time row: the rule, each half, then every order that cost points (worst first) and how many.</summary>
+        string OnTimeBreakdown()
+        {
+            float o = OutboundOnTime(out float ow);
+            float i = InboundOnTime(out int it, out int ion);
+            bool hasO = ow > 0f, hasI = it > 0;
+            float wSum = Mathf.Max(1, S.TotalWeight);
+            float maxPts = 100f * S.wOnTime / wSum;
+            float half = hasO && hasI ? 0.5f : 1f;
+            var sb = new StringBuilder();
+            sb.AppendLine("ON-TIME ORDERS");
+            sb.AppendLine($"Worth {maxPts:0.#} points. Outbound and inbound are worked out separately, then averaged 50/50 (a side with no orders yet drops out).");
+            sb.AppendLine($"OUTBOUND: each order earns full credit up to {OutGraceMinutes} min past its deadline, then less in a straight line to nothing at {OutZeroMinutes / 60} h late; weighted by pallets. An order still not shipped past its deadline counts too, and keeps losing credit.");
+            sb.AppendLine("INBOUND: a PO is on time if its truck is at a door by the end of its slot (or 72 min after check-in if the driver came in late). A no-show is the vendor's and is not counted.");
+            sb.AppendLine();
+            float score = hasO && hasI ? 0.5f * (o + i) : hasO ? o : hasI ? i : 0f;
+            sb.AppendLine($"Now: {score * 100f:0}% = {score * maxPts:0.0} of {maxPts:0.#} points");
+            sb.AppendLine(hasO ? $"  Outbound {o * 100f:0}%  ({ow:0} pallets judged)" : "  Outbound: nothing judged yet");
+            sb.AppendLine(hasI ? $"  Inbound {i * 100f:0}%  ({ion} of {it} POs at a door on time)" : "  Inbound: nothing judged yet");
+
+            // Every order that cost something, with the points it cost.
+            var lost = new List<(float pts, string line)>();
+            foreach (var e in _otEntries)
+            {
+                if (e.credit >= 0.999f) continue;
+                float pts = e.inbound ? maxPts * half / Mathf.Max(1, it) : maxPts * half * (1f - e.credit) * e.w / Mathf.Max(1f, ow);
+                lost.Add((pts, e.inbound ? $"IN  {e.label}: {e.note}" : $"OUT {e.label} ({e.w:0} plt): {e.note}, credit {e.credit * 100f:0}%"));
+            }
+            if (ServiceLocator.TryGet<DockScheduleService>(out var sched) && ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
+            {
+                long now = NowKey();
+                foreach (var od in orders.ActiveOrders)
+                {
+                    if (od == null || od.Status == OrderData.OrderStatus.Shipped || od.Status == OrderData.OrderStatus.Cancelled) continue;
+                    var appt = OutboundApptOf(sched, od.OrderId);
+                    if (appt == null) continue;
+                    long late = now - sched.DeadlineMinute(appt);
+                    if (late <= OutGraceMinutes) continue;
+                    float w = Mathf.Max(1, sched.PalletsFor(new[] { od.OrderId }, null)), c = LateCredit(late);
+                    lost.Add((maxPts * half * (1f - c) * w / Mathf.Max(1f, ow),
+                              $"OUT {od.OrderNumber ?? od.OrderId} {od.CustomerName} ({w:0} plt): NOT SHIPPED, {Dur(late)} past its deadline ({od.Status}), credit {c * 100f:0}%"));
+                }
+                foreach (var kv in _inDue)
+                    if (!_inJudged.Contains(kv.Key) && kv.Value >= 0 && now > kv.Value)
+                        lost.Add((maxPts * half / Mathf.Max(1, it), $"IN  {kv.Key}: still no door, {Dur(now - kv.Value)} past due"));
+            }
+            sb.AppendLine();
+            if (lost.Count == 0) sb.Append(hasO || hasI ? "Nothing has cost points yet." : "No orders judged yet.");
+            else
+            {
+                sb.AppendLine("What cost points (worst first):");
+                int n = 0;
+                foreach (var l in lost.OrderByDescending(x => x.pts))
+                {
+                    if (++n > 12) { sb.AppendLine($"  ... and {lost.Count - 12} more"); break; }
+                    sb.AppendLine($"  -{l.pts:0.0}  {l.line}");
+                }
+            }
+            int fullOut = _otEntries.Count(e => !e.inbound && e.credit >= 0.999f), fullIn = _otEntries.Count(e => e.inbound && e.credit >= 0.999f);
+            if (fullOut + fullIn > 0) sb.Append($"\nFull credit: {fullOut} outbound order(s), {fullIn} inbound PO(s).");
+            if (_movedFines > 0) sb.Append($"\nMoved-slot fines ({_movedFines}) are a penalty for breaking the customer's hour, not lateness: not counted here.");
+            return sb.ToString().TrimEnd();
+        }
+
+        /// <summary>Outbound half: shipped credit plus every booked order still unshipped past its deadline (live, at its current lateness).</summary>
+        float OutboundOnTime(out float weight)
+        {
+            float c = _outCredit; weight = _outWeight;
+            if (ServiceLocator.TryGet<DockScheduleService>(out var sched) && ServiceLocator.TryGet<OrderService>(out var orders) && orders != null)
+            {
+                long now = NowKey();
+                foreach (var o in orders.ActiveOrders)
+                {
+                    if (o == null || o.Status == OrderData.OrderStatus.Shipped || o.Status == OrderData.OrderStatus.Cancelled) continue;
+                    var appt = OutboundApptOf(sched, o.OrderId);
+                    if (appt == null) continue;
+                    long late = now - sched.DeadlineMinute(appt);
+                    if (late <= OutGraceMinutes) continue;
+                    float w = Mathf.Max(1, sched.PalletsFor(new[] { o.OrderId }, null));
+                    c += LateCredit(late) * w; weight += w;
+                }
+            }
+            return weight > 0f ? Mathf.Clamp01(c / weight) : 0f;
+        }
+
+        /// <summary>Inbound half: on-time dockings / POs that came in (a truck still waiting past its due time counts late now).</summary>
+        float InboundOnTime(out int total, out int onTime)
+        {
+            long now = NowKey();
+            int waitingLate = _inDue.Count(kv => !_inJudged.Contains(kv.Key) && kv.Value >= 0 && now > kv.Value);
+            onTime = _inOnTime;
+            total = _inOnTime + _inLate + waitingLate;
+            return total > 0 ? (float)onTime / total : 0f;
+        }
+
+        void OnInboundCheckedIn(TruckController t)
+        {
+            if (!Running || t == null || t.AssignedShipment == null) return;
+            string po = t.AssignedShipment.PONumber;
+            if (string.IsNullOrEmpty(po) || _inJudged.Contains(po) || _inDue.ContainsKey(po)) return;
+            _inDue[po] = InboundDue(po, NowKey());
+        }
+
+        void OnInboundDocked(TruckController t)
+        {
+            if (!Running || t == null || t.AssignedShipment == null) return;
+            string po = t.AssignedShipment.PONumber;
+            if (string.IsNullOrEmpty(po) || _inJudged.Contains(po)) return;
+            long now = NowKey();
+            long due = _inDue.TryGetValue(po, out var d) ? d : InboundDue(po, -1);
+            _inJudged.Add(po); _inDue.Remove(po);
+            bool ok = due < 0 || now <= due;   // no booked slot to judge by: it got a door
+            _otEntries.Add(new OnTimeEntry { label = $"{po} {t.AssignedShipment.SupplierName}", inbound = true, w = 1f, credit = ok ? 1f : 0f,
+                                             note = due < 0 ? "no booked slot" : ok ? $"at a door {Dur(due - now)} early" : $"got a door {Dur(now - due)} late" });
+            if (ok) _inOnTime++;
+            else
+            {
+                _inLate++;
+                _lateLog.Add($"day {CurrentDay()}: {po}: inbound PO got a door late ({now - due} min past its due time).");
+            }
+            EvaluateScore("Inbound PO " + po + " docked");
+        }
+
+        /// <summary>When PO <paramref name="po"/> must be at a door: its slot's end, or check-in + the gate-to-door drive if the driver
+        /// checked in after the slot started. -1 = it has no booked slot.</summary>
+        static long InboundDue(string po, long checkIn)
+        {
+            if (!ServiceLocator.TryGet<DockScheduleService>(out var sched) || sched == null) return -1;
+            var appt = sched.FindForPo(po);
+            if (appt == null) return -1;
+            long slotStart = (long)appt.Day * 1440 + appt.StartMinute, slotEnd = (long)appt.Day * 1440 + appt.EndMinute;
+            if (checkIn > slotStart) return Math.Max(slotEnd, checkIn + DockScheduleService.GateToDoorMinutes);
+            return slotEnd;
+        }
+
+        /// <summary>"out 83% (5 shipped, 1 overdue) + in 70% (7 of 10)" for the goal row and the report.</summary>
+        string OnTimeSplitText(out bool any)
+        {
+            float o = OutboundOnTime(out float ow);
+            float i = InboundOnTime(out int it, out int ion);
+            any = ow > 0f || it > 0;
+            string outS = ow > 0f ? $"out {o * 100f:0}% over {ow:0} plt, {_shipped} shipped, {_late} fined" : "out: none yet";
+            string inS = it > 0 ? $"in {i * 100f:0}%, {ion} of {it} POs at a door on time" : "in: none yet";
+            return outS + " | " + inS;
+        }
+
+        /// <summary>The block's on-time score: outbound and inbound halves averaged 50/50 (see the block comment above).</summary>
         float OnTimeRatio()
         {
-            int total = _shippedOnTime + _late;
-            return total > 0 ? Mathf.Clamp01((float)_shippedOnTime / total) : 0f;
+            float o = OutboundOnTime(out float ow);
+            float i = InboundOnTime(out int it, out _);
+            bool hasO = ow > 0f, hasI = it > 0;
+            if (hasO && hasI) return 0.5f * (o + i);
+            if (hasO) return o;
+            if (hasI) return i;
+            return 0f;
         }
 
         readonly Dictionary<string, float> _lastPop = new();
@@ -1042,7 +1267,7 @@ namespace GameCore.Diagnostics
 
         static string LateStateOf(string line)
         {
-            foreach (var key in new[] { "never released", "waiting for a free staging lane", "still being picked", "staged but no trailer loaded it", "still loading", "loaded but the truck had not left", "came due unfinished" })
+            foreach (var key in new[] { "never released", "waiting for a free staging lane", "still being picked", "staged but no trailer loaded it", "still loading", "loaded but the truck had not left", "came due unfinished", "inbound PO got a door late" })
                 if (line.Contains(key)) return key;
             return "other";
         }
@@ -1192,9 +1417,7 @@ namespace GameCore.Diagnostics
             switch (name)
             {
                 case "On-time orders":
-                    return "ON-TIME ORDERS\nOn-time % = orders shipped on time / (orders shipped on time + orders fined for being late).\n\nAn order only counts as late when a fine is charged against it, and each order is fined at most once:\n1. A recurring order's truck is spawned at the guard shack and gets 90 minutes to clear the gate and reach its shipping door. The loading clock starts at the 90-minute mark, or earlier if the truck is already at the door (a head start). The clock allows 20 minutes per pallet; if any pallet is still being picked or staged by a reach truck when it runs out, the order is late. Have your labor assigned and everything staged before the truck arrives.\n2. A bulk order passes its due day. The fine fires at midnight.\n\nA late order that ships afterwards still counts once, as late (it is not counted twice)." +
-                           $"Moving a trailer off the hour the customer asked for also costs a fine, but that is a penalty for breaking the promise, not lateness, so it is not counted here ({_movedFines} so far this block).\n\n" +
-                           "If everything the building has is loaded and the rest is scratched, the game pauses and asks whether to release the trailer (no lateness fine for cases that were never in stock).";
+                    return OnTimeBreakdown();
                 case "Door deadlocks":
                     return "DOOR DEADLOCKS\nCounted when a staged or loading order's outbound truck has sat docked for 90 game minutes with nobody loading it. Goal: zero.";
                 case "Repeating bugs":
@@ -1231,15 +1454,16 @@ namespace GameCore.Diagnostics
             ServiceLocator.TryGet<FulfillmentStatsService>(out var stats);
             ServiceLocator.TryGet<OrderService>(out var orders);
             float elapsed = Mathf.Max(0.25f, (Key(time) - _startKey) / 1440f);
-            int done = _shippedOnTime + _late;
             var shipTotals = ShipTotalsThisBlock();
 
-            // 1. on-time
+            // 1. on-time (outbound and inbound halves, 50/50)
             float onT = OnTimeRatio();
+            string split = OnTimeSplitText(out bool anyOnTimeData);
+            int done = anyOnTimeData ? 1 : 0;
             rows.Add(new GoalRow
             {
                 exit = true, name = "On-time orders", goal = ">= 80%",
-                actual = done > 0 ? $"{onT * 100f:0}%  ({_shippedOnTime} on time, {_late} late)" : "no orders finished yet",
+                actual = anyOnTimeData ? $"{onT * 100f:0}%  ({split})" : "no orders finished yet",
                 state = done == 0 ? GoalState.Pending : onT >= OnTimeGoal ? GoalState.Met : GoalState.Missed,
                 why = _late == 0 ? "Nothing late so far." : "Last late: " + (_lastLateWhy ?? "unknown")
             });
@@ -1796,7 +2020,7 @@ namespace GameCore.Diagnostics
             sb.AppendLine();
             sb.AppendLine("| Component | Weight | This block |");
             sb.AppendLine("|---|---|---|");
-            sb.AppendLine($"| On-time delivery ({r.ordersShipped} shipped, {r.ordersLate} late) | {S.wOnTime}% | {D(r.onTime, prev?.onTime)} |");
+            sb.AppendLine($"| On-time ({OnTimeSplitText(out _)}) | {S.wOnTime}% | {D(r.onTime, prev?.onTime)} |");
             sb.AppendLine($"| Fill rate | {S.wFill}% | {D(r.fill, prev?.fill)} |");
             sb.AppendLine($"| Throughput ({r.palletsShipped} plt vs target {S.targetPalletsPerDay * Mathf.Max(1, r.endDay - r.startDay):F0}) | {S.wThroughput}% | {D(r.throughput, prev?.throughput)} |");
             sb.AppendLine($"| Revenue (${r.revenueTotal:N0}) | not scored | {D(r.revenue, prev?.revenue)} |");

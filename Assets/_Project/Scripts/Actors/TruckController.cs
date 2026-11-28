@@ -2146,12 +2146,17 @@ private DockSlot        _dock;
     /// (Tad, 2026-11-01).</summary>
     public long CheckInSimMinute { get; private set; } = -1;
 
+    /// <summary>An inbound truck (with a PO) reached the guard shack / backed into its door. The playtest score's inbound on-time
+    /// half listens to these (Tad, 2026-11-28: an inbound PO is on time when it gets a door in time).</summary>
+    public static event System.Action<TruckController> InboundCheckedIn, InboundDocked;
+
     private void BeginGuardCheck()
     {
         _state = TruckState.GuardCheck;
         var ctxCheckIn = Ctx;
         if (CheckInSimMinute < 0 && ctxCheckIn != null && ctxCheckIn.TimeService != null)
             CheckInSimMinute = ctxCheckIn.TimeService.TotalMinutesElapsed;
+        if (!_isOutbound && AssignedShipment != null) InboundCheckedIn?.Invoke(this);
         if (!_isOutbound && _inboundClockStartSimMinute < 0 && CheckInSimMinute >= 0)
         {
             _inboundClockStartSimMinute = CheckInSimMinute;
@@ -2607,6 +2612,8 @@ private DockSlot        _dock;
         // collider can't tell "truck still here" from "dock stocker/receiver just walked out", so it
         // was swinging shut mid-unload. See RollupDoorController.SetForcedOpen.
         _dock.SetDoorForcedOpen(true);
+
+        if (!_isOutbound && AssignedShipment != null) InboundDocked?.Invoke(this);
 
         TotalPalletsAtDock = 0;   // a new visit: ClaimForOffload counts the load (and keeps the highest count across pauses)
         Debug.Log($"[TruckController] {name} docked at door {_dock.DoorNumber}. Awaiting {(_isOutbound ? "load" : "offload")}.");

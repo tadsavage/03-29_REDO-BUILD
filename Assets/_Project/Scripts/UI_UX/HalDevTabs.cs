@@ -212,7 +212,7 @@ public static class HalDevTabs
         RefreshPool();
 
         var w = Section(root, "WHAT MATTERS (points)", Blue);
-        Weight(w, "On-time delivery", "Orders shipped without a late fine.", () => S.wOnTime, v => S.wOnTime = v, RefreshPool);
+        Weight(w, "On-time delivery", "Outbound (part credit by lateness, by pallets) and inbound (got a door in time), 50/50.", () => S.wOnTime, v => S.wOnTime = v, RefreshPool);
         Weight(w, "Fill rate", "How much of each order was actually picked.", () => S.wFill, v => S.wFill = v, RefreshPool);
         Weight(w, "Pallet throughput", "Pallets shipped against the target below.", () => S.wThroughput, v => S.wThroughput = v, RefreshPool);
         Weight(w, "Revenue", "Money earned against the target below.", () => S.wRevenue, v => S.wRevenue = v, RefreshPool);
