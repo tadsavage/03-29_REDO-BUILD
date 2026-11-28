@@ -1,5 +1,21 @@
 # CLAUDE.md
 
+## PASS-OFF — 2026-11-28 morning: ON-TIME SCORE CHANGED (Tad asked; read with the night section below)
+
+Commit `1a3bbab96` (compiled 0 errors, NOT yet seen in a live block). The on-time component (weight 10) is now two halves averaged 50/50; a half
+with no orders drops out, neither = 0. Rule text lives in the `warehouse-strategy` skill ("On-time score"); code is the "ON-TIME SCORE" block in `PlaytestBot.cs`.
+- **Outbound:** credit per order by how late it shipped vs `DockScheduleService.DeadlineMinute` (the fine's deadline): 1.0 up to 15 min late, straight
+  line to 0 at 4 h (`OutGraceMinutes` / `OutZeroMinutes`), weighted by pallets. A booked order still unshipped past its deadline counts live, its credit
+  falling while it waits. Outbound % = sum(credit x pallets) / sum(pallets).
+- **Inbound:** pass/fail. On time = truck docked by the end of its booked slot, or check-in + 72 min (`GateToDoorMinutes`) if the driver checked in after
+  the slot started. Still waiting past that / driver gave up = late; no-show = not counted. New static events `TruckController.InboundCheckedIn` / `InboundDocked`.
+- **Hover the On-time row** (HAL summary window) for a live breakdown: each half's %, then every order that cost points, worst first, with the points it
+  cost (they add up to the points missing). `PlaytestBot.OnTimeBreakdown`. Per-order entries + inbound pending/judged sets ride in `BotState` (player blocks survive a save).
+- **Not comparable:** on-time numbers of blocks before 2026-11-28 used shipped-without-a-fine / all judged. The step 1 gate (>= 80% on time) uses the new number.
+- Known gaps: an order shipped inside the 15 min grace still pays its fine but scores full credit; an order never booked on a door is not in the outbound half.
+- Next block, check: the On-time goal row reads "out N% over P plt ... | in N%, X of Y POs at a door on time"; the hover lists late orders; an inbound late
+  docking writes "inbound PO got a door late (N min past its due time)" in the report's late-orders list.
+
 ## PASS-OFF — 2026-11-27 night (read this FIRST; the afternoon section below still holds the start-up steps and HAL block plan)
 
 **Where we are.** Branch `polyperfect-men`, all code committed + pushed (last code commit `db4ce0528`). Tad played player blocks 1100-1101 on
