@@ -222,7 +222,7 @@ namespace GameCore.Diagnostics
             _repeatCounts.Clear(); _spotsSeen.Clear();
             _recentScore.Clear(); _scoreInit = false; LiveScore = 0f; _startKey = Key(time);
             _lastLateWhy = _lastShortWhy = _lastDeadlockWhy = _lastRepeatWhy = null; _unclaimedSince.Clear(); _streakBlock = -1; _lateLog.Clear();
-            _activeBugKeys.Clear(); _incidents.Clear(); _firstSeen.Clear(); _actions.Clear(); _vehicleTrack.Clear();
+            _activeBugKeys.Clear(); _incidents.Clear(); _firstSeen.Clear(); _actions.Clear(); _vehicleTrack.Clear(); _finedThisBlock.Clear();
             _bugLog = new StringBuilder();
             _bugLines = 0;
             _nextDecision = 0; _nextHealth = 0;
@@ -261,6 +261,7 @@ namespace GameCore.Diagnostics
             public List<string> incKeys = new(); public List<int> incCounts = new();
             public List<string> seenKeys = new(); public List<string> seenVals = new();
             public List<string> activeKeys = new();
+            public List<string> finedIds = new();
         }
 
         /// <summary>JSON of the running player block, or null when no player block is running (HAL's own blocks are not saved).</summary>
@@ -276,6 +277,7 @@ namespace GameCore.Diagnostics
             foreach (var kv in _incidents) { st.incKeys.Add(kv.Key); st.incCounts.Add(kv.Value); }
             foreach (var kv in _firstSeen) { st.seenKeys.Add(kv.Key); st.seenVals.Add(kv.Value); }
             st.activeKeys.AddRange(_activeBugKeys);
+            st.finedIds.AddRange(_finedThisBlock);
             return JsonUtility.ToJson(st);
         }
 
@@ -296,6 +298,7 @@ namespace GameCore.Diagnostics
             _incidents.Clear(); for (int i = 0; i < st.incKeys.Count && i < st.incCounts.Count; i++) _incidents[st.incKeys[i]] = st.incCounts[i];
             _firstSeen.Clear(); for (int i = 0; i < st.seenKeys.Count && i < st.seenVals.Count; i++) _firstSeen[st.seenKeys[i]] = st.seenVals[i];
             _activeBugKeys.Clear(); foreach (var k in st.activeKeys) _activeBugKeys.Add(k);
+            _finedThisBlock.Clear(); if (st.finedIds != null) foreach (var k in st.finedIds) _finedThisBlock.Add(k);
             _actions.Clear(); _vehicleTrack.Clear(); _repeatCounts.Clear(); _spotsSeen.Clear();
             HalMetrics.Reset();
             _recentScore.Clear(); _scoreInit = false;
@@ -959,6 +962,14 @@ namespace GameCore.Diagnostics
             if (!Running) return;
             _shipped++;
             if (o == null || !o.HasBeenFined || IsMovedSlotFine(o)) _shippedOnTime++;   // shipped and never fined for lateness
+            else if (!_finedThisBlock.Contains(o.OrderId))
+            {
+                // 2026-11-27 (block 1100, OG3947): fined at d3 22:00 in the PREVIOUS block, shipped d4 00:01 in this one. The fine was counted
+                // by the old block, so this block counted the order nowhere ("no orders finished yet" with 8 pallets shipped). It is late here too.
+                _late++;
+                _finedThisBlock.Add(o.OrderId);
+                _lastLateWhy = $"{o.OrderNumber ?? o.OrderId} ({o.CustomerName}) was already late (fined) when this block started and shipped in it.";
+            }
             if (o != null)
             {
                 OrderLineItem worst = null;
@@ -969,6 +980,8 @@ namespace GameCore.Diagnostics
             EvaluateScore("Order " + (o != null ? (o.OrderNumber ?? o.OrderId) : "") + " shipped");
         }
         int _movedFines;
+        /// <summary>Orders already counted late in this block (their fine landed here), so a late order that ships later is not counted twice.</summary>
+        readonly HashSet<string> _finedThisBlock = new();
         static bool IsMovedSlotFine(OrderData o) => o != null && o.LastFineWhy != null && o.LastFineWhy.StartsWith("was moved off");
 
         /// <summary>On-time orders / (on-time orders + orders fined for lateness). A late order that ships afterwards is counted ONCE, as late.</summary>
@@ -995,6 +1008,7 @@ namespace GameCore.Diagnostics
             if (!Running) return;
             if (o != null && IsMovedSlotFine(o)) { _movedFines++; EvaluateScore("Moved-slot fine, order " + (o.OrderNumber ?? o.OrderId)); return; }   // a penalty for breaking the requested hour, not a late order
             _late++;
+            if (o != null) _finedThisBlock.Add(o.OrderId);
             if (o != null)
             {
                 _lastLateWhy = WhyLate(o);

@@ -194,8 +194,17 @@ namespace GameCore.Actors
                                                                && t.Status != WorkTaskStatus.Cancelled && t.Status != WorkTaskStatus.Complete);
                 if (task == null)
                 {
-                    ThrottledLog.Warn("rescue-notask-" + slot.name, $"[OrderSelectionTaskDriver] Pallet jack '{slot.name}' is left loaded for order {order.OrderNumber} with no live select task - not rescued.", 60f);
-                    continue;
+                    // 2026-11-27 (OG3016): the task handed back when a selector left the jack is often claimed at once by another selector who
+                    // finds nothing left to pick (the cases on the jack count as picked) and completes it with 0 cases. The pallet on the jack
+                    // is still owed to the live order: reopen the order's last select task and deliver it, rather than leaving it for ever.
+                    task = _workQueue.Tasks.LastOrDefault(t => t.OrderId == order.OrderId && t.Type == WorkTaskType.OrderSelect
+                                                                && t.Status == WorkTaskStatus.Complete);
+                    if (task == null)
+                    {
+                        ThrottledLog.Warn("rescue-notask-" + slot.name, $"[OrderSelectionTaskDriver] Pallet jack '{slot.name}' is left loaded for order {order.OrderNumber} with no select task at all - not rescued.", 60f);
+                        continue;
+                    }
+                    ThrottledLog.Warn("rescue-reopen-" + slot.name, $"[OrderSelectionTaskDriver] Pallet jack '{slot.name}' is left loaded for order {order.OrderNumber} and its select task was already closed - reopening it to deliver the pallet.", 60f);
                 }
                 if (task.Status == WorkTaskStatus.Assigned && !string.IsNullOrEmpty(task.AssignedToEmployeeGuid) && task.AssignedToEmployeeGuid != guid) continue;
 
@@ -871,15 +880,26 @@ namespace GameCore.Actors
                 string fail;
                 if (TryResolveStagingTarget(order, out resolvedLane, out slot, out slotPos, out depthAxis, out fail))
                 {
+                    // 2026-11-27 (OG3016): a slot with freight on BOTH sides (3A-2 between 3A-1 and 3A-3) cannot be backed into from either
+                    // end. The selector used to walk off and leave the cases on the jack; now they stay aboard and re-resolve, like a full lane.
+                    var tipNow = _pallets.FirstOrDefault(p => p != null)?.gameObject;
+                    int sn = slot.Slot;
+                    if (!StageFromExitEndOnly
+                        && LaneSlotsBlocked(slot.DoorNumber, resolvedLane, s => s > sn, tipNow)
+                        && LaneSlotsBlocked(slot.DoorNumber, resolvedLane, s => s < sn, tipNow))
+                    {
+                        fail = $"slot {slot.Name} has freight on both sides";
+                        ThrottledLog.Warn("stage-boxed-" + name, $"[OrderSelectionTaskDriver] '{name}': staging slot {slot.Name} for order {order.OrderNumber} has freight on both sides - waiting on the jack and resolving again.", 60f);
+                    }
                     // CLAIM the lane now, before the drive to the mouth (InventoryService.TryClaimLane). Nothing yields between the
                     // resolve and this claim, so the slot is still ours. While another machine holds the lane we wait and re-resolve.
-                    if (_inventoryService.TryClaimLane(slot.DoorNumber, resolvedLane, _jack,
+                    else if (_inventoryService.TryClaimLane(slot.DoorNumber, resolvedLane, _jack,
                             InventoryService.VehicleLabel(_jack.transform, "pallet jack", "staging")))
                     {
                         _jackLaneClaim = (slot.DoorNumber, resolvedLane);
                         break;
                     }
-                    fail = $"lane {slot.DoorNumber}{resolvedLane} is claimed by another machine";
+                    else fail = $"lane {slot.DoorNumber}{resolvedLane} is claimed by another machine";
                 }
                 if (!warned)
                 {
